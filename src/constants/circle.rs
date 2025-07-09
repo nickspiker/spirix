@@ -1,0 +1,370 @@
+use super::ExponentConstants;
+use super::FractionConstants;
+use crate::Circle;
+pub trait CircleConstants {
+    /// Maximum finite value that can be represented by this type of Circle.
+    const MAX: Self;
+    /// Minimum finite value that can be represented by this type of Circle.
+    const MIN: Self;
+    /// The smallest positive value that can be represented by this type of Circle.
+    const MIN_POS: Self;
+    /// Smallest magnitude negative value that can be represented by this type of Circle.
+    const MAX_NEG: Self;
+    /// Granularity between 1 and 2
+    const POS_NORMAL_EPSILON: Self;
+    /// Granularity between -1 and -2
+    const NEG_NORMAL_EPSILON: Self;
+    /// The maximum value that maintains integer contiguity with its neighboring values.
+    /// This is one less than MAX_FRACTION to ensure the value connects to both its
+    /// predecessor and successor in the representable sequence (a+1!=a).
+    const MAX_CONTIGUOUS: Self;
+    /// The minimum value that maintains integer contiguity with its neighboring values.
+    /// This is one more than MIN_FRACTION to ensure the value connects to both its
+    /// predecessor and successor in the representable sequence (a-1!=a).
+    const MIN_CONTIGUOUS: Self;
+    /// Actual Zero, the real deal. Exploded * 0 = 0
+    const ZERO: Self;
+    /// Mathematical infinity - the result of division by Zero (1/0).
+    /// Unlike IEEE-754's signed infinities, this represents a singular infinity
+    /// where the sign is indeterminate. Represented by all fraction bits set (11111111)
+    /// with an ambiguous exponent, creating symmetry with ZERO (00000000).
+    /// Used for results where magnitude is infinite and direction is ambiguous.
+    const INFINITY: Self;
+    /// Exactly one.
+    const ONE: Self;
+    /// Exactly negative one.
+    const NEG_ONE: Self;
+    /// Effectively one (the largest value smaller than one).
+    const EFFECTIVELY_POS_ONE: Self;
+    /// Effectively negative one (the closest value to -1 with magnitude less than 1).
+    const EFFECTIVELY_NEG_ONE: Self;
+    /// Exactly two.
+    const TWO: Self;
+    /// Exactly 1/2.
+    const HALF: Self;
+    /// The imaginary unit (i).
+    const POS_I: Self;
+    /// Negative imaginary unit (-i).
+    const NEG_I: Self;
+    /// Approximately Pi (π ≈ 3.14159265358979323846...)
+    const PI: Self;
+    /// Approximately negative Pi (-π ≈ -3.14159265358979323846...)
+    const NEG_PI: Self;
+    /// Approximately Tau (2π ≈ 6.28318530717958647693...)
+    const TAU: Self;
+    /// Approximately negative Tau (-2π ≈ -6.28318530717958647693...)
+    const NEG_TAU: Self;
+    /// Alternative name for TAU (2π)
+    const TWO_PI: Self;
+    /// Pi divided by two (π/2 ≈ 1.57079632679489661923...)
+    const PI_OVER_TWO: Self;
+    /// Negative Pi divided by two (-π/2 ≈ -1.57079632679489661923...)
+    const NEG_PI_OVER_TWO: Self;
+    /// Pi divided by three (π/3 ≈ 1.04719755119659774615...)
+    const PI_OVER_THREE: Self;
+    /// Pi divided by four (π/4 ≈ 0.78539816339744830962...)
+    const PI_OVER_FOUR: Self;
+    /// Pi divided by six (π/6 ≈ 0.52359877559829887308...)
+    const PI_OVER_SIX: Self;
+    /// Pi divided by eight (π/8 ≈ 0.39269908169872415481...)
+    const PI_OVER_EIGHT: Self;
+    /// One divided by pi (1/π ≈ 0.31830988618379067154...)
+    const ONE_OVER_PI: Self;
+    /// Two divided by pi (2/π ≈ 0.63661977236758134308...)
+    const TWO_OVER_PI: Self;
+    /// Approximately Euler's number (e ≈ 2.71828182845904523536...)
+    const E: Self;
+    /// Approximately natural logarithm of two (ln(2) ≈ 0.69314718055994530942...)
+    const LN_TWO: Self;
+    /// Binary logarithm of e (log(e,2) ≈ 1.44269504088896340736...)
+    const LB_E: Self;
+    /// Approximately square root of two (√2 ≈ 1.41421356237309504880...)
+    const SQRT_TWO: Self;
+}
+macro_rules! impl_circle_constants {
+    ($($f:ty, $e:ty);*) => {
+        $(
+ impl Circle<$f, $e> {
+    /// Maximum finite value that can be represented by this type of Circle.
+    pub const MAX: Self = Self {
+        real: <$f>::MAX_FRACTION,
+        imaginary: 0,
+        exponent: <$e>::MAX_EXPONENT,
+    };
+    /// Minimum finite value that can be represented by this type of Circle.
+    pub const MIN: Self = Self {
+        real: <$f>::MIN_FRACTION,
+        imaginary: 0,
+        exponent: <$e>::MAX_EXPONENT,
+    };
+    /// The smallest positive value that can be represented by this type of Circle.
+    pub const MIN_POS: Self = Self {
+        real: <$f>::POS_ONE_FRACTION,
+        imaginary: 0,
+        exponent: <$e>::MIN_EXPONENT,
+    };
+    /// Smallest magnitude negative value that can be represented by this type of Circle.
+    pub const MAX_NEG: Self = Self {
+        real: <$f>::NEG_ONE_FRACTION,
+        imaginary: 0,
+        exponent: <$e>::MIN_EXPONENT,
+    };
+    /// Granularity between 1/2 and 1
+    pub const POS_NORMAL_EPSILON: Self = Self {
+        real: <$f>::POS_ONE_FRACTION,
+        imaginary: 0,
+        exponent: (2 - <$f>::FRACTION_BITS as isize) as $e,
+    };
+    /// Granularity between -1 and -1/2
+    pub const NEG_NORMAL_EPSILON: Self = Self {
+        real: <$f>::NEG_ONE_FRACTION,
+        imaginary: 0,
+        exponent: (1 - <$f>::FRACTION_BITS as isize) as $e,
+    };
+    /// The maximum value that maintains integer contiguity with its neighboring values.
+    /// This is one less than MAX_FRACTION to ensure the value connects to both its
+    /// predecessor and successor in the representable sequence (a+1!=a).
+    pub const MAX_CONTIGUOUS: Self = Self {
+        real: <$f>::MAX_FRACTION - 1,
+        imaginary: 0,
+        exponent: (<$e>::FRACTION_BITS + <$e>::EXPONENT_BITS - 1) as $e,
+    };
+    /// The minimum value that maintains integer contiguity with its neighboring values.
+    /// This is one more than MIN_FRACTION to ensure the value connects to both its
+    /// predecessor and successor in the representable sequence (a-1!=a).
+    pub const MIN_CONTIGUOUS: Self = Self {
+        real: <$f>::MIN_FRACTION + 1,
+        imaginary: 0,
+        exponent: (<$e>::FRACTION_BITS + <$e>::EXPONENT_BITS - 1) as $e,
+    };
+    /// Actual Zero, the real deal. Exploded * 0 = 0
+    pub const ZERO: Self = Self {
+        real: 0,
+        imaginary: 0,
+        exponent: <$e>::AMBIGUOUS_EXPONENT,
+    };
+    /// Mathematical infinity - the result of division by Zero (1/0).
+    /// Unlike IEEE-754's signed infinities, this represents a singular infinity
+    /// where the sign is indeterminate. Represented by all fraction bits set (11111111)
+    /// with an ambiguous exponent, creating symmetry with ZERO (00000000).
+    /// Used for results where magnitude is infinite and direction is ambiguous.
+    pub const INFINITY: Self = Self {
+        real: -1,
+        imaginary: -1,
+        exponent: <$e>::AMBIGUOUS_EXPONENT,
+    };
+    /// Exactly one.
+    pub const ONE: Self = Self {
+        real: <$f>::POS_ONE_FRACTION,
+        imaginary: 0,
+        exponent: 1,
+    };
+    /// Exactly negative one.
+    pub const NEG_ONE: Self = Self {
+        real: <$f>::MIN_FRACTION,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Effectively one (the largest value smaller than one).
+    pub const EFFECTIVELY_POS_ONE: Self = Self {
+        real: <$f>::MAX_FRACTION,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Effectively negative one (the closest value to -1 with magnitude less than 1).
+    pub const EFFECTIVELY_NEG_ONE: Self = Self {
+        real: <$f>::MIN_FRACTION + 1,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Exactly two.
+    pub const TWO: Self = Self {
+        real: <$f>::POS_ONE_FRACTION,
+        imaginary: 0,
+        exponent: 2,
+    };
+    /// Exactly 1/2.
+    pub const HALF: Self = Self {
+        real: <$f>::POS_ONE_FRACTION,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Imaginary unit (i).
+    pub const POS_I: Self = Self {
+        real: 0,
+        imaginary: <$f>::POS_ONE_FRACTION,
+        exponent: 1,
+    };
+    /// Negative imaginary unit (-i).
+    pub const NEG_I: Self = Self {
+        real: 0,
+        imaginary: <$f>::MIN_FRACTION,
+        exponent: 0,
+    };
+    /// Approximately Pi (π ≈ 3.14159265358979323846...)
+    pub const PI: Self = Self {
+        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 2,
+    };
+    /// Approximately negative Pi (-π ≈ -3.14159265358979323846...)
+    pub const NEG_PI: Self = Self {
+        real: (-0x6487ED5110B4611A62633145C06E0E69i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 2,
+    };
+    /// Approximately Tau (2π ≈ 6.28318530717958647693...)
+    pub const TAU: Self = Self {
+        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 3,
+    };
+    /// Approximately negative Tau (-2π ≈ -6.28318530717958647693...)
+    pub const NEG_TAU: Self = Self {
+        real: (-0x6487ED5110B4611A62633145C06E0E68i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 3,
+    };
+    /// Alternative name for TAU (2π)
+    pub const TWO_PI: Self = Self::TAU;
+    /// Pi divided by two (π/2 ≈ 1.57079632679489661923...)
+    pub const PI_OVER_TWO: Self = Self {
+        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 1,
+    };
+    /// Negative Pi divided by two (-π/2 ≈ -1.57079632679489661923...)
+    pub const NEG_PI_OVER_TWO: Self = Self {
+        real: (-0x6487ED5110B4611A62633145C06E0E68i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 1,
+    };
+    /// Pi divided by three (π/3 ≈ 1.04719755119659774615...)
+    pub const PI_OVER_THREE: Self = Self {
+        real: (0x430548E0B5CD961196ECCB83D59EB446i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 1,
+    };
+    /// Pi divided by four (π/4 ≈ 0.78539816339744830962...)
+    pub const PI_OVER_FOUR: Self = Self {
+        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Pi divided by six (π/6 ≈ 0.52359877559829887308...)
+    pub const PI_OVER_SIX: Self = Self {
+        real: (0x430548E0B5CD961196ECCB83D59EB446i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Pi divided by eight (π/8 ≈ 0.39269908169872415481...)
+    pub const PI_OVER_EIGHT: Self = Self {
+        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: -1,
+    };
+    /// One divided by pi (1/π ≈ 0.31830988618379067154...)
+    pub const ONE_OVER_PI: Self = Self {
+        real: (0x517CC1B727220A94FE13ABE8FA9A6EE0i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: -1,
+    };
+    /// Two divided by pi (2/π ≈ 0.63661977236758134308...)
+    pub const TWO_OVER_PI: Self = Self {
+        real: (0x517CC1B727220A94FE13ABE8FA9A6EE0i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Approximately Euler's number (e ≈ 2.71828182845904523536...)
+    pub const E: Self = Self {
+        real: (0x56FC2A2C515DA54D57EE2B10139E9E79i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 2,
+    };
+    /// Approximately natural logarithm of two (ln(2) ≈ 0.69314718055994530942...)
+    pub const LN_TWO: Self = Self {
+        real: (0x58B90BFBE8E7BCD5E4F1D9CC01F97B57i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 0,
+    };
+    /// Binary logarithm of e (log₂(e) ≈ 1.44269504088896340736...)
+    pub const LB_E: Self = Self {
+        real: (0x5C551D94AE0BF85DDF43FF68348E9F44i128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 1,
+    };
+    /// Approximately square root of two (√2 ≈ 1.41421356237309504880...)
+    pub const SQRT_TWO: Self = Self {
+        real: (0x5A827999FCEF32422CBEC4D9BAA55F4Fi128 >> (128 - <$f>::FRACTION_BITS)) as $f,
+        imaginary: 0,
+        exponent: 1,
+    };
+}
+
+        impl CircleConstants for Circle<$f, $e> {
+            const MAX: Self = Self::MAX;
+            const MIN: Self = Self::MIN;
+            const MIN_POS: Self = Self::MIN_POS;
+            const MAX_NEG: Self = Self::MAX_NEG;
+            const POS_NORMAL_EPSILON: Self = Self::POS_NORMAL_EPSILON;
+            const NEG_NORMAL_EPSILON: Self = Self::NEG_NORMAL_EPSILON;
+            const MAX_CONTIGUOUS: Self = Self::MAX_CONTIGUOUS;
+            const MIN_CONTIGUOUS: Self = Self::MIN_CONTIGUOUS;
+            const ZERO: Self = Self::ZERO;
+            const INFINITY: Self = Self::INFINITY;
+            const ONE: Self = Self::ONE;
+            const NEG_ONE: Self = Self::NEG_ONE;
+            const EFFECTIVELY_POS_ONE: Self = Self::EFFECTIVELY_POS_ONE;
+            const EFFECTIVELY_NEG_ONE: Self = Self::EFFECTIVELY_NEG_ONE;
+            const TWO: Self = Self::TWO;
+            const HALF: Self = Self::HALF;
+            const POS_I: Self = Self::POS_I;
+            const NEG_I: Self = Self::NEG_I;
+            const PI: Self = Self::PI;
+            const NEG_PI: Self = Self::NEG_PI;
+            const TAU: Self = Self::TAU;
+            const NEG_TAU: Self = Self::NEG_TAU;
+            const TWO_PI: Self = Self::TWO_PI;
+            const PI_OVER_TWO: Self = Self::PI_OVER_TWO;
+            const NEG_PI_OVER_TWO: Self = Self::NEG_PI_OVER_TWO;
+            const PI_OVER_THREE: Self = Self::PI_OVER_THREE;
+            const PI_OVER_FOUR: Self = Self::PI_OVER_FOUR;
+            const PI_OVER_SIX: Self = Self::PI_OVER_SIX;
+            const PI_OVER_EIGHT: Self = Self::PI_OVER_EIGHT;
+            const ONE_OVER_PI: Self = Self::ONE_OVER_PI;
+            const TWO_OVER_PI: Self = Self::TWO_OVER_PI;
+            const E: Self = Self::E;
+            const LN_TWO: Self = Self::LN_TWO;
+            const LB_E: Self = Self::LB_E;
+            const SQRT_TWO: Self = Self::SQRT_TWO;
+        }
+    )*
+}
+}
+impl_circle_constants!(
+   i8, i8;
+   i16, i8;
+   i32, i8;
+   i64, i8;
+   i128, i8;
+   i8, i16;
+   i16, i16;
+   i32, i16;
+   i64, i16;
+   i128, i16;
+   i8, i32;
+   i16, i32;
+   i32, i32;
+   i64, i32;
+   i128, i32;
+   i8, i64;
+   i16, i64;
+   i32, i64;
+   i64, i64;
+   i128, i64;
+   i8, i128;
+   i16, i128;
+   i32, i128;
+   i64, i128;
+   i128, i128
+);

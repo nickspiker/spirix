@@ -1,0 +1,144 @@
+# SPIRIX LICENSE
+Version 1.0, December 2024
+Copyright © 2024 Nick Spiker
+
+## Terms and Conditions
+
+### Definitions
+
+- "Spirix" refers to the numerical library implementing two's complement floating-point arithmetic
+- "Software Implementation" refers to any implementation in a programming language
+- "Hardware Implementation" refers to any physical or simulated hardware implementation
+- "Python" refers to the Python programming language and any derivative implementations
+- "Licensee" refers to any individual or entity using Spirix
+
+### Grant of License
+
+Subject to the terms and conditions of this License, Nick Spiker hereby grants you a worldwide, royalty-free, non-exclusive license to use, copy, modify, and distribute Software Implementations of Spirix, provided that:
+
+- The implementation is in the Rust programming language, or
+- The implementation has received explicit written approval from Nick Spiker, digitally signed with Nick Spiker's authorized key
+
+### Explicit Prohibitions
+
+#### Hardware Implementations
+This license explicitly PROHIBITS:
+- Any hardware implementation
+- Any ASIC design
+- Any FPGA implementation
+- Any hardware accelerator design
+- Any silicon implementation
+- Any custom processor design
+- Any microcode implementation
+- Any hardware simulation or emulation
+- Any attempt to create physical embodiments of the algorithms
+
+#### Programming Language Restrictions
+This license explicitly PROHIBITS:
+- Any implementation in Python
+- Any bindings to Python
+- Any wrappers for Python
+- Any interface that allows Python to access Spirix functionality
+- Any attempt to circumvent these Python restrictions
+
+### Implementation Permissions
+
+#### Recommended Implementation
+- Rust implementations are explicitly permitted and recommended
+
+#### Other Languages
+Other language implementations require explicit approval and must meet these criteria:
+- Memory safety guarantees
+- Strong type system
+- Clear justification for necessity
+- Complete test coverage
+- Documentation of safety measures
+- Isolation of unsafe code
+
+#### Approval Process
+To request approval for other language implementations:
+-Submit formal written request to fractaldecoder@proton.me
+-Include complete technical documentation
+-Provide safety and testing documentation
+-Await written approval digitally signed by Nick Spiker
+-Maintain compliance with any additional requirements
+
+### Derivative Works
+
+#### Definition
+Any implementation of binary floating-point arithmetic using two's complement representation is considered a derivative work of Spirix, whether in software or hardware.
+
+#### Restrictions
+Derivative works are prohibited unless explicitly authorized in writing by Nick Spiker.
+
+### Commercial Licensing
+
+#### Hardware Implementation Licensing
+For hardware implementation rights, contact:
+Nick Spiker
+fractaldecoder@proton.me
+
+#### Commercial Use
+Commercial use of the software implementation is permitted within the terms of this license.
+
+### Contributions and Modifications
+
+#### Accepted Contributions
+- Bug reports
+- Performance improvements
+- Documentation improvements
+- Test cases
+- Rust implementation optimizations
+
+#### Contribution Process
+All contributions must be:
+- Submitted thru official channels
+- Fully documented
+- Licensed under terms compatible with this license
+- Reviewed and approved by Nick Spiker
+
+### Revocation
+
+#### Grounds for Revocation
+Nick Spiker reserves the right to revoke this license for:
+- Attempting to circumvent license restrictions
+- Creating unauthorized implementations
+- Attempting unauthorized hardware implementations
+- Malicious use or intent
+- Violation of any license terms
+
+#### Effect of Revocation
+Upon revocation:
+- All rights granted under this license terminate immediately
+- All use of Spirix must cease
+- All copies must be destroyed
+
+### Warranty and Liability
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+### Patent Rights
+
+#### Patent License
+This license includes a patent license for software implementations only.
+
+#### Hardware Patents
+All patent rights for hardware implementations are explicitly reserved.
+
+### Export Compliance
+
+Licensee must comply with all applicable export and re-export control laws and regulations.
+
+### Governing Law
+
+This license shall be governed by and construed in accordance with the laws of the United States of America.
+
+### Contact Information
+
+For licensing inquiries:
+Nick Spiker
+fractaldecoder@proton.me
+
+---
+
+By using, copying, modifying, or distributing Spirix, you agree to be bound by the terms of this license.
