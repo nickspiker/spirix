@@ -150,11 +150,30 @@ where
             (other, self)
         };
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             if small.fraction.is_negative() {
                 return *big;
             } else {
                 return Self::ZERO;
+            }
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                if small.fraction.is_negative() {
+                    return *big;
+                } else {
+                    return Self::ZERO;
+                }
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                if small.fraction.is_negative() {
+                    return *big;
+                } else {
+                    return Self::ZERO;
+                }
             }
         }
         match F::FRACTION_BITS {
@@ -387,11 +406,30 @@ where
             (other, self)
         };
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             if small.fraction.is_negative() {
                 return *small;
             } else {
                 return *big;
+            }
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                if small.fraction.is_negative() {
+                    return *small;
+                } else {
+                    return *big;
+                }
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                if small.fraction.is_negative() {
+                    return *small;
+                } else {
+                    return *big;
+                }
             }
         }
         match F::FRACTION_BITS {
@@ -626,11 +664,30 @@ where
             (other, self)
         };
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             if small.fraction.is_negative() {
                 return !big;
             } else {
                 return *big;
+            }
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                if small.fraction.is_negative() {
+                    return !big;
+                } else {
+                    return *big;
+                }
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                if small.fraction.is_negative() {
+                    return !big;
+                } else {
+                    return *big;
+                }
             }
         }
         match F::FRACTION_BITS {
@@ -790,13 +847,14 @@ where
             return *self;
         }
         let new_exp = self.exponent + *shift;
-        if !self.exponent.is_negative() && new_exp.is_negative() {
+        if !shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
             return Self {
                 fraction: self.fraction,
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
-        if self.exponent.is_negative() && !new_exp.is_negative() {
+        if shift.is_negative() && self.exponent.is_negative() && !(new_exp - 1.as_()).is_negative()
+        {
             return Self {
                 fraction: self.fraction >> 1isize,
                 exponent: E::AMBIGUOUS_EXPONENT,
@@ -812,13 +870,14 @@ where
             return *self;
         }
         let new_exp = self.exponent - *shift;
-        if !self.exponent.is_negative() && new_exp.is_negative() {
+        if shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
             return Self {
                 fraction: self.fraction,
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
-        if self.exponent.is_negative() && !new_exp.is_negative() {
+        if !shift.is_negative() && self.exponent.is_negative() && !(new_exp - 1.as_()).is_negative()
+        {
             return Self {
                 fraction: self.fraction >> 1isize,
                 exponent: E::AMBIGUOUS_EXPONENT,

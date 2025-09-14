@@ -2,8 +2,7 @@ use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
 use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
-    ScalarConstants, ScalarF7E7,
+    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
 use num_traits::AsPrimitive;
@@ -58,22 +57,28 @@ where
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
     I256: From<E>,
-    Scalar<i128, i128>: From<Scalar<F, E>>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut base: u8 = 10;
-        let mut digits = ScalarF7E7::TWO.pow(F::FRACTION_BITS).log(base).to_usize();
+        if let Some(prec) = f.precision() {
+            base = prec as u8;
+            if base < 2 || base > 36 {
+                return write!(f, "Error: Only bases 2-36 are supported!");
+            }
+        }
+
+        let mut digits = if F::FRACTION_BITS > 100 && E::EXPONENT_BITS < 12 {
+            crate::ScalarF7E4::TWO
+                .pow(F::FRACTION_BITS)
+                .log(base)
+                .ceil()
+                .to_usize()
+        } else {
+            Self::TWO.pow(F::FRACTION_BITS).log(base).ceil().to_usize()
+        };
 
         if let Some(width) = f.width() {
             digits = width;
-        }
-
-        if let Some(prec) = f.precision() {
-            base = prec as u8;
-        }
-
-        if base < 2 || base > 36 {
-            return write!(f, "Error: Only bases 2-36 are supported!");
         }
 
         let string = self.format_scalar(base, digits);
@@ -130,7 +135,6 @@ where
     isize: AsPrimitive<E>,
     I256: From<F>,
     I256: From<E>,
-    Scalar<i128, i128>: From<Scalar<F, E>>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
@@ -193,7 +197,6 @@ where
     isize: AsPrimitive<E>,
     I256: From<F>,
     I256: From<E>,
-    Scalar<i128, i128>: From<Scalar<F, E>>,
 {
     fn format_scalar(&self, base: u8, digits: usize) -> String {
         let mut string = "⦉".to_owned();
@@ -225,21 +228,34 @@ where
             } else {
                 string.push('+')
             }
-            let magnitude = ScalarF7E7::from(self.magnitude());
+            let magnitude = self.magnitude();
             let scale = magnitude.log(base).floor();
-            let mut scaled = magnitude / (ScalarF7E7::ZERO + base).pow(scale);
+
+            let base_scalar = Self::from(base);
+
+            let power_result = base_scalar.pow(scale);
+
+            let mut scaled = magnitude / power_result;
             let decimal = 1;
             for d in 0..digits {
                 if d == decimal {
                     string.push('.');
                 }
+
                 let digit = scaled.to_u8();
+
+                let frac_part = scaled.frac();
+
+                let base_scalar = Self::from(base);
+
+                let new_scaled = frac_part * base_scalar;
+
                 if digit < 10 {
                     string.push((digit + 48) as char)
                 } else {
                     string.push((digit + 55) as char);
                 }
-                scaled = scaled.frac() * base;
+                scaled = new_scaled;
             }
             string.push('⦊');
             if scale.is_normal() {

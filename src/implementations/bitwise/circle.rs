@@ -169,7 +169,7 @@ where
             (other, self)
         };
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             let mut result = Self {
                 real: if small.real.is_negative() {
                     big.real
@@ -189,6 +189,53 @@ where
             }
             result.normalize();
             return result;
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                let mut result = Self {
+                    real: if small.real.is_negative() {
+                        big.real
+                    } else {
+                        0.as_()
+                    },
+                    imaginary: if small.imaginary.is_negative() {
+                        big.imaginary
+                    } else {
+                        0.as_()
+                    },
+                    exponent: big.exponent,
+                };
+                if result.real == 0.as_() && result.imaginary == 0.as_() {
+                    result.exponent = E::AMBIGUOUS_EXPONENT;
+                    return result;
+                }
+                result.normalize();
+                return result;
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                let mut result = Self {
+                    real: if small.real.is_negative() {
+                        big.real
+                    } else {
+                        0.as_()
+                    },
+                    imaginary: if small.imaginary.is_negative() {
+                        big.imaginary
+                    } else {
+                        0.as_()
+                    },
+                    exponent: big.exponent,
+                };
+                if result.real == 0.as_() && result.imaginary == 0.as_() {
+                    result.exponent = E::AMBIGUOUS_EXPONENT;
+                    return result;
+                }
+                result.normalize();
+                return result;
+            }
         }
         match F::FRACTION_BITS {
             8 => {
@@ -555,7 +602,7 @@ where
             (other, self)
         };
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             if small.real.is_negative() && small.imaginary.is_negative() {
                 return *small;
             }
@@ -588,6 +635,79 @@ where
                 };
             }
             return *big;
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                if small.real.is_negative() && small.imaginary.is_negative() {
+                    return *small;
+                }
+                if small.real.is_negative() {
+                    let mut result = Scalar {
+                        fraction: big.imaginary,
+                        exponent: big.exponent,
+                    };
+                    result.normalize();
+                    let mut negative_one: F = 0.as_();
+                    negative_one = !negative_one;
+                    return Circle {
+                        real: negative_one,
+                        imaginary: result.fraction,
+                        exponent: result.exponent,
+                    };
+                }
+                if small.imaginary.is_negative() {
+                    let mut result = Scalar {
+                        fraction: big.real,
+                        exponent: big.exponent,
+                    };
+                    result.normalize();
+                    let mut negative_one: F = 0.as_();
+                    negative_one = !negative_one;
+                    return Circle {
+                        real: result.fraction,
+                        imaginary: negative_one,
+                        exponent: result.exponent,
+                    };
+                }
+                return *big;
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                if small.real.is_negative() && small.imaginary.is_negative() {
+                    return *small;
+                }
+                if small.real.is_negative() {
+                    let mut result = Scalar {
+                        fraction: big.imaginary,
+                        exponent: big.exponent,
+                    };
+                    result.normalize();
+                    let mut negative_one: F = 0.as_();
+                    negative_one = !negative_one;
+                    return Circle {
+                        real: negative_one,
+                        imaginary: result.fraction,
+                        exponent: result.exponent,
+                    };
+                }
+                if small.imaginary.is_negative() {
+                    let mut result = Scalar {
+                        fraction: big.real,
+                        exponent: big.exponent,
+                    };
+                    result.normalize();
+                    let mut negative_one: F = 0.as_();
+                    negative_one = !negative_one;
+                    return Circle {
+                        real: result.fraction,
+                        imaginary: negative_one,
+                        exponent: result.exponent,
+                    };
+                }
+                return *big;
+            }
         }
         match F::FRACTION_BITS {
             8 => {
@@ -898,7 +1018,7 @@ where
             (other, self)
         };
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             if small.real.is_negative() && small.imaginary.is_negative() {
                 return !big;
             }
@@ -917,6 +1037,51 @@ where
                 };
             }
             return *big;
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                if small.real.is_negative() && small.imaginary.is_negative() {
+                    return !big;
+                }
+                if small.real.is_negative() {
+                    return Self {
+                        real: !big.real,
+                        imaginary: big.imaginary,
+                        exponent: big.exponent,
+                    };
+                }
+                if small.imaginary.is_negative() {
+                    return Self {
+                        real: big.real,
+                        imaginary: !big.imaginary,
+                        exponent: big.exponent,
+                    };
+                }
+                return *big;
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                if small.real.is_negative() && small.imaginary.is_negative() {
+                    return !big;
+                }
+                if small.real.is_negative() {
+                    return Self {
+                        real: !big.real,
+                        imaginary: big.imaginary,
+                        exponent: big.exponent,
+                    };
+                }
+                if small.imaginary.is_negative() {
+                    return Self {
+                        real: big.real,
+                        imaginary: !big.imaginary,
+                        exponent: big.exponent,
+                    };
+                }
+                return *big;
+            }
         }
         match F::FRACTION_BITS {
             8 => {
@@ -1136,14 +1301,15 @@ where
             return *self;
         }
         let new_exp = self.exponent + *shift;
-        if !self.exponent.is_negative() && new_exp.is_negative() {
+        if !shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
             return Self {
                 real: self.real,
                 imaginary: self.imaginary,
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
-        if self.exponent.is_negative() && !new_exp.is_negative() {
+        if shift.is_negative() && self.exponent.is_negative() && !(new_exp - 1.as_()).is_negative()
+        {
             return Self {
                 real: self.real >> 1isize,
                 imaginary: self.imaginary >> 1isize,
@@ -1161,14 +1327,15 @@ where
             return *self;
         }
         let new_exp = self.exponent - *shift;
-        if !self.exponent.is_negative() && new_exp.is_negative() {
+        if shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
             return Self {
                 real: self.real,
                 imaginary: self.imaginary,
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
-        if self.exponent.is_negative() && !new_exp.is_negative() {
+        if !shift.is_negative() && self.exponent.is_negative() && !(new_exp - 1.as_()).is_negative()
+        {
             return Self {
                 real: self.real >> 1isize,
                 imaginary: self.imaginary >> 1isize,

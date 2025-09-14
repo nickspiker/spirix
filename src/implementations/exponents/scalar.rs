@@ -5,6 +5,7 @@ use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstan
 use i256::I256;
 use num_traits::AsPrimitive;
 use std::ops::*;
+
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -724,7 +725,8 @@ where
         };
         fractional_part.normalize();
 
-        characteristic_scalar + fractional_part
+        let result = characteristic_scalar + fractional_part;
+        result
     }
 
     /// Computes e raised to the power of this Scalar value (e^x)
@@ -782,6 +784,7 @@ where
     /// assert!(tiny_pos.vanished() && tiny_pos.exp() == 1); // e^tiny ≈ 1
     /// ```
     pub fn exp(&self) -> Self {
+
         if !self.is_normal() {
             if self.is_undefined() {
                 return *self;
@@ -811,7 +814,10 @@ where
                 return Self::ONE;
             }
         }
+
         let integer_part = self.floor();
+
+
         let fractional_part = self - integer_part;
 
         let mut current_sum = Self::ONE;
@@ -834,14 +840,24 @@ where
 
         let mut integer_result = Self::ONE;
         let mut current_power = Self::E;
+
+
         let mut remaining_exponent = integer_part.magnitude();
 
-        while remaining_exponent.is_positive() {
+
+        for _bit in 0..E::EXPONENT_BITS {
+
             if (remaining_exponent & Self::ONE) == 1 {
                 integer_result *= current_power;
             }
             current_power = current_power.square();
+            if !current_power.is_normal() {
+                break;  // Exit if power becomes abnormal
+            }
             remaining_exponent = remaining_exponent >> 1;
+            if remaining_exponent.vanished() || remaining_exponent.is_zero() {
+                break;  // Exit when done processing bits
+            }
         }
 
         if integer_part.fraction.is_negative() {

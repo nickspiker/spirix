@@ -195,12 +195,31 @@ where
         if self.exponent > circle.exponent {
             // Scalar is bigger
             let exp_diff = self.exponent - circle.exponent;
-            if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+            if exp_diff.is_negative() {
                 return Circle {
                     real: self.fraction,
                     imaginary: 0.as_(),
                     exponent: self.exponent,
                 };
+            }
+
+            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+                if exp_diff >= F::FRACTION_BITS.as_() {
+                    return Circle {
+                        real: self.fraction,
+                        imaginary: 0.as_(),
+                        exponent: self.exponent,
+                    };
+                }
+            } else {
+                let exp_diff_isize: isize = exp_diff.as_();
+                if exp_diff_isize >= F::FRACTION_BITS {
+                    return Circle {
+                        real: self.fraction,
+                        imaginary: 0.as_(),
+                        exponent: self.exponent,
+                    };
+                }
             }
             match F::FRACTION_BITS {
                 8 => {
@@ -381,8 +400,19 @@ where
         } else {
             // Circle is bigger
             let exp_diff = circle.exponent - self.exponent;
-            if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+            if exp_diff.is_negative() {
                 return *circle;
+            }
+
+            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+                if exp_diff >= F::FRACTION_BITS.as_() {
+                    return *circle;
+                }
+            } else {
+                let exp_diff_isize: isize = exp_diff.as_();
+                if exp_diff_isize >= F::FRACTION_BITS {
+                    return *circle;
+                }
             }
             match F::FRACTION_BITS {
                 8 => {

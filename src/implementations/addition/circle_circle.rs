@@ -181,8 +181,19 @@ where
         };
 
         let exp_diff = big.exponent - small.exponent;
-        if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+        if exp_diff.is_negative() {
             return *big;
+        }
+
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if exp_diff >= F::FRACTION_BITS.as_() {
+                return *big;
+            }
+        } else {
+            let exp_diff_isize: isize = exp_diff.as_();
+            if exp_diff_isize >= F::FRACTION_BITS {
+                return *big;
+            }
         }
 
         match F::FRACTION_BITS {

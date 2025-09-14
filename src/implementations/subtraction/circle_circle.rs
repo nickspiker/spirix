@@ -183,8 +183,19 @@ where
 
         if self.exponent > circle.exponent {
             let exp_diff = self.exponent - circle.exponent;
-            if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+            if exp_diff.is_negative() {
                 return *self;
+            }
+
+            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+                if exp_diff >= F::FRACTION_BITS.as_() {
+                    return *self;
+                }
+            } else {
+                let exp_diff_isize: isize = exp_diff.as_();
+                if exp_diff_isize >= F::FRACTION_BITS {
+                    return *self;
+                }
             }
             match F::FRACTION_BITS {
                 8 => {
@@ -386,8 +397,19 @@ where
             }
         } else {
             let exp_diff = circle.exponent - self.exponent;
-            if exp_diff.is_negative() || exp_diff >= F::FRACTION_BITS.as_() {
+            if exp_diff.is_negative() {
                 return -circle;
+            }
+
+            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+                if exp_diff >= F::FRACTION_BITS.as_() {
+                    return -circle;
+                }
+            } else {
+                let exp_diff_isize: isize = exp_diff.as_();
+                if exp_diff_isize >= F::FRACTION_BITS {
+                    return -circle;
+                }
             }
             match F::FRACTION_BITS {
                 8 => {

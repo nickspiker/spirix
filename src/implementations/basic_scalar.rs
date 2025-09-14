@@ -1034,11 +1034,21 @@ where
     #[inline]
     pub fn is_contiguous(&self) -> bool {
         if self.is_normal() && !self.exponent.is_negative() {
-            if self.exponent > F::FRACTION_BITS.as_() {
-                return false;
-            }
-            if self.exponent == F::FRACTION_BITS.as_() {
-                return true;
+            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+                if self.exponent > F::FRACTION_BITS.as_() {
+                    return false;
+                }
+                if self.exponent == F::FRACTION_BITS.as_() {
+                    return true;
+                }
+            } else {
+                let exponent_isize: isize = self.exponent.as_();
+                if exponent_isize > F::FRACTION_BITS {
+                    return false;
+                }
+                if exponent_isize == F::FRACTION_BITS {
+                    return true;
+                }
             }
             // Calculate how many fractional bits we have based on exponent
             let mut frac_bits = F::FRACTION_BITS;
@@ -1264,11 +1274,28 @@ where
     /// assert!(undefined.floor().is_undefined());
     /// ```
     pub fn floor(&self) -> Self {
+
+        // Handle non-normal values first
+        if !self.is_normal() {
+            // Vanished values should floor to ZERO or NEG_ONE
+            if self.vanished() {
+                if self.is_negative() {
+                    return Self::NEG_ONE;
+                } else {
+                    return Self::ZERO;
+                }
+            }
+            // Other non-normal values (exploded, undefined, etc.) return themselves
+            return *self;
+        }
+
         if self.exponent <= 0.as_() {
             if self.is_negative() {
-                return Self::NEG_ONE;
+                let result = Self::NEG_ONE;
+                return result;
             }
-            return Self::ZERO;
+            let result = Self::ZERO;
+            return result;
         }
         let mut result = *self;
         let width = F::FRACTION_BITS - 1;
@@ -1494,7 +1521,8 @@ where
         }
 
         // For normal values, subtract the floor
-        *self - self.floor()
+        let floored = self.floor();
+        *self - floored
     }
     /// Returns the larger of this Scalar and another
     ///

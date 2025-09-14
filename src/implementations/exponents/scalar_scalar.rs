@@ -62,6 +62,10 @@ where
             if exp.is_undefined() {
                 return *exp;
             }
+            // x^0 = 1 for any finite x (mathematical identity)
+            if exp.is_zero() {
+                return Self::ONE;
+            }
             if self == 1 {
                 return *self;
             }
@@ -159,6 +163,9 @@ where
             };
         }
 
-        self.lb() / base.lb()
+        let self_lb = self.lb();
+        let base_lb = base.lb();
+        let result = self_lb / base_lb;
+        result
     }
 }

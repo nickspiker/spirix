@@ -854,11 +854,17 @@ where
         }
 
         let shift: usize = (self.exponent).saturate();
+
         if shift > 8 {
             return u8::MAX;
         }
-        let mut value = (self.fraction << 1isize).sa();
+
+        let shifted_fraction = self.fraction << 1isize;
+
+        let mut value = shifted_fraction.sa();
+
         value = value >> (8 - shift);
+
         value
     }
 

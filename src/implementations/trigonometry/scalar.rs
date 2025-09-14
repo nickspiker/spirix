@@ -208,11 +208,21 @@ where
             }
             return *self;
         }
-        if self.exponent > F::FRACTION_BITS.as_() {
-            return Self {
-                fraction: TANGENT.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
+        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if self.exponent > F::FRACTION_BITS.as_() {
+                return Self {
+                    fraction: TANGENT.prefix.sa(),
+                    exponent: E::AMBIGUOUS_EXPONENT,
+                };
+            }
+        } else {
+            let exponent_isize: isize = self.exponent.as_();
+            if exponent_isize > F::FRACTION_BITS {
+                return Self {
+                    fraction: TANGENT.prefix.sa(),
+                    exponent: E::AMBIGUOUS_EXPONENT,
+                };
+            }
         }
         self.sin() / self.cos()
     }
