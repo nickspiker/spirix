@@ -951,13 +951,12 @@ where
     /// ```
     #[inline]
     pub fn is_integer(&self) -> bool {
-        // Case 0: Exponent is >= FRACTION_BITS, which means the value
-        // is entirely in the integer portion
+        // Case 0: Exponent is >= FRACTION_BITS, which means the value is entirely in the integer portion, I think? do check for -'s :)
         if self.exponent >= (F::FRACTION_BITS - 1).as_() {
             return true;
         }
-        // Case 1: Zero or negative exponent means we have a fraction only, undefined, Infinity, Zero or escaped
-        if !self.exponent.is_positive() {
+        // Case 1: Negative exponent means we have a fraction only, undefined, Infinity, Zero or escaped
+        if self.exponent.is_negative() {
             if self.exponent == E::AMBIGUOUS_EXPONENT {
                 let prefix = self.prefix();
                 if prefix == 0 {
@@ -973,17 +972,33 @@ where
             }
             return false;
         }
-        // Case 3: We have a normal number with 0 < exponent < FRACTION_BITS
-        // Calculate how many fractional bits we have based on exponent
-        let mut frac_bits = F::FRACTION_BITS;
-        let exponent = self.exponent;
-        let exponent_usize: isize = exponent.as_();
-        frac_bits -= exponent_usize;
-        // Create a mask for the fractional bits
-        let mut mask: F = 1.as_();
-        mask = (mask << frac_bits) - 1.as_();
-        // Check if any fractional bits are set
-        (self.fraction & mask) == 0.as_()
+        // Case 2: Check fractional bits in left-aligned format
+        let exponent_usize: isize = self.exponent.as_();
+        let frac_bits = F::FRACTION_BITS - exponent_usize;
+
+        // If no fractional bits, it's definitely an integer
+        if frac_bits <= 0 {
+            return true;
+        }
+
+        // For left-aligned format with unbiased exponents:
+        // Check if fraction << (exponent + 1) == 0
+        // This shifts out the integer part, leaving only fractional bits
+        let exp_isize: isize = self.exponent.as_();
+        let shift_amount = exp_isize + 1;
+
+        if shift_amount >= F::FRACTION_BITS {
+            // Large exponent means no fractional bits possible
+            return true;
+        }
+
+        if shift_amount <= 0 {
+            // Small/negative exponent, handle via earlier cases
+            return false;
+        }
+
+        // Shift left by (exponent + 1) and check if result is zero
+        (self.fraction << shift_amount) == 0.as_()
     }
 
     /// Returns true if this value is a valid integer within the contiguous integer range
@@ -1274,7 +1289,6 @@ where
     /// assert!(undefined.floor().is_undefined());
     /// ```
     pub fn floor(&self) -> Self {
-
         // Handle non-normal values first
         if !self.is_normal() {
             // Vanished values should floor to ZERO or NEG_ONE
