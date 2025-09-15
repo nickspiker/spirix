@@ -228,37 +228,63 @@ where
             } else {
                 string.push('+')
             }
+            // Uniform multiplication-based algorithm for all values
             let magnitude = self.magnitude();
-            let scale = magnitude.log(base).floor();
-
             let base_scalar = Self::from(base);
+            let mut scale = 0isize;
 
-            let power_result = base_scalar.pow(scale);
+            // Find scale using multiplication (no log/pow)
+            let mut window = magnitude;
 
-            let mut scaled = magnitude / power_result;
-            let decimal = 1;
-            for d in 0..digits {
-                if d == decimal {
-                    string.push('.');
-                }
-
-                let digit = scaled.to_u8();
-
-                let frac_part = scaled.frac();
-
-                let base_scalar = Self::from(base);
-
-                let new_scaled = frac_part * base_scalar;
-
-                if digit < 10 {
-                    string.push((digit + 48) as char)
-                } else {
-                    string.push((digit + 55) as char);
-                }
-                scaled = new_scaled;
+            // Scale up small values (< 1) by multiplying
+            while window < Self::ONE && window.is_normal() && scale > -1000 {
+                window = window * base_scalar;
+                scale -= 1;
             }
+
+            // Scale down large values (>= base) by dividing
+            while window >= base_scalar && window.is_normal() && scale < 1000 {
+                window = window / base_scalar;
+                scale += 1;
+            }
+
+            // Extract digits using multiplication only
+            let mut current = window;
+            let mut digit_chars = Vec::new();
+
+            for d in 0..digits {
+                // Add decimal point after first digit
+                if d == 1 {
+                    digit_chars.push('.');
+                }
+
+                // Extract integer part as next digit
+                let digit_value = current.floor();
+                let digit = digit_value.to_u8().min(base - 1); // Clamp to valid range
+
+                // Convert to character
+                digit_chars.push(if digit < 10 {
+                    (digit + 48) as char  // '0' to '9'
+                } else {
+                    (digit + 55) as char  // 'A' to 'Z'
+                });
+
+                // Continue with fractional part
+                current = (current - digit_value) * base_scalar;
+
+                // Stop if we've extracted all precision
+                if current.is_zero() || current.vanished() {
+                    break;
+                }
+            }
+
+            // Add digits to string
+            for ch in digit_chars {
+                string.push(ch);
+            }
+
             string.push('⦊');
-            if scale.is_normal() {
+            if scale != 0 {
                 string.push('×');
                 if base < 10 {
                     string.push((base + 48) as char)
@@ -267,11 +293,11 @@ where
                 }
                 string.push('^');
                 let mut power;
-                if scale.is_negative() {
-                    power = (-scale).to_usize();
+                if scale < 0 {
+                    power = (-scale) as usize;
                     string.push('-');
                 } else {
-                    power = scale.to_usize();
+                    power = scale as usize;
                     string.push('+');
                 }
                 let mut pow_digits = Vec::new();
