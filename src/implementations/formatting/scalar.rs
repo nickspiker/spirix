@@ -71,10 +71,10 @@ where
             crate::ScalarF7E4::TWO
                 .pow(F::FRACTION_BITS)
                 .log(base)
-                .ceil()
+                .floor()
                 .to_usize()
         } else {
-            Self::TWO.pow(F::FRACTION_BITS).log(base).ceil().to_usize()
+            Self::TWO.pow(F::FRACTION_BITS).log(base).floor().to_usize()
         };
 
         if let Some(width) = f.width() {
@@ -221,101 +221,71 @@ where
             } else {
                 string.push('0');
             }
-            string.push('⦊');
         } else {
-            if self.is_negative() {
-                string.push('-')
-            } else {
-                string.push('+')
-            }
-            // Uniform multiplication-based algorithm for all values
-            let magnitude = self.magnitude();
             let base_scalar = Self::from(base);
-            let mut scale = 0isize;
-
-            // Find scale using multiplication (no log/pow)
-            let mut window = magnitude;
-
-            // Scale up small values (< 1) by multiplying
-            while window < Self::ONE && window.is_normal() && scale > -1000 {
-                window = window * base_scalar;
-                scale -= 1;
-            }
-
-            // Scale down large values (>= base) by dividing
-            while window >= base_scalar && window.is_normal() && scale < 1000 {
-                window = window / base_scalar;
-                scale += 1;
-            }
-
-            // Extract digits using multiplication only
-            let mut current = window;
-            let mut digit_chars = Vec::new();
-
-            for d in 0..digits {
-                // Add decimal point after first digit
-                if d == 1 {
-                    digit_chars.push('.');
-                }
-
-                // Extract integer part as next digit
-                let digit_value = current.floor();
-                let digit = digit_value.to_u8().min(base - 1); // Clamp to valid range
-
-                // Convert to character
-                digit_chars.push(if digit < 10 {
-                    (digit + 48) as char  // '0' to '9'
+            let (mut power, scale) = if self.is_negative() {
+                string.push('-');
+                if self == Self::MIN {
+                    // Special case, can't negate, just use positive MAX
+                    let power = -self.log(Self::MAX).floor();
+                    let scale = -base_scalar.pow(power);
+                    (power, scale)
                 } else {
-                    (digit + 55) as char  // 'A' to 'Z'
-                });
+                    let abs_self = -self; // Make it positive for log calculation
+                    let power = -abs_self.log(base_scalar).floor();
+                    let scale = -base_scalar.pow(power);
+                    (power, scale)
+                }
+            } else {
+                string.push('+');
+                let power = -self.log(base_scalar).floor();
+                let scale = base_scalar.pow(power);
+                (power, scale)
+            };
+            let mut normalized = self * scale; // normalized to [1, base)
 
-                // Continue with fractional part
-                current = (current - digit_value) * base_scalar;
+            // Use scientific notation if exponent > digits or < -5
+            let exponent_int = power.to_isize();
+            let use_scientific = exponent_int > digits as isize || exponent_int < -5;
 
-                // Stop if we've extracted all precision
-                if current.is_zero() || current.vanished() {
+            if use_scientific {
+                power = Self::ZERO;
+            }
+
+            for _ in 0..digits {
+                let digit = normalized.to_u8();
+                normalized = normalized - digit;
+                normalized = normalized * base;
+                let digit_char = if digit < 10 {
+                    (digit + b'0') as char
+                } else {
+                    (digit - 10 + b'A') as char
+                };
+                string.push(digit_char);
+                // Early termination when no more digits
+                if normalized.is_zero() && !power.is_negative() {
                     break;
                 }
+                if power == 0 {
+                    string.push('.');
+                }
+                power += 1;
             }
 
-            // Add digits to string
-            for ch in digit_chars {
-                string.push(ch);
-            }
-
-            string.push('⦊');
-            if scale != 0 {
+            if use_scientific {
                 string.push('×');
-                if base < 10 {
-                    string.push((base + 48) as char)
+                let base_char = if base < 10 {
+                    (base + b'0') as char
                 } else {
-                    string.push((base + 55) as char);
-                }
+                    (base - 10 + b'A') as char
+                };
+                string.push(base_char);
                 string.push('^');
-                let mut power;
-                if scale < 0 {
-                    power = (-scale) as usize;
-                    string.push('-');
-                } else {
-                    power = scale as usize;
-                    string.push('+');
-                }
-                let mut pow_digits = Vec::new();
-                while power != 0 {
-                    let remainder = (power % base as usize) as u8;
-                    if remainder < 10 {
-                        pow_digits.push((remainder + 48) as u8);
-                    } else {
-                        pow_digits.push((remainder + 55) as u8);
-                    }
-                    power /= base as usize;
-                }
-                for &digit in pow_digits.iter().rev() {
-                    string.push(digit as char);
-                }
+                string.push_str(&exponent_int.to_string());
             }
         }
 
+        string.push('⦊');
         string
     }
     fn format_debug_plain(&self) -> String {

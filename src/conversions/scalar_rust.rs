@@ -622,7 +622,7 @@ where
             return i8::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (8 + 1 - shift);
+        value = value >> (7 - shift);
         value
     }
 
@@ -663,7 +663,7 @@ where
             return i16::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (16 + 1 - shift);
+        value = value >> (15 - shift);
         value
     }
 
@@ -704,7 +704,7 @@ where
             return i32::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (32 + 1 - shift);
+        value = value >> (31 - shift);
         value
     }
 
@@ -745,7 +745,7 @@ where
             return i64::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (64 + 1 - shift);
+        value = value >> (63 - shift);
         value
     }
 
@@ -786,7 +786,7 @@ where
             return i128::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (128 + 1 - shift);
+        value = value >> (127 - shift);
         value
     }
 
@@ -827,7 +827,7 @@ where
             return isize::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (std::mem::size_of::<isize>() * 8 + 1 - shift);
+        value = value >> (std::mem::size_of::<isize>() * 8 - 1 - shift);
         value
     }
 
