@@ -1249,7 +1249,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rustI
     /// use spirix::{Scalar, ScalarF5E5};
     ///
     /// // The floor of the answer to everything is itself

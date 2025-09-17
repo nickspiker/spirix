@@ -122,6 +122,15 @@ where
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
+
+        // Check if exponent is an integer
+        if exp.is_integer() {
+            // Use exponentiation by squaring for integer exponents
+            let exp_int = exp.to_isize();
+            return self.integer_power(exp_int);
+        }
+
+        // Fall back to logarithmic method for non-integer exponents
         (exp * self.ln()).exp()
     }
     pub(crate) fn scalar_logarithm_scalar(&self, base: &Self) -> Self {
@@ -167,5 +176,36 @@ where
         let base_lb = base.lb();
         let result = self_lb / base_lb;
         result
+    }
+
+    fn integer_power(&self, n: isize) -> Self {
+        if n == 0 {
+            return Self::ONE;
+        }
+        if n == 1 {
+            return *self;
+        }
+        if n == -1 {
+            return Self::ONE / *self;
+        }
+
+        let mut result = Self::ONE;
+        let mut base = *self;
+        let mut exp = n.abs() as usize;
+
+        // Exponentiation by squaring
+        while exp > 0 {
+            if exp & 1 == 1 {
+                result = result * base;
+            }
+            base = base.square();
+            exp >>= 1;
+        }
+
+        if n < 0 {
+            Self::ONE / result
+        } else {
+            result
+        }
     }
 }

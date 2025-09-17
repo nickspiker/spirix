@@ -223,56 +223,73 @@ where
             }
         } else {
             let base_scalar = Self::from(base);
-            let (mut power, scale) = if self.is_negative() {
+            let (power, scale) = if self.is_negative() {
                 string.push('-');
                 if self == Self::MIN {
                     // Special case, can't negate, just use positive MAX
-                    let power = -self.log(Self::MAX).floor();
-                    let scale = -base_scalar.pow(power);
+                    let power = self.log(Self::MAX).floor();
+                    let scale = -base_scalar.pow(-power);
                     (power, scale)
                 } else {
                     let abs_self = -self; // Make it positive for log calculation
-                    let power = -abs_self.log(base_scalar).floor();
-                    let scale = -base_scalar.pow(power);
+                    let power = abs_self.log(base_scalar).floor();
+                    let scale = -base_scalar.pow(-power);
                     (power, scale)
                 }
             } else {
                 string.push('+');
-                let power = -self.log(base_scalar).floor();
-                let scale = base_scalar.pow(power);
+                let power = self.log(base_scalar).floor();
+                let scale = base_scalar.pow(-power);
                 (power, scale)
             };
-            let mut normalized = self * scale; // normalized to [1, base)
 
-            // Use scientific notation if exponent > digits or < -5
-            let exponent_int = power.to_isize();
-            let use_scientific = exponent_int > digits as isize || exponent_int < -5;
-
-            if use_scientific {
-                power = Self::ZERO;
-            }
-
-            for _ in 0..digits {
-                let digit = normalized.to_u8();
-                normalized = normalized - digit;
-                normalized = normalized * base;
-                let digit_char = if digit < 10 {
-                    (digit + b'0') as char
-                } else {
-                    (digit - 10 + b'A') as char
-                };
-                string.push(digit_char);
-                // Early termination when no more digits
-                if normalized.is_zero() && !power.is_negative() {
-                    break;
-                }
-                if power == 0 {
-                    string.push('.');
-                }
-                power += 1;
-            }
+            // Three-way split: Big (scientific), Normal (decimal), Small (scientific)
+            let mut exponent_int = power.to_isize();
+            let use_scientific = exponent_int > digits as isize - 1 || exponent_int < -5;
 
             if use_scientific {
+                let mut scale = scale;
+                let mut normalized = self * scale; // normalized to [1, base)
+
+                // Correct the exponent if logarithm was imprecise
+                while normalized >= base_scalar {
+                    exponent_int += 1;
+                    scale = scale / base_scalar;
+                    normalized = normalized / base_scalar;
+                }
+                while normalized < 1 && !normalized.is_zero() {
+                    exponent_int -= 1;
+                    scale = scale * base_scalar;
+                    normalized = normalized * base_scalar;
+                }
+
+                // Apply halvzies rounding: if very close to base, round to 1 and increment exponent
+                if normalized >= base_scalar - 0.5 {
+                    normalized = Self::ONE;
+                    exponent_int += 1;
+                }
+
+                let mut first_digit = true;
+                for _ in 0..digits {
+                    let digit = normalized.to_u8();
+                    normalized = normalized - digit;
+                    normalized = normalized * base;
+                    let digit_char = if digit < 10 {
+                        (digit + b'0') as char
+                    } else {
+                        (digit - 10 + b'A') as char
+                    };
+                    string.push(digit_char);
+
+                    if first_digit {
+                        string.push('.');
+                        first_digit = false;
+                    }
+
+                    if normalized.is_zero() {
+                        break;
+                    }
+                }
                 string.push('×');
                 let base_char = if base < 10 {
                     (base + b'0') as char
@@ -282,6 +299,67 @@ where
                 string.push(base_char);
                 string.push('^');
                 string.push_str(&exponent_int.to_string());
+            } else {
+                // Normal notation: use floor to split integer and fractional parts
+                let mut integer_part = self.floor();
+                let mut fractional_part = *self - integer_part;
+
+                // Extract integer digits using /base
+                let mut int_digits = Vec::new();
+                integer_part = integer_part.magnitude();
+                let mut digit_count = 0;
+
+                if integer_part.is_zero() {
+                    int_digits.push(0u8);
+                } else {
+                    let mut leading = true;
+                    while !integer_part.is_zero() && digit_count < digits {
+                        let scaled = integer_part / base_scalar;
+                        integer_part = scaled.floor();
+                        let digit = ((scaled - scaled.floor()) * base_scalar + 0.5f32).to_u8();
+                        int_digits.push(digit);
+
+                        // Only count non-leading digits
+                        if leading && digit == 0 {
+                            // Still leading zeros, don't increment counter
+                        } else {
+                            leading = false;
+                            digit_count += 1;
+                        }
+                    }
+                }
+
+                // Convert integer part
+                for &digit in int_digits.iter().rev() {
+                    let digit_char = if digit < 10 {
+                        (digit + b'0') as char
+                    } else {
+                        (digit - 10 + b'A') as char
+                    };
+                    string.push(digit_char);
+                }
+
+                // Handle fractional part if it exists
+                if !fractional_part.is_zero() {
+                    string.push('.');
+                    while digit_count < digits && !fractional_part.is_zero() {
+                        fractional_part = fractional_part * base_scalar;
+                        let digit = fractional_part.to_u8();
+                        fractional_part = fractional_part - digit;
+
+                        // Don't count leading fractional zeros
+                        if !(digit == 0 && digit_count == 0) {
+                            digit_count += 1;
+                        }
+
+                        let digit_char = if digit < 10 {
+                            (digit + b'0') as char
+                        } else {
+                            (digit - 10 + b'A') as char
+                        };
+                        string.push(digit_char);
+                    }
+                }
             }
         }
 
