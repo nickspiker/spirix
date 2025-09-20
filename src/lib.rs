@@ -572,6 +572,14 @@
 //! assert!(normalized < ScalarF5E3::PI * 2);
 //! ```
 
+// Spirix relies on proper integer wraparound behavior for correct operation
+#[cfg(debug_assertions)]
+compile_error!(
+    "Spirix requires overflow checks to be disabled for correct arithmetic behavior. \
+     We'd prefer to disable this crate-wide but Rust doesn't support that (or we're missing something). \
+     Use `cargo build --release` or add `overflow-checks = false` to your [profile.dev] section in Cargo.toml."
+);
+
 pub mod constants;
 pub mod conversions;
 pub mod core;

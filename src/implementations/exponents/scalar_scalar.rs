@@ -126,8 +126,7 @@ where
         // Check if exponent is an integer
         if exp.is_integer() {
             // Use exponentiation by squaring for integer exponents
-            let exp_int = exp.to_isize();
-            return self.integer_power(exp_int);
+            return self.integer_power(exp);
         }
 
         // Fall back to logarithmic method for non-integer exponents
@@ -178,34 +177,27 @@ where
         result
     }
 
-    fn integer_power(&self, n: isize) -> Self {
-        if n == 0 {
+    fn integer_power(&self, n: &Self) -> Self {
+        if n.is_zero() {
             return Self::ONE;
-        }
-        if n == 1 {
-            return *self;
-        }
-        if n == -1 {
-            return Self::ONE / *self;
         }
 
         let mut result = Self::ONE;
-        let mut base = *self;
-        let mut exp = n.abs() as usize;
+        let mut base = if n.is_negative() {
+            self.reciprocal()
+        } else {
+            *self
+        };
+        let mut exp = n.magnitude();
 
-        // Exponentiation by squaring
-        while exp > 0 {
-            if exp & 1 == 1 {
-                result = result * base;
+        while !exp.is_zero() {
+            if (exp & Self::ONE) == 1 {
+                result *= base;
             }
             base = base.square();
-            exp >>= 1;
+            exp = (exp >> 1u8).floor();
         }
 
-        if n < 0 {
-            Self::ONE / result
-        } else {
-            result
-        }
+        result
     }
 }

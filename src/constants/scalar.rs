@@ -116,12 +116,12 @@ macro_rules! impl_scalar_constants {
         fraction: <$f>::MAX_FRACTION,
         exponent: <$e>::MAX_EXPONENT,
     };
-    /// Minimum finite value that can be represented by this type of Scalar.
+    /// Minimum finite value that can be represented by this type of Scalar. Note: Negating this scalar will result in an exploded positive scalar.
     pub const MIN: Self = Self {
         fraction: <$f>::MIN_FRACTION,
         exponent: <$e>::MAX_EXPONENT,
     };
-    /// The smallest positive value that can be represented by this type of Scalar.
+    /// The smallest positive value that can be represented by this type of Scalar. Note: Negating this scalar will result in a vanished negative scalar.
     pub const MIN_POS: Self = Self {
         fraction: <$f>::POS_ONE_FRACTION,
         exponent: <$e>::MIN_EXPONENT,

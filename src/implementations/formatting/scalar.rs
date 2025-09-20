@@ -2,7 +2,8 @@ use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
 use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
+    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
+    ScalarConstants, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7,
 };
 use i256::I256;
 use num_traits::AsPrimitive;
@@ -72,13 +73,13 @@ where
                 .pow(F::FRACTION_BITS)
                 .log(base)
                 .floor()
-                .to_usize()
+                .to_isize()
         } else {
-            Self::TWO.pow(F::FRACTION_BITS).log(base).floor().to_usize()
+            Self::TWO.pow(F::FRACTION_BITS).log(base).floor().to_isize()
         };
 
         if let Some(width) = f.width() {
-            digits = width;
+            digits = width as isize;
         }
 
         let string = self.format_scalar(base, digits);
@@ -198,7 +199,7 @@ where
     I256: From<F>,
     I256: From<E>,
 {
-    fn format_scalar(&self, base: u8, digits: usize) -> String {
+    fn format_scalar(&self, base: u8, digits: isize) -> String {
         let mut string = "⦉".to_owned();
         if !self.is_normal() {
             if self.is_undefined() {
@@ -223,90 +224,57 @@ where
             }
         } else {
             let base_scalar = Self::from(base);
-            let (power, scale) = if self.is_negative() {
-                string.push('-');
-                if self == Self::MIN {
-                    // Special case, can't negate, just use positive MAX
-                    let power = self.log(Self::MAX).floor();
-                    let scale = -base_scalar.pow(-power);
-                    (power, scale)
-                } else {
-                    let abs_self = -self; // Make it positive for log calculation
-                    let power = abs_self.log(base_scalar).floor();
-                    let scale = -base_scalar.pow(-power);
-                    (power, scale)
-                }
-            } else {
-                string.push('+');
-                let power = self.log(base_scalar).floor();
-                let scale = base_scalar.pow(-power);
-                (power, scale)
-            };
 
             // Three-way split: Big (scientific), Normal (decimal), Small (scientific)
-            let mut exponent_int = power.to_isize();
-            let use_scientific = exponent_int > digits as isize - 1 || exponent_int < -5;
-
-            if use_scientific {
-                let mut scale = scale;
-                let mut normalized = self * scale; // normalized to [1, base)
-
-                // Correct the exponent if logarithm was imprecise
-                while normalized >= base_scalar {
-                    exponent_int += 1;
-                    scale = scale / base_scalar;
-                    normalized = normalized / base_scalar;
-                }
-                while normalized < 1 && !normalized.is_zero() {
-                    exponent_int -= 1;
-                    scale = scale * base_scalar;
-                    normalized = normalized * base_scalar;
-                }
-
-                // Apply halvzies rounding: if very close to base, round to 1 and increment exponent
-                if normalized >= base_scalar - 0.5 {
-                    normalized = Self::ONE;
-                    exponent_int += 1;
-                }
-
-                let mut first_digit = true;
-                for _ in 0..digits {
-                    let digit = normalized.to_u8();
-                    normalized = normalized - digit;
-                    normalized = normalized * base;
-                    let digit_char = if digit < 10 {
-                        (digit + b'0') as char
-                    } else {
-                        (digit - 10 + b'A') as char
-                    };
-                    string.push(digit_char);
-
-                    if first_digit {
-                        string.push('.');
-                        first_digit = false;
+            if self <= -base_scalar.pow(digits) || self >= base_scalar.pow(digits) {
+                if F::FRACTION_BITS < E::EXPONENT_BITS {
+                    match E::EXPONENT_BITS {
+                        16 => string
+                            .push_str(&ScalarF4E4::from(self).format_scientific_big(base, digits)),
+                        32 => string
+                            .push_str(&ScalarF5E5::from(self).format_scientific_big(base, digits)),
+                        64 => string
+                            .push_str(&ScalarF6E6::from(self).format_scientific_big(base, digits)),
+                        128 => string
+                            .push_str(&ScalarF7E7::from(self).format_scientific_big(base, digits)),
+                        _ => string.push_str(&self.format_scientific_big(base, digits)),
                     }
-
-                    if normalized.is_zero() {
-                        break;
-                    }
-                }
-                string.push('×');
-                let base_char = if base < 10 {
-                    (base + b'0') as char
                 } else {
-                    (base - 10 + b'A') as char
-                };
-                string.push(base_char);
-                string.push('^');
-                string.push_str(&exponent_int.to_string());
+                    string.push_str(&self.format_scientific_big(base, digits))
+                }
+            } else if self < base_scalar.pow(-4) && self > -base_scalar.pow(-4) {
+                if F::FRACTION_BITS < E::EXPONENT_BITS {
+                    match E::EXPONENT_BITS {
+                        16 => string.push_str(
+                            &ScalarF4E4::from(self).format_scientific_small(base, digits),
+                        ),
+                        32 => string.push_str(
+                            &ScalarF5E5::from(self).format_scientific_small(base, digits),
+                        ),
+                        64 => string.push_str(
+                            &ScalarF6E6::from(self).format_scientific_small(base, digits),
+                        ),
+                        128 => string.push_str(
+                            &ScalarF7E7::from(self).format_scientific_small(base, digits),
+                        ),
+                        _ => string.push_str(&self.format_scientific_small(base, digits)),
+                    }
+                } else {
+                    string.push_str(&self.format_scientific_small(base, digits))
+                }
             } else {
+                if self.is_negative() {
+                    string.push('-');
+                } else {
+                    string.push('+');
+                }
                 // Normal notation: use floor to split integer and fractional parts
-                let mut integer_part = self.floor();
-                let mut fractional_part = *self - integer_part;
+                let magnitude = self.magnitude();
+                let mut integer_part = magnitude.floor();
+                let mut fractional_part = magnitude - integer_part;
 
                 // Extract integer digits using /base
                 let mut int_digits = Vec::new();
-                integer_part = integer_part.magnitude();
                 let mut digit_count = 0;
 
                 if integer_part.is_zero() {
@@ -366,6 +334,172 @@ where
         string.push('⦊');
         string
     }
+
+    fn format_scientific_big(&self, base: u8, digits: isize) -> String {
+        let base_scalar = Self::from(base);
+
+        let magnitude = if self == Self::MIN {
+            Self::MAX
+        } else {
+            self.magnitude()
+        };
+        let mut power = magnitude.log(base_scalar).floor();
+        let mut scaled = self / base_scalar.pow(power);
+        while scaled.magnitude() >= base_scalar {
+            power += 1;
+            scaled = self / base_scalar.pow(power);
+        }
+        while scaled.magnitude() < 1 {
+            power -= 1;
+            scaled = self / base_scalar.pow(power);
+        }
+
+        let mut result = String::new();
+
+        if scaled.is_negative() {
+            result.push('-');
+            scaled = -scaled;
+        } else {
+            result.push('+');
+        }
+
+        for _ in 0..digits {
+            let digit = scaled.to_u8();
+            scaled = (scaled - digit) * base_scalar;
+
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+
+            if result.len() == 2 {
+                result.push('.');
+            }
+
+            if scaled.is_zero() {
+                break;
+            }
+        }
+
+        result.push('×');
+        let base_char = if base < 10 {
+            (base + b'0') as char
+        } else {
+            (base - 10 + b'A') as char
+        };
+        result.push(base_char);
+        result.push('^');
+        result.push('+');
+
+        // Format exponent
+        let mut exp_value = power;
+        let mut exp_digits = Vec::new();
+
+        if exp_value.is_zero() {
+            exp_digits.push(0u8);
+        } else {
+            while exp_value.is_normal() {
+                let scaled = exp_value / base_scalar;
+                exp_value = scaled.floor();
+                let digit = ((scaled - exp_value) * base_scalar + Self::HALF).to_u8();
+                exp_digits.push(digit);
+            }
+        }
+
+        for &digit in exp_digits.iter().rev() {
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+        }
+
+        result
+    }
+
+    fn format_scientific_small(&self, base: u8, digits: isize) -> String {
+        let base_scalar = Self::from(base);
+
+        let magnitude = self.magnitude();
+        let mut power = -magnitude.log(base_scalar).floor();
+        let mut scaled = magnitude * base_scalar.pow(power);
+        while scaled.magnitude() > base_scalar {
+            power -= 1;
+            scaled = magnitude * base_scalar.pow(power);
+        }
+        while scaled.magnitude() < 1 {
+            power += 1;
+            scaled = magnitude * base_scalar.pow(power);
+        }
+
+        let mut result = String::new();
+
+        if self.is_negative() {
+            result.push('-');
+        } else {
+            result.push('+');
+        }
+
+        for _ in 0..digits {
+            let digit = scaled.to_u8();
+            scaled = (scaled - digit) * base_scalar;
+
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+
+            if result.len() == 2 {
+                result.push('.');
+            }
+
+            if scaled.is_zero() {
+                break;
+            }
+        }
+
+        result.push('×');
+        let base_char = if base < 10 {
+            (base + b'0') as char
+        } else {
+            (base - 10 + b'A') as char
+        };
+        result.push(base_char);
+        result.push('^');
+        result.push('-');
+
+        // Format exponent
+        let mut exp_value = power;
+        let mut exp_digits = Vec::new();
+
+        if exp_value.is_zero() {
+            exp_digits.push(0u8);
+        } else {
+            while exp_value.is_normal() {
+                let scaled = exp_value / base_scalar;
+                exp_value = scaled.floor();
+                let digit = ((scaled - exp_value) * base_scalar + Self::HALF).to_u8();
+                exp_digits.push(digit);
+            }
+        }
+
+        for &digit in exp_digits.iter().rev() {
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+        }
+
+        result
+    }
+
     fn format_debug_plain(&self) -> String {
         let mut binary = String::new();
         let mut rotating = self.fraction;

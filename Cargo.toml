@@ -11,6 +11,7 @@ readme = "README.md"
 repository = "https://github.com/nickspiker/spirix"
 homepage = "https://github.com/nickspiker/spirix"
 documentation = "https://docs.rs/spirix"
+overflow-checks = false
 
 [dependencies]
 i256 = "0.2.2"
@@ -26,10 +27,15 @@ approx = "0.5"
 criterion = { version = "0.5", features = ["html_reports"] }
 paste = "1.0"
 
-[profile.release]
+[profile.dev]
 opt-level = 3
 overflow-checks = false
 debug = true
+
+[profile.release]
+opt-level = 3
+overflow-checks = false
+debug = false
 
 [[bench]]
 name = "benchmarks"
