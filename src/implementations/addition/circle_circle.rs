@@ -168,7 +168,7 @@ where
             if circle.vanished() {
                 return *self;
             }
-            if self.is_zero(){
+            if self.is_zero() {
                 return *circle;
             }
             return *self;

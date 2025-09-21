@@ -1,5 +1,5 @@
-use spirix::*;
 use approx::assert_relative_eq;
+use spirix::*;
 
 // Integration tests for cross-type operations and real-world scenarios
 // These tests verify that different precision configurations work together
@@ -109,7 +109,7 @@ mod scalar_circle_interactions {
         let sum_real: f32 = sum.r().into();
         let sum_imag: f32 = sum.i().into();
         assert_relative_eq!(sum_real, 10.0, epsilon = 1e-5); // 7 + 3
-        assert_relative_eq!(sum_imag, 4.0, epsilon = 1e-5);   // 0 + 4
+        assert_relative_eq!(sum_imag, 4.0, epsilon = 1e-5); // 0 + 4
 
         // Circle + Scalar should be commutative
         let sum2 = circle + scalar;
@@ -188,13 +188,7 @@ mod chained_operations {
         assert!(undefined_start.is_undefined());
 
         // Chain multiple operations
-        let result = undefined_start
-            .square()
-            .exp()
-            .ln()
-            .sin()
-            .cos()
-            .tan();
+        let result = undefined_start.square().exp().ln().sin().cos().tan();
 
         // Should still be undefined
         assert!(result.is_undefined());
@@ -253,13 +247,7 @@ mod chained_operations {
         let precise = ScalarF7E4::from(std::f64::consts::PI);
 
         // Chain operations that might degrade precision
-        let result = precise
-            .sin()
-            .exp()
-            .ln()
-            .cos()
-            .square()
-            .sqrt();
+        let result = precise.sin().exp().ln().cos().square().sqrt();
 
         if result.is_normal() {
             // Should be close to original value
@@ -341,7 +329,7 @@ mod real_world_scenarios {
 
             for i in 0..max_iter {
                 let mag_squared: f32 = z.magnitude_squared().into();
-            if mag_squared > 4.0 {
+                if mag_squared > 4.0 {
                     return i;
                 }
                 z = z.square() + c;
@@ -376,9 +364,7 @@ mod real_world_scenarios {
         let data = vec![1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0];
 
         // Convert to Spirix complex numbers
-        let spirix_data: Vec<CircleF5E3> = data.iter()
-            .map(|&x| CircleF5E3::from(x))
-            .collect();
+        let spirix_data: Vec<CircleF5E3> = data.iter().map(|&x| CircleF5E3::from(x)).collect();
 
         // Compute one DFT bin (k=1)
         let k = 1;
@@ -401,10 +387,10 @@ mod real_world_scenarios {
     fn test_financial_calculation() {
         // Test compound interest calculation with high precision
         // A = P(1 + r/n)^(nt)
-        let principal = ScalarF7E4::from(10000.0);      // $10,000
-        let rate = ScalarF7E4::from(0.05);              // 5% annual rate
+        let principal = ScalarF7E4::from(10000.0); // $10,000
+        let rate = ScalarF7E4::from(0.05); // 5% annual rate
         let compounds_per_year = ScalarF7E4::from(12.0); // Monthly compounding
-        let years = ScalarF7E4::from(10.0);             // 10 years
+        let years = ScalarF7E4::from(10.0); // 10 years
 
         let one = ScalarF7E4::ONE;
         let rate_per_period = rate / compounds_per_year;
@@ -418,7 +404,7 @@ mod real_world_scenarios {
             let factor_val: f64 = compound_factor.into();
 
             // Should be close to analytical result: 10000 * (1 + 0.05/12)^(12*10)
-            let expected = 10000.0 * (1.0 + 0.05/12.0_f64).powf(12.0 * 10.0);
+            let expected = 10000.0 * (1.0 + 0.05 / 12.0_f64).powf(12.0 * 10.0);
             assert_relative_eq!(final_val, expected, epsilon = 1e-2);
 
             // Compound factor should be > 1
@@ -462,9 +448,9 @@ mod real_world_scenarios {
 
         // Filter should gradually respond to step
         for i in 3..6 {
-            if filtered[i].is_normal() && filtered[i-1].is_normal() {
+            if filtered[i].is_normal() && filtered[i - 1].is_normal() {
                 let current_val: f32 = filtered[i].into();
-                let prev_val: f32 = filtered[i-1].into();
+                let prev_val: f32 = filtered[i - 1].into();
                 // Should be increasing during step response
                 assert!(current_val >= prev_val - 1e-6);
             }

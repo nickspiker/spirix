@@ -33,10 +33,16 @@ fn test_debug_bitwise() {
 #[test]
 fn test_debug_integer_properties() {
     let neg_int = ScalarF5E3::from(-17);
-    println!("ScalarF5E3::from(-17).is_integer() = {}", neg_int.is_integer());
+    println!(
+        "ScalarF5E3::from(-17).is_integer() = {}",
+        neg_int.is_integer()
+    );
 
     let pos_int = ScalarF5E3::from(42);
-    println!("ScalarF5E3::from(42).is_integer() = {}", pos_int.is_integer());
+    println!(
+        "ScalarF5E3::from(42).is_integer() = {}",
+        pos_int.is_integer()
+    );
 }
 
 #[test]

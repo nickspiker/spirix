@@ -125,7 +125,7 @@
 //! ### Type Aliases for Valid Configurations
 //!
 //! For convenience, Spirix provides type aliases for all valid Rust fraction and exponent combinations.
-//! 
+//!
 //! Here are some examples:
 //!```rust
 //! // Format: F#E# (Fraction bits, Exponent bits)
@@ -173,9 +173,9 @@
 //! assert!(!neg_huge.is_undefined()); // Still defined!
 //! assert!(neg_huge.is_negative());
 //! ```
-//! 
+//!
 //! ### 1. Infinity and Zero Identities
-//! 
+//!
 //! Spirix implements mathematical identities in accordance with Riemann sphere principles,
 //! with proper handling of Infinity and Zero:
 //!
@@ -203,7 +203,7 @@
 //! // You can use the built in Infinity constant
 //! let undefined_multiply = ScalarF5E3::INFINITY * still_zero;
 //! assert!(undefined_multiply.is_undefined());
-//! 
+//!
 //! // Reciprocal relationships
 //! let zero = ScalarF5E3::ONE / infinity;  // 1/∞ = 0
 //! assert!(zero.is_zero());
@@ -227,32 +227,32 @@
 //! ```
 //!
 //! Infinity in Spirix represents the directionless "point at Infinity" on the Riemann sphere, a singularity that conceptually unifies various approaches to Infinity and zero.
-//! 
+//!
 //! ### 2. Vanished Values and Their Identities
-//! 
+//!
 //! Spirix uniquely handles infinitesimal values that approach but never equal Zero:
-//! 
+//!
 //! ```rust
 //! use spirix::{Scalar, ScalarF5E3};
-//! 
+//!
 //! // Create a vanished value
 //! let tiny = ScalarF5E3::MIN_POS / 42;
 //! assert!(tiny.vanished() && tiny.is_positive());
-//! 
+//!
 //! // Adding a vanished value to a normal value is like adding Zero
 //! let normal = ScalarF5E3::from(42);
 //! let sum = normal + tiny;
 //! assert!(sum == normal);
-//! 
+//!
 //! // But adding two vanished values is undefined, as the magnitude is unknown
 //! let tiny2 = ScalarF5E3::MIN_POS / 17;
 //! let undef_sum = tiny + tiny2;
 //! assert!(undef_sum.is_undefined());
-//! 
+//!
 //! // Division by a vanished value produces an exploded result
 //! let huge = ScalarF5E3::ONE / tiny;
 //! assert!(huge.exploded());
-//! 
+//!
 //! // Multiplying vanished returns vanished
 //! let even_smaller = tiny * tiny2;
 //! assert!(even_smaller.vanished());
@@ -364,12 +364,12 @@
 //! let z1 = CircleF5E3::from((7, 4));
 //! let z2 = CircleF5E3::from((3.8, 2.2));
 //! let complex_remainder = z1 % z2;
-//!``` 
+//!```
 //! For Circle-Circle operations, this implements:
 //!
 //! (a + b*i) % (c + d*i) = ((a*c + b*d) + (b*c - a*d)*i) % (c² + d²)
 //!
-//!```rust 
+//!```rust
 //! // Circle-Scalar modulus - based on magnitude
 //! let s = ScalarF5E3::from(2);
 //! let magnitude_remainder = z1 % s;
@@ -388,7 +388,7 @@
 //! let z1 = CircleF5E3::from((7, 4));  // 7 + 4*i
 //! let z2 = CircleF5E3::from((3, 2));  // 3 + 2*i
 //! let component_remainder = z1.modulo(z2);  // (7 % 3) + (4 % 2)*i = 1 + 0i
-//! 
+//!
 //! // Circle-Scalar component-wise modulo - both components modulo Scalar
 //! let component_scalar_mod = z1.modulo(s);  // (7 % 2) + (4 % 2)*i = 1 + 0i
 //! ```

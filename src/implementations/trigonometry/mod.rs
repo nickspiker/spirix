@@ -1,2 +1,2 @@
-mod scalar;
 mod circle;
+mod scalar;

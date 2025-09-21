@@ -1,7 +1,7 @@
 // src/core/scalar.rs
 use crate::Integer;
 /// # Scalar
-/// 
+///
 /// The `Scalar<F, E>` type represents real numbers using two's complement fraction and exponent components with customizable precision.
 ///
 /// ## Type Parameters
@@ -13,7 +13,7 @@ use crate::Integer;
 ///
 /// Scalars use a normalized representation where the value is calculated as:
 /// `fraction * 2^exponent` for normal numbers, with specific bit patterns for:
-/// 
+///
 /// - Normal finite numbers `[#]` (positive and negative)
 /// - Exploded values `[↑]` (numbers too large to represent)
 /// - Vanished values `[↓]` (numbers too small to represent)
@@ -39,7 +39,7 @@ use crate::Integer;
 /// N2: Vanishing Values
 /// □□■xxxxx  Positive vanished [+↓] (approaching but not equal to 0)
 /// ■■□xxxxx  Negative vanished [-↓] (approaching but not equal to 0)
-/// 
+///
 /// N3+: Undefined States
 /// □□□xxxxx | ■■■xxxxx  Specific undefined states
 /// ```
@@ -66,7 +66,7 @@ use crate::Integer;
 /// // Escaped values preserve phase
 /// let exploded = ScalarF5E3::MAX * 2;
 /// assert!(exploded.exploded() && exploded.is_positive());
-/// 
+///
 /// // Vanished values preserve phase too!
 /// let vanished = ScalarF5E3::MAX_NEG / 3;
 /// assert!(vanished.vanished() && vanished.is_negative());
@@ -79,10 +79,9 @@ pub struct Scalar<F: Integer, E: Integer> {
     /// The fraction size determines the precision of the value.
     /// The prefix bit pattern determines the number's state (normal, Zero, Infinity, exploded, vanished, undefined).
     pub fraction: F,
-    
+
     /// The exponent component determining the scale of the value.
     /// The exponent size determines the range of the value.
     /// When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
     pub exponent: E,
 }
-

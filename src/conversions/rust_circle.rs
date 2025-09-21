@@ -1,5 +1,5 @@
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{FullInt,IntConvert};
+use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
@@ -9,7 +9,7 @@ use std::ops::*;
 
 /// # Convert Values to Complex Numbers
 ///
-/// The `IntoCircle` trait provides a consistent way to convert various types into 
+/// The `IntoCircle` trait provides a consistent way to convert various types into
 /// Spirix's `Circle<F, E>` complex number type.
 ///
 /// ## What This Trait Does
@@ -46,7 +46,7 @@ use std::ops::*;
 ///
 /// ## Precision Handling
 ///
-/// When converting from IEEE-754 floating point types to Spirix's `Circle`, 
+/// When converting from IEEE-754 floating point types to Spirix's `Circle`,
 /// special care is taken to properly handle:
 ///
 /// - NaN values (converted to generic undefined)
@@ -55,7 +55,7 @@ use std::ops::*;
 ///
 /// ## Conversion Between Number Systems
 ///
-/// Converting from standard IEEE-754 floating point to Spirix's number system 
+/// Converting from standard IEEE-754 floating point to Spirix's number system
 /// involves several steps:
 ///
 /// 0. For real primitives:
@@ -131,27 +131,27 @@ where
     I256: From<E>,
     R: Copy,
 {
-/// # Convert a Real Number to a Complex Number
-///
-/// Creates a Circle with the given value as real component and zero imaginary component.
-///
-/// This conversion is useful when you need to use a real number in context where  a complex number is expected.
-///
-/// ## Examples
-///
-/// ```rust
-/// use spirix::{Circle, CircleF5E3};
-///
-/// // From integer
-/// let z1 = CircleF5E3::from(42);
-/// assert_eq!(z1.r(), 42);
-/// assert_eq!(z1.i(), 0);
-///
-/// // From floating point
-/// let z2 = CircleF5E3::from(3.75);
-/// assert!(z2.r(), 3.75);
-/// assert_eq!(z2.i(), 0);
-/// ```
+    /// # Convert a Real Number to a Complex Number
+    ///
+    /// Creates a Circle with the given value as real component and zero imaginary component.
+    ///
+    /// This conversion is useful when you need to use a real number in context where  a complex number is expected.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    ///
+    /// // From integer
+    /// let z1 = CircleF5E3::from(42);
+    /// assert_eq!(z1.r(), 42);
+    /// assert_eq!(z1.i(), 0);
+    ///
+    /// // From floating point
+    /// let z2 = CircleF5E3::from(3.75);
+    /// assert!(z2.r(), 3.75);
+    /// assert_eq!(z2.i(), 0);
+    /// ```
     fn from(value: R) -> Self {
         let scalar = Scalar::<F, E>::from(value);
         Self {
@@ -216,31 +216,31 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-/// # Convert a Binary64 Complex pair to a Circle
-///
-/// Creates a Circle from a std::num::Complex<f64> pair, handling IEEE-754 special values.
-///
-/// ## Examples
-///
-/// ```rust
-/// use spirix::{Circle, CircleF5E3};
-/// use num_complex::Complex;
-///
-/// // Create a std::num::Complex<f64>
-/// let complex = Complex::new(1.5, -2.7);
-///
-/// // Convert to Circle
-/// let z = CircleF5E3::from(complex);
-///
-/// assert_eq!(z.r(), 1.5);
-/// assert_eq!(z.i(), -2.7);
-/// ```
-///
-/// ## Special Cases
-///
-/// - NaN values are converted to undefined states with the `GENERAL` prefix
-/// - Infinities are coerced to singular infinity
-/// - Zero components are preserved as exact zeros
+    /// # Convert a Binary64 Complex pair to a Circle
+    ///
+    /// Creates a Circle from a std::num::Complex<f64> pair, handling IEEE-754 special values.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    /// use num_complex::Complex;
+    ///
+    /// // Create a std::num::Complex<f64>
+    /// let complex = Complex::new(1.5, -2.7);
+    ///
+    /// // Convert to Circle
+    /// let z = CircleF5E3::from(complex);
+    ///
+    /// assert_eq!(z.r(), 1.5);
+    /// assert_eq!(z.i(), -2.7);
+    /// ```
+    ///
+    /// ## Special Cases
+    ///
+    /// - NaN values are converted to undefined states with the `GENERAL` prefix
+    /// - Infinities are coerced to singular infinity
+    /// - Zero components are preserved as exact zeros
     fn from(complex: Complex<f64>) -> Self {
         // Handle NaN values by converting to undefined states
         if complex.re.is_nan() || complex.im.is_nan() {
@@ -313,31 +313,31 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-/// # Convert a Complex Binary32 pair to a Circle
-///
-/// Creates a Circle from a std::num::Complex<f32> value, handling IEEE-754 special values.
-///
-/// ## Examples
-///
-/// ```rust
-/// use spirix::{Circle, CircleF5E3};
-/// use num_complex::Complex;
-///
-/// // Create a std::num::Complex<f32>
-/// let complex = Complex::new(1.5f32, -2.7f32);
-///
-/// // Convert to Circle
-/// let z = CircleF5E3::from(complex);
-///
-/// assert_eq!(z.r(), 1.5);
-/// assert_eq!(z.i(), -2.7);
-/// ```
-///
-/// ## Special Cases
-///
-/// - NaN values are converted to a general undefined state
-/// - Infinities are coerced to infinity
-/// - Subnormal f32 values are properly scaled during conversion
+    /// # Convert a Complex Binary32 pair to a Circle
+    ///
+    /// Creates a Circle from a std::num::Complex<f32> value, handling IEEE-754 special values.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    /// use num_complex::Complex;
+    ///
+    /// // Create a std::num::Complex<f32>
+    /// let complex = Complex::new(1.5f32, -2.7f32);
+    ///
+    /// // Convert to Circle
+    /// let z = CircleF5E3::from(complex);
+    ///
+    /// assert_eq!(z.r(), 1.5);
+    /// assert_eq!(z.i(), -2.7);
+    /// ```
+    ///
+    /// ## Special Cases
+    ///
+    /// - NaN values are converted to a general undefined state
+    /// - Infinities are coerced to infinity
+    /// - Subnormal f32 values are properly scaled during conversion
     fn from(complex: Complex<f32>) -> Self {
         // Handle NaN values by converting to undefined states
         if complex.re.is_nan() || complex.im.is_nan() {
@@ -414,33 +414,33 @@ where
     R: Copy,
     I: Copy,
 {
-/// # Create a Circle from a pair
-///
-/// Creates a Circle from a tuple of (real, imaginary) components, allowing
-/// different types for each component.
-///
-/// ## Examples
-///
-/// ```rust
-/// use spirix::{Circle, CircleF5E3};
-///
-/// // Same types
-/// let z1 = CircleF5E3::from((3, 4));
-/// assert_eq!(z1.r(), 3);
-/// assert_eq!(z1.i(), 4);
-///
-/// // Mixed types
-/// let z2 = CircleF5E3::from((5, -1.5));
-/// assert_eq!(z2.r(), 5);
-/// assert_eq!(z2.i(), -1.5);
-/// ```
-///
-/// ## Conversion Process
-///
-/// 1. Each component is independently converted to a Scalar
-/// 2. Components are aligned
-/// 3. A shared exponent is determined for both components
-/// 4. Any special cases (infinities, zeros, etc.) are handled
+    /// # Create a Circle from a pair
+    ///
+    /// Creates a Circle from a tuple of (real, imaginary) components, allowing
+    /// different types for each component.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    ///
+    /// // Same types
+    /// let z1 = CircleF5E3::from((3, 4));
+    /// assert_eq!(z1.r(), 3);
+    /// assert_eq!(z1.i(), 4);
+    ///
+    /// // Mixed types
+    /// let z2 = CircleF5E3::from((5, -1.5));
+    /// assert_eq!(z2.r(), 5);
+    /// assert_eq!(z2.i(), -1.5);
+    /// ```
+    ///
+    /// ## Conversion Process
+    ///
+    /// 1. Each component is independently converted to a Scalar
+    /// 2. Components are aligned
+    /// 3. A shared exponent is determined for both components
+    /// 4. Any special cases (infinities, zeros, etc.) are handled
     fn from(pair: (R, I)) -> Self {
         let (real, imag) = pair;
         let real_scalar = Scalar::<F, E>::from(real);
@@ -503,29 +503,29 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-/// # Convert Binary64 Complex pair reference to a Circle
-///
-/// Creates a Circle from a reference to a std::num::Complex<f64>, allowing conversion without taking ownership of the source value.
-///
-/// ## Examples
-///
-/// ```rust
-/// use spirix::{Circle, CircleF5E3};
-/// use num_complex::Complex;
-///
-/// // Create a std::num::Complex<f64>
-/// let complex = Complex::new(1.5, -2.7);
-///
-/// // Convert from reference without moving the original
-/// let z = CircleF5E3::from(&complex);
-///
-/// // Original complex value is still available
-/// assert_eq!(complex.re, 1.5);
-/// assert_eq!(z.r(), 1.5);
-/// assert_eq!(z.i(), -2.7);
-/// ```
-///
-/// This implementation delegates to the `From<Complex<f64>>` implementation after dereferencing.
+    /// # Convert Binary64 Complex pair reference to a Circle
+    ///
+    /// Creates a Circle from a reference to a std::num::Complex<f64>, allowing conversion without taking ownership of the source value.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    /// use num_complex::Complex;
+    ///
+    /// // Create a std::num::Complex<f64>
+    /// let complex = Complex::new(1.5, -2.7);
+    ///
+    /// // Convert from reference without moving the original
+    /// let z = CircleF5E3::from(&complex);
+    ///
+    /// // Original complex value is still available
+    /// assert_eq!(complex.re, 1.5);
+    /// assert_eq!(z.r(), 1.5);
+    /// assert_eq!(z.i(), -2.7);
+    /// ```
+    ///
+    /// This implementation delegates to the `From<Complex<f64>>` implementation after dereferencing.
     fn from(complex: &Complex<f64>) -> Self {
         Self::from(*complex)
     }
@@ -585,29 +585,29 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-/// # Convert Binary32 Complex pair reference to a Circle
-///
-/// Creates a Circle from a reference to a std::num::Complex<f32>, allowing conversion without taking ownership of the source value.
-///
-/// ## Examples
-///
-/// ```rust
-/// use spirix::{Circle, CircleF5E3};
-/// use num_complex::Complex;
-///
-/// // Create a std::num::Complex<f32>
-/// let complex = Complex::new(1.5f32, -2.7f32);
-///
-/// // Convert from reference without moving the original
-/// let z = CircleF5E3::from(&complex);
-///
-/// // Original complex value is still available
-/// assert_eq!(complex.re, 1.5f32);
-/// assert_eq!(z.r(), 1.5);
-/// assert_eq!(z.i(), -2.7);
-/// ```
-///
-/// This implementation delegates to the `From<Complex<f32>>` implementation after dereferencing.
+    /// # Convert Binary32 Complex pair reference to a Circle
+    ///
+    /// Creates a Circle from a reference to a std::num::Complex<f32>, allowing conversion without taking ownership of the source value.
+    ///
+    /// ## Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    /// use num_complex::Complex;
+    ///
+    /// // Create a std::num::Complex<f32>
+    /// let complex = Complex::new(1.5f32, -2.7f32);
+    ///
+    /// // Convert from reference without moving the original
+    /// let z = CircleF5E3::from(&complex);
+    ///
+    /// // Original complex value is still available
+    /// assert_eq!(complex.re, 1.5f32);
+    /// assert_eq!(z.r(), 1.5);
+    /// assert_eq!(z.i(), -2.7);
+    /// ```
+    ///
+    /// This implementation delegates to the `From<Complex<f32>>` implementation after dereferencing.
     fn from(complex: &Complex<f32>) -> Self {
         Self::from(*complex)
     }

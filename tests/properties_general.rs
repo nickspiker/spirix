@@ -1,6 +1,6 @@
-use spirix::*;
-use proptest::prelude::*;
 use approx::assert_relative_eq;
+use proptest::prelude::*;
+use spirix::*;
 
 // Property-based tests for mathematical invariants and properties
 // These tests use randomly generated inputs to verify mathematical properties hold

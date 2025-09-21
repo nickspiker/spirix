@@ -92,7 +92,7 @@ where
                 };
             }
             if denominator.is_infinite() {
-                return Circle::<F,E>::INFINITY;
+                return Circle::<F, E>::INFINITY;
             }
             if denominator.vanished() {
                 let prefix: F = MODULUS_VANISHED.prefix.sa();
@@ -159,7 +159,7 @@ where
                 };
             }
             if denominator.is_infinite() {
-                return Circle::<F,E>::INFINITY;
+                return Circle::<F, E>::INFINITY;
             }
             if denominator.vanished() {
                 let prefix: F = MODULO_VANISHED.prefix.sa();

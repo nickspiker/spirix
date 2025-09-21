@@ -141,7 +141,7 @@ where
             };
         }
         if real.is_infinite() || imaginary.is_infinite() {
-            return Circle::<F,E>::INFINITY;
+            return Circle::<F, E>::INFINITY;
         }
         if real.vanished() && imaginary.vanished() || real.exploded() || imaginary.exploded() {
             let prefix: F = INDETERMINATE.prefix.sa();

@@ -450,7 +450,9 @@ where
             // If we jumped to exploded/non-normal, we hit the oscillation
             if !scaled.is_normal() || scaled.exploded() {
                 // Use the smaller coefficient approach
-                if let (Some(fallback_power), Some(fallback_scaled)) = (small_coeff_power, small_coeff_scaled) {
+                if let (Some(fallback_power), Some(fallback_scaled)) =
+                    (small_coeff_power, small_coeff_scaled)
+                {
                     power = fallback_power;
                     scaled = fallback_scaled;
 

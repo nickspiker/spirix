@@ -29,7 +29,10 @@ fn test_integer_detection_comprehensive() {
     let zero = ScalarF5E3::ZERO;
     println!("ScalarF5E3::ZERO: {}", zero.is_integer());
     println!("ScalarF5E3::from(0): {}", ScalarF5E3::from(0).is_integer());
-    println!("ScalarF5E3::from(0.0): {}", ScalarF5E3::from(0.0).is_integer());
+    println!(
+        "ScalarF5E3::from(0.0): {}",
+        ScalarF5E3::from(0.0).is_integer()
+    );
 
     // Test if it's related to sign detection
     println!("\n=== Sign information ===");
@@ -59,15 +62,21 @@ fn test_mathematical_integer_operations() {
     // Test operations that should preserve integer nature
     println!("Positive 6:");
     println!("  Original: is_integer() = {}", pos_int.is_integer());
-    println!("  Squared: is_integer() = {}", pos_int.square().is_integer());
+    println!(
+        "  Squared: is_integer() = {}",
+        pos_int.square().is_integer()
+    );
     let pos_times_2: ScalarF5E3 = pos_int * 2.0;
     println!("  Times 2: is_integer() = {}", pos_times_2.is_integer());
 
     println!("\nNegative -6:");
     println!("  Original: is_integer() = {}", neg_int.is_integer());
-    println!("  Squared: is_integer() = {}", neg_int.square().is_integer());  // Should be positive 36
+    println!(
+        "  Squared: is_integer() = {}",
+        neg_int.square().is_integer()
+    ); // Should be positive 36
     let neg_times_2: ScalarF5E3 = neg_int * 2.0;
-    println!("  Times 2: is_integer() = {}", neg_times_2.is_integer());  // Should be negative 12
+    println!("  Times 2: is_integer() = {}", neg_times_2.is_integer()); // Should be negative 12
 
     // Test the square of negative -> positive
     let neg_squared = neg_int.square();
@@ -86,8 +95,14 @@ fn test_zero_variants() {
     let zero_computed = ScalarF5E3::from(5) - ScalarF5E3::from(5);
 
     println!("ScalarF5E3::ZERO.is_integer(): {}", zero_const.is_integer());
-    println!("ScalarF5E3::from(0).is_integer(): {}", zero_int.is_integer());
-    println!("ScalarF5E3::from(0.0).is_integer(): {}", zero_float.is_integer());
+    println!(
+        "ScalarF5E3::from(0).is_integer(): {}",
+        zero_int.is_integer()
+    );
+    println!(
+        "ScalarF5E3::from(0.0).is_integer(): {}",
+        zero_float.is_integer()
+    );
     println!("(5-5).is_integer(): {}", zero_computed.is_integer());
 
     // Are they all considered the same zero?

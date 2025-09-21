@@ -88,7 +88,7 @@ where
                 };
             }
             if denominator.is_infinite() {
-                return Scalar::<F,E>::INFINITY;
+                return Scalar::<F, E>::INFINITY;
             }
             if denominator.vanished() {
                 return Scalar::<F, E> {

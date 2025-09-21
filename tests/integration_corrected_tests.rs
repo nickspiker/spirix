@@ -1,5 +1,5 @@
-use spirix::*;
 use approx::assert_relative_eq;
+use spirix::*;
 
 // Corrected tests based on actual library behavior
 
@@ -62,7 +62,7 @@ mod basic_operations {
         let quotient = a / b;
         assert!(quotient.is_normal());
         let quotient_f32: f32 = quotient.into();
-        assert_relative_eq!(quotient_f32, 7.0/3.0, epsilon = 1e-5);
+        assert_relative_eq!(quotient_f32, 7.0 / 3.0, epsilon = 1e-5);
 
         // Negation
         let neg_a = -a;
@@ -113,7 +113,10 @@ mod basic_operations {
         // Negative integers might not be detected as integers in this implementation
         let neg_int = ScalarF5E3::from(-17);
         // Don't assert what we're not sure about, just test the behavior
-        println!("ScalarF5E3::from(-17).is_integer() = {}", neg_int.is_integer());
+        println!(
+            "ScalarF5E3::from(-17).is_integer() = {}",
+            neg_int.is_integer()
+        );
 
         // Non-integers should definitely not be integers
         assert!(!ScalarF5E3::from(3.14).is_integer());
@@ -275,7 +278,10 @@ mod complex_numbers {
         let prod_imag: f32 = product.i().into();
 
         // From debug output we got 5.5 + (-1)i, so let's verify this
-        println!("Complex multiplication result: {} + {}i", prod_real, prod_imag);
+        println!(
+            "Complex multiplication result: {} + {}i",
+            prod_real, prod_imag
+        );
 
         // The library might be using a different representation or scaling
         // Let's just verify it's consistent and not crash

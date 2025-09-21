@@ -101,11 +101,10 @@ macro_rules! test_all_scalar_types {
 
 // Generate comprehensive tests for all 25 scalar types
 test_all_scalar_types!(
-    ScalarF3E3, ScalarF3E4, ScalarF3E5, ScalarF3E6, ScalarF3E7,
-    ScalarF4E3, ScalarF4E4, ScalarF4E5, ScalarF4E6, ScalarF4E7,
-    ScalarF5E3, ScalarF5E4, ScalarF5E5, ScalarF5E6, ScalarF5E7,
-    ScalarF6E3, ScalarF6E4, ScalarF6E5, ScalarF6E6, ScalarF6E7,
-    ScalarF7E3, ScalarF7E4, ScalarF7E5, ScalarF7E6, ScalarF7E7
+    ScalarF3E3, ScalarF3E4, ScalarF3E5, ScalarF3E6, ScalarF3E7, ScalarF4E3, ScalarF4E4, ScalarF4E5,
+    ScalarF4E6, ScalarF4E7, ScalarF5E3, ScalarF5E4, ScalarF5E5, ScalarF5E6, ScalarF5E7, ScalarF6E3,
+    ScalarF6E4, ScalarF6E5, ScalarF6E6, ScalarF6E7, ScalarF7E3, ScalarF7E4, ScalarF7E5, ScalarF7E6,
+    ScalarF7E7
 );
 
 #[cfg(test)]

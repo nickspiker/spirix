@@ -58,7 +58,7 @@ where
     I256: From<E>,
 {
     pub fn sqrt(&self) -> Self {
-        if self.is_undefined()||self.is_n0() {
+        if self.is_undefined() || self.is_n0() {
             return *self;
         }
         let magnitude = self.magnitude();

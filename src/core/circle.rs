@@ -1,6 +1,6 @@
 use crate::Integer;
 /// # Circle
-/// 
+///
 /// Circles represents complex numbers using two's complement real and imaginary components with a shared exponent and customizable precision/range.
 ///
 /// ## Type Parameters
@@ -12,7 +12,7 @@ use crate::Integer;
 ///
 /// Circles use a normalized representation where components share the same exponent:
 /// `(real + imaginary*i) * 2^exponent` for normal numbers, with specific bit patterns for:
-/// 
+///
 /// - Normal finite numbers `[#]` (with positive and negative components)
 /// - Exploded values `[↑]` (numbers too large to represent)
 /// - Vanished values `[↓]` (numbers too small to represent)
@@ -36,7 +36,7 @@ use crate::Integer;
 ///
 /// N2: Vanishing Values
 /// □□■xxxxx | ■■□xxxxx Vanished [↓]
-/// 
+///
 /// N3+: Undefined States
 /// □□□xxxxx | ■■■xxxxx
 /// ```
@@ -75,11 +75,11 @@ use crate::Integer;
 /// let sum = z + 42;
 /// let product = w.pow(d) * -44.25;
 /// let reciprocal = 1 / d;
-/// 
+///
 /// // Complex-specific operations
 /// let conj = sum.conjugate();
 /// let magnitude = product.magnitude();
-/// 
+///
 /// // Infinity is a singular entity in Spirix
 /// let infinite = z / 0;
 /// assert!(infinite.is_infinite());
@@ -88,10 +88,10 @@ use crate::Integer;
 pub struct Circle<F: Integer, E: Integer> {
     /// The real component representing the real part of the complex number.
     pub real: F,
-    
+
     /// The imaginary component representing the imaginary part of the complex number.
     pub imaginary: F,
-    
+
     /// The shared exponent component determining the scale of both components.
     /// When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
     pub exponent: E,
