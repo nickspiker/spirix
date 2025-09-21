@@ -426,13 +426,42 @@ where
         let magnitude = self.magnitude();
         let mut power = -magnitude.log(base_scalar).floor();
         let mut scaled = magnitude * base_scalar.pow(power);
+
+        // First adjustment loop - while scaled >= base
         while scaled.magnitude() > base_scalar {
             power -= 1;
             scaled = magnitude * base_scalar.pow(power);
         }
+
+        // Second adjustment loop - while scaled < 1, with oscillation detection
+        let mut small_coeff_power = None;
+        let mut small_coeff_scaled = None;
+
         while scaled.magnitude() < 1 {
+            // Store the current state before incrementing (this might be our fallback)
+            if scaled.is_normal() && !scaled.is_zero() {
+                small_coeff_power = Some(power);
+                small_coeff_scaled = Some(scaled);
+            }
+
             power += 1;
             scaled = magnitude * base_scalar.pow(power);
+
+            // If we jumped to exploded/non-normal, we hit the oscillation
+            if !scaled.is_normal() || scaled.exploded() {
+                // Use the smaller coefficient approach
+                if let (Some(fallback_power), Some(fallback_scaled)) = (small_coeff_power, small_coeff_scaled) {
+                    power = fallback_power;
+                    scaled = fallback_scaled;
+
+                    // Keep scaling up until coefficient >= 1 (proper scientific notation)
+                    while scaled < 1 && scaled.is_normal() {
+                        scaled = scaled * base_scalar;
+                        power = power - 1; // Make exponent more negative
+                    }
+                }
+                break;
+            }
         }
 
         let mut result = String::new();
