@@ -24,3 +24,18 @@ pub trait Logarithm<Rhs = Self> {
     type Output;
     fn log(&self, rhs: Rhs) -> Self::Output;
 }
+
+pub trait Min<Rhs = Self> {
+    type Output;
+    fn min(&self, rhs: Rhs) -> Self::Output;
+}
+
+pub trait Max<Rhs = Self> {
+    type Output;
+    fn max(&self, rhs: Rhs) -> Self::Output;
+}
+
+pub trait Clamp<Min, Max> {
+    type Output;
+    fn clamp(&self, min: Min, max: Max) -> Self::Output;
+}

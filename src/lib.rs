@@ -602,3 +602,6 @@ pub use crate::core::{
 pub use crate::constants::{
     CircleConstants, ExponentConstants, FractionConstants, ScalarConstants,
 };
+
+// Operator traits for mixed-type operations
+pub use crate::operators::{Clamp, Logarithm, Max, Min, Power};

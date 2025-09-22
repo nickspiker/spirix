@@ -4,7 +4,7 @@ use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt};
-use std::{borrow::Borrow, ops::*};
+use std::ops::*;
 
 macro_rules! impl_scalar_new {
     ($($f:ty, $e:ty);*) => {
@@ -1615,16 +1615,16 @@ where
     /// ```
     pub fn max<S>(&self, other: S) -> Self
     where
-        S: Borrow<Self>,
+        S: Into<Self>,
     {
-        let other = other.borrow();
+        let other = other.into();
 
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
                 return *self;
             }
             if other.is_undefined() {
-                return *other;
+                return other;
             }
 
             if self.is_infinite() || other.is_infinite() {
@@ -1656,10 +1656,10 @@ where
                 };
             }
         }
-        if *self > *other {
+        if *self > other {
             *self
         } else {
-            *other
+            other
         }
     }
 
@@ -1740,16 +1740,16 @@ where
     /// ```
     pub fn min<S>(&self, other: S) -> Self
     where
-        S: Borrow<Self>,
+        S: Into<Self>,
     {
-        let other = other.borrow();
+        let other = other.into();
 
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
                 return *self;
             }
             if other.is_undefined() {
-                return *other;
+                return other;
             }
 
             if self.is_infinite() || other.is_infinite() {
@@ -1781,10 +1781,10 @@ where
                 };
             }
         }
-        if *self < *other {
+        if *self < other {
             *self
         } else {
-            *other
+            other
         }
     }
     /// Constrains a Scalar value between a minimum and maximum value
@@ -1816,11 +1816,16 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E3};
     ///
-    /// // Normal value clamping
+    /// // Normal value clamping with Scalar bounds
     /// let value = ScalarF4E3::from(42);
     /// let min = ScalarF4E3::from(8);
     /// let max = ScalarF4E3::from(32);
     /// assert!(value.clamp(min, max) == max);
+    ///
+    /// // With mixed primitive types
+    /// let value2 = ScalarF4E3::from(42);
+    /// assert!(value2.clamp(8i16, 32f32) == ScalarF4E3::from(32));
+    /// assert!(value2.clamp(50u8, 100i64) == value2); // within range
     ///
     /// // Value within range
     /// let in_range = ScalarF4E3::from(16);
@@ -1859,20 +1864,20 @@ where
     /// ```
     pub fn clamp<L, R>(&self, min: L, max: R) -> Self
     where
-        L: Borrow<Self>,
-        R: Borrow<Self>,
+        L: Into<Self>,
+        R: Into<Self>,
     {
-        let min = min.borrow();
-        let max = max.borrow();
+        let min = min.into();
+        let max = max.into();
 
         if self.is_undefined() {
             return *self;
         }
         if min.is_undefined() {
-            return *min;
+            return min;
         }
         if max.is_undefined() {
-            return *max;
+            return max;
         }
         if self.is_infinite() || min.is_infinite() || max.is_infinite() {
             return Self {

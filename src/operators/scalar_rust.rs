@@ -785,6 +785,196 @@ macro_rules! impl_scalar_power_rust {
 
 // Implement power and exp for all primitive types
 impl_scalar_power_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+
+// Min, Max and Clamp implementations for Scalar with primitive types
+macro_rules! impl_scalar_comparison_rust {
+    ($($t:ty),*) => {
+        $(
+         impl<
+         F: Integer
+             + FullInt
+             + Shl<isize, Output = F>
+             + Shr<isize, Output = F>
+             + Shl<F, Output = F>
+             + Shr<F, Output = F>
+             + Shl<E, Output = F>
+             + Shr<E, Output = F>,
+         E: Integer
+             + FullInt
+             + Shl<isize, Output = E>
+             + Shr<isize, Output = E>
+             + Shl<E, Output = E>
+             + Shr<E, Output = E>
+             + Shl<F, Output = E>
+             + Shr<F, Output = E>,
+     > Min<$t> for Scalar<F, E>
+     where
+         F: FractionConstants,
+         E: ExponentConstants,
+         Scalar<F, E>: ScalarConstants,
+         u8: AsPrimitive<F>,
+         u16: AsPrimitive<F>,
+         u32: AsPrimitive<F>,
+         u64: AsPrimitive<F>,
+         u128: AsPrimitive<F>,
+         usize: AsPrimitive<F>,
+         i8: AsPrimitive<F>,
+         i16: AsPrimitive<F>,
+         i32: AsPrimitive<F>,
+         i64: AsPrimitive<F>,
+         i128: AsPrimitive<F>,
+         isize: AsPrimitive<F>,
+         u8: AsPrimitive<E>,
+         u16: AsPrimitive<E>,
+         u32: AsPrimitive<E>,
+         u64: AsPrimitive<E>,
+         u128: AsPrimitive<E>,
+         usize: AsPrimitive<E>,
+         i8: AsPrimitive<E>,
+         i16: AsPrimitive<E>,
+         i32: AsPrimitive<E>,
+         i64: AsPrimitive<E>,
+         i128: AsPrimitive<E>,
+         isize: AsPrimitive<E>,
+         I256: From<F>,
+         I256: From<E>,
+     {
+         type Output = Scalar<F, E>;
+
+         fn min(&self, rhs: $t) -> Self::Output {
+             let scalar_rhs = Scalar::<F, E>::from(rhs);
+             self.min(scalar_rhs)
+         }
+     }
+
+     impl<
+     F: Integer
+         + FullInt
+         + Shl<isize, Output = F>
+         + Shr<isize, Output = F>
+         + Shl<F, Output = F>
+         + Shr<F, Output = F>
+         + Shl<E, Output = F>
+         + Shr<E, Output = F>,
+     E: Integer
+         + FullInt
+         + Shl<isize, Output = E>
+         + Shr<isize, Output = E>
+         + Shl<E, Output = E>
+         + Shr<E, Output = E>
+         + Shl<F, Output = E>
+         + Shr<F, Output = E>,
+     > Max<$t> for Scalar<F, E>
+     where
+         F: FractionConstants,
+         E: ExponentConstants,
+         Scalar<F, E>: ScalarConstants,
+         u8: AsPrimitive<F>,
+         u16: AsPrimitive<F>,
+         u32: AsPrimitive<F>,
+         u64: AsPrimitive<F>,
+         u128: AsPrimitive<F>,
+         usize: AsPrimitive<F>,
+         i8: AsPrimitive<F>,
+         i16: AsPrimitive<F>,
+         i32: AsPrimitive<F>,
+         i64: AsPrimitive<F>,
+         i128: AsPrimitive<F>,
+         isize: AsPrimitive<F>,
+         u8: AsPrimitive<E>,
+         u16: AsPrimitive<E>,
+         u32: AsPrimitive<E>,
+         u64: AsPrimitive<E>,
+         u128: AsPrimitive<E>,
+         usize: AsPrimitive<E>,
+         i8: AsPrimitive<E>,
+         i16: AsPrimitive<E>,
+         i32: AsPrimitive<E>,
+         i64: AsPrimitive<E>,
+         i128: AsPrimitive<E>,
+         isize: AsPrimitive<E>,
+         I256: From<F>,
+         I256: From<E>,
+     {
+         type Output = Scalar<F, E>;
+
+         fn max(&self, rhs: $t) -> Self::Output {
+             let scalar_rhs = Scalar::<F, E>::from(rhs);
+             self.max(scalar_rhs)
+         }
+     }
+        )*
+    };
+}
+
+// Clamp implementation for Scalar with primitive types
+macro_rules! impl_scalar_clamp_rust {
+    ($($t:ty),*) => {
+        $(
+         impl<
+         F: Integer
+             + FullInt
+             + Shl<isize, Output = F>
+             + Shr<isize, Output = F>
+             + Shl<F, Output = F>
+             + Shr<F, Output = F>
+             + Shl<E, Output = F>
+             + Shr<E, Output = F>,
+         E: Integer
+             + FullInt
+             + Shl<isize, Output = E>
+             + Shr<isize, Output = E>
+             + Shl<E, Output = E>
+             + Shr<E, Output = E>
+             + Shl<F, Output = E>
+             + Shr<F, Output = E>,
+     > Clamp<$t, $t> for Scalar<F, E>
+     where
+         F: FractionConstants,
+         E: ExponentConstants,
+         Scalar<F, E>: ScalarConstants,
+         u8: AsPrimitive<F>,
+         u16: AsPrimitive<F>,
+         u32: AsPrimitive<F>,
+         u64: AsPrimitive<F>,
+         u128: AsPrimitive<F>,
+         usize: AsPrimitive<F>,
+         i8: AsPrimitive<F>,
+         i16: AsPrimitive<F>,
+         i32: AsPrimitive<F>,
+         i64: AsPrimitive<F>,
+         i128: AsPrimitive<F>,
+         isize: AsPrimitive<F>,
+         u8: AsPrimitive<E>,
+         u16: AsPrimitive<E>,
+         u32: AsPrimitive<E>,
+         u64: AsPrimitive<E>,
+         u128: AsPrimitive<E>,
+         usize: AsPrimitive<E>,
+         i8: AsPrimitive<E>,
+         i16: AsPrimitive<E>,
+         i32: AsPrimitive<E>,
+         i64: AsPrimitive<E>,
+         i128: AsPrimitive<E>,
+         isize: AsPrimitive<E>,
+         I256: From<F>,
+         I256: From<E>,
+     {
+         type Output = Scalar<F, E>;
+
+         fn clamp(&self, min: $t, max: $t) -> Self::Output {
+             let scalar_min = Scalar::<F, E>::from(min);
+             let scalar_max = Scalar::<F, E>::from(max);
+             self.clamp(scalar_min, scalar_max)
+         }
+     }
+        )*
+    };
+}
+
+// Implement min/max/clamp for all primitive types
+impl_scalar_comparison_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_scalar_clamp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
 // Integer bit-shift implementations (self*2^integer) for Scalar with primitive types
 macro_rules! impl_scalar_shift_rust {
     ($($t:ty),*) => {
@@ -1251,3 +1441,58 @@ macro_rules! impl_scalar_shift_assign_rust {
 }
 
 impl_scalar_shift_assign_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+
+// Bitwise operations with primitives (Scalar OP primitive)
+impl_scalar_op_rust!(
+    BitAnd,
+    bitand,
+    aligned_and,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
+);
+
+impl_scalar_op_rust!(
+    BitOr,
+    bitor,
+    aligned_or,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
+);
+
+impl_scalar_op_rust!(
+    BitXor,
+    bitxor,
+    aligned_xor,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
+);

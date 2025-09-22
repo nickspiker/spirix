@@ -4,11 +4,19 @@ This document explains how to use the test suite for the Spirix library.
 
 ## Test Structure
 
+The tests are organized using a prefix-based system for better categorization:
+
+- **`core_*`**: Core functionality tests (scalar, circle, mathematical functions, edge cases)
+- **`integration_*`**: Integration tests for cross-type operations and real-world scenarios
+- **`properties_*`**: Property-based tests using random inputs to verify mathematical invariants
+- **`display_*`**: Display, formatting, and debug output tests
+- **`performance_*`**: Performance monitoring and regression detection tests
+
 The tests are organized into several categories:
 
 ### Unit Tests
 
-#### Scalar Tests (`tests/scalar_tests.rs`)
+#### Scalar Tests (`tests/core_scalar_tests.rs`)
 - **Basic Operations**: Addition, subtraction, multiplication, division
 - **Special Values**: Zero, infinity, exploded, vanished, and undefined states
 - **Mathematical Functions**: Trigonometry, logarithms, exponentials, powers
@@ -18,7 +26,23 @@ The tests are organized into several categories:
 - **Random Generation**: Uniform and Gaussian distributions
 - **Precision Configurations**: Different F×E combinations
 
-#### Circle Tests (`tests/circle_tests.rs`)
+#### Core Support Tests
+- **Edge Cases** (`core_edge_cases.rs`): Boundary value testing, overflow/underflow scenarios
+- **Error Handling** (`core_error_handling.rs`): Invalid operation handling, error state management
+- **Integer Behavior** (`core_integer_behavior.rs`): Integer-specific operations and conversions
+- **Mathematical Functions** (`core_mathematical_functions.rs`): Transcendental functions, special functions
+- **Precision Boundaries** (`core_precision_boundaries.rs`): Precision limit testing, range verification
+- **State Transitions** (`core_state_transitions.rs`): Testing transitions between normal/escaped states
+- **Undefined Behavior** (`core_undefined_tests.rs`): Handling of undefined mathematical operations
+
+#### Display and Formatting Tests
+- **Debug Behavior** (`display_debug_behavior.rs`): Debug trait implementation verification
+- **Scalar Formatting** (`display_scalar_formatting.rs`): String representation and formatting tests
+
+#### Performance Tests
+- **Regression Testing** (`performance_regression.rs`): Performance monitoring and regression detection
+
+#### Circle Tests (`tests/core_circle_tests.rs`)
 - **Complex Arithmetic**: Addition, subtraction, multiplication, division
 - **Complex-Specific Operations**: Conjugate, magnitude, unit vectors
 - **Circle-Scalar Interactions**: Mixed operations with real numbers
@@ -26,7 +50,7 @@ The tests are organized into several categories:
 - **Modular Operations**: Component-wise remainder operations
 - **State Preservation**: Phase information thru operations
 
-### Property-Based Tests (`tests/properties.rs`)
+### Property-Based Tests (`tests/properties_general.rs`, `tests/properties_enhanced.rs`)
 Uses the `proptest` crate to verify mathematical properties with random inputs:
 - **Arithmetic Properties**: Commutativity, associativity, distributivity
 - **Identity Elements**: Additive and multiplicative identities
@@ -35,12 +59,12 @@ Uses the `proptest` crate to verify mathematical properties with random inputs:
 - **Complex Properties**: Conjugate properties, magnitude relationships
 - **State Invariants**: Consistency of internal state representation
 
-### Integration Tests (`tests/integration.rs`)
-- **Cross-Precision Operations**: Interactions between different precision types
-- **Mixed-Type Operations**: Scalar-Circle interactions, Rust primitive compatibility
-- **Chained Operations**: Complex calculation chains preserving correctness
-- **Real-World Scenarios**: Numerical integration, signal processing, financial calculations
-- **Precision Boundaries**: Behavior near overflow/underflow limits
+### Integration Tests (`tests/integration_*.rs`)
+- **Cross-Type Operations** (`integration_cross_type_operations.rs`): Scalar-Circle interactions, mixed precision operations
+- **General Integration** (`integration_general.rs`): Real-world scenarios, complex calculation chains
+- **Conversions** (`integration_conversions.rs`): Type conversion testing between Spirix and Rust primitives
+- **Documentation Examples** (`integration_documentation_examples.rs`): Verification of code examples from docs
+- **Corrected Tests** (`integration_corrected_tests.rs`): Previously failing tests that have been fixed
 
 ### Performance Benchmarks (`benches/benchmarks.rs`)
 Uses the `criterion` crate to compare Spirix performance against standard floating-point:
@@ -59,17 +83,29 @@ cargo test
 
 ### Specific Test Suites
 ```bash
-# Run only scalar tests
-cargo test --test scalar_tests
+# Run only core scalar tests
+cargo test --test core_scalar_tests
 
-# Run only circle tests
-cargo test --test circle_tests
+# Run only core circle tests
+cargo test --test core_circle_tests
 
 # Run only property-based tests
-cargo test --test properties
+cargo test --test properties_general
+cargo test --test properties_enhanced
 
-# Run only integration tests
-cargo test --test integration
+# Run all integration tests
+cargo test integration
+
+# Run specific integration test files
+cargo test --test integration_general
+cargo test --test integration_cross_type_operations
+cargo test --test integration_conversions
+
+# Run display/formatting tests
+cargo test display
+
+# Run performance tests
+cargo test --test performance_regression
 ```
 
 ### Individual Test Functions

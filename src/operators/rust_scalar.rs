@@ -992,3 +992,58 @@ macro_rules! impl_scalar_cmp_rust {
 
 // Implement for all primitive types
 impl_scalar_cmp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+
+// Bitwise operations with primitives (primitive OP Scalar)
+impl_rust_op_scalar!(
+    BitAnd,
+    bitand,
+    aligned_and,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
+);
+
+impl_rust_op_scalar!(
+    BitOr,
+    bitor,
+    aligned_or,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
+);
+
+impl_rust_op_scalar!(
+    BitXor,
+    bitxor,
+    aligned_xor,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
+);
