@@ -1,10 +1,7 @@
 use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
-    ScalarConstants, ScalarF7E7,
-};
+use crate::*;
 use i256::I256;
 use num_traits::AsPrimitive;
 use std::fmt::{self};
@@ -63,18 +60,29 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut base: u8 = 10;
-        let mut digits = ScalarF7E7::TWO.pow(F::FRACTION_BITS).log(base).to_usize();
-
-        if let Some(width) = f.width() {
-            digits = width;
-        }
-
         if let Some(prec) = f.precision() {
             base = prec as u8;
+            if base < 2 || base > 36 {
+                return write!(f, "Error: Only bases 2-36 are supported!");
+            }
         }
 
-        if base < 2 || base > 36 {
-            return write!(f, "Error: Only bases 2-36 are supported!");
+        let mut digits = if F::FRACTION_BITS > 100 && E::EXPONENT_BITS < 12 {
+            crate::ScalarF7E4::TWO
+                .pow(F::FRACTION_BITS)
+                .log(base)
+                .floor()
+                .to_isize()
+        } else {
+            Scalar::<F, E>::TWO
+                .pow(F::FRACTION_BITS)
+                .log(base)
+                .floor()
+                .to_isize()
+        };
+
+        if let Some(width) = f.width() {
+            digits = width as isize;
         }
 
         let string = self.format_circle(base, digits);
@@ -194,9 +202,8 @@ where
     isize: AsPrimitive<E>,
     I256: From<F>,
     I256: From<E>,
-    Scalar<i128, i128>: From<Scalar<F, E>>,
 {
-    fn format_circle(&self, base: u8, digits: usize) -> String {
+    fn format_circle(&self, base: u8, digits: isize) -> String {
         let mut string = "⦇".to_owned();
         if !self.is_normal() {
             if self.is_undefined() {
@@ -206,12 +213,12 @@ where
                 string.push_str("∞");
             } else if self.exploded() {
                 let direction = self.sign();
-                let mut mag_r = ScalarF7E7::from(direction.r()).magnitude();
-                let mut mag_i = ScalarF7E7::from(direction.i()).magnitude();
+                let mut mag_r = direction.r().magnitude();
+                let mut mag_i = direction.i().magnitude();
                 string.push_str("↑");
                 let decimal = 1;
                 if mag_r.is_normal() {
-                    if self.r().fraction.is_negative() {
+                    if self.r().is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -234,7 +241,7 @@ where
                 string.push(',');
                 string.push('↑');
                 if mag_i.is_normal() {
-                    if self.i().fraction.is_negative() {
+                    if self.i().is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -256,12 +263,12 @@ where
                 }
             } else if self.vanished() {
                 let direction = self.sign();
-                let mut mag_r = ScalarF7E7::from(direction.r()).magnitude();
-                let mut mag_i = ScalarF7E7::from(direction.i()).magnitude();
+                let mut mag_r = direction.r().magnitude();
+                let mut mag_i = direction.i().magnitude();
                 string.push_str("↓");
                 let decimal = 1;
                 if mag_r.is_normal() {
-                    if self.r().fraction.is_negative() {
+                    if self.r().is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -285,7 +292,7 @@ where
                 string.push(',');
                 string.push('↓');
                 if mag_i.is_normal() {
-                    if self.i().fraction.is_negative() {
+                    if self.i().is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -309,93 +316,466 @@ where
             } else {
                 string.push('0');
             }
-            string.push('⦊');
         } else {
-            let mag_r = ScalarF7E7::from(self.r()).magnitude();
-            let mag_i = ScalarF7E7::from(self.i()).magnitude();
+            let base_scalar = Scalar::<F, E>::from(base);
 
-            let max = mag_r.max(mag_i);
-            let scale = max.log(base).floor();
-            let mut scaled_r = mag_r / (ScalarF7E7::ZERO + base).pow(scale);
-            let mut scaled_i = mag_i / (ScalarF7E7::ZERO + base).pow(scale);
-            let decimal = 1;
-            if mag_r.is_normal() {
-                if self.r().fraction.is_negative() {
-                    string.push('-');
+            // Three-way split: Big (scientific), Normal (decimal), Small (scientific)
+            if self.r() <= -base_scalar.pow(digits)
+                || self.r() >= base_scalar.pow(digits)
+                || self.i() <= -base_scalar.pow(digits)
+                || self.i() >= base_scalar.pow(digits)
+            {
+                if F::FRACTION_BITS < E::EXPONENT_BITS {
+                    match E::EXPONENT_BITS {
+                        16 => string
+                            .push_str(&CircleF4E4::from(self).format_scientific_big(base, digits)),
+                        32 => string
+                            .push_str(&CircleF5E5::from(self).format_scientific_big(base, digits)),
+                        64 => string
+                            .push_str(&CircleF6E6::from(self).format_scientific_big(base, digits)),
+                        128 => string
+                            .push_str(&CircleF7E7::from(self).format_scientific_big(base, digits)),
+                        _ => string.push_str(&self.format_scientific_big(base, digits)),
+                    }
                 } else {
-                    string.push('+');
+                    string.push_str(&self.format_scientific_big(base, digits))
                 }
-                for d in 0..digits {
-                    if d == decimal {
-                        string.push('.');
+            } else if self.r() < base_scalar.pow(-4)
+                && self.r() > -base_scalar.pow(-4)
+                && self.i() < base_scalar.pow(-4)
+                && self.i() > -base_scalar.pow(-4)
+            {
+                if F::FRACTION_BITS < E::EXPONENT_BITS {
+                    match E::EXPONENT_BITS {
+                        16 => string.push_str(
+                            &CircleF4E4::from(self).format_scientific_small(base, digits),
+                        ),
+                        32 => string.push_str(
+                            &CircleF5E5::from(self).format_scientific_small(base, digits),
+                        ),
+                        64 => string.push_str(
+                            &CircleF6E6::from(self).format_scientific_small(base, digits),
+                        ),
+                        128 => string.push_str(
+                            &CircleF7E7::from(self).format_scientific_small(base, digits),
+                        ),
+                        _ => string.push_str(&self.format_scientific_small(base, digits)),
                     }
-                    let digit = scaled_r.to_u8();
-                    if digit < 10 {
-                        string.push((digit + 48) as char)
-                    } else {
-                        string.push((digit + 55) as char);
-                    }
-                    scaled_r = scaled_r.frac() * base;
+                } else {
+                    string.push_str(&self.format_scientific_small(base, digits))
                 }
             } else {
-                string.push('0');
-            }
-            string.push(',');
-            if mag_i.is_normal() {
-                if self.i().fraction.is_negative() {
-                    string.push('-');
+                // Normal notation: use floor to split integer and fractional parts
+                let real = self.r();
+                let mut real_integer = real.floor();
+                let mut real_fraction = real - real_integer;
+
+                // Extract integer digits using /base
+                let mut int_digits = Vec::new();
+                let mut digit_count = 0;
+
+                if real_integer.is_zero() {
+                    int_digits.push(0u8);
                 } else {
+                    let mut leading = true;
+                    while !real_integer.is_zero() && digit_count < digits {
+                        let scaled = real_integer / base_scalar;
+                        real_integer = scaled.floor();
+                        let digit = ((scaled - scaled.floor()) * base_scalar + 0.5f32).to_u8();
+                        int_digits.push(digit);
+
+                        // Only count non-leading digits
+                        if leading && digit == 0 {
+                            // Still leading zeros, don't increment counter
+                        } else {
+                            leading = false;
+                            digit_count += 1;
+                        }
+                    }
+                }
+
+                if real.is_negative() {
+                    string.push('-');
+                } else if real.is_positive() {
                     string.push('+');
                 }
-                for d in 0..digits {
-                    if d == decimal {
-                        string.push('.');
-                    }
-                    let digit = scaled_i.to_u8();
-                    if digit < 10 {
-                        string.push((digit + 48) as char)
+
+                // Convert integer part
+                for &digit in int_digits.iter().rev() {
+                    let digit_char = if digit < 10 {
+                        (digit + b'0') as char
                     } else {
-                        string.push((digit + 55) as char);
+                        (digit - 10 + b'A') as char
+                    };
+                    string.push(digit_char);
+                }
+
+                // Handle fractional part if it exists
+                if !real_fraction.is_zero() {
+                    string.push('.');
+                    while digit_count < digits && !real_fraction.is_zero() {
+                        real_fraction = real_fraction * base_scalar;
+                        let digit = real_fraction.to_u8();
+                        real_fraction = real_fraction - digit;
+
+                        // Don't count leading fractional zeros
+                        if !(digit == 0 && digit_count == 0) {
+                            digit_count += 1;
+                        }
+
+                        let digit_char = if digit < 10 {
+                            (digit + b'0') as char
+                        } else {
+                            (digit - 10 + b'A') as char
+                        };
+                        string.push(digit_char);
                     }
-                    scaled_i = scaled_i.frac() * base;
                 }
-            } else {
-                string.push('0');
-            }
-            string.push('⦈');
-            if scale.is_normal() {
-                string.push('×');
-                if base < 10 {
-                    string.push((base + 48) as char)
+                string.push(',');
+                let imaginary = self.i();
+                let mut imaginary_integer = imaginary.floor();
+                let mut imaginary_fraction = imaginary - imaginary_integer;
+
+                // Extract integer digits using /base
+                int_digits = Vec::new();
+                digit_count = 0;
+
+                if imaginary_integer.is_zero() {
+                    int_digits.push(0u8);
                 } else {
-                    string.push((base + 55) as char);
+                    let mut leading = true;
+                    while !imaginary_integer.is_zero() && digit_count < digits {
+                        let scaled = imaginary_integer / base_scalar;
+                        imaginary_integer = scaled.floor();
+                        let digit = ((scaled - scaled.floor()) * base_scalar + 0.5f32).to_u8();
+                        int_digits.push(digit);
+
+                        // Only count non-leading digits
+                        if leading && digit == 0 {
+                            // Still leading zeros, don't increment counter
+                        } else {
+                            leading = false;
+                            digit_count += 1;
+                        }
+                    }
                 }
-                string.push('^');
-                let mut power;
-                if scale.is_negative() {
-                    power = (-scale).to_usize();
+
+                if imaginary.is_negative() {
                     string.push('-');
-                } else {
-                    power = scale.to_usize();
+                } else if imaginary.is_positive() {
                     string.push('+');
                 }
+
+                // Convert integer part
+                for &digit in int_digits.iter().rev() {
+                    let digit_char = if digit < 10 {
+                        (digit + b'0') as char
+                    } else {
+                        (digit - 10 + b'A') as char
+                    };
+                    string.push(digit_char);
+                }
+
+                // Handle fractional part if it exists
+                if !imaginary_fraction.is_zero() {
+                    string.push('.');
+                    while digit_count < digits && !imaginary_fraction.is_zero() {
+                        imaginary_fraction = imaginary_fraction * base_scalar;
+                        let digit = imaginary_fraction.to_u8();
+                        imaginary_fraction = imaginary_fraction - digit;
+
+                        // Don't count leading fractional zeros
+                        if !(digit == 0 && digit_count == 0) {
+                            digit_count += 1;
+                        }
+
+                        let digit_char = if digit < 10 {
+                            (digit + b'0') as char
+                        } else {
+                            (digit - 10 + b'A') as char
+                        };
+                        string.push(digit_char);
+                    }
+                }
+                string.push('⦈');
+            }
+        }
+
+        string
+    }
+
+    fn format_scientific_big(&self, base: u8, digits: isize) -> String {
+        let base_scalar = Scalar::<F, E>::from(base);
+
+        // Find the largest component magnitude for unified scaling
+        let mag_r = if self.r() == Scalar::<F, E>::MIN {
+            Scalar::<F, E>::MAX
+        } else {
+            self.r().magnitude()
+        };
+        let mag_i = if self.i() == Scalar::<F, E>::MIN {
+            Scalar::<F, E>::MAX
+        } else {
+            self.i().magnitude()
+        };
+        let max_magnitude = mag_r.max(mag_i);
+        let mut scale = max_magnitude.log(base_scalar).floor();
+        let mut scaled_r = self.r() / base_scalar.pow(scale);
+        let mut scaled_i = self.i() / base_scalar.pow(scale);
+
+        // Adjust scale to ensure largest component is in range [1, base)
+        while scaled_r.magnitude().max(scaled_i.magnitude()) >= base_scalar {
+            scale = scale + 1;
+            scaled_r = self.r() / base_scalar.pow(scale);
+            scaled_i = self.i() / base_scalar.pow(scale);
+        }
+        while scaled_r.magnitude().max(scaled_i.magnitude()) < 1 {
+            scale = scale - 1;
+            scaled_r = self.r() / base_scalar.pow(scale);
+            scaled_i = self.i() / base_scalar.pow(scale);
+        }
+
+        let mut result = String::new();
+
+        if scaled_r.is_negative() {
+            result.push('-');
+        } else if scaled_r.is_positive() {
+            result.push('+');
+        }
+
+        for d in 0..digits {
+            let digit = scaled_r.to_u8();
+            scaled_r = (scaled_r - digit) * base_scalar;
+
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+            if scaled_r.is_zero() {
+                break;
+            }
+            if d == 0 {
+                result.push('.');
+            }
+        }
+        result.push(',');
+
+        if scaled_i.is_negative() {
+            result.push('-');
+        } else if scaled_i.is_positive() {
+            result.push('+');
+        }
+
+        for d in 0..digits {
+            let digit = scaled_i.to_u8();
+            scaled_i = (scaled_i - digit) * base_scalar;
+
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+            if scaled_i.is_zero() {
+                break;
+            }
+            if d == 0 {
+                result.push('.');
+            }
+        }
+        result.push('⦈');
+
+        // Add scientific notation suffix
+        if !scale.is_zero() {
+            result.push('×');
+            if base < 10 {
+                result.push((base + 48) as char)
+            } else {
+                result.push((base + 55) as char);
+            }
+            result.push('^');
+            if scale.is_negative() {
+                result.push('-');
+                let power = (-scale).to_usize();
                 let mut pow_digits = Vec::new();
-                while power != 0 {
-                    let remainder = (power % base as usize) as u8;
+                let mut remaining = power;
+                if remaining == 0 {
+                    pow_digits.push(48); // '0'
+                } else {
+                    while remaining != 0 {
+                        let remainder = (remaining % base as usize) as u8;
+                        if remainder < 10 {
+                            pow_digits.push((remainder + 48) as u8);
+                        } else {
+                            pow_digits.push((remainder + 55) as u8);
+                        }
+                        remaining /= base as usize;
+                    }
+                }
+                for &digit in pow_digits.iter().rev() {
+                    result.push(digit as char);
+                }
+            } else {
+                result.push('+');
+                let power = scale.to_usize();
+                let mut pow_digits = Vec::new();
+                let mut remaining = power;
+                if remaining == 0 {
+                    pow_digits.push(48); // '0'
+                } else {
+                    while remaining != 0 {
+                        let remainder = (remaining % base as usize) as u8;
+                        if remainder < 10 {
+                            pow_digits.push((remainder + 48) as u8);
+                        } else {
+                            pow_digits.push((remainder + 55) as u8);
+                        }
+                        remaining /= base as usize;
+                    }
+                }
+                for &digit in pow_digits.iter().rev() {
+                    result.push(digit as char);
+                }
+            }
+        }
+
+        result
+    }
+
+    fn format_scientific_small(&self, base: u8, digits: isize) -> String {
+        let base_scalar = Scalar::<F, E>::from(base);
+
+        // Find the smallest non-zero component magnitude for unified scaling
+        let mag_r = if self.r() == Scalar::<F, E>::MIN {
+            Scalar::<F, E>::MAX
+        } else {
+            self.r().magnitude()
+        };
+        let mag_i = if self.i() == Scalar::<F, E>::MIN {
+            Scalar::<F, E>::MAX
+        } else {
+            self.i().magnitude()
+        };
+
+        // For small numbers, we want the non-zero minimum
+        let min_magnitude = if mag_r.is_zero() && mag_i.is_zero() {
+            base_scalar.pow(-4) // fallback
+        } else if mag_r.is_zero() {
+            mag_i
+        } else if mag_i.is_zero() {
+            mag_r
+        } else {
+            mag_r.min(mag_i)
+        };
+
+        let mut scale = -min_magnitude.log(base_scalar).floor();
+        let mut scaled_r = self.r() * base_scalar.pow(scale);
+        let mut scaled_i = self.i() * base_scalar.pow(scale);
+
+        // Adjust scale to ensure largest component is in range [1, base)
+        while scaled_r.magnitude().max(scaled_i.magnitude()) >= base_scalar {
+            scale = scale - 1;
+            scaled_r = self.r() * base_scalar.pow(scale);
+            scaled_i = self.i() * base_scalar.pow(scale);
+        }
+        while scaled_r.magnitude().max(scaled_i.magnitude()) < 1 {
+            scale = scale + 1;
+            scaled_r = self.r() * base_scalar.pow(scale);
+            scaled_i = self.i() * base_scalar.pow(scale);
+        }
+
+        let mut result = String::new();
+
+        if scaled_r.is_negative() {
+            result.push('-');
+        } else {
+            result.push('+');
+        }
+
+        for d in 0..digits {
+            let digit = scaled_r.magnitude().to_u8();
+            scaled_r = (scaled_r.magnitude() - digit) * base_scalar;
+            if self.r().is_negative() {
+                scaled_r = -scaled_r;
+            }
+
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+            if scaled_r.is_zero() {
+                break;
+            }
+            if d == 0 {
+                result.push('.');
+            }
+        }
+        result.push(',');
+
+        if scaled_i.is_negative() {
+            result.push('-');
+        } else {
+            result.push('+');
+        }
+
+        for d in 0..digits {
+            let digit = scaled_i.magnitude().to_u8();
+            scaled_i = (scaled_i.magnitude() - digit) * base_scalar;
+            if self.i().is_negative() {
+                scaled_i = -scaled_i;
+            }
+
+            let digit_char = if digit < 10 {
+                (digit + b'0') as char
+            } else {
+                (digit - 10 + b'A') as char
+            };
+            result.push(digit_char);
+            if scaled_i.is_zero() {
+                break;
+            }
+            if d == 0 {
+                result.push('.');
+            }
+        }
+        result.push('⦈');
+
+        // Add scientific notation suffix
+        if !scale.is_zero() {
+            result.push('×');
+            if base < 10 {
+                result.push((base + 48) as char)
+            } else {
+                result.push((base + 55) as char);
+            }
+            result.push('^');
+            result.push('-');
+            let power = scale.to_usize();
+            let mut pow_digits = Vec::new();
+            let mut remaining = power;
+            if remaining == 0 {
+                pow_digits.push(48); // '0'
+            } else {
+                while remaining != 0 {
+                    let remainder = (remaining % base as usize) as u8;
                     if remainder < 10 {
                         pow_digits.push((remainder + 48) as u8);
                     } else {
                         pow_digits.push((remainder + 55) as u8);
                     }
-                    power /= base as usize;
+                    remaining /= base as usize;
                 }
-                for &digit in pow_digits.iter().rev() {
-                    string.push(digit as char);
-                }
+            }
+            for &digit in pow_digits.iter().rev() {
+                result.push(digit as char);
             }
         }
 
-        string
+        result
     }
 
     fn format_debug_plain(&self) -> String {

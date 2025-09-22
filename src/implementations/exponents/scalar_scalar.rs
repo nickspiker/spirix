@@ -177,7 +177,7 @@ where
         result
     }
 
-    fn integer_power(&self, n: &Self) -> Self {
+    pub(crate) fn integer_power(&self, n: &Self) -> Self {
         if n.is_zero() {
             return Self::ONE;
         }

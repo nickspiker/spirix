@@ -129,9 +129,39 @@ where
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
+
+        // Check if exponent is integer for exact computation
+        if exp.is_integer() {
+            return self.integer_power(exp);
+        }
+
         let ln_z = self.ln();
         let s_ln_z = ln_z * exp;
         s_ln_z.exp()
+    }
+
+    pub(crate) fn integer_power(&self, n: &Scalar<F, E>) -> Self {
+        if n.is_zero() {
+            return Self::ONE;
+        }
+
+        let mut result = Self::ONE;
+        let mut base = if n.is_negative() {
+            Self::ONE / *self
+        } else {
+            *self
+        };
+        let mut exp = n.magnitude();
+
+        while !exp.is_zero() {
+            if (exp & Scalar::<F, E>::ONE) == 1 {
+                result *= base;
+            }
+            base = base.square();
+            exp = (exp >> 1u8).floor();
+        }
+
+        result
     }
     /// Computes the logarithm of a complex number with a scalar base.
     ///

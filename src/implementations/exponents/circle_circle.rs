@@ -110,10 +110,17 @@ where
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
+
+        // Check if exponent is real and integer for exact computation
+        if exp.i().is_zero() && exp.r().is_integer() {
+            return self.integer_power(&exp.r());
+        }
+
         let ln_z = self.ln();
         let w_ln_z = exp * ln_z;
         w_ln_z.exp()
     }
+
     /// Computes the logarithm of a complex number with a complex base.
     ///
     /// Implements log_b(z) (logarithm of complex z with complex base b) using:

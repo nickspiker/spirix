@@ -1,5 +1,5 @@
-use spirix::*;
 use paste::paste;
+use spirix::*;
 
 /// Test display formatting across different scales and precision levels
 /// Verify that numbers format correctly for very small, normal, and very large values
@@ -319,11 +319,326 @@ fn test_formatting_edge_cases() {
         let debug = format!("{:?}", val);
 
         // Should not panic or produce empty strings
-        assert!(!display.is_empty(), "Edge case {} produced empty display", i);
+        assert!(
+            !display.is_empty(),
+            "Edge case {} produced empty display",
+            i
+        );
         assert!(!debug.is_empty(), "Edge case {} produced empty debug", i);
 
         // Should be reasonable length
-        assert!(display.len() < 100, "Edge case {} display too long: {}", i, display);
-        assert!(debug.len() < 200, "Edge case {} debug too long: {}", i, debug);
+        assert!(
+            display.len() < 100,
+            "Edge case {} display too long: {}",
+            i,
+            display
+        );
+        assert!(
+            debug.len() < 200,
+            "Edge case {} debug too long: {}",
+            i,
+            debug
+        );
     }
 }
+
+// println!("2^3 {}", ScalarF6E5::from(2).pow(3));
+// println!("3^4 {}", ScalarF6E5::from(3).pow(4));
+// println!("10^5 {}", ScalarF6E5::from(10).pow(5));
+// println!("2^64 {}", ScalarF6E5::from(2).pow(64));
+// println!("10^100 {}", ScalarF6E5::from(10).pow(100));
+// println!("2^-3 {}", ScalarF6E5::from(2).pow(-3));
+// println!("10^-5 {}", ScalarF6E5::from(10).pow(-5));
+// println!("10^-100 {}", ScalarF6E5::from(10).pow(-100));
+// println!("10^-1000 {}", ScalarF6E5::from(10).pow(-1000));
+// println!("5^0 {}", ScalarF6E5::from(5).pow(0));
+// println!("7^1 {}", ScalarF6E5::from(7).pow(1));
+// println!("11^-1 {}", ScalarF6E5::from(11).pow(-1));
+// println!("300^42 {}", ScalarF6E5::from(300).pow(42));
+// println!("1/300^42 {}", 1 / ScalarF6E5::from(300).pow(42));
+// println!("0.000000123456789 {}", ScalarF6E5::from(0.000000123456789));
+// println!("0.00000123456789 {}", ScalarF6E5::from(0.00000123456789));
+// println!("0.0000123456789 {}", ScalarF6E5::from(0.0000123456789));
+// println!("0.000123456789 {}", ScalarF6E5::from(0.000123456789));
+// println!("0.00123456789 {}", ScalarF6E5::from(0.00123456789));
+// println!("0.0123456789 {}", ScalarF6E5::from(0.0123456789));
+// println!("0.123456789 {}", ScalarF6E5::from(0.123456789));
+// println!("1.23456789 {}", ScalarF6E5::from(1.23456789));
+// println!("12.3456789 {}", ScalarF6E5::from(12.3456789));
+// println!("123.456789 {}", ScalarF6E5::from(123.456789));
+// println!("1234.56789 {}", ScalarF6E5::from(1234.56789));
+// println!("12345.6789 {}", ScalarF6E5::from(12345.6789));
+// println!("123456.789 {}", ScalarF6E5::from(123456.789));
+// println!("1234567.89 {}", ScalarF6E5::from(1234567.89));
+// println!("12345678.9 {}", ScalarF6E5::from(12345678.9));
+// println!("123456789 {}", ScalarF6E5::from(123456789));
+// println!("1234567890 {}", ScalarF6E5::from(1234567890));
+// println!("12345678900 {}", ScalarF6E5::from(12345678900u128));
+// println!("123456789000 {}", ScalarF6E5::from(123456789000u128));
+// println!("1234567890000 {}", ScalarF6E5::from(1234567890000u128));
+// println!("12345678900000 {}", ScalarF6E5::from(12345678900000u128));
+// println!("123456789000000 {}", ScalarF6E5::from(123456789000000u128));
+// println!(
+//     "1234567890000000 {}",
+//     ScalarF6E5::from(1234567890000000u128)
+// );
+// println!(
+//     "12345678900000000 {}",
+//     ScalarF6E5::from(12345678900000000u128)
+// );
+// println!(
+//     "123456789000000000 {}",
+//     ScalarF6E5::from(123456789000000000u128)
+// );
+// println!(
+//     "1234567890000000000 {}",
+//     ScalarF6E5::from(1234567890000000000u128)
+// );
+// println!(
+//     "-0.000000123456789 {}",
+//     ScalarF6E5::from(-0.000000123456789)
+// );
+// println!("-0.00000123456789 {}", ScalarF6E5::from(-0.00000123456789));
+// println!("-0.0000123456789 {}", ScalarF6E5::from(-0.0000123456789));
+// println!("-0.000123456789 {}", ScalarF6E5::from(-0.000123456789));
+// println!("-0.00123456789 {}", ScalarF6E5::from(-0.00123456789));
+// println!("-0.0123456789 {}", ScalarF6E5::from(-0.0123456789));
+// println!("-0.123456789 {}", ScalarF6E5::from(-0.123456789));
+// println!("-1.23456789 {}", ScalarF6E5::from(-1.23456789));
+// println!("-12.3456789 {}", ScalarF6E5::from(-12.3456789));
+// println!("-123.456789 {}", ScalarF6E5::from(-123.456789));
+// println!("-1234.56789 {}", ScalarF6E5::from(-1234.56789));
+// println!("-12345.6789 {}", ScalarF6E5::from(-12345.6789));
+// println!("-123456.789 {}", ScalarF6E5::from(-123456.789));
+// println!("-1234567.89 {}", ScalarF6E5::from(-1234567.89));
+// println!("-12345678.9 {}", ScalarF6E5::from(-12345678.9));
+// println!("-123456789 {}", ScalarF6E5::from(-123456789));
+// println!("-1234567890 {}", ScalarF6E5::from(-1234567890));
+// println!("-12345678900 {}", ScalarF6E5::from(-12345678900i128));
+// println!("-123456789000 {}", ScalarF6E5::from(-123456789000i128));
+// println!("-1234567890000 {}", ScalarF6E5::from(-1234567890000i128));
+// println!("-12345678900000 {}", ScalarF6E5::from(-12345678900000i128));
+// println!(
+//     "-123456789000000 {}",
+//     ScalarF6E5::from(-123456789000000i128)
+// );
+// println!(
+//     "-1234567890000000 {}",
+//     ScalarF6E5::from(-1234567890000000i128)
+// );
+// println!(
+//     "-12345678900000000 {}",
+//     ScalarF6E5::from(-12345678900000000i128)
+// );
+// println!(
+//     "-123456789000000000 {}",
+//     ScalarF6E5::from(-123456789000000000i128)
+// );
+// println!(
+//     "-1234567890000000000 {}",
+//     ScalarF6E5::from(-1234567890000000000i128)
+// );
+// println!("10^24 {}", ScalarF6E5::from(10).pow(24));
+// println!("10^23 {}", ScalarF6E5::from(10).pow(23));
+// println!("10^22 {}", ScalarF6E5::from(10).pow(22));
+// println!("10^21 {}", ScalarF6E5::from(10).pow(21));
+// println!("10^20 {}", ScalarF6E5::from(10).pow(20));
+// println!("10^19 {}", ScalarF6E5::from(10).pow(19));
+// println!("10^18 {}", ScalarF6E5::from(10).pow(18));
+// println!("10^17 {}", ScalarF6E5::from(10).pow(17));
+// println!("10^16 {}", ScalarF6E5::from(10).pow(16));
+// println!("10^15 {}", ScalarF6E5::from(10).pow(15));
+// println!("10^14 {}", ScalarF6E5::from(10).pow(14));
+// println!("10^13 {}", ScalarF6E5::from(10).pow(13));
+// println!("10^12 {}", ScalarF6E5::from(10).pow(12));
+// println!("10^11 {}", ScalarF6E5::from(10).pow(11));
+// println!("10^10 {}", ScalarF6E5::from(10).pow(10));
+// println!("10^9 {}", ScalarF6E5::from(10).pow(9));
+// println!("10^8 {}", ScalarF6E5::from(10).pow(8));
+// println!("10^7 {}", ScalarF6E5::from(10).pow(7));
+// println!("10^6 {}", ScalarF6E5::from(10).pow(6));
+// println!("10^5 {}", ScalarF6E5::from(10).pow(5));
+// println!("10^4 {}", ScalarF6E5::from(10).pow(4));
+// println!("10^3 {}", ScalarF6E5::from(10).pow(3));
+// println!("10^2 {}", ScalarF6E5::from(10).pow(2));
+// println!("10^1 {}", ScalarF6E5::from(10).pow(1));
+// println!("10^0 {}", ScalarF6E5::from(10).pow(0));
+// println!("10^-1 {}", ScalarF6E5::from(10).pow(-1));
+// println!("10^-2 {}", ScalarF6E5::from(10).pow(-2));
+// println!("10^-3 {}", ScalarF6E5::from(10).pow(-3));
+// println!("10^-4 {}", ScalarF6E5::from(10).pow(-4));
+// println!("10^-5 {}", ScalarF6E5::from(10).pow(-5));
+// println!("10^-6 {}", ScalarF6E5::from(10).pow(-6));
+// println!("10^-7 {}", ScalarF6E5::from(10).pow(-7));
+// println!("10^-8 {}", ScalarF6E5::from(10).pow(-8));
+// println!("10^-9 {}", ScalarF6E5::from(10).pow(-9));
+// println!("10^-10 {}", ScalarF6E5::from(10).pow(-10));
+// println!("10^-11 {}", ScalarF6E5::from(10).pow(-11));
+// println!("10^-12 {}", ScalarF6E5::from(10).pow(-12));
+// println!("10^-13 {}", ScalarF6E5::from(10).pow(-13));
+// println!("10^-14 {}", ScalarF6E5::from(10).pow(-14));
+// println!("10^-15 {}", ScalarF6E5::from(10).pow(-15));
+// println!("10^-16 {}", ScalarF6E5::from(10).pow(-16));
+// println!("10^-17 {}", ScalarF6E5::from(10).pow(-17));
+// println!("10^-18 {}", ScalarF6E5::from(10).pow(-18));
+// println!("10^-19 {}", ScalarF6E5::from(10).pow(-19));
+// println!("10^-20 {}", ScalarF6E5::from(10).pow(-20));
+// println!("10^-21 {}", ScalarF6E5::from(10).pow(-21));
+// println!("10^-22 {}", ScalarF6E5::from(10).pow(-22));
+// println!("10^-23 {}", ScalarF6E5::from(10).pow(-23));
+// println!("10^-24 {}", ScalarF6E5::from(10).pow(-24));
+
+// println!("ScalarF3E3::MAX {}", ScalarF3E3::MAX);
+// println!("ScalarF4E3::MAX {}", ScalarF4E3::MAX);
+// println!("ScalarF5E3::MAX {}", ScalarF5E3::MAX);
+// println!("ScalarF6E3::MAX {}", ScalarF6E3::MAX);
+// println!("ScalarF7E3::MAX {}", ScalarF7E3::MAX);
+
+// println!("ScalarF3E4::MAX {}", ScalarF3E4::MAX);
+// println!("ScalarF4E4::MAX {}", ScalarF4E4::MAX);
+// println!("ScalarF5E4::MAX {}", ScalarF5E4::MAX);
+// println!("ScalarF6E4::MAX {}", ScalarF6E4::MAX);
+// println!("ScalarF7E4::MAX {}", ScalarF7E4::MAX);
+
+// println!("ScalarF3E5::MAX {}", ScalarF3E5::MAX);
+// println!("ScalarF4E5::MAX {}", ScalarF4E5::MAX);
+// println!("ScalarF5E5::MAX {}", ScalarF5E5::MAX);
+// println!("ScalarF6E5::MAX {}", ScalarF6E5::MAX);
+// println!("ScalarF7E5::MAX {}", ScalarF7E5::MAX);
+
+// println!("ScalarF3E6::MAX {}", ScalarF3E6::MAX);
+// println!("ScalarF4E6::MAX {}", ScalarF4E6::MAX);
+// println!("ScalarF5E6::MAX {}", ScalarF5E6::MAX);
+// println!("ScalarF6E6::MAX {}", ScalarF6E6::MAX);
+// println!("ScalarF7E6::MAX {}", ScalarF7E6::MAX);
+
+// println!("ScalarF3E7::MAX {}", ScalarF3E7::MAX);
+// println!("ScalarF4E7::MAX {}", ScalarF4E7::MAX);
+// println!("ScalarF5E7::MAX {}", ScalarF5E7::MAX);
+// println!("ScalarF6E7::MAX {}", ScalarF6E7::MAX);
+// println!("ScalarF7E7::MAX {}", ScalarF7E7::MAX);
+
+// println!("ScalarF3E3::MIN {}", ScalarF3E3::MIN);
+// println!("ScalarF4E3::MIN {}", ScalarF4E3::MIN);
+// println!("ScalarF5E3::MIN {}", ScalarF5E3::MIN);
+// println!("ScalarF6E3::MIN {}", ScalarF6E3::MIN);
+// println!("ScalarF7E3::MIN {}", ScalarF7E3::MIN);
+
+// println!("ScalarF3E4::MIN {}", ScalarF3E4::MIN);
+// println!("ScalarF4E4::MIN {}", ScalarF4E4::MIN);
+// println!("ScalarF6E4::MIN {}", ScalarF6E4::MIN);
+// println!("ScalarF6E4::MIN {}", ScalarF6E4::MIN);
+// println!("ScalarF7E4::MIN {}", ScalarF7E4::MIN);
+
+// println!("ScalarF3E5::MIN {}", ScalarF3E5::MIN);
+// println!("ScalarF4E5::MIN {}", ScalarF4E5::MIN);
+// println!("ScalarF5E5::MIN {}", ScalarF5E5::MIN);
+// println!("ScalarF6E5::MIN {}", ScalarF6E5::MIN);
+// println!("ScalarF7E5::MIN {}", ScalarF7E5::MIN);
+
+// println!("ScalarF3E6::MIN {}", ScalarF3E6::MIN);
+// println!("ScalarF4E6::MIN {}", ScalarF4E6::MIN);
+// println!("ScalarF5E6::MIN {}", ScalarF5E6::MIN);
+// println!("ScalarF6E6::MIN {}", ScalarF6E6::MIN);
+// println!("ScalarF7E6::MIN {}", ScalarF7E6::MIN);
+
+// println!("ScalarF3E7::MIN {}", ScalarF3E7::MIN);
+// println!("ScalarF4E7::MIN {}", ScalarF4E7::MIN);
+// println!("ScalarF5E7::MIN {}", ScalarF5E7::MIN);
+// println!("ScalarF6E7::MIN {}", ScalarF6E7::MIN);
+// println!("ScalarF7E7::MIN {}", ScalarF7E7::MIN);
+
+// println!("ScalarF3E3::MIN_POS {}", ScalarF3E3::MIN_POS);
+// println!("ScalarF4E3::MIN_POS {}", ScalarF4E3::MIN_POS);
+// println!("ScalarF5E3::MIN_POS {}", ScalarF5E3::MIN_POS);
+// println!("ScalarF6E3::MIN_POS {}", ScalarF6E3::MIN_POS);
+// println!("ScalarF7E3::MIN_POS {}", ScalarF7E3::MIN_POS);
+
+// println!("ScalarF3E4::MIN_POS {}", ScalarF3E4::MIN_POS);
+// println!("ScalarF4E4::MIN_POS {}", ScalarF4E4::MIN_POS);
+// println!("ScalarF6E4::MIN_POS {}", ScalarF6E4::MIN_POS);
+// println!("ScalarF6E4::MIN_POS {}", ScalarF6E4::MIN_POS);
+// println!("ScalarF7E4::MIN_POS {}", ScalarF7E4::MIN_POS);
+
+// println!("ScalarF3E5::MIN_POS {}", ScalarF3E5::MIN_POS);
+// println!("ScalarF4E5::MIN_POS {}", ScalarF4E5::MIN_POS);
+// println!("ScalarF5E5::MIN_POS {}", ScalarF5E5::MIN_POS);
+// println!("ScalarF6E5::MIN_POS {}", ScalarF6E5::MIN_POS);
+// println!("ScalarF7E5::MIN_POS {}", ScalarF7E5::MIN_POS);
+
+// println!("ScalarF3E6::MIN_POS {}", ScalarF3E6::MIN_POS);
+// println!("ScalarF4E6::MIN_POS {}", ScalarF4E6::MIN_POS);
+// println!("ScalarF5E6::MIN_POS {}", ScalarF5E6::MIN_POS);
+// println!("ScalarF6E6::MIN_POS {}", ScalarF6E6::MIN_POS);
+// println!("ScalarF7E6::MIN_POS {}", ScalarF7E6::MIN_POS);
+
+// println!("ScalarF3E7::MIN_POS {}", ScalarF3E7::MIN_POS);
+// println!("ScalarF4E7::MIN_POS {}", ScalarF4E7::MIN_POS);
+// println!("ScalarF5E7::MIN_POS {}", ScalarF5E7::MIN_POS);
+// println!("ScalarF6E7::MIN_POS {}", ScalarF6E7::MIN_POS);
+// println!("ScalarF7E7::MIN_POS {}", ScalarF7E7::MIN_POS);
+
+// println!("ScalarF3E3::MAX_NEG {}", ScalarF3E3::MAX_NEG);
+// println!("ScalarF4E3::MAX_NEG {}", ScalarF4E3::MAX_NEG);
+// println!("ScalarF5E3::MAX_NEG {}", ScalarF5E3::MAX_NEG);
+// println!("ScalarF6E3::MAX_NEG {}", ScalarF6E3::MAX_NEG);
+// println!("ScalarF7E3::MAX_NEG {}", ScalarF7E3::MAX_NEG);
+
+// println!("ScalarF3E4::MAX_NEG {}", ScalarF3E4::MAX_NEG);
+// println!("ScalarF4E4::MAX_NEG {}", ScalarF4E4::MAX_NEG);
+// println!("ScalarF6E4::MAX_NEG {}", ScalarF6E4::MAX_NEG);
+// println!("ScalarF6E4::MAX_NEG {}", ScalarF6E4::MAX_NEG);
+// println!("ScalarF7E4::MAX_NEG {}", ScalarF7E4::MAX_NEG);
+
+// println!("ScalarF3E5::MAX_NEG {}", ScalarF3E5::MAX_NEG);
+// println!("ScalarF4E5::MAX_NEG {}", ScalarF4E5::MAX_NEG);
+// println!("ScalarF5E5::MAX_NEG {}", ScalarF5E5::MAX_NEG);
+// println!("ScalarF6E5::MAX_NEG {}", ScalarF6E5::MAX_NEG);
+// println!("ScalarF7E5::MAX_NEG {}", ScalarF7E5::MAX_NEG);
+
+// println!("ScalarF3E6::MAX_NEG {}", ScalarF3E6::MAX_NEG);
+// println!("ScalarF4E6::MAX_NEG {}", ScalarF4E6::MAX_NEG);
+// println!("ScalarF5E6::MAX_NEG {}", ScalarF5E6::MAX_NEG);
+// println!("ScalarF6E6::MAX_NEG {}", ScalarF6E6::MAX_NEG);
+// println!("ScalarF7E6::MAX_NEG {}", ScalarF7E6::MAX_NEG);
+
+// println!("ScalarF3E7::MAX_NEG {}", ScalarF3E7::MAX_NEG);
+// println!("ScalarF4E7::MAX_NEG {}", ScalarF4E7::MAX_NEG);
+// println!("ScalarF5E7::MAX_NEG {}", ScalarF5E7::MAX_NEG);
+// println!("ScalarF6E7::MAX_NEG {}", ScalarF6E7::MAX_NEG);
+// println!("ScalarF7E7::MAX_NEG {}", ScalarF7E7::MAX_NEG);
+
+// println!("0.00001 {}", ScalarF6E5::from(0.00001));
+// println!("0.000001 {}", ScalarF6E5::from(0.000001));
+// println!("99999 {}", ScalarF6E5::from(99999));
+// println!("100000 {}", ScalarF6E5::from(100000));
+
+// println!("TWO {}", ScalarF6E5::TWO);
+// println!("HALF {}", ScalarF6E5::HALF);
+
+// println!("sqrt(2) {}", ScalarF6E5::TWO.sqrt());
+// println!("log(e) {}", ScalarF6E5::E.ln());
+// let pi_half = ScalarF6E5::PI / ScalarF6E5::TWO;
+// println!("sin(pi/2) {}", pi_half.sin());
+// println!("cos(pi) {}", ScalarF6E5::PI.cos());
+// let pi_quarter = ScalarF6E5::PI / ScalarF6E5::from(4);
+// println!("tan(pi/4) {}", pi_quarter.tan());
+
+// println!("1 + min_pos {}", ScalarF6E5::ONE + ScalarF6E5::MIN_POS);
+// println!("1 - min_pos {}", ScalarF6E5::ONE - ScalarF6E5::MIN_POS);
+// println!("very close to 1: {}", ScalarF6E5::from(0.999999));
+// println!("very close to 10: {}", ScalarF6E5::from(9.999999));
+
+// println!("2^10 {}", ScalarF6E5::from(2).pow(10));
+// println!("3^5 {}", ScalarF6E5::from(3).pow(5));
+// println!("5^4 {}", ScalarF6E5::from(5).pow(4));
+// println!("7^3 {}", ScalarF6E5::from(7).pow(3));
+
+// println!("1/2^10 {}", 1 / ScalarF6E5::from(2).pow(10));
+// println!("1/3^5 {}", 1 / ScalarF6E5::from(3).pow(5));
+// println!("1/π {}", 1 / ScalarF6E5::PI);
+
+// println!("1/7 {}", 1 / ScalarF6E5::from(7));
+// println!("1/9 {}", 1 / ScalarF6E5::from(9));
+// println!("1/11 {}", 1 / ScalarF6E5::from(11));
+// println!("1/13 {}", 1 / ScalarF6E5::from(13));

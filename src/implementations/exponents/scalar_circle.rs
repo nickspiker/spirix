@@ -140,6 +140,11 @@ where
             };
         }
 
+        // Check if exponent is real and integer for exact computation
+        if exp.i().is_zero() && exp.r().is_integer() {
+            return Circle::from(self.integer_power(&exp.r()));
+        }
+
         (exp * self.ln()).exp()
     }
     /// Computes the logarithm of a scalar with a complex base.

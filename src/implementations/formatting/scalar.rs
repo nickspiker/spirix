@@ -328,10 +328,10 @@ where
                         string.push(digit_char);
                     }
                 }
+                string.push('⦊');
             }
         }
 
-        string.push('⦊');
         string
     }
 
@@ -363,7 +363,7 @@ where
             result.push('+');
         }
 
-        for _ in 0..digits {
+        for d in 0..digits {
             let digit = scaled.to_u8();
             scaled = (scaled - digit) * base_scalar;
 
@@ -374,7 +374,7 @@ where
             };
             result.push(digit_char);
 
-            if result.len() == 2 {
+            if d == 0 {
                 result.push('.');
             }
 
@@ -382,6 +382,8 @@ where
                 break;
             }
         }
+
+        result.push('⦊');
 
         result.push('×');
         let base_char = if base < 10 {
@@ -474,7 +476,7 @@ where
             result.push('+');
         }
 
-        for _ in 0..digits {
+        for d in 0..digits {
             let digit = scaled.to_u8();
             scaled = (scaled - digit) * base_scalar;
 
@@ -485,7 +487,7 @@ where
             };
             result.push(digit_char);
 
-            if result.len() == 2 {
+            if d == 0 {
                 result.push('.');
             }
 
@@ -493,6 +495,8 @@ where
                 break;
             }
         }
+
+        result.push('⦊');
 
         result.push('×');
         let base_char = if base < 10 {
