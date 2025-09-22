@@ -204,12 +204,16 @@ where
     I256: From<E>,
 {
     fn format_circle(&self, base: u8, digits: isize) -> String {
-        let mut string = "⦇".to_owned();
         if !self.is_normal() {
             if self.is_undefined() {
                 let prefix = self.real.sa();
-                string.push_str(Undefined::from_prefix(prefix).symbol);
-            } else if self.is_infinite() {
+                return Undefined::from_prefix(prefix).symbol.to_owned();
+            }
+        }
+
+        let mut string = "⦇".to_owned();
+        if !self.is_normal() {
+            if self.is_infinite() {
                 string.push_str("∞");
             } else if self.exploded() {
                 let direction = self.sign();
@@ -340,11 +344,7 @@ where
                 } else {
                     string.push_str(&self.format_scientific_big(base, digits))
                 }
-            } else if self.r() < base_scalar.pow(-4)
-                && self.r() > -base_scalar.pow(-4)
-                && self.i() < base_scalar.pow(-4)
-                && self.i() > -base_scalar.pow(-4)
-            {
+            } else if self.r().magnitude().max(self.i().magnitude()) < base_scalar.pow(-4) {
                 if F::FRACTION_BITS < E::EXPONENT_BITS {
                     match E::EXPONENT_BITS {
                         16 => string.push_str(
@@ -367,8 +367,9 @@ where
             } else {
                 // Normal notation: use floor to split integer and fractional parts
                 let real = self.r();
-                let mut real_integer = real.floor();
-                let mut real_fraction = real - real_integer;
+                let real_magnitude = real.magnitude();
+                let mut real_integer = real_magnitude.floor();
+                let mut real_fraction = real_magnitude - real_integer;
 
                 // Extract integer digits using /base
                 let mut int_digits = Vec::new();
@@ -433,8 +434,9 @@ where
                 }
                 string.push(',');
                 let imaginary = self.i();
-                let mut imaginary_integer = imaginary.floor();
-                let mut imaginary_fraction = imaginary - imaginary_integer;
+                let imaginary_magnitude = imaginary.magnitude();
+                let mut imaginary_integer = imaginary_magnitude.floor();
+                let mut imaginary_fraction = imaginary_magnitude - imaginary_integer;
 
                 // Extract integer digits using /base
                 int_digits = Vec::new();
@@ -539,6 +541,7 @@ where
 
         if scaled_r.is_negative() {
             result.push('-');
+            scaled_r = -scaled_r;
         } else if scaled_r.is_positive() {
             result.push('+');
         }
@@ -564,6 +567,7 @@ where
 
         if scaled_i.is_negative() {
             result.push('-');
+            scaled_i = -scaled_i;
         } else if scaled_i.is_positive() {
             result.push('+');
         }
@@ -647,7 +651,7 @@ where
     fn format_scientific_small(&self, base: u8, digits: isize) -> String {
         let base_scalar = Scalar::<F, E>::from(base);
 
-        // Find the smallest non-zero component magnitude for unified scaling
+        // Find the largest component magnitude for unified scaling (same as big numbers)
         let mag_r = if self.r() == Scalar::<F, E>::MIN {
             Scalar::<F, E>::MAX
         } else {
@@ -658,48 +662,53 @@ where
         } else {
             self.i().magnitude()
         };
+        let max_magnitude = mag_r.max(mag_i);
 
-        // For small numbers, we want the non-zero minimum
-        let min_magnitude = if mag_r.is_zero() && mag_i.is_zero() {
-            base_scalar.pow(-4) // fallback
-        } else if mag_r.is_zero() {
-            mag_i
-        } else if mag_i.is_zero() {
-            mag_r
+        let mut power = -max_magnitude.log(base_scalar).floor();
+
+        let mut scaled_r;
+        let mut scaled_i;
+
+        if base_scalar.pow(power).exploded() {
+            while base_scalar.pow(power).exploded() {
+                power -= 1;
+            }
+            scaled_r = self.r() * base_scalar.pow(power);
+            scaled_i = self.i() * base_scalar.pow(power);
+            // Use incremental multiplication to get into [1, base) range
+            while scaled_r.magnitude().max(scaled_i.magnitude()) < 1 {
+                power += 1;
+                scaled_r *= base_scalar;
+                scaled_i *= base_scalar;
+            }
         } else {
-            mag_r.min(mag_i)
-        };
-
-        let mut scale = -min_magnitude.log(base_scalar).floor();
-        let mut scaled_r = self.r() * base_scalar.pow(scale);
-        let mut scaled_i = self.i() * base_scalar.pow(scale);
-
-        // Adjust scale to ensure largest component is in range [1, base)
-        while scaled_r.magnitude().max(scaled_i.magnitude()) >= base_scalar {
-            scale = scale - 1;
-            scaled_r = self.r() * base_scalar.pow(scale);
-            scaled_i = self.i() * base_scalar.pow(scale);
-        }
-        while scaled_r.magnitude().max(scaled_i.magnitude()) < 1 {
-            scale = scale + 1;
-            scaled_r = self.r() * base_scalar.pow(scale);
-            scaled_i = self.i() * base_scalar.pow(scale);
+            // Normal adjustment loops
+            scaled_r = self.r() * base_scalar.pow(power);
+            scaled_i = self.i() * base_scalar.pow(power);
+            while scaled_r.magnitude().max(scaled_i.magnitude()) >= base_scalar {
+                power -= 1;
+                scaled_r = self.r() * base_scalar.pow(power);
+                scaled_i = self.i() * base_scalar.pow(power);
+            }
+            while scaled_r.magnitude().max(scaled_i.magnitude()) < 1 {
+                power += 1;
+                scaled_r = self.r() * base_scalar.pow(power);
+                scaled_i = self.i() * base_scalar.pow(power);
+            }
         }
 
         let mut result = String::new();
 
         if scaled_r.is_negative() {
             result.push('-');
-        } else {
+            scaled_r = -scaled_r;
+        } else if scaled_r.is_positive() {
             result.push('+');
         }
 
         for d in 0..digits {
-            let digit = scaled_r.magnitude().to_u8();
-            scaled_r = (scaled_r.magnitude() - digit) * base_scalar;
-            if self.r().is_negative() {
-                scaled_r = -scaled_r;
-            }
+            let digit = scaled_r.to_u8();
+            scaled_r = (scaled_r - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
                 (digit + b'0') as char
@@ -718,16 +727,14 @@ where
 
         if scaled_i.is_negative() {
             result.push('-');
-        } else {
+            scaled_i = -scaled_i;
+        } else if scaled_i.is_positive() {
             result.push('+');
         }
 
         for d in 0..digits {
-            let digit = scaled_i.magnitude().to_u8();
-            scaled_i = (scaled_i.magnitude() - digit) * base_scalar;
-            if self.i().is_negative() {
-                scaled_i = -scaled_i;
-            }
+            let digit = scaled_i.to_u8();
+            scaled_i = (scaled_i - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
                 (digit + b'0') as char
@@ -745,7 +752,7 @@ where
         result.push('⦈');
 
         // Add scientific notation suffix
-        if !scale.is_zero() {
+        if !power.is_zero() {
             result.push('×');
             if base < 10 {
                 result.push((base + 48) as char)
@@ -754,9 +761,9 @@ where
             }
             result.push('^');
             result.push('-');
-            let power = scale.to_usize();
+            let exponent = power.to_usize();
             let mut pow_digits = Vec::new();
-            let mut remaining = power;
+            let mut remaining = exponent;
             if remaining == 0 {
                 pow_digits.push(48); // '0'
             } else {
