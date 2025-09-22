@@ -1388,8 +1388,8 @@ where
     ///
     /// # Description
     ///
-    /// Rounds this Scalar to the nearest integer value. Ties (exactly integer + 1/2) are rounded up.
-    /// Future versions will use banker's rounding (ties to even) in future implementations
+    /// Rounds this Scalar to the nearest integer value using banker's rounding.
+    /// Ties (exactly integer + 1/2) are rounded to the nearest even integer.
     ///
     /// # Returns
     ///
@@ -1446,13 +1446,43 @@ where
     /// assert!(undefined.round().fraction == undefined.fraction && undefined.round().exponent == undefined.exponent);
     /// ```
     pub fn round(&self) -> Self {
+        // Handle non-normal values first
         if !self.is_normal() {
             if self.vanished() {
                 return Self::ZERO;
             }
             return *self;
         }
-        (self + Self::HALF).floor()
+
+        // Use math approach for banker's rounding (will optimize to bits later)
+        let floored = self.floor();
+        let frac = *self - floored;
+
+        // Check if fractional part is exactly 0.5
+        if (frac - Self::HALF).is_zero() {
+            // Banker's rounding: round to even integer
+            // For banker's rounding, we need to check which of the two nearest integers is even
+            let lower = floored;
+            let upper = floored + Self::ONE;
+
+            let lower_is_even = (lower % Self::TWO).is_zero();
+            let upper_is_even = (upper % Self::TWO).is_zero();
+
+            if lower_is_even {
+                return lower;
+            } else if upper_is_even {
+                return upper;
+            } else {
+                // This happens if we were out of the contiguous range, thus indicating all numbers are now even
+                return floored;
+            }
+        } else if frac > Self::HALF {
+            // Round up (away from zero)
+            return floored + Self::ONE;
+        } else {
+            // Round down (toward zero)
+            return floored;
+        }
     }
 
     /// Returns the fractional part of this Scalar
