@@ -163,13 +163,9 @@ where
 
         let quotient = self / denominator;
 
-        // Fractional values (values < 1 and values >= -1)
-        if self.exponent.is_negative() {
-            let product = quotient.floor() * denominator;
-            self - product
-        } else {
-            // Non-fractional values (values >= 1 or values < -1)
-            quotient.frac() * denominator
-        }
+        // Use the numerically stable algorithm for all cases:
+        // remainder = self - floor(quotient) * denominator
+        let product = quotient.floor() * denominator;
+        self - product
     }
 }

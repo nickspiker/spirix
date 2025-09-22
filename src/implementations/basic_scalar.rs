@@ -1048,34 +1048,42 @@ where
     /// ```
     #[inline]
     pub fn is_contiguous(&self) -> bool {
-        if self.is_normal() && !self.exponent.is_negative() {
-            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
-                if self.exponent > F::FRACTION_BITS.as_() {
-                    return false;
-                }
-                if self.exponent == F::FRACTION_BITS.as_() {
-                    return true;
-                }
-            } else {
-                let exponent_isize: isize = self.exponent.as_();
-                if exponent_isize > F::FRACTION_BITS {
-                    return false;
-                }
-                if exponent_isize == F::FRACTION_BITS {
-                    return true;
-                }
-            }
-            // Calculate how many fractional bits we have based on exponent
-            let mut frac_bits = F::FRACTION_BITS;
-            let exponent: isize = self.exponent.as_();
-            frac_bits -= exponent;
-            // Create a mask for the fractional bits
-            let mut mask: F = 1.as_();
-            mask = (mask << frac_bits) - 1.as_();
-            // Check if any fractional bits are set
-            return (self.fraction & mask) == 0.as_();
+        // First check if it's an integer at all
+        if !self.is_integer() {
+            return false;
         }
-        self.is_zero()
+
+        // Zero is always contiguous
+        if self.is_zero() {
+            return true;
+        }
+
+        // For normal numbers with non-negative exponents
+        if self.is_normal() && !self.exponent.is_negative() {
+            let exp_isize: isize = self.exponent.as_();
+
+            // If exponent is >= FRACTION_BITS - 1, the number is too large to fit
+            // in the contiguous integer range (since we need some bits for the fractional part)
+            if exp_isize >= F::FRACTION_BITS - 1 {
+                return false;
+            }
+
+            // For contiguous integers, we need the value to be representable exactly
+            // This is already guaranteed by is_integer(), so we just need to check
+            // if it's within the contiguous range. For left-aligned format,
+            // contiguous integers should have reasonable magnitudes.
+            return true;
+        }
+
+        // Handle special cases (exploded/vanished integers)
+        if self.exponent.is_negative() && self.exponent == E::AMBIGUOUS_EXPONENT {
+            let prefix = self.prefix();
+            // Check for exploded integer patterns
+            let top_two = prefix >> 6;
+            return top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8;
+        }
+
+        false
     }
 
     pub(crate) fn scalar_negate(&mut self) {
