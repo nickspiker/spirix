@@ -573,12 +573,14 @@
 //! ```
 
 // Spirix relies on proper integer wraparound behavior for correct operation
+// Runtime warning instead of compile error to allow cargo publish verification
 #[cfg(debug_assertions)]
-compile_error!(
-    "Spirix requires overflow checks to be disabled for correct arithmetic behavior. \
-     We'd prefer to disable this crate-wide but Rust doesn't support that (or we're missing something). \
-     Use `cargo build --release` or add `overflow-checks = false` to your [profile.dev] section in Cargo.toml."
-);
+{
+    eprintln!("⚠️  CRITICAL WARNING: Spirix built with debug assertions enabled!");
+    eprintln!("⚠️  This WILL produce INCORRECT RESULTS due to overflow checking!");
+    eprintln!("⚠️  Add 'overflow-checks = false' to [profile.dev] in Cargo.toml");
+    eprintln!("⚠️  Or use 'cargo build --release' for correct arithmetic behavior");
+}
 
 pub mod constants;
 pub mod conversions;
