@@ -413,7 +413,7 @@ where
                     .max(imag_product.leading_zeros());
 
                 expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 1;
+                let shift = expo_adjust + 2;
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;

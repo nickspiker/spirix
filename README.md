@@ -9,6 +9,19 @@
 [![Docs.rs](https://docs.rs/spirix/badge.svg)](https://docs.rs/spirix)
 [![License](https://img.shields.io/badge/license-Custom-blue.svg)](LICENSE)
 
+## ⚠️ Beta Warning
+
+**This is early beta software under active development.** While the core arithmetic operations and many mathematical functions are tested and working, this library is not ready for production use. Please do not use this library in critical systems or applications where incorrect calculations could cause harm.
+
+Current status:
+- ✅ Core arithmetic operations (addition, subtraction, multiplication, division)
+- ✅ Basic mathematical functions (sqrt, power, etc.)
+- ✅ Complex number support
+- ⚠️ Advanced mathematical functions still under development
+- ⚠️ API may change in future versions
+
+Use at your own risk and always validate results independently for important calculations.
+
 ## Overview
 
 Spirix is a high-performance numeric library that implements a fundamentally new approach to floating-point arithmetic by utilizing two's complement representation thruout the entire calculation pipeline. Unlike traditional floating-point implementations that use separate sign bit and magnitude representation, Spirix employs a continuous numeric representation with left-aligned normalized fractions and unbiased exponents.

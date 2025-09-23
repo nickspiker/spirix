@@ -1147,6 +1147,66 @@ where
         real_squared + imaginary_squared
     }
 
+    /// Returns the reciprocal (multiplicative inverse) of this Circle
+    ///
+    /// # Description
+    ///
+    /// Computes the reciprocal 1/z of this Circle. For a complex number a + b*i,
+    /// the reciprocal is (a - b*i)/(a² + b²), which equals conjugate(z) / |z|².
+    ///
+    /// # Returns
+    ///
+    /// - `[#,#]` ➔ `[#,#]` Reciprocal with same precision
+    /// - `[↑]` ➔ `[↓]` Large values become small (exploded → vanished)
+    /// - `[↓]` ➔ `[↑]` Small values become large (vanished → exploded)
+    /// - `[0]` ➔ `[∞]` Zero becomes Infinity
+    /// - `[∞]` ➔ `[0]` Infinity becomes Zero
+    /// - `[℘?]` ➔ `[℘?]` Same undefined state
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spirix::{Circle, CircleF5E3};
+    ///
+    /// // Reciprocal of a real number
+    /// let real = Circle::<i32, i8>::from(4);
+    /// let recip = real.reciprocal();
+    /// assert!(recip.r() == 0.25);
+    /// assert!(recip.i() == 0);
+    ///
+    /// // Reciprocal of a pure imaginary number
+    /// let imag = CircleF5E3::from((0, 2));
+    /// let recip_imag = imag.reciprocal();
+    /// assert!(recip_imag.r() == 0);
+    /// assert!(recip_imag.i() == -0.5);
+    ///
+    /// // Reciprocal of a general complex number
+    /// let complex = CircleF5E3::from((3, 4));
+    /// let recip_complex = complex.reciprocal();
+    /// assert!((recip_complex.r() - 0.12).magnitude() < 0.01);
+    /// assert!((recip_complex.i() + 0.16).magnitude() < 0.01);
+    ///
+    /// // Reciprocal relationships
+    /// let z = CircleF5E3::from((1, 1));
+    /// let recip_z = z.reciprocal();
+    /// assert!((z * recip_z - CircleF5E3::ONE).magnitude() < 0.01);
+    ///
+    /// // Reciprocal of Zero is Infinity
+    /// let zero = CircleF5E3::ZERO;
+    /// assert!(zero.reciprocal().is_infinite());
+    ///
+    /// // Reciprocal of Infinity is Zero
+    /// let infinity = CircleF5E3::ONE / 0;
+    /// assert!(infinity.reciprocal().is_zero());
+    ///
+    /// // Reciprocal of undefined remains undefined
+    /// let undefined = CircleF5E3::ZERO / 0;
+    /// assert!(undefined.reciprocal().is_undefined());
+    /// ```
+    pub fn reciprocal(&self) -> Circle<F, E> {
+        1 / self
+    }
+
     /// Returns the normalized unit vector form of this Circle
     ///
     /// # Description

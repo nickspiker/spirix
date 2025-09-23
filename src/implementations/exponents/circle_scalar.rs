@@ -88,6 +88,10 @@ where
                 };
             }
             if self.is_zero() {
+                // Special case: 0^0 = 1 by convention
+                if exp.is_zero() {
+                    return Self::ONE;
+                }
                 if exp.fraction.is_positive() {
                     return Self::ZERO;
                 }
