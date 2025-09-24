@@ -566,7 +566,6 @@ mod mathematical_functions {
     // Macro to test trigonometric functions for any circle type
     macro_rules! test_trig_functions_for_type {
         ($circle_type:ident) => {
-            let pi_half = $circle_type::PI / 2f32;
             let zero = $circle_type::ZERO;
 
             // Sine: sin(0) = 0
@@ -597,7 +596,6 @@ mod mathematical_functions {
     macro_rules! test_hyperbolic_for_type {
         ($circle_type:ident) => {
             let zero = $circle_type::ZERO;
-            let one = $circle_type::ONE;
 
             // Hyperbolic sine: sinh(0) = 0
             let sinh_0 = zero.sinh();

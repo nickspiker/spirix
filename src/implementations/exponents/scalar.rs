@@ -157,10 +157,10 @@ where
                 if product_wide == 0 {
                     return Self::ZERO;
                 }
-                expo_adjust = product_wide
+                expo_adjust = (product_wide
                     .leading_ones()
-                    .max(product_wide.leading_zeros())
-                    .wrapping_sub(2) as isize;
+                    .max(product_wide.leading_zeros()) as isize)
+                    .wrapping_sub(2);
                 let shift_amount = expo_adjust.wrapping_add(1);
                 let normalized_wide = product_wide << shift_amount;
                 product_fraction = (normalized_wide >> 8).as_();
@@ -171,10 +171,10 @@ where
                 if product_wide == 0 {
                     return Self::ZERO;
                 }
-                expo_adjust = product_wide
+                expo_adjust = (product_wide
                     .leading_ones()
-                    .max(product_wide.leading_zeros())
-                    .wrapping_sub(2) as isize;
+                    .max(product_wide.leading_zeros()) as isize)
+                    .wrapping_sub(2);
                 let shift_amount = expo_adjust.wrapping_add(1);
                 let normalized_wide = product_wide << shift_amount;
                 product_fraction = (normalized_wide >> 16).as_();
@@ -185,10 +185,10 @@ where
                 if product_wide == 0 {
                     return Self::ZERO;
                 }
-                expo_adjust = product_wide
+                expo_adjust = (product_wide
                     .leading_ones()
-                    .max(product_wide.leading_zeros())
-                    .wrapping_sub(2) as isize;
+                    .max(product_wide.leading_zeros()) as isize)
+                    .wrapping_sub(2);
                 let shift_amount = expo_adjust.wrapping_add(1);
                 let normalized_wide = product_wide << shift_amount;
                 product_fraction = (normalized_wide >> 32).as_();
@@ -199,10 +199,10 @@ where
                 if product_wide == 0 {
                     return Self::ZERO;
                 }
-                expo_adjust = product_wide
+                expo_adjust = (product_wide
                     .leading_ones()
-                    .max(product_wide.leading_zeros())
-                    .wrapping_sub(2) as isize;
+                    .max(product_wide.leading_zeros()) as isize)
+                    .wrapping_sub(2);
                 let shift_amount = expo_adjust.wrapping_add(1);
                 let normalized_wide = product_wide << shift_amount;
                 product_fraction = (normalized_wide >> 64).as_();
@@ -215,10 +215,10 @@ where
                 if product_wide == 0.into() {
                     return Self::ZERO;
                 }
-                expo_adjust = product_wide
+                expo_adjust = (product_wide
                     .leading_ones()
-                    .max(product_wide.leading_zeros())
-                    .wrapping_sub(2) as isize;
+                    .max(product_wide.leading_zeros()) as isize)
+                    .wrapping_sub(2);
                 let shift_amount = expo_adjust.wrapping_add(1);
                 let normalized_wide = product_wide << shift_amount;
                 product_fraction = (normalized_wide >> 128isize).as_i128().as_();
@@ -234,9 +234,7 @@ where
         match E::EXPONENT_BITS {
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
-                let upcast_exponent: i16 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i16);
+                let upcast_exponent: i16 = self_exponent.wrapping_mul(2).wrapping_sub(expo_adjust as i16);
                 let max_e: i16 = E::MAX_EXPONENT.as_();
                 let min_e: i16 = E::MIN_EXPONENT.as_();
                 if upcast_exponent > max_e {
@@ -258,9 +256,7 @@ where
             }
             16 => {
                 let self_exponent: i32 = self.exponent.as_();
-                let upcast_exponent: i32 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i32);
+                let upcast_exponent: i32 = self_exponent.wrapping_mul(2).wrapping_sub(expo_adjust as i32);
                 let max_e: i32 = E::MAX_EXPONENT.as_();
                 let min_e: i32 = E::MIN_EXPONENT.as_();
                 if upcast_exponent > max_e {
@@ -282,9 +278,7 @@ where
             }
             32 => {
                 let self_exponent: i64 = self.exponent.as_();
-                let upcast_exponent: i64 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i64);
+                let upcast_exponent: i64 = self_exponent.wrapping_mul(2).wrapping_sub(expo_adjust as i64);
                 let max_e: i64 = E::MAX_EXPONENT.as_();
                 let min_e: i64 = E::MIN_EXPONENT.as_();
                 if upcast_exponent > max_e {
@@ -306,9 +300,7 @@ where
             }
             64 => {
                 let self_exponent: i128 = self.exponent.as_();
-                let upcast_exponent: i128 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i128);
+                let upcast_exponent: i128 = self_exponent.wrapping_mul(2).wrapping_sub(expo_adjust as i128);
                 let max_e: i128 = E::MAX_EXPONENT.as_();
                 let min_e: i128 = E::MIN_EXPONENT.as_();
                 if upcast_exponent > max_e {

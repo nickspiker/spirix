@@ -71,10 +71,10 @@ where
         }
         let magnitude = self.magnitude();
         let mut real = magnitude + self.r();
-        real = real / 2;
+        real = real >> 1;
         real = real.sqrt();
         let mut imaginary = magnitude - self.r();
-        imaginary = imaginary / 2;
+        imaginary = imaginary >> 1;
         imaginary = imaginary.sqrt();
         if self.imaginary.is_negative() {
             imaginary = -imaginary;
@@ -93,7 +93,8 @@ where
                         let r: i16 = self.real.as_();
                         let i: i16 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
+                        let real_product =
+                            (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -116,7 +117,8 @@ where
                         let r: i32 = self.real.as_();
                         let i: i32 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
+                        let real_product =
+                            (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -139,7 +141,8 @@ where
                         let r: i64 = self.real.as_();
                         let i: i64 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
+                        let real_product =
+                            (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -162,7 +165,8 @@ where
                         let r: i128 = self.real.as_();
                         let i: i128 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
+                        let real_product =
+                            (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -185,7 +189,8 @@ where
                         let r: i128 = self.real.as_();
                         let i: i128 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
+                        let real_product =
+                            (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -211,7 +216,7 @@ where
                 if product_real == F::ZERO && product_imaginary == F::ZERO {
                     if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
-                            real: self.real,  // Keep exploded magnitude
+                            real: self.real, // Keep exploded magnitude
                             imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
@@ -242,7 +247,7 @@ where
                     // Check if this zero is from overflow of exploded positive real
                     if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
-                            real: self.real,  // Keep the exploded magnitude
+                            real: self.real, // Keep the exploded magnitude
                             imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
@@ -277,7 +282,7 @@ where
                     // Check if this zero is from overflow of exploded positive real
                     if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
-                            real: self.real,  // Keep the exploded magnitude
+                            real: self.real, // Keep the exploded magnitude
                             imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
@@ -312,7 +317,7 @@ where
                     // Check if this zero is from overflow of exploded positive real
                     if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
-                            real: self.real,  // Keep the exploded magnitude
+                            real: self.real, // Keep the exploded magnitude
                             imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
@@ -347,7 +352,7 @@ where
                     // Check if this zero is from overflow of exploded positive real
                     if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
-                            real: self.real,  // Keep the exploded magnitude
+                            real: self.real, // Keep the exploded magnitude
                             imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };

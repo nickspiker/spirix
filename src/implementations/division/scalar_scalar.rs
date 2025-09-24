@@ -311,7 +311,7 @@ where
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
+                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
                 )
             }
             16 => {
@@ -323,7 +323,7 @@ where
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
+                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
                 )
             }
             32 => {
@@ -335,7 +335,7 @@ where
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
+                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
                 )
             }
             64 => {
@@ -347,7 +347,7 @@ where
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
+                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
                 )
             }
             128 => {
@@ -359,7 +359,7 @@ where
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_i128().as_(),
-                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
+                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
                 )
             }
             _ => {
