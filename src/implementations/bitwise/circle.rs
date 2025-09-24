@@ -1325,13 +1325,6 @@ where
         if self.is_undefined() {
             return *self;
         }
-        if self.is_n0() {
-            return Self {
-                real: NOT.prefix.sa(),
-                imaginary: NOT.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
-        }
         return Self {
             real: !self.real,
             imaginary: !self.imaginary,

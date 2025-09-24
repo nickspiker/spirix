@@ -65,7 +65,7 @@
 //! □□□■□□■□ ℘&
 //! ■■■□■■□■ ℘|
 //! □□□■□□□■ ℘⊻
-//! ■■■□■■■□ ℘!
+//! ■■■□■■■□
 //! □□□■□□□□ ℘⬇×⬆
 //! ■■■□■■■■ ℘⬆×⬇
 //!
@@ -148,7 +148,6 @@ impl Undefined {
             x if x == AND.prefix => &AND,
             x if x == OR.prefix => &OR,
             x if x == XOR.prefix => &XOR,
-            x if x == NOT.prefix => &NOT,
             x if x == NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix => &NEGLIGIBLE_MULTIPLY_TRANSFINITE,
             x if x == TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix => &TRANSFINITE_MULTIPLY_NEGLIGIBLE,
             x if x == TRANSFINITE_POWER.prefix => &TRANSFINITE_POWER,
@@ -326,12 +325,6 @@ pub const XOR: Undefined = Undefined {
     prefix: 0b00010001u8 as i8,
     symbol: "℘ ⊻",
     description: "Logical XOR with escaped value",
-};
-/// ■■■□■■■□
-pub const NOT: Undefined = Undefined {
-    prefix: 0b11101110u8 as i8,
-    symbol: "℘ !",
-    description: "Logical NOT of escaped value",
 };
 /// □□□■□□□□
 pub const NEGLIGIBLE_MULTIPLY_TRANSFINITE: Undefined = Undefined {

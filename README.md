@@ -11,7 +11,7 @@
 
 ## ⚠️ Beta Warning
 
-**This is early beta software under active development.** While the core arithmetic operations and many mathematical functions are tested and working, this library is not ready for production use. Please do not use this library in critical systems or applications where incorrect calculations could cause harm.
+**This is early beta software under active development.** While the core arithmetic operations and many mathematical functions have been tested fairly extensively, this library is not ready for production use. Please do not use this library in critical systems or applications where incorrect calculations could cause harm.
 
 Current status:
 - ✅ Core arithmetic operations (addition, subtraction, multiplication, division)
@@ -20,7 +20,7 @@ Current status:
 - ⚠️ Advanced mathematical functions still under development
 - ⚠️ API may change in future versions
 
-Use at your own risk and always validate results independently for important calculations.
+Use at your own risk and always validate results independently for important maths.
 
 ## Overview
 
@@ -29,7 +29,7 @@ Spirix is a high-performance numeric library that implements a fundamentally new
 This approach provides several key advantages:
 - **Simplified arithmetic**: Eliminates many branches required by sign-bit implementations
 - **Error tracking**: Preserves the origin of undefined operations (compared to a single generic NaN)
-- **Continuous mathematics**: Values maintain orientation even beyond standard representation ranges
+- **Continuous mathematics**: Values maintain orientation even beyond representation ranges
 - **Customizable precision and range**: Independently choose fraction and exponent sizes
 - **Complex number support**: Real and imaginary components share the same exponent for efficiency
 
@@ -41,8 +41,7 @@ Spirix's core innovation is using two's complement representation for floating-p
 
 - A continuous number line without discontinuity at zero
 - Natural operation consistency across zero without special handling
-- Elimination of sign-bit testing in arithmetic operations
-- More efficient implementation with fewer branches
+- Elimination of sign-bit branches in arithmetic operations
 
 Where traditional floating-point has a sign bit followed by exponent and mantissa:
 ```
@@ -74,16 +73,16 @@ Spirix introduces a novel normalization level system that encodes the normal/amb
 | N-3+ | □□□xxxxx | Various undefined states | [℘ 'state'] |
 | N-3+ | ■■■xxxxx | Various undefined states | [℘ 'state'] |
 
-Note that Zero and general undefined are uniform patterns, both of which have an ambiguous exponent. Each N level is distinguished by checking LSB (leading same bits). Ambiguous values are maraked by having an exponent set to the lowest possible value in the exponent referred to as AMBIGUOUS_EXPONENT. Ambiguous values include Zero, Undefined, Vanished and Exploded. Exploded have LSB of one N-1 (same as normal states but with AMBIGUOUS_EXPONENT). Vanished have LSB of two with AMBIGUOUS EXPONENT. Undefined contain three or more LSB with AMBIGUOUS_EXPONENT. Zero contains a fraction of all zeros, allowing fast determination of a value's normality or ambiguous state without unnecessary testing or branching.
+Note that Zero and general undefined are uniform patterns, both of which have an ambiguous exponent. Each N level is distinguished by checking LSB (leading same bits). Ambiguous values are marked by having an exponent set to the lowest possible value in the exponent, referred to as AMBIGUOUS_EXPONENT. Ambiguous values include Zero, Infinity, Undefined, Vanished and Exploded. Exploded have LSB of one N-1 (same as normal states but with AMBIGUOUS_EXPONENT). Vanished have LSB of two with AMBIGUOUS EXPONENT. Undefined contain three or more LSB with AMBIGUOUS_EXPONENT. Zero contains a fraction of all zeros, allowing fast determination of a value's normality or ambiguous state without unnecessary testing or branching.
 
 ### Escaped Values
 
-When a value exceeds the normal exponent range, Spirix doesn't simply truncate to infinity or zero. Instead, it creates an "escaped" phase that preserve sign or orientation information:
+When a value exceeds the normal exponent range, Spirix doesn't simply truncate to infinity or zero. Instead, it creates an "escaped" phase that preserves sign or orientation information:
 
 - **Exploded** values (↑): Extremely large numbers that maintain their sign/orientation
 - **Vanished** values (↓): Extremely small numbers that maintain their sign/orientation
 
-These escaped values can continue to participate in absolute mathematical operations, like multiplication and division, allowing calculations to proceed even with results beyond the exponent range. Escaped Scalars maintain their sign, escaped Circles maintain their angle or complex sign thru absolute operations.
+These escaped values can continue to participate in absolute mathematical operations, like multiplication and division, allowing calculations to proceed even with results beyond the exponent range. Escaped Scalars maintain their sign, escaped Circles maintain their angle/complex sign thru absolute operations.
 
 ## The Type System
 
@@ -144,6 +143,15 @@ Zero is represented with a unique bit pattern in the fraction:
 ```
 All zeros. Zero is ambiguous, thus has exponent equal to AMBIGIOUS_EXPONENT
 
+### Infinity [∞]
+
+Infinity is represented with a unique bit pattern in the fraction:
+
+```
+■■■■■■■■... - Infinity
+```
+All ones. Infinity is ambiguous, thus has exponent equal to AMBIGIOUS_EXPONENT
+
 ### Escaped Values [↑], [↓]
 
 When values exceed the representable range, they become "escaped" values:
@@ -176,7 +184,7 @@ Undefined states propagate thru operations, preserving their cause.
 ## Mathematical Operations
 
 ### Arithmetic Operations
-Note that Rust primitives like f32, i8 are treated as Scalars. For convenience, Circles can be converted to/from Num::Complex::<f32> or <f64>, where circle.r() and circle.i() return normalized Scalars from each respective component. A Circle can be constructed from a single Scalar/Rust primitive CircleF3E3::from(3),CircleF3E3::from(ScalarF),
+Note that Rust primitives like f32, i8 are treated as Scalars. For convenience, Circles can be converted to/from Num::Complex::<f32> or <f64>, where circle.r() and circle.i() return normalized Scalars from each respective component. A Circle can be constructed from a single Scalar/Rust primitive CircleF3E3::from(3),CircleF3E3::from(Scalar), or from a tuple of two valid types like CircleF5E4::from((scalar, i8))
 
 Spirix Rust native operations supported:
 
@@ -189,17 +197,13 @@ let sum = a + b;      // Addition
 let diff = a - b;     // Subtraction
 let product = a * b;  // Multiplication
 let quotient = a / b; // Division
+let remainder = a % b;           // Mathematical remainder
+let component_mod = a.modulo(b); // Component-wise remainder (for Circle)
 let negated = -a;     // Negation
 let reciprocal = a.reciprocal();  // 1/a
 ```
 
-## Modulo and Bit Operations
-```rust
-// Modulo operations
-let remainder = a % b;           // Mathematical remainder
-let component_mod = a.modulo(b); // Component-wise remainder (for Circle)
-
-// Aligned bitwise operations
+// Safe aligned bitwise operations
 let bit_and = a & b;      // Bitwise AND
 let bit_or = a | b;       // Bitwise OR
 let bit_xor = a ^ b;      // Bitwise XOR
@@ -289,11 +293,11 @@ let negative = x.is_negative(); // Less than Zero
 ```rust
 // Random values
 let uniform = ScalarF5E3::random();        // Uniform -1 to 1 distribution
-let gaussian = ScalarF5E3::random_gauss(); // Normal distribution
+let gaussian = ScalarF6E4::random_gauss(); // Normal distribution
 
 // For complex numbers
-let complex_uniform = CircleF5E3::random();        // Uniform inside unit circle
-let complex_gaussian = CircleF5E3::random_gauss(); // Normal distribution
+let complex_uniform = CircleF7E5::random();        // Uniform inside unit circle
+let complex_gaussian = CircleF4E4::random_gauss(); // Normal distribution
 ```
 
 ## Value Comparison Operations
@@ -310,20 +314,54 @@ Spirix tracks the cause of undefined operations with specific bit patterns:
 
 | Undefined State | Description |
 |-----------------|-------------|
-| `℘ /0` | Division by zero |
-| `℘ 0^0` | Zero raised to zero power |
-| `℘ √-` | Square root of negative number |
-| `℘ ↑+↑` | Exploded value addition with exploded value |
-| `℘ ↑-↑` | Exploded value subtraction with exploded value |
+| `℘ ⬆+⬆` | Transfinite value addition with transfinite value |
+| `℘ ⬆-⬆` | Transfinite value subtraction with transfinite value |
 | `℘ ↓+↓` | Vanished value addition with vanished value |
 | `℘ ↓-↓` | Vanished value subtraction with vanished value |
-| `℘ ↑×↓` | Exploded value multiplication with vanished value |
-| `℘ ↓×↑` | Vanished value multiplication with exploded value |
+| `℘ ⬆+` | Transfinite value addition with finite value |
+| `℘ ⬆-` | Transfinite value subtraction with finite value |
+| `℘ ⨅∞` | Fractional part of Infinity |
+| `℘ ±∅` | Sign/direction of Zero or Infinity is indeterminate |
+| `℘ ⊥⊙` | Indeterminate Scalar → Circle conversion |
+| `℘ ∩` | Clamp with non-ordered ambiguous values |
+| `℘ ⌈` | Maximum of non-ordered ambiguous values |
+| `℘ ⌊` | Minimum of non-ordered ambiguous values |
+| `℘ +⬆` | Finite value addition with transfinite value |
+| `℘ -⬆` | Finite value subtraction with transfinite value |
+| `℘ ⬆/⬆` | Transfinite value division by transfinite value |
+| `℘ ⬇/⬇` | Negligible value division by negligible value |
+| `℘ ⬆%` | Transfinite value modulus operation |
+| `℘ ⬆‰` | Transfinite value modulo operation |
+| `℘ %↓` | Finite value modulus with vanished value |
+| `℘ ‰↓` | Finite value modulo with vanished value |
+| `℘ %↑` | Modulus with exploded denominator and mismatched signs |
+| `℘ ‰↑` | Modulo with exploded denominator and mismatched signs |
+| `℘ &` | Logical AND with escaped value |
+| `℘ \|` | Logical OR with escaped value |
+| `℘ ⊻` | Logical XOR with escaped value |
+| `℘ ⬇×⬆` | Negligible value multiplication with transfinite value |
+| `℘ ⬆×⬇` | Transfinite value multiplication with negligible value |
+| `℘ ⬆^` | Transfinite value raised to power |
+| `℘ ⬇^` | Vanished value raised to power |
+| `℘ ^⬆` | Value raised to transfinite power |
+| `℘ ^⬇` | Value raised to vanished power |
+| `℘ -^` | Negative value raised to irrational power |
+| `℘ @1` | Logarithm base One |
+| `℘ √-` | Square root of negative value |
+| `℘ √↑` | Square root of transfinite value |
+| `℘ √↓` | Square root of vanished value |
+| `℘ ⬆@` | Logarithm of transfinite value |
+| `℘ ⬇@` | Logarithm of negligible value |
+| `℘ @⬆` | Logarithm with transfinite base |
+| `℘ @⬇` | Logarithm with negligible base |
 | `℘ -@` | Logarithm of negative value |
-| `℘ @0` | Logarithm with zero base |
-| `℘ s` | Sine of exploded value (period position unknown) |
-| `℘ c` | Cosine of exploded value (period position unknown) |
-| `℘ t` | Tangent of exploded value or at asymptote |
+| `℘ @-` | Logarithm with negative base |
+| `℘ s` | Sine of value with imprecise period position |
+| `℘ c` | Cosine of value with imprecise period position |
+| `℘ S` | Arcsine of value outside domain [-1,1] |
+| `℘ C` | Arccosine of value outside domain [-1,1] |
+| `℘ t` | Tangent of value with imprecise period position |
+| `℘` | General undefined or unimplemented and extensions |
 
 These undefined states propagate thru operations, preserving the first cause of the undefined condition.
 
@@ -337,10 +375,10 @@ use spirix::{Scalar, ScalarF5E3};
 // Create a Scalar with explicitly specified type parameters
 let a = Scalar::<i32, i8>::from(42);
 
-// Create a Scalar using a type alias (same as above)
+// Create a Scalar using a type alias
 let b = ScalarF5E3::from(3.14159);
 
-// Convert from floating-point literals
+// Convert from Rust literals
 let c: ScalarF5E3 = 2.71828.into();
 
 // Create from constants
@@ -431,70 +469,6 @@ if value.is_normal() {
 }
 ```
 
-## Advanced Use Cases
-
-### Numerical Integration with Adaptive Precision
-
-```rust
-use spirix::{Scalar, ScalarF7E3, ScalarF4E7};
-
-// Use high precision for values near 1
-fn integrate_high_precision(f: impl Fn(ScalarF7E3) -> ScalarF7E3, 
-                            a: ScalarF7E3, 
-                            b: ScalarF7E3, 
-                            steps: usize) -> ScalarF7E3 {
-    // Integration code...
-    // High precision is maintained thruout calculation
-}
-
-// Use wide range for values that could be very large or small
-fn integrate_wide_range(f: impl Fn(ScalarF4E7) -> ScalarF4E7, 
-                        a: ScalarF4E7, 
-                        b: ScalarF4E7, 
-                        steps: usize) -> ScalarF4E7 {
-    // Integration code...
-    // Wide range is maintained thruout calculation
-}
-```
-
-### Wrapping in Complex Space
-
-```rust
-use spirix::{Circle, CircleF5E3};
-
-// Maps a complex number onto a periodic grid
-fn wrap_to_lattice(z: CircleF5E3, cell_size: CircleF5E3) -> CircleF5E3 {
-    z.modulo(cell_size)
-}
-
-// Example: map (37.2 + 45.6i) onto a 10×10 grid
-let point = CircleF5E3::from((37.2, 45.6));
-let grid = CircleF5E3::from((10.0, 10.0));
-let wrapped = wrap_to_lattice(point, grid);
-// Result: (7.2 + 5.6i)
-```
-
-### Strict Mathematical Error Handling
-
-```rust
-use spirix::{Scalar, ScalarF5E3};
-
-fn safe_compute(value: ScalarF5E3) -> Result<ScalarF5E3, String> {
-    let result = value.sqrt();
-    
-    if result.is_undefined() {
-        // Check the specific undefined state
-        if format!("{}", result).contains("℘ √-") {
-            return Err("Cannot take square root of a negative number".to_string());
-        } else {
-            return Err(format!("Undefined result: {}", result));
-        }
-    }
-    
-    Ok(result)
-}
-```
-
 ## Performance Considerations
 
 Spirix's design emphasizes efficiency in several ways:
@@ -511,7 +485,6 @@ For maximum performance:
 
 - Choose the smallest fraction and exponent sizes that meet your requirements
 - Prefer Scalar over Circle when complex numbers aren't needed
-- Be aware that escaped values (exploded/vanished) may have lower performance in some operations
 
 ## Comparing with Traditional Floating-Point
 
@@ -528,16 +501,34 @@ Spirix differs from traditional floating-point implementations in several key wa
 | Complex support | Separate real/imaginary | Unified Circle type with shared exponent |
 | Precision/range | Fixed configurations | Independently configurable |
 
+## Mathematical Identity Preservation
+
+Spirix maintains fundamental mathematical identities that IEEE-754 violates:
+
+### Additive Identity: a - a = 0
+Both IEEE-754 and Spirix preserve this identity:
+
+```rust
+let normal_ieee = 5.;
+assert!(normal_ieee - normal_ieee == 0.);
+
+let normal_scalar : ScalarF6E5 = 5.into();
+assert!(normal_scalar - normal_scalar == 0);
+```
+
+### Multiplicative Identity: a × b = 0 iff a | b = 0
+IEEE-754 violates this fundamental property, while Spirix preserves it:
+
+```rust
+let tiny_ieee = f64::MIN_POSITIVE * f64::MIN_POSITIVE;  // Underflows to 0
+assert!(tiny_ieee.is_zero());
+
+let tiny_scalar = ScalarF7E5::MIN_POS.square(); // Returns a vanished scalar, not Zero
+assert!(!tiny_scalar.is_zero());
+```
+
 These differences make Spirix particularly well-suited for:
 - Applications requiring strict error tracking
 - Computations with complex numbers
 - Algorithms needing bit-level floating-point manipulation
 - Systems with custom precision/range requirements
-
-## Conclusion
-
-Spirix represents a fundamental reimagining of how floating-point arithmetic can be implemented in computing systems. By leveraging the natural properties of two's complement representation thruout the calculation pipeline, it achieves greater simplicity, improved error handling, and flexible precision while maintaining mathematical consistency across the entire numeric spectrum.
-
-The library's design philosophy emphasizes the inherent mathematical continuity of the number line, preserving orientation information even when precise magnitude cannot be represented. This approach, combined with the rich state classification system and specific undefined tracking, provides a more mathematically coherent framework for numerical computation.
-
-Whether you're developing high-precision scientific applications, complex number algorithms, or systems with custom numeric requirements, Spirix offers a powerful alternative to traditional floating-point implementations.

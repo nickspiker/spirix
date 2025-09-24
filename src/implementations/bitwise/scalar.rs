@@ -872,13 +872,6 @@ where
         if self.is_undefined() {
             return *self;
         }
-        if self.is_n0() {
-            // NOT of Zero and Infinity are undefined
-            return Self {
-                fraction: NOT.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
-        }
         return Self {
             fraction: !self.fraction,
             exponent: self.exponent,
