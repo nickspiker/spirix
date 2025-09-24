@@ -2,7 +2,7 @@ use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 #[allow(private_bounds)]
 impl<
@@ -14,7 +14,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -23,7 +27,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -166,12 +174,12 @@ where
         }
 
         if self.exponent > scalar.exponent {
-            let exp_diff = self.exponent - scalar.exponent;
+            let exp_diff = self.exponent.wrapping_sub(&scalar.exponent);
             if exp_diff.is_negative() {
                 return *self;
             }
 
-            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
                 if exp_diff >= F::FRACTION_BITS.as_() {
                     return *self;
                 }
@@ -188,21 +196,22 @@ where
                     let mut big: i16 = self.fraction.as_();
                     big <<= shift;
                     let small: i16 = scalar.fraction.as_();
-                    let result = big - small;
+                    let result = big.wrapping_sub(small);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = scalar.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 16 => {
@@ -210,21 +219,22 @@ where
                     let mut big: i32 = self.fraction.as_();
                     big <<= shift;
                     let small: i32 = scalar.fraction.as_();
-                    let result = big - small;
+                    let result = big.wrapping_sub(small);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = scalar.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 32 => {
@@ -232,21 +242,22 @@ where
                     let mut big: i64 = self.fraction.as_();
                     big <<= shift;
                     let small: i64 = scalar.fraction.as_();
-                    let result = big - small;
+                    let result = big.wrapping_sub(small);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = scalar.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 64 => {
@@ -254,21 +265,22 @@ where
                     let mut big: i128 = self.fraction.as_();
                     big <<= shift;
                     let small: i128 = scalar.fraction.as_();
-                    let result = big - small;
+                    let result = big.wrapping_sub(small);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = scalar.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 128 => {
@@ -276,25 +288,26 @@ where
                     let mut big: I256 = self.fraction.into();
                     big <<= shift;
                     let small: I256 = scalar.fraction.into();
-                    let result = big - small;
+                    let result = big.wrapping_sub(small);
                     if result == 0.into() {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = scalar.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS)
+                            fraction: ((result << leading.wrapping_sub(2)) >> F::FRACTION_BITS)
                                 .as_i128()
                                 .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS)
+                        fraction: ((result << leading.wrapping_sub(1)) >> F::FRACTION_BITS)
                             .as_i128()
                             .as_(),
-                        exponent: offset + 1.as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 _ => {
@@ -306,12 +319,12 @@ where
                 }
             }
         } else {
-            let exp_diff = scalar.exponent - self.exponent;
+            let exp_diff = scalar.exponent.wrapping_sub(&self.exponent);
             if exp_diff.is_negative() {
                 return -scalar;
             }
 
-            if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+            if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
                 if exp_diff >= F::FRACTION_BITS.as_() {
                     return -scalar;
                 }
@@ -328,21 +341,22 @@ where
                     let mut big: i16 = scalar.fraction.as_();
                     big <<= shift;
                     let small: i16 = self.fraction.as_();
-                    let result = small - big;
+                    let result = small.wrapping_sub(big);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = self.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 16 => {
@@ -350,21 +364,22 @@ where
                     let mut big: i32 = scalar.fraction.as_();
                     big <<= shift;
                     let small: i32 = self.fraction.as_();
-                    let result = small - big;
+                    let result = small.wrapping_sub(big);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = self.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 32 => {
@@ -372,21 +387,22 @@ where
                     let mut big: i64 = scalar.fraction.as_();
                     big <<= shift;
                     let small: i64 = self.fraction.as_();
-                    let result = small - big;
+                    let result = small.wrapping_sub(big);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = self.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 64 => {
@@ -394,21 +410,22 @@ where
                     let mut big: i128 = scalar.fraction.as_();
                     big <<= shift;
                     let small: i128 = self.fraction.as_();
-                    let result = small - big;
+                    let result = small.wrapping_sub(big);
                     if result == 0 {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = self.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS).as_(),
-                        exponent: offset + 1.as_(),
+                        fraction: ((result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 128 => {
@@ -416,25 +433,26 @@ where
                     let mut big: I256 = scalar.fraction.into();
                     big <<= shift;
                     let small: I256 = self.fraction.into();
-                    let result = small - big;
+                    let result = small.wrapping_sub(big);
                     if result == 0.into() {
                         return Self::ZERO;
                     }
                     let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                    let offset = self.exponent + (F::FRACTION_BITS - leading).as_();
+                    let o: E = F::FRACTION_BITS.wrapping_sub(leading).as_();
+                    let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading - 2)) >> F::FRACTION_BITS)
+                            fraction: ((result << leading.wrapping_sub(2)) >> F::FRACTION_BITS)
                                 .as_i128()
                                 .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
                     return Self {
-                        fraction: ((result << (leading - 1)) >> F::FRACTION_BITS)
+                        fraction: ((result << leading.wrapping_sub(1)) >> F::FRACTION_BITS)
                             .as_i128()
                             .as_(),
-                        exponent: offset + 1.as_(),
+                        exponent: offset.wrapping_add(&E::ONE),
                     };
                 }
                 _ => {

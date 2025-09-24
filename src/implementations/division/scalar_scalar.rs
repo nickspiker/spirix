@@ -2,7 +2,7 @@ use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 #[allow(private_bounds)]
@@ -15,7 +15,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -24,7 +28,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -101,45 +109,60 @@ where
                     8 => {
                         let numerator: i16 = self.fraction.as_();
                         let denominator: i16 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << (F::FRACTION_BITS + 1), denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
+                            .div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     16 => {
                         let numerator: i32 = self.fraction.as_();
                         let denominator: i32 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << (F::FRACTION_BITS + 1), denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
+                            .div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     32 => {
                         let numerator: i64 = self.fraction.as_();
                         let denominator: i64 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << (F::FRACTION_BITS + 1), denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
+                            .div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     64 => {
                         let numerator: i128 = self.fraction.as_();
                         let denominator: i128 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << (F::FRACTION_BITS + 1), denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
+                            .div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     128 => {
                         let numerator: I256 = self.fraction.into();
                         let denominator: I256 = other.fraction.into();
-                        let mut quotient =
-                            floored_division(numerator << (F::FRACTION_BITS + 1), denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
+                            .div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_i128().as_()
                     }
@@ -155,45 +178,55 @@ where
                     8 => {
                         let numerator: i16 = self.fraction.as_();
                         let denominator: i16 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << F::FRACTION_BITS, denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     16 => {
                         let numerator: i32 = self.fraction.as_();
                         let denominator: i32 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << F::FRACTION_BITS, denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     32 => {
                         let numerator: i64 = self.fraction.as_();
                         let denominator: i64 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << F::FRACTION_BITS, denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     64 => {
                         let numerator: i128 = self.fraction.as_();
                         let denominator: i128 = other.fraction.as_();
-                        let mut quotient =
-                            floored_division(numerator << F::FRACTION_BITS, denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_()
                     }
                     128 => {
                         let numerator: I256 = self.fraction.into();
                         let denominator: I256 = other.fraction.into();
-                        let mut quotient =
-                            floored_division(numerator << F::FRACTION_BITS, denominator);
-                        let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 2;
+                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                        let shift = quotient
+                            .leading_ones()
+                            .max(quotient.leading_zeros())
+                            .wrapping_sub(2);
                         quotient <<= shift;
                         (quotient >> F::FRACTION_BITS).as_i128().as_()
                     }
@@ -208,40 +241,55 @@ where
                 8 => {
                     let numerator: i16 = self.fraction.as_();
                     let denominator: i16 = other.fraction.as_();
-                    let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                    let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 1;
+                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                    let shift = quotient
+                        .leading_ones()
+                        .max(quotient.leading_zeros())
+                        .wrapping_sub(1);
                     quotient <<= shift;
                     (quotient >> F::FRACTION_BITS).as_()
                 }
                 16 => {
                     let numerator: i32 = self.fraction.as_();
                     let denominator: i32 = other.fraction.as_();
-                    let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                    let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 1;
+                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                    let shift = quotient
+                        .leading_ones()
+                        .max(quotient.leading_zeros())
+                        .wrapping_sub(1);
                     quotient <<= shift;
                     (quotient >> F::FRACTION_BITS).as_()
                 }
                 32 => {
                     let numerator: i64 = self.fraction.as_();
                     let denominator: i64 = other.fraction.as_();
-                    let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                    let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 1;
+                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                    let shift = quotient
+                        .leading_ones()
+                        .max(quotient.leading_zeros())
+                        .wrapping_sub(1);
                     quotient <<= shift;
                     (quotient >> F::FRACTION_BITS).as_()
                 }
                 64 => {
                     let numerator: i128 = self.fraction.as_();
                     let denominator: i128 = other.fraction.as_();
-                    let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                    let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 1;
+                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                    let shift = quotient
+                        .leading_ones()
+                        .max(quotient.leading_zeros())
+                        .wrapping_sub(1);
                     quotient <<= shift;
                     (quotient >> F::FRACTION_BITS).as_()
                 }
                 128 => {
                     let numerator: I256 = self.fraction.into();
                     let denominator: I256 = other.fraction.into();
-                    let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                    let shift = quotient.leading_ones().max(quotient.leading_zeros()) - 1;
+                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                    let shift = quotient
+                        .leading_ones()
+                        .max(quotient.leading_zeros())
+                        .wrapping_sub(1);
                     quotient <<= shift;
                     (quotient >> F::FRACTION_BITS).as_i128().as_()
                 }
@@ -257,56 +305,61 @@ where
             8 => {
                 let numerator: i16 = self.fraction.as_();
                 let denominator: i16 = other.fraction.as_();
-                let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                let shift = quotient.leading_ones().max(quotient.leading_zeros()) as isize - 1;
+                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
+                    .wrapping_sub(1);
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift - (F::FRACTION_BITS - 1),
+                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
                 )
             }
             16 => {
                 let numerator: i32 = self.fraction.as_();
                 let denominator: i32 = other.fraction.as_();
-                let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                let shift = quotient.leading_ones().max(quotient.leading_zeros()) as isize - 1;
+                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
+                    .wrapping_sub(1);
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift - (F::FRACTION_BITS - 1),
+                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
                 )
             }
             32 => {
                 let numerator: i64 = self.fraction.as_();
                 let denominator: i64 = other.fraction.as_();
-                let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                let shift = quotient.leading_ones().max(quotient.leading_zeros()) as isize - 1;
+                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
+                    .wrapping_sub(1);
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift - (F::FRACTION_BITS - 1),
+                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
                 )
             }
             64 => {
                 let numerator: i128 = self.fraction.as_();
                 let denominator: i128 = other.fraction.as_();
-                let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                let shift = quotient.leading_ones().max(quotient.leading_zeros()) as isize - 1;
+                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
+                    .wrapping_sub(1);
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_(),
-                    shift - (F::FRACTION_BITS - 1),
+                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
                 )
             }
             128 => {
                 let numerator: I256 = self.fraction.into();
                 let denominator: I256 = other.fraction.into();
-                let mut quotient = floored_division(numerator << F::FRACTION_BITS, denominator);
-                let shift = quotient.leading_ones().max(quotient.leading_zeros()) as isize - 1;
+                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
+                    .wrapping_sub(1);
                 quotient <<= shift;
                 (
                     (quotient >> F::FRACTION_BITS).as_i128().as_(),
-                    shift - (F::FRACTION_BITS - 1),
+                    shift.wrapping_sub((F::FRACTION_BITS.wrapping_sub(1))),
                 )
             }
             _ => {
@@ -321,7 +374,9 @@ where
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
                 let other_exponent: i16 = other.exponent.as_();
-                let upcast_exponent: i16 = self_exponent - other_exponent - expo_adjust as i16;
+                let upcast_exponent: i16 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i16);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -343,7 +398,9 @@ where
             16 => {
                 let self_exponent: i32 = self.exponent.as_();
                 let other_exponent: i32 = other.exponent.as_();
-                let upcast_exponent: i32 = self_exponent - other_exponent - expo_adjust as i32;
+                let upcast_exponent: i32 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i32);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -365,7 +422,9 @@ where
             32 => {
                 let self_exponent: i64 = self.exponent.as_();
                 let other_exponent: i64 = other.exponent.as_();
-                let upcast_exponent: i64 = self_exponent - other_exponent - expo_adjust as i64;
+                let upcast_exponent: i64 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i64);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -387,7 +446,9 @@ where
             64 => {
                 let self_exponent: i128 = self.exponent.as_();
                 let other_exponent: i128 = other.exponent.as_();
-                let upcast_exponent: i128 = self_exponent - other_exponent - expo_adjust as i128;
+                let upcast_exponent: i128 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i128);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -410,7 +471,9 @@ where
                 let self_exponent: I256 = self.exponent.into();
                 let other_exponent: I256 = other.exponent.into();
                 let exp_adj: I256 = (expo_adjust as i128).into();
-                let upcast_exponent: I256 = self_exponent - other_exponent - exp_adj;
+                let upcast_exponent: I256 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(exp_adj);
                 let max_e: I256 = E::MAX_EXPONENT.into();
                 let min_e: I256 = E::MIN_EXPONENT.into();
                 if upcast_exponent > max_e {
@@ -440,26 +503,5 @@ where
     }
     pub fn reciprocal(&self) -> Self {
         Self::ONE / self
-    }
-}
-fn floored_division<T>(n: T, d: T) -> T
-where
-    T: std::ops::Div<Output = T>
-        + std::ops::Rem<Output = T>
-        + std::cmp::PartialOrd
-        + std::ops::Sub<Output = T>
-        + Copy
-        + From<i8>,
-{
-    let zero: T = 0i8.into();
-    let one: T = 1i8.into();
-
-    let q = n / d;
-    let r = n % d;
-
-    if r == zero || (n < zero) == (d < zero) {
-        q
-    } else {
-        q - one
     }
 }

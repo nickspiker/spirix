@@ -1,7 +1,7 @@
 use crate::core::integer::{FullInt, Integer};
 use crate::{operators::*, ExponentConstants, FractionConstants, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::cmp::Ordering;
 use std::ops::*;
 macro_rules! impl_scalar_op {
@@ -16,7 +16,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -25,7 +29,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -72,7 +80,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -81,7 +93,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -127,7 +143,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -136,7 +156,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -183,7 +207,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -192,7 +220,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -239,7 +271,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -248,7 +284,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -295,7 +335,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -304,7 +348,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -351,7 +399,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -360,7 +412,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -407,7 +463,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -416,7 +476,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -463,7 +527,11 @@ macro_rules! impl_scalar_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -472,7 +540,11 @@ macro_rules! impl_scalar_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -529,7 +601,11 @@ macro_rules! impl_scalar_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -538,7 +614,11 @@ macro_rules! impl_scalar_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -584,7 +664,11 @@ macro_rules! impl_scalar_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -593,7 +677,11 @@ macro_rules! impl_scalar_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -639,7 +727,11 @@ macro_rules! impl_scalar_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -648,7 +740,11 @@ macro_rules! impl_scalar_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -704,7 +800,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -713,7 +813,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -761,7 +865,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -770,7 +878,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -818,7 +930,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -827,7 +943,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -875,7 +995,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -884,7 +1008,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -932,7 +1060,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -941,7 +1073,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -989,7 +1125,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -998,7 +1138,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1046,7 +1190,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1055,7 +1203,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1103,7 +1255,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1112,7 +1268,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1160,7 +1320,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1169,7 +1333,11 @@ macro_rules! impl_scalar_math_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1223,7 +1391,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1232,7 +1404,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1279,7 +1455,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1288,7 +1468,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1335,7 +1519,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1344,7 +1532,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1391,7 +1583,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1400,7 +1596,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1447,7 +1647,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1456,7 +1660,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1503,7 +1711,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1512,7 +1724,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1558,7 +1774,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1567,7 +1787,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1614,7 +1838,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1623,7 +1851,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &mut Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1669,7 +1901,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1678,7 +1914,11 @@ macro_rules! impl_scalar_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1732,7 +1972,11 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1741,7 +1985,11 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1787,7 +2035,11 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1796,7 +2048,11 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1842,7 +2098,11 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1851,7 +2111,11 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Scalar<F, E>
         where
             Scalar<F, E>: ScalarConstants,
@@ -1902,7 +2166,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1911,7 +2179,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialEq for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -1957,7 +2229,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1966,7 +2242,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialEq<&Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2011,7 +2291,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2020,7 +2304,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialEq<Scalar<F, E>> for &Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2066,7 +2354,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2075,7 +2367,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialOrd for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2120,7 +2416,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2129,7 +2429,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialEq<&mut Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2175,7 +2479,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2184,7 +2492,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialEq<Scalar<F, E>> for &mut Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2229,7 +2541,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2238,7 +2554,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialOrd<&Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2284,7 +2604,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2293,7 +2617,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialOrd<Scalar<F, E>> for &Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2339,7 +2667,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2348,7 +2680,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialOrd<&mut Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2393,7 +2729,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2402,7 +2742,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > PartialOrd<Scalar<F, E>> for &mut Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,

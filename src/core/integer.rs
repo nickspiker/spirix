@@ -129,12 +129,12 @@ macro_rules! impl_int_convert {
                 where
                     $t: AsPrimitive<I>,
                 {
-                    let src_bits = std::mem::size_of::<$t>() * 8;
-                    let dst_bits = std::mem::size_of::<I>() * 8;
+                    let src_bits = std::mem::size_of::<$t>().wrapping_mul(8);
+                    let dst_bits = std::mem::size_of::<I>().wrapping_mul(8);
                     if src_bits < dst_bits {
-                        (self.as_() << (dst_bits - src_bits))
+                        (self.as_() << dst_bits.wrapping_sub(src_bits))
                     } else if src_bits > dst_bits {
-                        (self >> (src_bits - dst_bits)).as_()
+                        (self >> src_bits.wrapping_sub(dst_bits)).as_()
                     } else {
                         self.as_()
                     }

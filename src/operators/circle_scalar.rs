@@ -4,7 +4,7 @@ use crate::{
     ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingNeg, WrappingAdd, WrappingMul, WrappingSub};
 use std::ops::*;
 
 macro_rules! impl_circle_op_scalar {
@@ -19,7 +19,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -28,7 +32,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -76,7 +84,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -85,7 +97,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -133,7 +149,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -142,7 +162,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -190,7 +214,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -199,7 +227,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -247,7 +279,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -256,7 +292,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -304,7 +344,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -313,7 +357,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -361,7 +409,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -370,7 +422,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -418,7 +474,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -427,7 +487,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -475,7 +539,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -484,7 +552,11 @@ macro_rules! impl_circle_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -540,7 +612,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -549,7 +625,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -597,7 +677,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -606,7 +690,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -654,7 +742,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -663,7 +755,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -711,7 +807,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -720,7 +820,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -768,7 +872,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -777,7 +885,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -825,7 +937,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -834,7 +950,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -881,7 +1001,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -890,7 +1014,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -938,7 +1066,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -947,7 +1079,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -995,7 +1131,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1004,7 +1144,11 @@ macro_rules! impl_circle_op_scalar_to_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1059,7 +1203,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1068,7 +1216,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1117,7 +1269,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1126,7 +1282,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1175,7 +1335,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1184,7 +1348,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1233,7 +1401,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1242,7 +1414,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1291,7 +1467,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1300,7 +1480,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1349,7 +1533,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1358,7 +1546,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1407,7 +1599,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1416,7 +1612,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1465,7 +1665,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1474,7 +1678,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1523,7 +1731,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1532,7 +1744,11 @@ macro_rules! impl_circle_math_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1587,7 +1803,11 @@ macro_rules! impl_circle_assign_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1596,7 +1816,11 @@ macro_rules! impl_circle_assign_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1643,7 +1867,11 @@ macro_rules! impl_circle_assign_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1652,7 +1880,11 @@ macro_rules! impl_circle_assign_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1699,7 +1931,11 @@ macro_rules! impl_circle_assign_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1708,7 +1944,11 @@ macro_rules! impl_circle_assign_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,

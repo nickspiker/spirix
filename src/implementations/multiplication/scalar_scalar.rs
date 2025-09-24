@@ -2,7 +2,7 @@ use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 #[allow(private_bounds)]
 impl<
@@ -14,7 +14,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -23,7 +27,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -175,7 +183,7 @@ where
                             .max(product_wide.leading_zeros())
                             as isize;
 
-                        let shift = leading + n_level;
+                        let shift = leading.wrapping_add(n_level);
                         let normalized_wide = product_wide << shift;
                         (normalized_wide >> F::FRACTION_BITS).as_()
                     }
@@ -189,7 +197,7 @@ where
                             .max(product_wide.leading_zeros())
                             as isize;
 
-                        let shift = leading + n_level;
+                        let shift = leading.wrapping_add(n_level);
                         let normalized_wide = product_wide << shift;
                         (normalized_wide >> F::FRACTION_BITS).as_()
                     }
@@ -203,7 +211,7 @@ where
                             .max(product_wide.leading_zeros())
                             as isize;
 
-                        let shift = leading + n_level;
+                        let shift = leading.wrapping_add(n_level);
                         let normalized_wide = product_wide << shift;
                         (normalized_wide >> F::FRACTION_BITS).as_()
                     }
@@ -217,7 +225,7 @@ where
                             .max(product_wide.leading_zeros())
                             as isize;
 
-                        let shift = leading + n_level;
+                        let shift = leading.wrapping_add(n_level);
                         let normalized_wide = product_wide << shift;
                         (normalized_wide >> F::FRACTION_BITS).as_()
                     }
@@ -233,7 +241,7 @@ where
                             .max(product_wide.leading_zeros())
                             as isize;
 
-                        let shift = leading + n_level;
+                        let shift = leading.wrapping_add(n_level);
                         let normalized_wide = product_wide << shift;
                         (normalized_wide >> F::FRACTION_BITS).as_i128().as_()
                     }
@@ -256,12 +264,12 @@ where
                     if product_wide == 0 {
                         return Self::ZERO;
                     }
-                    expo_adjust = product_wide
+                    expo_adjust = (product_wide
                         .leading_ones()
                         .max(product_wide.leading_zeros())
-                        as isize
-                        - 2;
-                    let shift = expo_adjust + 1;
+                        as isize)
+                        .wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide = product_wide << shift;
                     fraction = (normalized_wide >> F::FRACTION_BITS).as_();
                 }
@@ -272,12 +280,12 @@ where
                     if product_wide == 0 {
                         return Self::ZERO;
                     }
-                    expo_adjust = product_wide
+                    expo_adjust = (product_wide
                         .leading_ones()
                         .max(product_wide.leading_zeros())
-                        as isize
-                        - 2;
-                    let shift = expo_adjust + 1;
+                        as isize)
+                        .wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide = product_wide << shift;
                     fraction = (normalized_wide >> F::FRACTION_BITS).as_();
                 }
@@ -288,12 +296,12 @@ where
                     if product_wide == 0 {
                         return Self::ZERO;
                     }
-                    expo_adjust = product_wide
+                    expo_adjust = (product_wide
                         .leading_ones()
                         .max(product_wide.leading_zeros())
-                        as isize
-                        - 2;
-                    let shift = expo_adjust + 1;
+                        as isize)
+                        .wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide = product_wide << shift;
                     fraction = (normalized_wide >> F::FRACTION_BITS).as_();
                 }
@@ -304,12 +312,12 @@ where
                     if product_wide == 0 {
                         return Self::ZERO;
                     }
-                    expo_adjust = product_wide
+                    expo_adjust = (product_wide
                         .leading_ones()
                         .max(product_wide.leading_zeros())
-                        as isize
-                        - 2;
-                    let shift = expo_adjust + 1;
+                        as isize)
+                        .wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide = product_wide << shift;
                     fraction = (normalized_wide >> F::FRACTION_BITS).as_();
                 }
@@ -322,12 +330,12 @@ where
                     if product_wide == 0.into() {
                         return Self::ZERO;
                     }
-                    expo_adjust = product_wide
+                    expo_adjust = (product_wide
                         .leading_ones()
                         .max(product_wide.leading_zeros())
-                        as isize
-                        - 2;
-                    let shift = expo_adjust + 1;
+                        as isize)
+                        .wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide = product_wide << shift;
                     fraction = (normalized_wide >> F::FRACTION_BITS).as_i128().as_();
                 }
@@ -343,7 +351,9 @@ where
                 8 => {
                     let self_exponent: i16 = self.exponent.as_();
                     let other_exponent: i16 = other.exponent.as_();
-                    let upcast_exponent: i16 = self_exponent + other_exponent - expo_adjust as i16;
+                    let upcast_exponent: i16 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i16);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Scalar {
@@ -365,7 +375,9 @@ where
                 16 => {
                     let self_exponent: i32 = self.exponent.as_();
                     let other_exponent: i32 = other.exponent.as_();
-                    let upcast_exponent: i32 = self_exponent + other_exponent - expo_adjust as i32;
+                    let upcast_exponent: i32 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i32);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Scalar {
@@ -387,7 +399,9 @@ where
                 32 => {
                     let self_exponent: i64 = self.exponent.as_();
                     let other_exponent: i64 = other.exponent.as_();
-                    let upcast_exponent: i64 = self_exponent + other_exponent - expo_adjust as i64;
+                    let upcast_exponent: i64 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i64);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Scalar {
@@ -409,8 +423,9 @@ where
                 64 => {
                     let self_exponent: i128 = self.exponent.as_();
                     let other_exponent: i128 = other.exponent.as_();
-                    let upcast_exponent: i128 =
-                        self_exponent + other_exponent - expo_adjust as i128;
+                    let upcast_exponent: i128 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i128);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Scalar {
@@ -433,7 +448,8 @@ where
                     let self_exponent: I256 = self.exponent.into();
                     let other_exponent: I256 = other.exponent.into();
                     let e: I256 = (expo_adjust as i128).into();
-                    let upcast_exponent: I256 = self_exponent + other_exponent - e;
+                    let upcast_exponent: I256 =
+                        self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
 
                     if upcast_exponent > E::MAX_EXPONENT.into() {
                         return Scalar {

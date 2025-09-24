@@ -3,7 +3,7 @@ use crate::{
     Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 /// # Decompose a Complex Number into Components
 ///
@@ -65,7 +65,11 @@ where
         + std::ops::Shl<F, Output = F>
         + std::ops::Shr<F, Output = F>
         + std::ops::Shl<E, Output = F>
-        + std::ops::Shr<E, Output = F>,
+        + std::ops::Shr<E, Output = F>
+        + WrappingNeg
+        + WrappingAdd
+        + WrappingMul
+        + WrappingSub,
     E: ExponentConstants
         + FullInt
         + std::ops::Shl<isize, Output = E>
@@ -73,7 +77,11 @@ where
         + std::ops::Shl<E, Output = E>
         + std::ops::Shr<E, Output = E>
         + std::ops::Shl<F, Output = E>
-        + std::ops::Shr<F, Output = E>,
+        + std::ops::Shr<F, Output = E>
+        + WrappingNeg
+        + WrappingAdd
+        + WrappingMul
+        + WrappingSub,
     Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -140,7 +148,11 @@ where
         + std::ops::Shl<F, Output = F>
         + std::ops::Shr<F, Output = F>
         + std::ops::Shl<E, Output = F>
-        + std::ops::Shr<E, Output = F>,
+        + std::ops::Shr<E, Output = F>
+        + WrappingNeg
+        + WrappingAdd
+        + WrappingMul
+        + WrappingSub,
     E: ExponentConstants
         + FullInt
         + std::ops::Shl<isize, Output = E>
@@ -148,7 +160,11 @@ where
         + std::ops::Shl<E, Output = E>
         + std::ops::Shr<E, Output = E>
         + std::ops::Shl<F, Output = E>
-        + std::ops::Shr<F, Output = E>,
+        + std::ops::Shr<F, Output = E>
+        + WrappingNeg
+        + WrappingAdd
+        + WrappingMul
+        + WrappingSub,
     Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -215,7 +231,11 @@ where
         + std::ops::Shl<F, Output = F>
         + std::ops::Shr<F, Output = F>
         + std::ops::Shl<E, Output = F>
-        + std::ops::Shr<E, Output = F>,
+        + std::ops::Shr<E, Output = F>
+        + WrappingNeg
+        + WrappingAdd
+        + WrappingMul
+        + WrappingSub,
     E: ExponentConstants
         + FullInt
         + std::ops::Shl<isize, Output = E>
@@ -223,7 +243,11 @@ where
         + std::ops::Shl<E, Output = E>
         + std::ops::Shr<E, Output = E>
         + std::ops::Shl<F, Output = E>
-        + std::ops::Shr<F, Output = E>,
+        + std::ops::Shr<F, Output = E>
+        + WrappingNeg
+        + WrappingAdd
+        + WrappingMul
+        + WrappingSub,
     Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,

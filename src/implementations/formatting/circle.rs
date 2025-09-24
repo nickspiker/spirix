@@ -3,7 +3,7 @@ use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
 use crate::*;
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::fmt::{self};
 use std::ops::*;
 
@@ -16,7 +16,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -25,7 +29,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > fmt::Display for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -98,7 +106,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + FullInt
             + Shl<isize, Output = E>
@@ -106,7 +118,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > fmt::Debug for Circle<F, E>
 where
     F: FractionConstants,
@@ -161,7 +177,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + FullInt
             + Shl<isize, Output = E>
@@ -169,7 +189,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Circle<F, E>
 where
     F: FractionConstants,
@@ -233,9 +257,9 @@ where
                         }
                         let digit = mag_r.to_u8();
                         if digit < 10 {
-                            string.push((digit + 48) as char)
+                            string.push(digit.wrapping_add(48) as char)
                         } else {
-                            string.push((digit + 55) as char);
+                            string.push(digit.wrapping_add(55) as char);
                         }
                         mag_r = mag_r.frac() * base;
                     }
@@ -256,9 +280,9 @@ where
                         }
                         let digit = mag_i.to_u8();
                         if digit < 10 {
-                            string.push((digit + 48) as char)
+                            string.push(digit.wrapping_add(48) as char)
                         } else {
-                            string.push((digit + 55) as char);
+                            string.push(digit.wrapping_add(55) as char);
                         }
                         mag_i = mag_i.frac() * base;
                     }
@@ -283,9 +307,9 @@ where
                         }
                         let digit = mag_r.to_u8();
                         if digit < 10 {
-                            string.push((digit + 48) as char)
+                            string.push(digit.wrapping_add(48) as char)
                         } else {
-                            string.push((digit + 55) as char);
+                            string.push(digit.wrapping_add(55) as char);
                         }
                         mag_r = mag_r.frac() * base;
                     }
@@ -307,9 +331,9 @@ where
                         }
                         let digit = mag_i.to_u8();
                         if digit < 10 {
-                            string.push((digit + 48) as char)
+                            string.push(digit.wrapping_add(48) as char)
                         } else {
-                            string.push((digit + 55) as char);
+                            string.push(digit.wrapping_add(55) as char);
                         }
                         mag_i = mag_i.frac() * base;
                     }
@@ -390,7 +414,7 @@ where
                             // Still leading zeros, don't increment counter
                         } else {
                             leading = false;
-                            digit_count += 1;
+                            digit_count = digit_count.wrapping_add(1);
                         }
                     }
                 }
@@ -404,9 +428,9 @@ where
                 // Convert integer part
                 for &digit in int_digits.iter().rev() {
                     let digit_char = if digit < 10 {
-                        (digit + b'0') as char
+                        digit.wrapping_add(b'0') as char
                     } else {
-                        (digit - 10 + b'A') as char
+                        digit.wrapping_sub(10).wrapping_add(b'A') as char
                     };
                     string.push(digit_char);
                 }
@@ -421,13 +445,13 @@ where
 
                         // Don't count leading fractional zeros
                         if !(digit == 0 && digit_count == 0) {
-                            digit_count += 1;
+                            digit_count = digit_count.wrapping_add(1);
                         }
 
                         let digit_char = if digit < 10 {
-                            (digit + b'0') as char
+                            digit.wrapping_add(b'0') as char
                         } else {
-                            (digit - 10 + b'A') as char
+                            digit.wrapping_sub(10).wrapping_add(b'A') as char
                         };
                         string.push(digit_char);
                     }
@@ -457,7 +481,7 @@ where
                             // Still leading zeros, don't increment counter
                         } else {
                             leading = false;
-                            digit_count += 1;
+                            digit_count = digit_count.wrapping_add(1);
                         }
                     }
                 }
@@ -471,9 +495,9 @@ where
                 // Convert integer part
                 for &digit in int_digits.iter().rev() {
                     let digit_char = if digit < 10 {
-                        (digit + b'0') as char
+                        digit.wrapping_add(b'0') as char
                     } else {
-                        (digit - 10 + b'A') as char
+                        digit.wrapping_sub(10).wrapping_add(b'A') as char
                     };
                     string.push(digit_char);
                 }
@@ -488,13 +512,13 @@ where
 
                         // Don't count leading fractional zeros
                         if !(digit == 0 && digit_count == 0) {
-                            digit_count += 1;
+                            digit_count = digit_count.wrapping_add(1);
                         }
 
                         let digit_char = if digit < 10 {
-                            (digit + b'0') as char
+                            digit.wrapping_add(b'0') as char
                         } else {
-                            (digit - 10 + b'A') as char
+                            digit.wrapping_sub(10).wrapping_add(b'A') as char
                         };
                         string.push(digit_char);
                     }
@@ -551,9 +575,9 @@ where
             scaled_r = (scaled_r - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
             if scaled_r.is_zero() {
@@ -577,9 +601,9 @@ where
             scaled_i = (scaled_i - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
             if scaled_i.is_zero() {
@@ -595,9 +619,9 @@ where
         if !scale.is_zero() {
             result.push('×');
             if base < 10 {
-                result.push((base + 48) as char)
+                result.push(base.wrapping_add(48) as char)
             } else {
-                result.push((base + 55) as char);
+                result.push(base.wrapping_add(55) as char);
             }
             result.push('^');
             if scale.is_negative() {
@@ -611,9 +635,9 @@ where
                     while remaining != 0 {
                         let remainder = (remaining % base as usize) as u8;
                         if remainder < 10 {
-                            pow_digits.push((remainder + 48) as u8);
+                            pow_digits.push(remainder.wrapping_add(48) as u8);
                         } else {
-                            pow_digits.push((remainder + 55) as u8);
+                            pow_digits.push(remainder.wrapping_add(55) as u8);
                         }
                         remaining /= base as usize;
                     }
@@ -632,9 +656,9 @@ where
                     while remaining != 0 {
                         let remainder = (remaining % base as usize) as u8;
                         if remainder < 10 {
-                            pow_digits.push((remainder + 48) as u8);
+                            pow_digits.push(remainder.wrapping_add(48) as u8);
                         } else {
-                            pow_digits.push((remainder + 55) as u8);
+                            pow_digits.push(remainder.wrapping_add(55) as u8);
                         }
                         remaining /= base as usize;
                     }
@@ -711,9 +735,9 @@ where
             scaled_r = (scaled_r - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
             if scaled_r.is_zero() {
@@ -737,9 +761,9 @@ where
             scaled_i = (scaled_i - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
             if scaled_i.is_zero() {
@@ -755,9 +779,9 @@ where
         if !power.is_zero() {
             result.push('×');
             if base < 10 {
-                result.push((base + 48) as char)
+                result.push(base.wrapping_add(48) as char)
             } else {
-                result.push((base + 55) as char);
+                result.push(base.wrapping_add(55) as char);
             }
             result.push('^');
             result.push('-');
@@ -770,9 +794,9 @@ where
                 while remaining != 0 {
                     let remainder = (remaining % base as usize) as u8;
                     if remainder < 10 {
-                        pow_digits.push((remainder + 48) as u8);
+                        pow_digits.push(remainder.wrapping_add(48) as u8);
                     } else {
-                        pow_digits.push((remainder + 55) as u8);
+                        pow_digits.push(remainder.wrapping_add(55) as u8);
                     }
                     remaining /= base as usize;
                 }

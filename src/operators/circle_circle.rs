@@ -4,7 +4,7 @@ use crate::{
     ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 macro_rules! impl_circle_op {
     ($trait:ident, $method:ident, $circle_method:ident) => {
@@ -18,7 +18,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -27,7 +31,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -75,7 +83,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -84,7 +96,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Circle<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -132,7 +148,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -141,7 +161,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Circle<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -189,7 +213,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -198,7 +226,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -246,7 +278,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -255,7 +291,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -303,7 +343,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -312,7 +356,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -360,7 +408,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -369,7 +421,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -417,7 +473,11 @@ macro_rules! impl_circle_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -426,7 +486,11 @@ macro_rules! impl_circle_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Circle<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -482,7 +546,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -491,7 +559,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Modulo<Circle<F, E>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -539,7 +611,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -548,7 +624,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Modulo<Circle<F, E>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -596,7 +676,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -605,7 +689,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Modulo<Circle<F, E>> for &mut Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -656,7 +744,11 @@ macro_rules! impl_circle_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -665,7 +757,11 @@ macro_rules! impl_circle_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -712,7 +808,11 @@ macro_rules! impl_circle_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -721,7 +821,11 @@ macro_rules! impl_circle_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -768,7 +872,11 @@ macro_rules! impl_circle_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -777,7 +885,11 @@ macro_rules! impl_circle_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -831,7 +943,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -840,7 +956,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Power<Circle<F, E>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -889,7 +1009,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -898,7 +1022,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Power<&Circle<F, E>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -947,7 +1075,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -956,7 +1088,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Power<Circle<F, E>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1005,7 +1141,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1014,7 +1154,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Power<&Circle<F, E>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1061,7 +1205,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1070,7 +1218,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Power<Circle<F, E>> for &mut Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1118,7 +1270,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1127,7 +1283,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Power<&mut Circle<F, E>> for &mut Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1174,7 +1334,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1183,7 +1347,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Logarithm<Circle<F, E>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1232,7 +1400,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1241,7 +1413,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Logarithm<&Circle<F, E>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1290,7 +1466,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1299,7 +1479,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Logarithm<Circle<F, E>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1348,7 +1532,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1357,7 +1545,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Logarithm<&Circle<F, E>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1404,7 +1596,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1413,7 +1609,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Logarithm<Circle<F, E>> for &mut Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1462,7 +1662,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -1471,7 +1675,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Logarithm<&mut Circle<F, E>> for &mut Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -1521,7 +1729,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1530,7 +1742,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1578,7 +1794,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1587,7 +1807,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Circle<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1635,7 +1859,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1644,7 +1872,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Circle<F, E>> for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1692,7 +1924,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1701,7 +1937,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for &mut Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1749,7 +1989,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1758,7 +2002,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1806,7 +2054,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1815,7 +2067,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1863,7 +2119,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1872,7 +2132,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1919,7 +2183,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1928,7 +2196,11 @@ macro_rules! impl_circle_bitwise_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Circle<F, E>> for &Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -1984,7 +2256,11 @@ macro_rules! impl_circle_bitwise_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -1993,7 +2269,11 @@ macro_rules! impl_circle_bitwise_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -2040,7 +2320,11 @@ macro_rules! impl_circle_bitwise_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -2049,7 +2333,11 @@ macro_rules! impl_circle_bitwise_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -2096,7 +2384,11 @@ macro_rules! impl_circle_bitwise_assign_op {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -2105,7 +2397,11 @@ macro_rules! impl_circle_bitwise_assign_op {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Circle<F, E>> for Circle<F, E>
         where
             Circle<F, E>: CircleConstants,
@@ -2157,7 +2453,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2166,7 +2466,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialEq for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,

@@ -4,7 +4,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 #[allow(private_bounds)]
 impl<
@@ -16,7 +16,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -25,7 +29,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -184,7 +192,7 @@ where
                             as isize;
                         let shift = shift_r.min(shift_i);
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
@@ -209,7 +217,7 @@ where
                             as isize;
                         let shift = shift_r.min(shift_i);
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
@@ -234,7 +242,7 @@ where
                             as isize;
                         let shift = shift_r.min(shift_i);
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
@@ -259,7 +267,7 @@ where
                             as isize;
                         let shift = shift_r.min(shift_i);
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
@@ -284,7 +292,7 @@ where
                             as isize;
                         let shift = shift_r.min(shift_i);
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
@@ -321,8 +329,8 @@ where
                     let leading_i = product_wide_i
                         .leading_ones()
                         .max(product_wide_i.leading_zeros());
-                    expo_adjust = leading_r.min(leading_i) as isize - 2;
-                    let shift = expo_adjust + 1;
+                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
                     real = (normalized_wide_r >> F::FRACTION_BITS).as_();
@@ -343,8 +351,8 @@ where
                     let leading_i = product_wide_i
                         .leading_ones()
                         .max(product_wide_i.leading_zeros());
-                    expo_adjust = leading_r.min(leading_i) as isize - 2;
-                    let shift = expo_adjust + 1;
+                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
                     real = (normalized_wide_r >> F::FRACTION_BITS).as_();
@@ -365,8 +373,8 @@ where
                     let leading_i = product_wide_i
                         .leading_ones()
                         .max(product_wide_i.leading_zeros());
-                    expo_adjust = leading_r.min(leading_i) as isize - 2;
-                    let shift = expo_adjust + 1;
+                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
                     real = (normalized_wide_r >> F::FRACTION_BITS).as_();
@@ -387,8 +395,8 @@ where
                     let leading_i = product_wide_i
                         .leading_ones()
                         .max(product_wide_i.leading_zeros());
-                    expo_adjust = leading_r.min(leading_i) as isize - 2;
-                    let shift = expo_adjust + 1;
+                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
                     real = (normalized_wide_r >> F::FRACTION_BITS).as_();
@@ -409,8 +417,8 @@ where
                     let leading_i = product_wide_i
                         .leading_ones()
                         .max(product_wide_i.leading_zeros());
-                    expo_adjust = leading_r.min(leading_i) as isize - 2;
-                    let shift = expo_adjust + 1;
+                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
+                    let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
                     real = (normalized_wide_r >> F::FRACTION_BITS).as_i128().as_();
@@ -429,7 +437,7 @@ where
                 8 => {
                     let self_exponent: i16 = self.exponent.as_();
                     let other_exponent: i16 = other.exponent.as_();
-                    let upcast_exponent: i16 = self_exponent + other_exponent - expo_adjust as i16;
+                    let upcast_exponent: i16 = self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i16);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Circle::<F, E> {
@@ -454,7 +462,7 @@ where
                 16 => {
                     let self_exponent: i32 = self.exponent.as_();
                     let other_exponent: i32 = other.exponent.as_();
-                    let upcast_exponent: i32 = self_exponent + other_exponent - expo_adjust as i32;
+                    let upcast_exponent: i32 = self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i32);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Circle::<F, E> {
@@ -479,7 +487,7 @@ where
                 32 => {
                     let self_exponent: i64 = self.exponent.as_();
                     let other_exponent: i64 = other.exponent.as_();
-                    let upcast_exponent: i64 = self_exponent + other_exponent - expo_adjust as i64;
+                    let upcast_exponent: i64 = self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i64);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Circle::<F, E> {
@@ -505,7 +513,7 @@ where
                     let self_exponent: i128 = self.exponent.as_();
                     let other_exponent: i128 = other.exponent.as_();
                     let upcast_exponent: i128 =
-                        self_exponent + other_exponent - expo_adjust as i128;
+                        self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i128);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Circle::<F, E> {
@@ -531,7 +539,7 @@ where
                     let self_exponent: I256 = self.exponent.into();
                     let other_exponent: I256 = other.exponent.into();
                     let e: I256 = (expo_adjust as i128).into();
-                    let upcast_exponent: I256 = self_exponent + other_exponent - e;
+                    let upcast_exponent: I256 = self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
 
                     if upcast_exponent > E::MAX_EXPONENT.into() {
                         return Circle::<F, E> {

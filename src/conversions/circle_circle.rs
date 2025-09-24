@@ -3,7 +3,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 /// # Circle Type Conversion
@@ -33,7 +33,11 @@ impl<
             + Shr<FS, Output = FS>
             + Shl<ES, Output = FS>
             + Shr<ES, Output = FS>
-            + AsPrimitive<FD>,
+            + AsPrimitive<FD>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         ES: Integer
             + ExponentConstants
             + FullInt
@@ -43,7 +47,11 @@ impl<
             + Shr<ES, Output = ES>
             + Shl<FS, Output = ES>
             + Shr<FS, Output = ES>
-            + AsPrimitive<ED>,
+            + AsPrimitive<ED>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         FD: Integer
             + FractionConstants
             + FullInt
@@ -53,7 +61,11 @@ impl<
             + Shr<FD, Output = FD>
             + Shl<ED, Output = FD>
             + Shr<ED, Output = FD>
-            + AsPrimitive<FS>,
+            + AsPrimitive<FS>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         ED: Integer
             + ExponentConstants
             + FullInt
@@ -63,7 +75,11 @@ impl<
             + Shr<ED, Output = ED>
             + Shl<FD, Output = ED>
             + Shr<FD, Output = ED>
-            + AsPrimitive<ES>,
+            + AsPrimitive<ES>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > From<&Circle<FS, ES>> for Circle<FD, ED>
 where
     Circle<FS, ES>: CircleConstants,

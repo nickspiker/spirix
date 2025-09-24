@@ -4,7 +4,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::{Shl, Shr};
 macro_rules! impl_circle_new {
     ($($f:ty, $e:ty);*) => {
@@ -69,7 +69,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingSub
+            + WrappingMul,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -78,7 +82,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingSub
+            + WrappingMul,
     > Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -610,9 +618,8 @@ where
     /// ```
     #[inline]
     pub fn is_transfinite(&self) -> bool {
-        let one: F = 1.as_(); // Since -1.as_() is broken...
         if !self.is_normal() {
-            return self.is_n1() || (self.real == -one && self.imaginary == -one);
+            return self.is_n1() || (self.real == F::NEG_ONE && self.imaginary == F::NEG_ONE);
         }
         false
     }
@@ -814,19 +821,20 @@ where
     /// - For undefined states: The same undefined state
     pub(crate) fn circle_negate(&mut self) {
         if self.exponent != E::AMBIGUOUS_EXPONENT {
+            let one: E = 1u8.as_();
             if self.real == F::NEG_ONE_FRACTION {
                 self.real = F::POS_ONE_FRACTION;
-                self.imaginary = -(self.imaginary >> 1isize);
-                self.exponent = self.exponent + 1.as_();
+                self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
+                self.exponent = self.exponent.wrapping_add(&one);
                 return;
             } else if self.imaginary == F::NEG_ONE_FRACTION {
                 self.imaginary = F::POS_ONE_FRACTION;
-                self.real = -(self.real >> 1isize);
-                self.exponent = self.exponent + 1.as_();
+                self.real = (self.real >> 1isize).wrapping_neg();
+                self.exponent = self.exponent.wrapping_add(&one);
                 return;
             }
-            self.real = -self.real;
-            self.imaginary = -self.imaginary;
+            self.real = self.real.wrapping_neg();
+            self.imaginary = self.imaginary.wrapping_neg();
             self.normalize();
         } else {
             // Extract high byte and cast
@@ -845,19 +853,19 @@ where
                 }
             }
             if self.vanished() {
-                self.real = -self.real;
-                self.imaginary = -self.imaginary;
+                self.real = self.real.wrapping_neg();
+                self.imaginary = self.imaginary.wrapping_neg();
                 self.normalize_vanished();
             } else {
                 if self.real == F::NEG_ONE_FRACTION {
                     self.real = F::POS_ONE_FRACTION;
-                    self.imaginary = -(self.imaginary >> 1isize);
+                    self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
                 } else if self.imaginary == F::NEG_ONE_FRACTION {
                     self.imaginary = F::POS_ONE_FRACTION;
-                    self.real = -(self.real >> 1isize);
+                    self.real = (self.real >> 1isize).wrapping_neg();
                 } else {
-                    self.real = -self.real;
-                    self.imaginary = -self.imaginary;
+                    self.real = self.real.wrapping_neg();
+                    self.imaginary = self.imaginary.wrapping_neg();
                     self.normalize_exploded()
                 }
             }
@@ -921,12 +929,12 @@ where
                 return Circle {
                     real: self.real >> 1isize,
                     imaginary: F::POS_ONE_FRACTION,
-                    exponent: self.exponent + 1.as_(),
+                    exponent: self.exponent.wrapping_add(&E::ONE),
                 };
             }
             let mut conjugate = Circle {
                 real: self.real,
-                imaginary: -self.imaginary,
+                imaginary: self.imaginary.wrapping_neg(),
                 exponent: self.exponent,
             };
             conjugate.normalize();
@@ -934,7 +942,7 @@ where
         } else if self.vanished() {
             let mut conjugate = Circle {
                 real: self.real,
-                imaginary: -self.imaginary,
+                imaginary: self.imaginary.wrapping_neg(),
                 exponent: self.exponent,
             };
             conjugate.normalize_vanished();
@@ -942,14 +950,14 @@ where
         } else if self.exploded() {
             if self.imaginary == F::NEG_ONE_FRACTION {
                 return Circle {
-                    real: -(self.real >> 1isize),
+                    real: (self.real >> 1isize).wrapping_neg(),
                     imaginary: F::POS_ONE_FRACTION,
                     exponent: self.exponent,
                 };
             } else {
                 let mut conjugate = Circle {
                     real: self.real,
-                    imaginary: -self.imaginary,
+                    imaginary: self.imaginary.wrapping_neg(),
                     exponent: self.exponent,
                 };
                 conjugate.normalize_exploded();
@@ -1024,20 +1032,20 @@ where
             if self.imaginary == F::NEG_ONE_FRACTION {
                 self.real = self.real >> 1isize;
                 self.imaginary = F::POS_ONE_FRACTION;
-                self.exponent = self.exponent + 1.as_();
+                self.exponent = self.exponent.wrapping_add(&E::ONE);
                 return;
             }
-            self.imaginary = -self.imaginary;
+            self.imaginary = self.imaginary.wrapping_neg();
             self.normalize()
         } else if self.vanished() {
-            self.imaginary = -self.imaginary;
+            self.imaginary = self.imaginary.wrapping_neg();
             self.normalize_vanished();
         } else if self.exploded() {
             if self.imaginary == F::NEG_ONE_FRACTION {
                 self.imaginary = F::POS_ONE_FRACTION;
-                self.real = -(self.real >> 1isize);
+                self.real = (self.real >> 1isize).wrapping_neg();
             } else {
-                self.imaginary = -self.imaginary;
+                self.imaginary = self.imaginary.wrapping_neg();
                 self.normalize_exploded()
             }
         }
@@ -1285,7 +1293,7 @@ where
         let result = Circle {
             real: self.real,
             imaginary: self.imaginary,
-            exponent: 0.as_(),
+            exponent: E::ZERO,
         };
         return result / result.magnitude();
     }
@@ -1318,19 +1326,21 @@ where
                     self.exponent = E::AMBIGUOUS_EXPONENT;
                     return;
                 }
-                new_exponent = self.exponent - (shift + 1).as_();
+                let s: E = shift.wrapping_add(1).as_();
+                new_exponent = self.exponent.wrapping_sub(&s);
             } else {
-                new_exponent = self.exponent - shift.as_();
+                let s: E = shift.as_();
+                new_exponent = self.exponent.wrapping_sub(&s);
             }
 
             if self.exponent.is_negative() && !new_exponent.is_negative() {
                 self.exponent = E::AMBIGUOUS_EXPONENT;
-                self.real = self.real << (shift - 2);
-                self.imaginary = self.imaginary << (shift - 2);
+                self.real = self.real << shift.wrapping_sub(2);
+                self.imaginary = self.imaginary << shift.wrapping_sub(2);
             } else {
-                self.exponent = new_exponent + 1.as_();
-                self.real = self.real << (shift - 1);
-                self.imaginary = self.imaginary << (shift - 1);
+                self.exponent = new_exponent.wrapping_add(&E::ONE);
+                self.real = self.real << shift.wrapping_sub(1);
+                self.imaginary = self.imaginary << shift.wrapping_sub(1);
             }
         }
     }
@@ -1351,11 +1361,11 @@ where
         let shift: isize = shift_r.min(shift_i).as_();
 
         if shift > 2 {
-            self.real = self.real << (shift - 2);
-            self.imaginary = self.imaginary << (shift - 2);
+            self.real = self.real << shift.wrapping_sub(2);
+            self.imaginary = self.imaginary << shift.wrapping_sub(2);
         } else if shift < 2 {
-            self.real = self.real >> (2 - shift);
-            self.imaginary = self.imaginary >> (2 - shift);
+            self.real = self.real >> 2isize.wrapping_sub(shift);
+            self.imaginary = self.imaginary >> 2isize.wrapping_sub(shift);
         }
     }
 
@@ -1375,8 +1385,8 @@ where
 
         if shift > 1 {
             let shift = shift as isize;
-            self.real = self.real << (shift - 1);
-            self.imaginary = self.imaginary << (shift - 1);
+            self.real = self.real << shift.wrapping_sub(1);
+            self.imaginary = self.imaginary << shift.wrapping_sub(1);
         }
     }
 }

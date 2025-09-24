@@ -3,7 +3,7 @@ use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::FullInt;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 // Rust primitive + Circle operations
@@ -19,7 +19,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -28,7 +32,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Add<&Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -77,7 +85,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -86,7 +98,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Add<Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -141,7 +157,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -150,7 +170,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Sub<&Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -199,7 +223,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -208,7 +236,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Sub<Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -263,7 +295,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -272,7 +308,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Mul<&Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -321,7 +361,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -330,7 +374,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Mul<Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -385,7 +433,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -394,7 +446,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Div<&Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -443,7 +499,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -452,7 +512,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Div<Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -507,7 +571,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -516,7 +584,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Rem<&Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,
@@ -565,7 +637,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -574,7 +650,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
     > Rem<Circle<F, E>> for $t
             where
     Circle<F, E>: CircleConstants,

@@ -2,7 +2,7 @@ use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::{AsPrimitive, PrimInt};
+use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::{borrow::Borrow, ops::*};
 #[allow(private_bounds)]
 impl<
@@ -14,7 +14,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -23,7 +27,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -64,7 +72,7 @@ where
             }
             return *self;
         }
-        if self.exponent > (F::FRACTION_BITS - 1).as_() {
+        if self.exponent > F::FRACTION_BITS.wrapping_sub(1).as_() {
             return Self {
                 fraction: SINE.prefix.sa(),
                 exponent: E::AMBIGUOUS_EXPONENT,
@@ -103,7 +111,7 @@ where
         for i in (2..F::FRACTION_BITS).step_by(2) {
             prev_sum = sum;
             numerator = numerator * x_squared;
-            denominator = denominator * i * (i + 1);
+            denominator = denominator * i.wrapping_mul(i.wrapping_add(1));
             let mut term = numerator / denominator;
             if sign {
                 term.scalar_negate();
@@ -135,7 +143,7 @@ where
             return Self::EFFECTIVELY_POS_ONE;
         }
 
-        if self.exponent > (F::FRACTION_BITS - 1).as_() {
+        if self.exponent > F::FRACTION_BITS.wrapping_sub(1).as_() {
             return Self {
                 fraction: COSINE.prefix.sa(),
                 exponent: E::AMBIGUOUS_EXPONENT,
@@ -177,7 +185,7 @@ where
         for i in (1..F::FRACTION_BITS).step_by(2) {
             prev_sum = sum;
             numerator = numerator * x_squared;
-            denominator = denominator * i * (i + 1);
+            denominator = denominator * i.wrapping_mul(i.wrapping_add(1));
             let mut term = numerator / denominator;
             if term_sign {
                 term.scalar_negate();
@@ -208,7 +216,7 @@ where
             }
             return *self;
         }
-        if E::EXPONENT_BITS >= std::mem::size_of::<isize>() as isize * 8 {
+        if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
             if self.exponent > F::FRACTION_BITS.as_() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
@@ -259,14 +267,14 @@ where
 
             loop {
                 let prev_sum = sum.clone();
-                n += 1;
+                n = n.wrapping_add(&1);
 
-                let numerator = Self::from(2 * n - 1);
-                let denominator = Self::from(2 * n);
+                let numerator = Self::from(2isize.wrapping_mul(n).wrapping_sub(1));
+                let denominator = Self::from(2isize.wrapping_mul(n));
                 let coefficient = numerator / denominator;
 
                 term = term * x_squared * coefficient;
-                sum = sum + term / Self::from(2 * n + 1);
+                sum = sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
 
                 if sum == prev_sum || n > (F::FRACTION_BITS >> 1) {
                     break;
@@ -282,7 +290,7 @@ where
             return Self::HALF_PI * self.sign();
         }
 
-        let one_minus_abs_x_half = one_minus_abs_x / 2i8;
+        let one_minus_abs_x_half = one_minus_abs_x >> 1i8;
         let sqrt_term = one_minus_abs_x_half.sqrt();
 
         let mut series_sum = sqrt_term.clone();
@@ -292,14 +300,14 @@ where
 
         loop {
             let prev_sum = series_sum.clone();
-            n += 1;
+            n = n.wrapping_add(&1);
 
-            let numerator = Self::from(2 * n - 1);
-            let denominator = Self::from(2 * n);
+            let numerator = Self::from(2isize.wrapping_mul(n).wrapping_sub(1));
+            let denominator = Self::from(2isize.wrapping_mul(n));
             let coefficient = numerator / denominator;
 
             term = term * term_squared * coefficient;
-            series_sum = series_sum + term / Self::from(2 * n + 1);
+            series_sum = series_sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
 
             if series_sum == prev_sum || n > (F::FRACTION_BITS >> 1) {
                 break;
@@ -307,9 +315,9 @@ where
         }
 
         if self.fraction.is_negative() {
-            return series_sum * 2 - Self::HALF_PI;
+            return (series_sum << 1) - Self::HALF_PI;
         } else {
-            return Self::HALF_PI - series_sum * 2;
+            return Self::HALF_PI - (series_sum << 1);
         }
     }
     pub fn acos(&self) -> Self {
@@ -355,7 +363,7 @@ where
             }
         }
 
-        let one_minus_abs_x_half = one_minus_abs_x / 2i8;
+        let one_minus_abs_x_half = one_minus_abs_x >> 1i8;
         let sqrt_term = one_minus_abs_x_half.sqrt();
 
         let mut series_sum = sqrt_term.clone();
@@ -365,14 +373,14 @@ where
 
         loop {
             let prev_sum = series_sum.clone();
-            n += 1;
+            n = n.wrapping_add(&1);
 
-            let numerator = Self::from(2 * n - 1);
-            let denominator = Self::from(2 * n);
+            let numerator = Self::from(2isize.wrapping_mul(n).wrapping_sub(1));
+            let denominator = Self::from(2isize.wrapping_mul(n));
             let coefficient = numerator / denominator;
 
             term = term * term_squared * coefficient;
-            series_sum = series_sum + term / Self::from(2 * n + 1);
+            series_sum = series_sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
 
             if series_sum == prev_sum || n > (F::FRACTION_BITS >> 1) {
                 break;
@@ -380,9 +388,9 @@ where
         }
 
         if self.fraction.is_negative() {
-            return Self::PI - series_sum * 2;
+            return Self::PI - (series_sum << 1);
         } else {
-            return series_sum * 2;
+            return series_sum << 1;
         }
     }
     pub fn atan(&self) -> Self {
@@ -426,10 +434,10 @@ where
         let mut result;
 
         for iterations in 1..F::FRACTION_BITS {
-            result = Self::from(2 * iterations - 1);
+            result = Self::from(2isize.wrapping_mul(iterations).wrapping_sub(1));
 
             for k in (1..iterations).rev() {
-                let denom = 2 * k - 1;
+                let denom = 2isize.wrapping_mul(k).wrapping_sub(1);
                 result = denom + x_squared / result;
             }
 
@@ -500,7 +508,7 @@ where
         }
 
         // Calculate using the exponential definition: sinh(x) = (e^x - e^(-x))/2
-        (self.exp() - (-self).exp()) / 2
+        (self.exp() - (-self).exp()) >> 1
     }
 
     /// Computes the hyperbolic cosine of a scalar.
@@ -527,7 +535,7 @@ where
             return Self::ONE;
         }
 
-        (self.exp() + (-self).exp()) / 2
+        (self.exp() + (-self).exp()) >> 1
     }
     /// Computes the hyperbolic tangent of a scalar.
     ///

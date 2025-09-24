@@ -1,7 +1,7 @@
 use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::{AsPrimitive, PrimInt};
+use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 impl<
@@ -14,7 +14,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f64>,
+            + AsPrimitive<f64>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -23,7 +27,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<f64> for &Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -91,7 +99,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f32>,
+            + AsPrimitive<f32>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -100,7 +112,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<f32> for &Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -167,7 +183,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f32>,
+            + AsPrimitive<f32>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -176,7 +196,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<f32> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -221,7 +245,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f64>,
+            + AsPrimitive<f64>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -230,7 +258,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<f64> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -277,7 +309,11 @@ macro_rules! impl_into_int {
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -286,7 +322,11 @@ macro_rules! impl_into_int {
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<$i> for Scalar<F, E>
     where
     Scalar<F, E>: ScalarConstants,
@@ -331,7 +371,11 @@ macro_rules! impl_into_int {
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -340,7 +384,11 @@ macro_rules! impl_into_int {
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<$i> for &Scalar<F, E>
     where
     Scalar<F, E>: ScalarConstants,
@@ -390,14 +438,14 @@ fn into(self) -> $i {
     }
 
     let shift: usize = (self.exponent).saturate();
-    if shift >= std::mem::size_of::<$i>() * 8 {
+    if shift >= std::mem::size_of::<$i>().wrapping_mul(8) {
         if self.fraction.is_negative() {
             return <$i>::MIN;
         }
         return <$i>::MAX;
     }
     let mut value = self.fraction.sa();
-    value = value >> (std::mem::size_of::<$i>() * 8 + 1 - shift);
+    value = value >> (std::mem::size_of::<$i>().wrapping_mul(8).wrapping_add(1).wrapping_sub(shift));
     value
 }
 }
@@ -417,7 +465,11 @@ macro_rules! impl_into_uint {
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -426,7 +478,11 @@ macro_rules! impl_into_uint {
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<$u> for Scalar<F, E>
     where
     Scalar<F, E>: ScalarConstants,
@@ -471,7 +527,11 @@ macro_rules! impl_into_uint {
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -480,7 +540,11 @@ macro_rules! impl_into_uint {
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<$u> for &Scalar<F, E>
     where
     Scalar<F, E>: ScalarConstants,
@@ -523,11 +587,11 @@ macro_rules! impl_into_uint {
         }
 
         let shift: usize = (self.exponent).saturate();
-        if shift > std::mem::size_of::<$u>() * 8 {
+        if shift > std::mem::size_of::<$u>().wrapping_mul(8) {
             return <$u>::MAX;
         }
         let mut value = (self.fraction<<1isize).sa();
-        value = value >> (std::mem::size_of::<$u>() * 8 - shift);
+        value = value >> (std::mem::size_of::<$u>().wrapping_mul(8).wrapping_sub(shift));
         value
     }
 }
@@ -545,7 +609,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -554,7 +622,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -622,7 +694,7 @@ where
             return i8::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (7 - shift);
+        value = value >> 7usize.wrapping_sub(shift);
         value
     }
 
@@ -663,7 +735,7 @@ where
             return i16::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (15 - shift);
+        value = value >> 15usize.wrapping_sub(shift);
         value
     }
 
@@ -704,7 +776,7 @@ where
             return i32::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (31 - shift);
+        value = value >> 31usize.wrapping_sub(shift);
         value
     }
 
@@ -745,7 +817,7 @@ where
             return i64::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (63 - shift);
+        value = value >> 63usize.wrapping_sub(shift);
         value
     }
 
@@ -786,7 +858,7 @@ where
             return i128::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (127 - shift);
+        value = value >> 127usize.wrapping_sub(shift);
         value
     }
 
@@ -820,14 +892,18 @@ where
         }
 
         let shift: usize = (self.exponent).saturate();
-        if shift >= std::mem::size_of::<isize>() * 8 {
+        if shift >= std::mem::size_of::<isize>().wrapping_mul(8) {
             if self.fraction.is_negative() {
                 return isize::MIN;
             }
             return isize::MAX;
         }
         let mut value = self.fraction.sa();
-        value = value >> (std::mem::size_of::<isize>() * 8 - 1 - shift);
+        value = value
+            >> (std::mem::size_of::<isize>()
+                .wrapping_mul(8)
+                .wrapping_sub(1)
+                .wrapping_sub(shift));
         value
     }
 
@@ -863,7 +939,7 @@ where
 
         let mut value = shifted_fraction.sa();
 
-        value = value >> (8 - shift);
+        value = value >> 8usize.wrapping_sub(shift);
 
         value
     }
@@ -895,7 +971,7 @@ where
             return u16::MAX;
         }
         let mut value = (self.fraction << 1isize).sa();
-        value = value >> (16 - shift);
+        value = value >> 16usize.wrapping_sub(shift);
         value
     }
 
@@ -926,7 +1002,7 @@ where
             return u32::MAX;
         }
         let mut value = (self.fraction << 1isize).sa();
-        value = value >> (32 - shift);
+        value = value >> 32usize.wrapping_sub(shift);
         value
     }
 
@@ -957,7 +1033,7 @@ where
             return u64::MAX;
         }
         let mut value = (self.fraction << 1isize).sa();
-        value = value >> (64 - shift);
+        value = value >> 64usize.wrapping_sub(shift);
         value
     }
 
@@ -988,7 +1064,7 @@ where
             return u128::MAX;
         }
         let mut value = (self.fraction << 1isize).sa();
-        value = value >> (128 - shift);
+        value = value >> 128usize.wrapping_sub(shift);
         value
     }
 
@@ -1014,11 +1090,14 @@ where
         }
 
         let shift: usize = (self.exponent).saturate();
-        if shift >= std::mem::size_of::<usize>() * 8 {
+        if shift >= std::mem::size_of::<usize>().wrapping_mul(8) {
             return usize::MAX;
         }
         let mut value = (self.fraction << 1isize).sa();
-        value = value >> (std::mem::size_of::<usize>() * 8 - shift);
+        value = value
+            >> (std::mem::size_of::<usize>()
+                .wrapping_mul(8)
+                .wrapping_sub(shift));
         value
     }
 
@@ -1091,7 +1170,7 @@ where
 }
 fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = std::mem::size_of::<T>() * 8;
+    let bits = std::mem::size_of::<T>().wrapping_mul(8);
     let mut result = String::new();
 
     for b in 0..bits {
@@ -1102,10 +1181,10 @@ fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number
             '□'
         });
 
-        if b != bits - 1 && b % 8 == 7 {
+        if b != bits.wrapping_sub(1) && b % 8 == 7 {
             result.push(' ');
         }
-        if b == bits / 2 - 1 {
+        if b == (bits / 2).wrapping_sub(1) {
             result.push(' '); // Extra space at center
         }
     }

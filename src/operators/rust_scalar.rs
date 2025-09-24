@@ -2,7 +2,7 @@
 use crate::core::integer::FullInt;
 use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 // Rust primitive + Scalar (all reference combinations)
@@ -19,7 +19,11 @@ macro_rules! impl_rust_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -28,7 +32,11 @@ macro_rules! impl_rust_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -77,7 +85,11 @@ macro_rules! impl_rust_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -86,7 +98,11 @@ macro_rules! impl_rust_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -135,7 +151,11 @@ macro_rules! impl_rust_op_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -144,7 +164,11 @@ macro_rules! impl_rust_op_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > $trait<&mut Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -297,7 +321,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -306,7 +334,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Power<&Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -355,7 +387,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -364,7 +400,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Power<Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -413,7 +453,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -422,7 +466,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Power<&mut Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -472,7 +520,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -481,7 +533,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Logarithm<&Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -530,7 +586,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -539,7 +599,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Logarithm<Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -588,7 +652,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -597,7 +665,11 @@ macro_rules! impl_rust_power_scalar {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Logarithm<&mut Scalar<F, E>> for $t
             where
                 Scalar<F, E>: ScalarConstants,
@@ -655,7 +727,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -664,7 +740,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > PartialEq<$t> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
@@ -712,7 +792,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -721,7 +805,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > PartialEq<$t> for &'a Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
@@ -769,7 +857,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -778,7 +870,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > PartialEq<$t> for &'a mut Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
@@ -825,7 +921,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -834,7 +934,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > PartialOrd<$t> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants + PartialEq<$t>,
@@ -882,7 +986,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -891,7 +999,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > PartialOrd<$t> for &'a Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
@@ -940,7 +1052,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + ExponentConstants
                     + FullInt
@@ -949,7 +1065,11 @@ macro_rules! impl_scalar_cmp_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > PartialOrd<$t> for &'a mut Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,

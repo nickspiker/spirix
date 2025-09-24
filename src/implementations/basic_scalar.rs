@@ -3,7 +3,7 @@ use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
-use num_traits::{AsPrimitive, PrimInt};
+use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 macro_rules! impl_scalar_new {
@@ -71,7 +71,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -80,7 +84,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -550,8 +558,7 @@ where
     /// assert!(still_infinity.is_transfinite());
     /// ```
     pub fn is_transfinite(&self) -> bool {
-        let one: F = 1.as_(); // Since -1.as_() is broken...
-        self.exponent == E::AMBIGUOUS_EXPONENT && (self.is_n1() || self.fraction == -one)
+        self.exponent == E::AMBIGUOUS_EXPONENT && (self.is_n1() || self.fraction == F::NEG_ONE)
     }
 
     /// Returns true if this Scalar represents a finite number `[0]`, `[#]`
@@ -677,7 +684,7 @@ where
     /// ```
     #[inline]
     pub fn is_zero(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT && self.fraction == 0.as_()
+        self.exponent == E::AMBIGUOUS_EXPONENT && self.fraction == F::ZERO
     }
 
     /// Returns true if this Scalar is mathematical infinity `[∞]`
@@ -740,8 +747,7 @@ where
     /// ```
     #[inline]
     pub fn is_infinite(&self) -> bool {
-        let one: F = 1.as_();
-        self.exponent == E::AMBIGUOUS_EXPONENT && self.fraction == -one
+        self.exponent == E::AMBIGUOUS_EXPONENT && self.fraction == F::NEG_ONE
     }
 
     /// Returns true if this Scalar is positive `[+#]`, `[+↑]`, `[+↓]`
@@ -952,7 +958,7 @@ where
     #[inline]
     pub fn is_integer(&self) -> bool {
         // Case 0: Exponent is >= FRACTION_BITS, which means the value is entirely in the integer portion, I think? do check for -'s :)
-        if self.exponent >= (F::FRACTION_BITS - 1).as_() {
+        if self.exponent >= (F::FRACTION_BITS.wrapping_sub(1)).as_() {
             return true;
         }
         // Case 1: Negative exponent means we have a fraction only, undefined, Infinity, Zero or escaped
@@ -974,7 +980,7 @@ where
         }
         // Case 2: Check fractional bits in left-aligned format
         let exponent_usize: isize = self.exponent.as_();
-        let frac_bits = F::FRACTION_BITS - exponent_usize;
+        let frac_bits = F::FRACTION_BITS.wrapping_sub(exponent_usize);
 
         // If no fractional bits, it's definitely an integer
         if frac_bits <= 0 {
@@ -985,7 +991,7 @@ where
         // Check if fraction << (exponent + 1) == 0
         // This shifts out the integer part, leaving only fractional bits
         let exp_isize: isize = self.exponent.as_();
-        let shift_amount = exp_isize + 1;
+        let shift_amount = exp_isize.wrapping_add(1);
 
         if shift_amount >= F::FRACTION_BITS {
             // Large exponent means no fractional bits possible
@@ -998,7 +1004,7 @@ where
         }
 
         // Shift left by (exponent + 1) and check if result is zero
-        (self.fraction << shift_amount) == 0.as_()
+        (self.fraction << shift_amount) == F::ZERO
     }
 
     /// Returns true if this value is a valid integer within the contiguous integer range
@@ -1060,11 +1066,11 @@ where
 
         // For normal numbers with non-negative exponents
         if self.is_normal() && !self.exponent.is_negative() {
-            let exp_isize: isize = self.exponent.as_();
+            let exp_isize: isize = self.exponent.saturate();
 
             // If exponent is >= FRACTION_BITS - 1, the number is too large to fit
             // in the contiguous integer range (since we need some bits for the fractional part)
-            if exp_isize >= F::FRACTION_BITS - 1 {
+            if exp_isize >= F::FRACTION_BITS.wrapping_sub(1).as_() {
                 return false;
             }
 
@@ -1105,12 +1111,12 @@ where
             } else if self.fraction == F::NEG_SMALL_FRACTION {
                 self.fraction = F::POS_SMALL_FRACTION;
             } else {
-                self.fraction = -self.fraction;
+                self.fraction = self.fraction.wrapping_neg();
             }
             return;
         }
         if self.fraction == F::POS_ONE_FRACTION {
-            self.exponent = self.exponent - 1.as_();
+            self.exponent = self.exponent.wrapping_sub(&E::ONE);
             if self.exponent == E::AMBIGUOUS_EXPONENT {
                 self.fraction = F::NEG_SMALL_FRACTION;
             } else {
@@ -1118,9 +1124,9 @@ where
             }
         } else if self.fraction == F::NEG_ONE_FRACTION {
             self.fraction = F::POS_ONE_FRACTION;
-            self.exponent = self.exponent + 1.as_();
+            self.exponent = self.exponent.wrapping_add(&E::ONE);
         } else {
-            self.fraction = -self.fraction;
+            self.fraction = self.fraction.wrapping_neg();
         }
     }
 
@@ -1311,7 +1317,7 @@ where
             return *self;
         }
 
-        if self.exponent <= 0.as_() {
+        if self.exponent <= E::ZERO {
             if self.is_negative() {
                 let result = Self::NEG_ONE;
                 return result;
@@ -1320,14 +1326,13 @@ where
             return result;
         }
         let mut result = *self;
-        let width = F::FRACTION_BITS - 1;
+        let width = F::FRACTION_BITS.wrapping_sub(1);
         if result.exponent >= width.as_() {
             return result;
         }
         let e: isize = result.exponent.as_();
-        let frac_bits = width - e;
-        let one: F = 1.as_();
-        let mask: F = !((one << frac_bits) - one);
+        let frac_bits = width.wrapping_sub(e);
+        let mask: F = !((F::ONE << frac_bits).wrapping_sub(&F::ONE));
         result.fraction = result.fraction & mask;
         result
     }
@@ -2045,17 +2050,17 @@ where
                     self.exponent = E::AMBIGUOUS_EXPONENT;
                     return;
                 }
-                new_exponent = self.exponent - (shift + 1).as_();
+                new_exponent = self.exponent.wrapping_sub(&(shift.wrapping_add(1)).as_());
             } else {
-                new_exponent = self.exponent - shift.as_();
+                new_exponent = self.exponent.wrapping_sub(&shift.as_());
             }
 
             if self.exponent.is_negative() && !new_exponent.is_negative() {
                 self.exponent = E::AMBIGUOUS_EXPONENT;
-                self.fraction = self.fraction << (shift - 2);
+                self.fraction = self.fraction << (shift.wrapping_sub(2));
             } else {
-                self.exponent = new_exponent + 1.as_();
-                self.fraction = self.fraction << (shift - 1);
+                self.exponent = new_exponent.wrapping_add(&E::ONE);
+                self.fraction = self.fraction << (shift.wrapping_sub(1));
             }
         }
     }
@@ -2071,7 +2076,7 @@ where
             .fraction
             .leading_ones()
             .max(self.fraction.leading_zeros());
-        self.fraction = self.fraction << (shift - 1) as usize;
+        self.fraction = self.fraction << (shift.wrapping_sub(1) as usize);
     }
 
     #[inline]
@@ -2088,16 +2093,16 @@ where
             .leading_ones()
             .max(self.fraction.leading_zeros());
         if shift > 2 {
-            self.fraction = self.fraction << (shift - 2) as usize;
+            self.fraction = self.fraction << (shift.wrapping_sub(2) as usize);
         } else if shift < 2 {
-            self.fraction = self.fraction >> (2 - shift) as usize;
+            self.fraction = self.fraction >> (2.wrapping_sub(&shift) as usize);
         }
     }
 }
 
 fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = std::mem::size_of::<T>() * 8;
+    let bits = std::mem::size_of::<T>().wrapping_mul(8);
     let mut result = String::new();
 
     for b in 0..bits {
@@ -2108,7 +2113,7 @@ fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number
             '□'
         });
 
-        if b != bits - 1 && b % 8 == 7 {
+        if b != bits.wrapping_sub(1) && b % 8 == 7 {
             result.push(' ');
         }
         if b == bits / 2 - 1 {

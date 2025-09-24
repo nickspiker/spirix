@@ -3,7 +3,7 @@ use crate::constants::ScalarConstants;
 use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 impl<
@@ -16,6 +16,10 @@ impl<
             + Shr<FS, Output = FS>
             + Shl<ES, Output = FS>
             + Shr<ES, Output = FS>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub
             + AsPrimitive<FD>,
         ES: Integer
             + ExponentConstants
@@ -26,6 +30,10 @@ impl<
             + Shr<ES, Output = ES>
             + Shl<FS, Output = ES>
             + Shr<FS, Output = ES>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub
             + AsPrimitive<ED>,
         FD: Integer
             + FractionConstants

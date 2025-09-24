@@ -3,7 +3,7 @@ use crate::core::integer::FullInt;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
 use num_complex::Complex;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 /// # Circle to Complex<f64> Conversion
@@ -20,7 +20,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f64>,
+            + AsPrimitive<f64>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -29,7 +33,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<Complex<f64>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -136,7 +144,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f32>,
+            + AsPrimitive<f32>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -145,7 +157,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<Complex<f32>> for &Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -248,7 +264,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f64>,
+            + AsPrimitive<f64>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -257,7 +277,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<Complex<f64>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -319,7 +343,11 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-            + AsPrimitive<f32>,
+            + AsPrimitive<f32>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -328,7 +356,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Into<Complex<f32>> for Circle<F, E>
 where
     Circle<F, E>: CircleConstants,

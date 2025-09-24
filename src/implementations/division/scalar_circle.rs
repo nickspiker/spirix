@@ -4,7 +4,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 #[allow(private_bounds)]
 impl<
@@ -16,7 +16,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -25,7 +29,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -119,16 +127,16 @@ where
 
                     let cc = c.wrapping_mul(c);
                     let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc + dd) as u16;
-                    let reciprocal =
-                        ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i16;
+                    let mag_sq = (cc.wrapping_add(dd)) as u16;
+                    let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                        / (mag_sq >> F::FRACTION_BITS)) as i16;
 
                     let ac = a.wrapping_mul(c);
                     let real_numerator = ac;
                     let mut real_wide =
                         (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                     let ad = a.wrapping_mul(d);
-                    let imaginary_numerator = -ad;
+                    let imaginary_numerator = ad.wrapping_neg();
                     let mut imaginary_wide =
                         (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -136,7 +144,7 @@ where
                     let leading_i = imaginary_wide
                         .leading_ones()
                         .max(imaginary_wide.leading_zeros());
-                    let shift = leading_r.min(leading_i) as isize + n_level;
+                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
 
                     real_wide <<= shift;
                     imaginary_wide <<= shift;
@@ -153,16 +161,16 @@ where
 
                     let cc = c.wrapping_mul(c);
                     let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc + dd) as u16;
-                    let reciprocal =
-                        ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i32;
+                    let mag_sq = (cc.wrapping_add(dd)) as u16;
+                    let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                        / (mag_sq >> F::FRACTION_BITS)) as i32;
 
                     let ac = a.wrapping_mul(c);
                     let real_numerator = ac;
                     let mut real_wide =
                         (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                     let ad = a.wrapping_mul(d);
-                    let imaginary_numerator = -ad;
+                    let imaginary_numerator = ad.wrapping_neg();
                     let mut imaginary_wide =
                         (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -170,7 +178,7 @@ where
                     let leading_i = imaginary_wide
                         .leading_ones()
                         .max(imaginary_wide.leading_zeros());
-                    let shift = leading_r.min(leading_i) as isize + n_level;
+                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
 
                     real_wide <<= shift;
                     imaginary_wide <<= shift;
@@ -187,16 +195,16 @@ where
 
                     let cc = c.wrapping_mul(c);
                     let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc + dd) as u16;
-                    let reciprocal =
-                        ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i64;
+                    let mag_sq = (cc.wrapping_add(dd)) as u16;
+                    let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                        / (mag_sq >> F::FRACTION_BITS)) as i64;
 
                     let ac = a.wrapping_mul(c);
                     let real_numerator = ac;
                     let mut real_wide =
                         (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                     let ad = a.wrapping_mul(d);
-                    let imaginary_numerator = -ad;
+                    let imaginary_numerator = ad.wrapping_neg();
                     let mut imaginary_wide =
                         (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -204,7 +212,7 @@ where
                     let leading_i = imaginary_wide
                         .leading_ones()
                         .max(imaginary_wide.leading_zeros());
-                    let shift = leading_r.min(leading_i) as isize + n_level;
+                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
 
                     real_wide <<= shift;
                     imaginary_wide <<= shift;
@@ -221,16 +229,17 @@ where
 
                     let cc = c.wrapping_mul(c);
                     let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc + dd) as u16;
-                    let reciprocal =
-                        ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i128;
+                    let mag_sq = (cc.wrapping_add(dd)) as u16;
+                    let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                        / (mag_sq >> F::FRACTION_BITS))
+                        as i128;
 
                     let ac = a.wrapping_mul(c);
                     let real_numerator = ac;
                     let mut real_wide =
                         (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                     let ad = a.wrapping_mul(d);
-                    let imaginary_numerator = -ad;
+                    let imaginary_numerator = ad.wrapping_neg();
                     let mut imaginary_wide =
                         (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -238,7 +247,7 @@ where
                     let leading_i = imaginary_wide
                         .leading_ones()
                         .max(imaginary_wide.leading_zeros());
-                    let shift = leading_r.min(leading_i) as isize + n_level;
+                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
 
                     real_wide <<= shift;
                     imaginary_wide <<= shift;
@@ -255,10 +264,10 @@ where
 
                     let cc = c.wrapping_mul(c);
                     let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc + dd).as_unsigned();
+                    let mag_sq = (cc.wrapping_add(dd)).as_unsigned();
                     let one: I256 = 1.into();
                     let one = one.as_unsigned();
-                    let reciprocal = ((one << (F::FRACTION_BITS * 2 - 2))
+                    let reciprocal = ((one << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
                         / (mag_sq >> F::FRACTION_BITS))
                         .as_signed();
 
@@ -267,7 +276,7 @@ where
                     let mut real_wide =
                         (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                     let ad = a.wrapping_mul(d);
-                    let imaginary_numerator = -ad;
+                    let imaginary_numerator = ad.wrapping_neg();
                     let mut imaginary_wide =
                         (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -275,7 +284,7 @@ where
                     let leading_i = imaginary_wide
                         .leading_ones()
                         .max(imaginary_wide.leading_zeros());
-                    let shift = leading_r.min(leading_i) as isize + n_level;
+                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
 
                     real_wide <<= shift;
                     imaginary_wide <<= shift;
@@ -302,15 +311,15 @@ where
 
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
-                let mag_sq = (cc + dd) as u16;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i16;
+                let mag_sq = (cc.wrapping_add(dd)) as u16;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i16;
 
                 let ac = a.wrapping_mul(c);
                 let real_numerator = ac;
                 let mut real_wide = (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                 let ad = a.wrapping_mul(d);
-                let imaginary_numerator = -ad;
+                let imaginary_numerator = ad.wrapping_neg();
                 let mut imaginary_wide =
                     (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -318,7 +327,7 @@ where
                 let leading_i = imaginary_wide
                     .leading_ones()
                     .max(imaginary_wide.leading_zeros());
-                let shift = leading_r.min(leading_i) as isize - 1;
+                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
 
                 real_wide <<= shift;
                 imaginary_wide <<= shift;
@@ -326,7 +335,7 @@ where
                 (
                     (real_wide >> F::FRACTION_BITS).as_(),
                     (imaginary_wide >> F::FRACTION_BITS).as_(),
-                    shift - 1,
+                    shift.wrapping_sub(1),
                 )
             }
             16 => {
@@ -336,15 +345,15 @@ where
 
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
-                let mag_sq = (cc + dd) as u32;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i32;
+                let mag_sq = (cc.wrapping_add(dd)) as u32;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i32;
 
                 let ac = a.wrapping_mul(c);
                 let real_numerator = ac;
                 let mut real_wide = (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                 let ad = a.wrapping_mul(d);
-                let imaginary_numerator = -ad;
+                let imaginary_numerator = ad.wrapping_neg();
                 let mut imaginary_wide =
                     (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -352,7 +361,7 @@ where
                 let leading_i = imaginary_wide
                     .leading_ones()
                     .max(imaginary_wide.leading_zeros());
-                let shift = leading_r.min(leading_i) as isize - 1;
+                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
 
                 real_wide <<= shift;
                 imaginary_wide <<= shift;
@@ -360,7 +369,7 @@ where
                 (
                     (real_wide >> F::FRACTION_BITS).as_(),
                     (imaginary_wide >> F::FRACTION_BITS).as_(),
-                    shift - 1,
+                    shift.wrapping_sub(1),
                 )
             }
             32 => {
@@ -370,16 +379,16 @@ where
 
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
-                let mag_sq = (cc + dd) as u64;
+                let mag_sq = (cc.wrapping_add(dd)) as u64;
 
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i64;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i64;
 
                 let ac = a.wrapping_mul(c);
                 let real_numerator = ac;
                 let mut real_wide = (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                 let ad = a.wrapping_mul(d);
-                let imaginary_numerator = -ad;
+                let imaginary_numerator = ad.wrapping_neg();
                 let mut imaginary_wide =
                     (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -387,7 +396,7 @@ where
                 let leading_i = imaginary_wide
                     .leading_ones()
                     .max(imaginary_wide.leading_zeros());
-                let shift = leading_r.min(leading_i) as isize - 1;
+                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
 
                 real_wide <<= shift;
                 imaginary_wide <<= shift;
@@ -395,7 +404,7 @@ where
                 (
                     (real_wide >> F::FRACTION_BITS).as_(),
                     (imaginary_wide >> F::FRACTION_BITS).as_(),
-                    shift - 1,
+                    shift.wrapping_sub(1),
                 )
             }
             64 => {
@@ -405,15 +414,15 @@ where
 
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
-                let mag_sq = (cc + dd) as u128;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS * 2 - 2)) / (mag_sq >> F::FRACTION_BITS)) as i128;
+                let mag_sq = (cc.wrapping_add(dd)) as u128;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i128;
 
                 let ac = a.wrapping_mul(c);
                 let real_numerator = ac;
                 let mut real_wide = (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                 let ad = a.wrapping_mul(d);
-                let imaginary_numerator = -ad;
+                let imaginary_numerator = ad.wrapping_neg();
                 let mut imaginary_wide =
                     (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -421,7 +430,7 @@ where
                 let leading_i = imaginary_wide
                     .leading_ones()
                     .max(imaginary_wide.leading_zeros());
-                let shift = leading_r.min(leading_i) as isize - 1;
+                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
 
                 real_wide <<= shift;
                 imaginary_wide <<= shift;
@@ -429,7 +438,7 @@ where
                 (
                     (real_wide >> F::FRACTION_BITS).as_(),
                     (imaginary_wide >> F::FRACTION_BITS).as_(),
-                    shift - 1,
+                    shift.wrapping_sub(1),
                 )
             }
             128 => {
@@ -439,10 +448,10 @@ where
 
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
-                let mag_sq = (cc + dd).as_unsigned();
+                let mag_sq = (cc.wrapping_add(dd)).as_unsigned();
                 let one: I256 = 1.into();
                 let one = one.as_unsigned();
-                let reciprocal = ((one << (F::FRACTION_BITS * 2 - 2))
+                let reciprocal = ((one << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
                     / (mag_sq >> F::FRACTION_BITS))
                     .as_signed();
 
@@ -450,7 +459,7 @@ where
                 let real_numerator = ac;
                 let mut real_wide = (real_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
                 let ad = a.wrapping_mul(d);
-                let imaginary_numerator = -ad;
+                let imaginary_numerator = ad.wrapping_neg();
                 let mut imaginary_wide =
                     (imaginary_numerator >> F::FRACTION_BITS).wrapping_mul(reciprocal);
 
@@ -458,7 +467,7 @@ where
                 let leading_i = imaginary_wide
                     .leading_ones()
                     .max(imaginary_wide.leading_zeros());
-                let shift = leading_r.min(leading_i) as isize - 1;
+                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
 
                 real_wide <<= shift;
                 imaginary_wide <<= shift;
@@ -466,7 +475,7 @@ where
                 (
                     (real_wide >> F::FRACTION_BITS).as_i128().as_(),
                     (imaginary_wide >> F::FRACTION_BITS).as_i128().as_(),
-                    shift - 1,
+                    shift.wrapping_sub(1),
                 )
             }
             _ => {
@@ -482,7 +491,9 @@ where
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
                 let other_exponent: i16 = other.exponent.as_();
-                let upcast_exponent: i16 = self_exponent - other_exponent - expo_adjust as i16;
+                let upcast_exponent: i16 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i16);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Circle {
@@ -507,7 +518,9 @@ where
             16 => {
                 let self_exponent: i32 = self.exponent.as_();
                 let other_exponent: i32 = other.exponent.as_();
-                let upcast_exponent: i32 = self_exponent - other_exponent - expo_adjust as i32;
+                let upcast_exponent: i32 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i32);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Circle {
@@ -532,7 +545,9 @@ where
             32 => {
                 let self_exponent: i64 = self.exponent.as_();
                 let other_exponent: i64 = other.exponent.as_();
-                let upcast_exponent: i64 = self_exponent - other_exponent - expo_adjust as i64;
+                let upcast_exponent: i64 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i64);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Circle {
@@ -557,7 +572,9 @@ where
             64 => {
                 let self_exponent: i128 = self.exponent.as_();
                 let other_exponent: i128 = other.exponent.as_();
-                let upcast_exponent: i128 = self_exponent - other_exponent - expo_adjust as i128;
+                let upcast_exponent: i128 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(expo_adjust as i128);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Circle {
@@ -583,7 +600,9 @@ where
                 let self_exponent: I256 = self.exponent.into();
                 let other_exponent: I256 = other.exponent.into();
                 let exp_adj: I256 = (expo_adjust as i128).into();
-                let upcast_exponent: I256 = self_exponent - other_exponent - exp_adj;
+                let upcast_exponent: I256 = self_exponent
+                    .wrapping_sub(other_exponent)
+                    .wrapping_sub(exp_adj);
                 let max_e: I256 = E::MAX_EXPONENT.into();
                 let min_e: I256 = E::MIN_EXPONENT.into();
                 if upcast_exponent > max_e {

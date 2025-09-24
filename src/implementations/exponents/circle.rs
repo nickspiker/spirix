@@ -4,7 +4,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 #[allow(private_bounds)]
 impl<
@@ -16,7 +16,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -25,7 +29,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -85,7 +93,7 @@ where
                         let r: i16 = self.real.as_();
                         let i: i16 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1) - (i.wrapping_mul(i) >> 1);
+                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -108,7 +116,7 @@ where
                         let r: i32 = self.real.as_();
                         let i: i32 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1) - (i.wrapping_mul(i) >> 1);
+                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -131,7 +139,7 @@ where
                         let r: i64 = self.real.as_();
                         let i: i64 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1) - (i.wrapping_mul(i) >> 1);
+                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -154,7 +162,7 @@ where
                         let r: i128 = self.real.as_();
                         let i: i128 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1) - (i.wrapping_mul(i) >> 1);
+                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -177,7 +185,7 @@ where
                         let r: i128 = self.real.as_();
                         let i: i128 = self.imaginary.as_();
 
-                        let real_product = (r.wrapping_mul(r) >> 1) - (i.wrapping_mul(i) >> 1);
+                        let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                         let imag_product = r.wrapping_mul(i);
 
                         let shift_r = real_product
@@ -200,11 +208,11 @@ where
                 };
 
                 // Check if the calculation resulted in zero due to overflow
-                if product_real == 0.as_() && product_imaginary == 0.as_() {
-                    if self.exploded() && self.imaginary == 0.as_() {
+                if product_real == F::ZERO && product_imaginary == F::ZERO {
+                    if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
                             real: self.real,  // Keep exploded magnitude
-                            imaginary: 0.as_(),
+                            imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -227,15 +235,15 @@ where
                 let r: i16 = self.real.as_();
                 let i: i16 = self.imaginary.as_();
 
-                let real_product = (r.wrapping_mul(r) >> 1) - (i.wrapping_mul(i) >> 1);
+                let real_product = (r.wrapping_mul(r) >> 1).wrapping_sub(i.wrapping_mul(i) >> 1);
                 let imag_product = r.wrapping_mul(i);
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == 0.as_() {
+                    if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
                             real: self.real,  // Keep the exploded magnitude
-                            imaginary: 0.as_(),
+                            imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -249,8 +257,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -267,10 +275,10 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == 0.as_() {
+                    if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
                             real: self.real,  // Keep the exploded magnitude
-                            imaginary: 0.as_(),
+                            imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -284,8 +292,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -302,10 +310,10 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == 0.as_() {
+                    if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
                             real: self.real,  // Keep the exploded magnitude
-                            imaginary: 0.as_(),
+                            imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -319,8 +327,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -337,10 +345,10 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == 0.as_() {
+                    if self.exploded() && self.imaginary == F::ZERO {
                         return Self {
                             real: self.real,  // Keep the exploded magnitude
-                            imaginary: 0.as_(),
+                            imaginary: F::ZERO,
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -354,8 +362,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -381,8 +389,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -402,7 +410,7 @@ where
         match E::EXPONENT_BITS {
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
-                let upcast_exponent: i16 = (self_exponent << 1) - expo_adjust as i16;
+                let upcast_exponent: i16 = (self_exponent << 1).wrapping_sub(expo_adjust as i16);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -426,7 +434,7 @@ where
             }
             16 => {
                 let self_exponent: i32 = self.exponent.as_();
-                let upcast_exponent: i32 = (self_exponent << 1) - expo_adjust as i32;
+                let upcast_exponent: i32 = (self_exponent << 1).wrapping_sub(expo_adjust as i32);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -450,7 +458,7 @@ where
             }
             32 => {
                 let self_exponent: i64 = self.exponent.as_();
-                let upcast_exponent: i64 = (self_exponent << 1) - expo_adjust as i64;
+                let upcast_exponent: i64 = (self_exponent << 1).wrapping_sub(expo_adjust as i64);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -474,7 +482,7 @@ where
             }
             64 => {
                 let self_exponent: i128 = self.exponent.as_();
-                let upcast_exponent: i128 = (self_exponent << 1) - expo_adjust as i128;
+                let upcast_exponent: i128 = (self_exponent << 1).wrapping_sub(expo_adjust as i128);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -499,7 +507,7 @@ where
             128 => {
                 let self_exponent: I256 = self.exponent.into();
                 let e: I256 = (expo_adjust as i128).into();
-                let upcast_exponent: I256 = (self_exponent << 1) - e;
+                let upcast_exponent: I256 = (self_exponent << 1usize).wrapping_sub(e);
 
                 if upcast_exponent > E::MAX_EXPONENT.into() {
                     return Self {

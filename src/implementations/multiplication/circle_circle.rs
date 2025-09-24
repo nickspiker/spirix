@@ -4,7 +4,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 #[allow(private_bounds)]
 impl<
@@ -16,7 +16,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -25,7 +29,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -197,8 +205,10 @@ where
                         let c: i16 = other.real.as_();
                         let d: i16 = other.imaginary.as_();
 
-                        let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                        let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                        let real_product =
+                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                        let imag_product =
+                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                         let shift_r = real_product
                             .leading_ones()
@@ -208,7 +218,7 @@ where
                             .max(imag_product.leading_zeros());
                         let shift = shift_r.min(shift_i) as isize;
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
@@ -222,8 +232,10 @@ where
                         let c: i32 = other.real.as_();
                         let d: i32 = other.imaginary.as_();
 
-                        let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                        let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                        let real_product =
+                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                        let imag_product =
+                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                         let shift_r = real_product
                             .leading_ones()
@@ -233,7 +245,7 @@ where
                             .max(imag_product.leading_zeros());
                         let shift = shift_r.min(shift_i) as isize;
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
@@ -247,8 +259,10 @@ where
                         let c: i64 = other.real.as_();
                         let d: i64 = other.imaginary.as_();
 
-                        let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                        let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                        let real_product =
+                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                        let imag_product =
+                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                         let shift_r = real_product
                             .leading_ones()
@@ -258,7 +272,7 @@ where
                             .max(imag_product.leading_zeros());
                         let shift = shift_r.min(shift_i) as isize;
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
@@ -272,8 +286,10 @@ where
                         let c: i128 = other.real.as_();
                         let d: i128 = other.imaginary.as_();
 
-                        let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                        let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                        let real_product =
+                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                        let imag_product =
+                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                         let shift_r = real_product
                             .leading_ones()
@@ -283,7 +299,7 @@ where
                             .max(imag_product.leading_zeros());
                         let shift = shift_r.min(shift_i) as isize;
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
@@ -298,9 +314,9 @@ where
                         let d: I256 = other.imaginary.into();
 
                         let real_product: I256 =
-                            (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
+                            (a.wrapping_mul(c) >> 1usize).wrapping_sub(b.wrapping_mul(d) >> 1);
                         let imag_product: I256 =
-                            (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                            (a.wrapping_mul(d) >> 1usize).wrapping_add(b.wrapping_mul(c) >> 1);
 
                         let shift_r = real_product
                             .leading_ones()
@@ -310,7 +326,7 @@ where
                             .max(imag_product.leading_zeros());
                         let shift = shift_r.min(shift_i) as isize;
 
-                        let shift_amount = shift + n_level;
+                        let shift_amount = shift.wrapping_add(n_level);
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
@@ -340,8 +356,8 @@ where
                 let c: i16 = other.real.as_();
                 let d: i16 = other.imaginary.as_();
 
-                let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                 if real_product == 0 && imag_product == 0 {
                     return Self::ZERO;
@@ -354,8 +370,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -369,8 +385,8 @@ where
                 let c: i32 = other.real.as_();
                 let d: i32 = other.imaginary.as_();
 
-                let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                 if real_product == 0 && imag_product == 0 {
                     return Self::ZERO;
@@ -383,8 +399,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -398,8 +414,8 @@ where
                 let c: i64 = other.real.as_();
                 let d: i64 = other.imaginary.as_();
 
-                let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                 if real_product == 0 && imag_product == 0 {
                     return Self::ZERO;
@@ -412,8 +428,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -427,8 +443,8 @@ where
                 let c: i128 = other.real.as_();
                 let d: i128 = other.imaginary.as_();
 
-                let real_product = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
+                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
 
                 if real_product == 0 && imag_product == 0 {
                     return Self::ZERO;
@@ -441,8 +457,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -456,8 +472,10 @@ where
                 let c: I256 = other.real.into();
                 let d: I256 = other.imaginary.into();
 
-                let real_product: I256 = (a.wrapping_mul(c) >> 1) - (b.wrapping_mul(d) >> 1);
-                let imag_product: I256 = (a.wrapping_mul(d) >> 1) + (b.wrapping_mul(c) >> 1);
+                let real_product: I256 =
+                    (a.wrapping_mul(c) >> 1usize).wrapping_sub(b.wrapping_mul(d) >> 1);
+                let imag_product: I256 =
+                    (a.wrapping_mul(d) >> 1usize).wrapping_add(b.wrapping_mul(c) >> 1);
 
                 if real_product == 0.into() && imag_product == 0.into() {
                     return Self::ZERO;
@@ -470,8 +488,8 @@ where
                     .leading_ones()
                     .max(imag_product.leading_zeros());
 
-                expo_adjust = leading_r.min(leading_i) as isize - 3;
-                let shift = expo_adjust + 2;
+                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
+                let shift = expo_adjust.wrapping_add(2);
 
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
@@ -492,7 +510,9 @@ where
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
                 let other_exponent: i16 = other.exponent.as_();
-                let upcast_exponent: i16 = self_exponent + other_exponent - expo_adjust as i16;
+                let upcast_exponent: i16 = self_exponent
+                    .wrapping_add(other_exponent)
+                    .wrapping_sub(expo_adjust as i16);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -517,7 +537,9 @@ where
             16 => {
                 let self_exponent: i32 = self.exponent.as_();
                 let other_exponent: i32 = other.exponent.as_();
-                let upcast_exponent: i32 = self_exponent + other_exponent - expo_adjust as i32;
+                let upcast_exponent: i32 = self_exponent
+                    .wrapping_add(other_exponent)
+                    .wrapping_sub(expo_adjust as i32);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -542,7 +564,9 @@ where
             32 => {
                 let self_exponent: i64 = self.exponent.as_();
                 let other_exponent: i64 = other.exponent.as_();
-                let upcast_exponent: i64 = self_exponent + other_exponent - expo_adjust as i64;
+                let upcast_exponent: i64 = self_exponent
+                    .wrapping_add(other_exponent)
+                    .wrapping_sub(expo_adjust as i64);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -567,7 +591,9 @@ where
             64 => {
                 let self_exponent: i128 = self.exponent.as_();
                 let other_exponent: i128 = other.exponent.as_();
-                let upcast_exponent: i128 = self_exponent + other_exponent - expo_adjust as i128;
+                let upcast_exponent: i128 = self_exponent
+                    .wrapping_add(other_exponent)
+                    .wrapping_sub(expo_adjust as i128);
 
                 if upcast_exponent > E::MAX_EXPONENT.as_() {
                     return Self {
@@ -593,7 +619,8 @@ where
                 let self_exponent: I256 = self.exponent.into();
                 let other_exponent: I256 = other.exponent.into();
                 let e: I256 = (expo_adjust as i128).into();
-                let upcast_exponent: I256 = self_exponent + other_exponent - e;
+                let upcast_exponent: I256 =
+                    self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
 
                 if upcast_exponent > E::MAX_EXPONENT.into() {
                     return Self {

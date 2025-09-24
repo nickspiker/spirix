@@ -3,7 +3,7 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 trait RandomFraction {
@@ -51,7 +51,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -60,7 +64,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -105,15 +113,15 @@ where
                 .max(result.fraction.leading_zeros())
                 .as_();
 
-            if leading > E::one() {
-                let new_exponent = result.exponent - leading;
+            if leading > E::ONE {
+                let new_exponent = result.exponent.wrapping_sub(&leading);
                 let shift: isize = leading.as_();
 
                 if new_exponent.is_negative() {
-                    result.exponent = new_exponent + 1.as_();
-                    result.fraction = result.fraction << (shift - 1);
+                    result.exponent = new_exponent.wrapping_add(&E::ONE);
+                    result.fraction = result.fraction << shift.wrapping_sub(1);
 
-                    let mask: F = (F::one() << (shift - 1)) - F::one();
+                    let mask: F = (F::ONE << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
 
                     let random_fill: F = F::random() & mask;
 
@@ -127,7 +135,7 @@ where
                         .leading_ones()
                         .max(result.fraction.leading_zeros())
                         .as_();
-                    while leading != 2.as_() {
+                    while leading != E::TWO {
                         result.fraction = F::random();
                         leading = result
                             .fraction
@@ -185,7 +193,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -194,7 +206,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Circle<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -248,21 +264,21 @@ where
                 .as_();
             let leading = leading_r.min(leading_i);
 
-            if leading > E::one() {
+            if leading > E::ONE {
                 // Needs normalization
-                let new_exponent = result.exponent - leading;
+                let new_exponent = result.exponent.wrapping_sub(&leading);
                 let shift: isize = leading.as_();
 
                 if new_exponent.is_negative() {
                     // Normal N1 value normalization
-                    result.exponent = new_exponent + 1.as_();
+                    result.exponent = new_exponent.wrapping_add(&E::ONE);
 
                     // Shift both components while preserving their relationship
-                    result.real = result.real << (shift - 1);
-                    result.imaginary = result.imaginary << (shift - 1);
+                    result.real = result.real << shift.wrapping_sub(1);
+                    result.imaginary = result.imaginary << shift.wrapping_sub(1);
 
                     // Fill lower bits with random values
-                    let mask: F = (F::one() << (shift - 1)) - F::one();
+                    let mask: F = (F::POS_ONE_FRACTION << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
                     let random_fill_r: F = F::random() & mask;
                     let random_fill_i: F = F::random() & mask;
                     result.real = result.real | random_fill_r;
@@ -287,7 +303,7 @@ where
                             .max(result.imaginary.leading_zeros())
                             .as_();
 
-                        if leading_r.min(leading_i) == 2.as_() {
+                        if leading_r.min(leading_i) == E::TWO {
                             break;
                         }
                     }

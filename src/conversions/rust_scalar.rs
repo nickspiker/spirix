@@ -2,10 +2,24 @@ use crate::constants::ScalarConstants;
 use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f64>
-    for Scalar<F, E>
+impl<
+        F: Integer
+            + FractionConstants
+            + FullInt
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
+        E: Integer
+            + ExponentConstants
+            + FullInt
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
+    > From<f64> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -64,8 +78,22 @@ where
     }
 }
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt>
-    From<&mut f64> for Scalar<F, E>
+impl<
+        F: Integer
+            + FractionConstants
+            + FullInt
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
+        E: Integer
+            + ExponentConstants
+            + FullInt
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
+    > From<&mut f64> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -173,17 +201,17 @@ where
             };
         }
         let bits = binary64.to_bits();
-        let raw_exp = ((bits >> 52) & ((1 << 11) - 1)) as i16;
+        let raw_exp = ((bits >> 52) & ((1 << 11).wrapping_sub(&1))) as i16;
 
         let mut fraction = if raw_exp == 0 {
-            (bits & ((1 << 52) - 1)) as i64
+            (bits & ((1 << 52).wrapping_sub(&1))) as i64
         } else {
-            (bits & ((1 << 52) - 1) | (1 << 52)) as i64
+            (bits & ((1 << 52).wrapping_sub(&1)) | (1 << 52)) as i64
         };
         if binary64.is_sign_negative() {
-            fraction = -fraction;
+            fraction = fraction.wrapping_neg();
         }
-        let mut intermediary = Scalar::<i64, i16>::new(fraction, raw_exp - 1012);
+        let mut intermediary = Scalar::<i64, i16>::new(fraction, raw_exp.wrapping_sub(1012));
         intermediary.normalize();
         let fraction = intermediary.fraction.sa();
         if E::EXPONENT_BITS == 8 {
@@ -401,17 +429,17 @@ where
             };
         }
         let bits = binary32.to_bits();
-        let raw_exp = ((bits >> 23) & ((1 << 8) - 1)) as i16;
+        let raw_exp = ((bits >> 23) & ((1 << 8).wrapping_sub(&1))) as i16;
 
         let mut fraction = if raw_exp == 0 {
-            (bits & ((1 << 23) - 1)) as i32
+            (bits & ((1 << 23).wrapping_sub(&1))) as i32
         } else {
-            (bits & ((1 << 23) - 1) | (1 << 23)) as i32
+            (bits & ((1 << 23).wrapping_sub(&1)) | (1 << 23)) as i32
         };
         if binary32.is_sign_negative() {
-            fraction = -fraction;
+            fraction = fraction.wrapping_neg();
         }
-        let mut intermediary = Scalar::<i32, i16>::new(fraction, raw_exp - 119);
+        let mut intermediary = Scalar::<i32, i16>::new(fraction, raw_exp.wrapping_sub(119));
         intermediary.normalize();
         let fraction = intermediary.fraction.sa();
         if E::EXPONENT_BITS == 8 {
@@ -498,11 +526,11 @@ macro_rules! impl_from_int {
                         return Self::ZERO;
                     }
                     let mut shift = value.leading_ones().max(value.leading_zeros()) as isize;
-                    shift = std::mem::size_of::<$i>() as isize * 8 - shift;
+                    shift = (std::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(shift);
                     let exponent:E = shift.as_();
-                    shift = F::FRACTION_BITS as isize - shift - 1;
+                    shift = (F::FRACTION_BITS as isize).wrapping_sub(shift).wrapping_sub(1);
                     let fraction: F = if shift < 0 {
-                        (value >> -shift).as_()
+                        (value >> shift.wrapping_neg()).as_()
                     } else {
                         let intermediate: F = value.as_();
                         intermediate << shift as usize
@@ -702,11 +730,11 @@ macro_rules! impl_from_uint {
                         return Self::ZERO;
                     }
                     let mut shift = value.leading_zeros() as isize;
-                    shift = std::mem::size_of::<$u>() as isize * 8 - shift;
+                    shift = (std::mem::size_of::<$u>() as isize).wrapping_mul(8).wrapping_sub(shift);
                     let exponent:E = shift.as_();
-                    shift = F::FRACTION_BITS as isize - shift - 1;
+                    shift = (F::FRACTION_BITS as isize).wrapping_sub(shift).wrapping_sub(1);
                     let fraction: F = if shift < 0 {
-                        (value >> -shift).as_()
+                        (value >> shift.wrapping_neg()).as_()
                     } else {
                         let intermediate: F = value.as_();
                         intermediate << shift as usize

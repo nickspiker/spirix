@@ -572,16 +572,6 @@
 //! assert!(normalized < ScalarF5E3::PI * 2);
 //! ```
 
-// Spirix relies on proper integer wraparound behavior for correct operation
-// Runtime warning instead of compile error to allow cargo publish verification
-#[cfg(debug_assertions)]
-{
-    eprintln!("⚠️  CRITICAL WARNING: Spirix built with debug assertions enabled!");
-    eprintln!("⚠️  This WILL produce INCORRECT RESULTS due to overflow checking!");
-    eprintln!("⚠️  Add 'overflow-checks = false' to [profile.dev] in Cargo.toml");
-    eprintln!("⚠️  Or use 'cargo build --release' for correct arithmetic behavior");
-}
-
 pub mod constants;
 pub mod conversions;
 pub mod core;

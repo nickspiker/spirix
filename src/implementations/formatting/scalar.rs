@@ -6,7 +6,7 @@ use crate::{
     ScalarConstants, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7,
 };
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingNeg, WrappingAdd, WrappingMul, WrappingSub};
 use std::fmt::{self};
 use std::ops::*;
 impl<
@@ -18,7 +18,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -27,7 +31,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > fmt::Display for Scalar<F, E>
 where
     Circle<F, E>: CircleConstants,
@@ -95,7 +103,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + FullInt
             + Shl<isize, Output = E>
@@ -103,7 +115,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > fmt::Debug for Scalar<F, E>
 where
     F: FractionConstants,
@@ -157,7 +173,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + FullInt
             + Shl<isize, Output = E>
@@ -165,7 +185,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Scalar<F, E>
 where
     F: FractionConstants,
@@ -304,9 +328,9 @@ where
                 // Convert integer part
                 for &digit in int_digits.iter().rev() {
                     let digit_char = if digit < 10 {
-                        (digit + b'0') as char
+                        digit.wrapping_add(b'0') as char
                     } else {
-                        (digit - 10 + b'A') as char
+                        digit.wrapping_sub(10).wrapping_add(b'A') as char
                     };
                     string.push(digit_char);
                 }
@@ -325,9 +349,9 @@ where
                         }
 
                         let digit_char = if digit < 10 {
-                            (digit + b'0') as char
+                            digit.wrapping_add(b'0') as char
                         } else {
-                            (digit - 10 + b'A') as char
+                            digit.wrapping_sub(10).wrapping_add(b'A') as char
                         };
                         string.push(digit_char);
                     }
@@ -372,9 +396,9 @@ where
             scaled = (scaled - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
 
@@ -391,9 +415,9 @@ where
 
         result.push('×');
         let base_char = if base < 10 {
-            (base + b'0') as char
+            base.wrapping_add(b'0') as char
         } else {
-            (base - 10 + b'A') as char
+            base.wrapping_sub(10).wrapping_add(b'A') as char
         };
         result.push(base_char);
         result.push('^');
@@ -416,9 +440,9 @@ where
 
         for &digit in exp_digits.iter().rev() {
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
         }
@@ -467,9 +491,9 @@ where
             scaled = (scaled - digit) * base_scalar;
 
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
 
@@ -486,9 +510,9 @@ where
 
         result.push('×');
         let base_char = if base < 10 {
-            (base + b'0') as char
+            base.wrapping_add(b'0') as char
         } else {
-            (base - 10 + b'A') as char
+            base.wrapping_sub(10).wrapping_add(b'A') as char
         };
         result.push(base_char);
         result.push('^');
@@ -511,9 +535,9 @@ where
 
         for &digit in exp_digits.iter().rev() {
             let digit_char = if digit < 10 {
-                (digit + b'0') as char
+                digit.wrapping_add(b'0') as char
             } else {
-                (digit - 10 + b'A') as char
+                digit.wrapping_sub(10).wrapping_add(b'A') as char
             };
             result.push(digit_char);
         }

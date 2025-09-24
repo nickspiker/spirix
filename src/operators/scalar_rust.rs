@@ -2,7 +2,7 @@
 use crate::core::integer::{FullInt, IntConvert};
 use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
-use num_traits::AsPrimitive;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 // Scalar + RustType operations
@@ -17,7 +17,11 @@ macro_rules! impl_scalar_op_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -25,7 +29,11 @@ macro_rules! impl_scalar_op_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > $trait<$t> for &Scalar<F, E>
             where
             F: FractionConstants,
@@ -74,7 +82,11 @@ macro_rules! impl_scalar_op_rust {
                 + Shl<F, Output = F>
                 + Shr<F, Output = F>
                 + Shl<E, Output = F>
-                + Shr<E, Output = F>,
+                + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             E: Integer
                 + FullInt
                 + Shl<isize, Output = E>
@@ -82,7 +94,11 @@ macro_rules! impl_scalar_op_rust {
                 + Shl<E, Output = E>
                 + Shr<E, Output = E>
                 + Shl<F, Output = E>
-                + Shr<F, Output = E>,
+                + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         > $trait<$t> for Scalar<F, E>
                where
                F: FractionConstants,
@@ -130,7 +146,11 @@ macro_rules! impl_scalar_op_rust {
                 + Shl<F, Output = F>
                 + Shr<F, Output = F>
                 + Shl<E, Output = F>
-                + Shr<E, Output = F>,
+                + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             E: Integer
                 + FullInt
                 + Shl<isize, Output = E>
@@ -138,7 +158,11 @@ macro_rules! impl_scalar_op_rust {
                 + Shl<E, Output = E>
                 + Shr<E, Output = E>
                 + Shl<F, Output = E>
-                + Shr<F, Output = E>,
+                + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
         > $trait<$t> for &mut Scalar<F, E>
         where
             F: FractionConstants,
@@ -290,7 +314,11 @@ macro_rules! impl_scalar_assign_op_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -298,7 +326,11 @@ macro_rules! impl_scalar_assign_op_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > $trait<$t> for Scalar<F, E>
      where
      F: FractionConstants,
@@ -448,7 +480,11 @@ macro_rules! impl_scalar_power_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -456,7 +492,11 @@ macro_rules! impl_scalar_power_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Power<$t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -505,7 +545,11 @@ macro_rules! impl_scalar_power_rust {
          + Shl<F, Output = F>
          + Shr<F, Output = F>
          + Shl<E, Output = F>
-         + Shr<E, Output = F>,
+         + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      E: Integer
          + FullInt
          + Shl<isize, Output = E>
@@ -513,7 +557,11 @@ macro_rules! impl_scalar_power_rust {
          + Shl<E, Output = E>
          + Shr<E, Output = E>
          + Shl<F, Output = E>
-         + Shr<F, Output = E>,
+         + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
  > Power<$t> for &Scalar<F, E>
  where
      F: FractionConstants,
@@ -561,7 +609,11 @@ macro_rules! impl_scalar_power_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + FullInt
                     + Shl<isize, Output = E>
@@ -569,7 +621,11 @@ macro_rules! impl_scalar_power_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Power<$t> for &mut Scalar<F, E>
             where
                 F: FractionConstants,
@@ -618,7 +674,11 @@ macro_rules! impl_scalar_power_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + FullInt
                     + Shl<isize, Output = E>
@@ -626,7 +686,11 @@ macro_rules! impl_scalar_power_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > Logarithm<$t> for &mut Scalar<F, E>
             where
                 F: FractionConstants,
@@ -674,7 +738,11 @@ macro_rules! impl_scalar_power_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -682,7 +750,11 @@ macro_rules! impl_scalar_power_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Logarithm<$t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -731,7 +803,11 @@ macro_rules! impl_scalar_power_rust {
          + Shl<F, Output = F>
          + Shr<F, Output = F>
          + Shl<E, Output = F>
-         + Shr<E, Output = F>,
+         + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      E: Integer
          + FullInt
          + Shl<isize, Output = E>
@@ -739,7 +815,11 @@ macro_rules! impl_scalar_power_rust {
          + Shl<E, Output = E>
          + Shr<E, Output = E>
          + Shl<F, Output = E>
-         + Shr<F, Output = E>,
+         + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
  > Logarithm<$t> for &Scalar<F, E>
  where
      F: FractionConstants,
@@ -798,7 +878,11 @@ macro_rules! impl_scalar_comparison_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -806,7 +890,11 @@ macro_rules! impl_scalar_comparison_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Min<$t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -855,7 +943,11 @@ macro_rules! impl_scalar_comparison_rust {
          + Shl<F, Output = F>
          + Shr<F, Output = F>
          + Shl<E, Output = F>
-         + Shr<E, Output = F>,
+         + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      E: Integer
          + FullInt
          + Shl<isize, Output = E>
@@ -863,7 +955,11 @@ macro_rules! impl_scalar_comparison_rust {
          + Shl<E, Output = E>
          + Shr<E, Output = E>
          + Shl<F, Output = E>
-         + Shr<F, Output = E>,
+         + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Max<$t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -919,7 +1015,11 @@ macro_rules! impl_scalar_clamp_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -927,7 +1027,11 @@ macro_rules! impl_scalar_clamp_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Clamp<$t, $t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -973,7 +1077,9 @@ macro_rules! impl_scalar_clamp_rust {
 }
 
 // Implement min/max/clamp for all primitive types
-impl_scalar_comparison_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_scalar_comparison_rust!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+);
 impl_scalar_clamp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
 // Integer bit-shift implementations (self*2^integer) for Scalar with primitive types
 macro_rules! impl_scalar_shift_rust {
@@ -988,7 +1094,11 @@ macro_rules! impl_scalar_shift_rust {
                   + Shl<F, Output = F>
                   + Shr<F, Output = F>
                   + Shl<E, Output = F>
-                  + Shr<E, Output = F>,
+                  + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
               E: Integer
                   + FullInt
                   + Shl<isize, Output = E>
@@ -996,7 +1106,11 @@ macro_rules! impl_scalar_shift_rust {
                   + Shl<E, Output = E>
                   + Shr<E, Output = E>
                   + Shl<F, Output = E>
-                  + Shr<F, Output = E>,
+                  + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
           > Shl<$t> for &mut Scalar<F, E>
               where
               F: FractionConstants,
@@ -1044,7 +1158,11 @@ macro_rules! impl_scalar_shift_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -1052,7 +1170,11 @@ macro_rules! impl_scalar_shift_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Shl<$t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -1101,7 +1223,11 @@ macro_rules! impl_scalar_shift_rust {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -1109,7 +1235,11 @@ macro_rules! impl_scalar_shift_rust {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Shl<$t> for &Scalar<F, E>
      where
          F: FractionConstants,
@@ -1157,7 +1287,11 @@ F: Integer
     + Shl<F, Output = F>
     + Shr<F, Output = F>
     + Shl<E, Output = F>
-    + Shr<E, Output = F>,
+    + Shr<E, Output = F>
+    + WrappingNeg
+    + WrappingAdd
+    + WrappingMul
+    + WrappingSub,
 E: Integer
     + FullInt
     + Shl<isize, Output = E>
@@ -1165,7 +1299,11 @@ E: Integer
     + Shl<E, Output = E>
     + Shr<E, Output = E>
     + Shl<F, Output = E>
-    + Shr<F, Output = E>,
+    + Shr<F, Output = E>
+    + WrappingNeg
+    + WrappingAdd
+    + WrappingMul
+    + WrappingSub,
 > Shr<$t> for &mut Scalar<F, E>
 where
 F: FractionConstants,
@@ -1213,7 +1351,11 @@ fn shr(self, rhs: $t) -> Self::Output {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -1221,7 +1363,11 @@ fn shr(self, rhs: $t) -> Self::Output {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Shr<$t> for Scalar<F, E>
      where
          F: FractionConstants,
@@ -1270,7 +1416,11 @@ fn shr(self, rhs: $t) -> Self::Output {
              + Shl<F, Output = F>
              + Shr<F, Output = F>
              + Shl<E, Output = F>
-             + Shr<E, Output = F>,
+             + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
          E: Integer
              + FullInt
              + Shl<isize, Output = E>
@@ -1278,7 +1428,11 @@ fn shr(self, rhs: $t) -> Self::Output {
              + Shl<E, Output = E>
              + Shr<E, Output = E>
              + Shl<F, Output = E>
-             + Shr<F, Output = E>,
+             + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
      > Shr<$t> for &Scalar<F, E>
      where
          F: FractionConstants,
@@ -1336,7 +1490,11 @@ macro_rules! impl_scalar_shift_assign_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + FullInt
                     + Shl<isize, Output = E>
@@ -1344,7 +1502,11 @@ macro_rules! impl_scalar_shift_assign_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > ShlAssign<$t> for Scalar<F, E>
                 where
                 F: FractionConstants,
@@ -1391,7 +1553,11 @@ macro_rules! impl_scalar_shift_assign_rust {
                     + Shl<F, Output = F>
                     + Shr<F, Output = F>
                     + Shl<E, Output = F>
-                    + Shr<E, Output = F>,
+                    + Shr<E, Output = F>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
                 E: Integer
                     + FullInt
                     + Shl<isize, Output = E>
@@ -1399,7 +1565,11 @@ macro_rules! impl_scalar_shift_assign_rust {
                     + Shl<E, Output = E>
                     + Shr<E, Output = E>
                     + Shl<F, Output = E>
-                    + Shr<F, Output = E>,
+                    + Shr<F, Output = E>
+                    + WrappingNeg
+                    + WrappingAdd
+                    + WrappingMul
+                    + WrappingSub,
             > ShrAssign<$t> for Scalar<F, E>
                 where
                 F: FractionConstants,
@@ -1462,21 +1632,7 @@ impl_scalar_op_rust!(
 );
 
 impl_scalar_op_rust!(
-    BitOr,
-    bitor,
-    aligned_or,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize
+    BitOr, bitor, aligned_or, i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
 
 impl_scalar_op_rust!(
