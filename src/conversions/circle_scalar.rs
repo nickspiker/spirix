@@ -15,6 +15,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 ///
 /// ```rust
 /// use spirix::{Circle, CircleF5E3};
+/// use spirix::conversions::circle_scalar::IntoScalars;
 ///
 /// // Create a complex number
 /// let z = CircleF5E3::from((3.5, -2.7));  // 3.5 - 2.7i
@@ -38,6 +39,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 ///
 /// ```rust
 /// use spirix::{Circle, CircleF5E3, ScalarF5E3};
+/// use spirix::conversions::circle_scalar::IntoScalars;
 ///
 /// let z = CircleF5E3::from((4, 3));     // 4 + 3i
 /// let (real, imaginary) = z.into_scalars();

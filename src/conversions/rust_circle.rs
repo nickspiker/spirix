@@ -20,7 +20,7 @@ use std::ops::*;
 /// ## Implemented For
 ///
 /// - Primitive numeric types (i8, i16, i32, i64, i128, f32, f64, etc.)
-/// - std::num::Complex<f32> and std::num::Complex<f64>
+/// - `std::num::Complex<f32>` and `std::num::Complex<f64>`
 /// - Tuples representing complex numbers (real, imaginary)
 /// - References to these types
 ///
@@ -162,7 +162,7 @@ where
     }
 }
 
-/// Implementation for converting Complex<f64> to Circle
+/// Implementation for converting `Complex<f64>` to Circle
 ///
 /// This conversion handles IEEE-754 special values like NaN by converting them
 /// to appropriate undefined states in the Spirix number system.
@@ -226,7 +226,7 @@ where
 {
     /// # Convert a Binary64 Complex pair to a Circle
     ///
-    /// Creates a Circle from a std::num::Complex<f64> pair, handling IEEE-754 special values.
+    /// Creates a Circle from a `std::num::Complex<f64>` pair, handling IEEE-754 special values.
     ///
     /// ## Examples
     ///
@@ -234,7 +234,7 @@ where
     /// use spirix::{Circle, CircleF5E3};
     /// use num_complex::Complex;
     ///
-    /// // Create a std::num::Complex<f64>
+    /// // Create a `std::num::Complex<f64>`
     /// let complex = Complex::new(1.5, -2.7);
     ///
     /// // Convert to Circle
@@ -267,7 +267,7 @@ where
     }
 }
 
-/// Implementation for converting Complex<f32> to Circle
+/// Implementation for converting `Complex<f32>` to Circle
 ///
 /// Similar to the f64 implementation, this handles IEEE-754 special values
 /// appropriately when converting to the Spirix number system.
@@ -331,7 +331,7 @@ where
 {
     /// # Convert a Complex Binary32 pair to a Circle
     ///
-    /// Creates a Circle from a std::num::Complex<f32> value, handling IEEE-754 special values.
+    /// Creates a Circle from a `std::num::Complex<f32>` value, handling IEEE-754 special values.
     ///
     /// ## Examples
     ///
@@ -339,7 +339,7 @@ where
     /// use spirix::{Circle, CircleF5E3};
     /// use num_complex::Complex;
     ///
-    /// // Create a std::num::Complex<f32>
+    /// // Create a `std::num::Complex<f32>`
     /// let complex = Complex::new(1.5f32, -2.7f32);
     ///
     /// // Convert to Circle
@@ -473,9 +473,9 @@ where
     }
 }
 
-/// Implementation for converting references to Complex<f64> to Circle
+/// Implementation for converting references to `Complex<f64>` to Circle
 ///
-/// This provides a convenient way to convert a reference to a Complex<f64>
+/// This provides a convenient way to convert a reference to a `Complex<f64>`
 /// without taking ownership.
 impl<
         F: Integer
@@ -537,7 +537,7 @@ where
 {
     /// # Convert Binary64 Complex pair reference to a Circle
     ///
-    /// Creates a Circle from a reference to a std::num::Complex<f64>, allowing conversion without taking ownership of the source value.
+    /// Creates a Circle from a reference to a `std::num::Complex<f64>`, allowing conversion without taking ownership of the source value.
     ///
     /// ## Examples
     ///
@@ -545,7 +545,7 @@ where
     /// use spirix::{Circle, CircleF5E3};
     /// use num_complex::Complex;
     ///
-    /// // Create a std::num::Complex<f64>
+    /// // Create a `std::num::Complex<f64>`
     /// let complex = Complex::new(1.5, -2.7);
     ///
     /// // Convert from reference without moving the original
@@ -563,9 +563,9 @@ where
     }
 }
 
-/// Implementation for converting references to Complex<f32> to Circle
+/// Implementation for converting references to `Complex<f32>` to Circle
 ///
-/// This provides a convenient way to convert a reference to a Complex<f32>
+/// This provides a convenient way to convert a reference to a `Complex<f32>`
 /// without taking ownership.
 impl<
         F: Integer
@@ -627,7 +627,7 @@ where
 {
     /// # Convert Binary32 Complex pair reference to a Circle
     ///
-    /// Creates a Circle from a reference to a std::num::Complex<f32>, allowing conversion without taking ownership of the source value.
+    /// Creates a Circle from a reference to a `std::num::Complex<f32>`, allowing conversion without taking ownership of the source value.
     ///
     /// ## Examples
     ///
@@ -635,7 +635,7 @@ where
     /// use spirix::{Circle, CircleF5E3};
     /// use num_complex::Complex;
     ///
-    /// // Create a std::num::Complex<f32>
+    /// // Create a `std::num::Complex<f32>`
     /// let complex = Complex::new(1.5f32, -2.7f32);
     ///
     /// // Convert from reference without moving the original

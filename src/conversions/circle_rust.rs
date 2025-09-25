@@ -6,9 +6,9 @@ use num_complex::Complex;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
-/// # Circle to Complex<f64> Conversion
+/// # Circle to `Complex<f64>` Conversion
 ///
-/// Implements conversion from Circle to the standard library's Complex<f64> type,
+/// Implements conversion from Circle to the standard library's `Complex<f64>` type,
 /// mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
 impl<
         F: Integer
@@ -69,7 +69,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Converts a Circle to Complex<f64>
+    /// Converts a Circle to `Complex<f64>`
     ///
     /// This conversion maps a Circle to IEEE-754 floating-point, preserving mathematical properties where possible.
     ///
@@ -130,9 +130,9 @@ where
     }
 }
 
-/// # Circle to Complex<f32> Conversion
+/// # Circle to `Complex<f32>` Conversion
 ///
-/// Implements conversion from Circle to the standard library's Complex<f32> type,
+/// Implements conversion from Circle to the standard library's `Complex<f32>` type,
 /// mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
 impl<
         F: Integer
@@ -193,7 +193,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Converts a Circle to Complex<f32>
+    /// Converts a Circle to `Complex<f32>`
     ///
     /// This conversion maps a Circle to IEEE-754 floating-point, preserving mathematical properties where possible.
     ///
@@ -313,7 +313,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Converts a Circle to Complex<f64>
+    /// Converts a Circle to `Complex<f64>`
     ///
     /// This conversion maps a Circle to IEEE-754 floating-point, preserving mathematical properties where possible.
     ///
@@ -392,7 +392,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Converts a Circle to Complex<f32>
+    /// Converts a Circle to `Complex<f32>`
     ///
     /// This conversion maps a Circle to IEEE-754 floating-point, preserving mathematical properties where possible.
     ///
