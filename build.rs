@@ -1,5 +1,9 @@
 // build.rs
 fn main() {
+    // Skip code generation for docs.rs
+    if std::env::var("DOCS_RS").is_ok() {
+        return;
+    }
     let int_types = ["i8", "i16", "i32", "i64", "i128"];
 
     // Start with the necessary imports
