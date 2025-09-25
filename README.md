@@ -7,6 +7,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/spirix.svg)](https://crates.io/crates/spirix)
 [![Docs.rs](https://docs.rs/spirix/badge.svg)](https://docs.rs/spirix)
+[![Website](https://img.shields.io/badge/website-holdmyoscilloscope.com-green.svg)](https://www.holdmyoscilloscope.com/spirix/)
 [![License](https://img.shields.io/badge/license-Custom-blue.svg)](LICENSE)
 
 ## ⚠️ Beta Warning
