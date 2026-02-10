@@ -1,6 +1,8 @@
 # Testing Guide for Spirix
 
-This document explains how to use the test suite for the Spirix library.
+This document explains **how to run and use** the test suite for the Spirix library.
+
+> **Note**: For information about **what tests exist** and test organization, see [TESTS.md](TESTS.md).
 
 ## Test Structure
 
