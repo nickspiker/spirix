@@ -445,7 +445,7 @@ fn into(self) -> $i {
         return <$i>::MAX;
     }
     let mut value = self.fraction.sa();
-    value = value >> (std::mem::size_of::<$i>().wrapping_mul(8).wrapping_add(1).wrapping_sub(shift));
+    value = value >> (std::mem::size_of::<$i>().wrapping_mul(8).wrapping_sub(1).wrapping_sub(shift));
     value
 }
 }

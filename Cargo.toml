@@ -1,6 +1,6 @@
 [package]
 name = "spirix"
-version = "0.0.5"
+version = "0.0.7"
 edition = "2021"
 description = "Two's complement floating-point arithmetic library"
 authors = ["Nick Spiker <fractaldecoder@proton.me>"]
@@ -11,6 +11,21 @@ readme = "README.md"
 repository = "https://github.com/nickspiker/spirix"
 homepage = "https://github.com/nickspiker/spirix"
 documentation = "https://docs.rs/spirix"
+exclude = [
+    "gpu/",
+    "fpga/",
+    "old hip/",
+    "docs/",
+    "examples/",
+    "test_contiguous",
+    "test_multiplication_truth",
+    "*.hipi",
+    "*.bc",
+    "*.o",
+    "*.s",
+    "*.out",
+    "target/",
+]
 
 [dependencies]
 i256 = "0.2.2"
@@ -38,4 +53,8 @@ debug = false
 
 [[bench]]
 name = "benchmarks"
+harness = false
+
+[[bench]]
+name = "sqrt_benchmark"
 harness = false

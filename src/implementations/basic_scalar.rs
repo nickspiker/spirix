@@ -2037,7 +2037,7 @@ where
     ///  
     /// - Normalizes all scalars!
     #[inline]
-    pub(crate) fn normalize(&mut self) {
+    pub fn normalize(&mut self) {
         let shift = self
             .fraction
             .leading_ones()

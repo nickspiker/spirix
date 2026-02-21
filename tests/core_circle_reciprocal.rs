@@ -9,7 +9,7 @@ fn test_reciprocal_real() {
     assert_eq!(recip.i(), expected.i());
 }
 
-#[test] 
+#[test]
 fn test_reciprocal_imaginary() {
     let imag = CircleF5E3::from((0.0, 2.0));
     let recip = imag.reciprocal();

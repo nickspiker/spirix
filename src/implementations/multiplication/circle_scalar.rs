@@ -462,7 +462,9 @@ where
                 8 => {
                     let self_exponent: i16 = self.exponent.as_();
                     let other_exponent: i16 = other.exponent.as_();
-                    let upcast_exponent: i16 = self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i16);
+                    let upcast_exponent: i16 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i16);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Self {
@@ -487,7 +489,9 @@ where
                 16 => {
                     let self_exponent: i32 = self.exponent.as_();
                     let other_exponent: i32 = other.exponent.as_();
-                    let upcast_exponent: i32 = self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i32);
+                    let upcast_exponent: i32 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i32);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Self {
@@ -512,7 +516,9 @@ where
                 32 => {
                     let self_exponent: i64 = self.exponent.as_();
                     let other_exponent: i64 = other.exponent.as_();
-                    let upcast_exponent: i64 = self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i64);
+                    let upcast_exponent: i64 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i64);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Self {
@@ -537,8 +543,9 @@ where
                 64 => {
                     let self_exponent: i128 = self.exponent.as_();
                     let other_exponent: i128 = other.exponent.as_();
-                    let upcast_exponent: i128 =
-                        self_exponent.wrapping_add(other_exponent).wrapping_sub(expo_adjust as i128);
+                    let upcast_exponent: i128 = self_exponent
+                        .wrapping_add(other_exponent)
+                        .wrapping_sub(expo_adjust as i128);
 
                     if upcast_exponent > E::MAX_EXPONENT.as_() {
                         return Self {
@@ -564,7 +571,8 @@ where
                     let self_exponent: I256 = self.exponent.into();
                     let other_exponent: I256 = other.exponent.into();
                     let e: I256 = (expo_adjust as i128).into();
-                    let upcast_exponent: I256 = self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
+                    let upcast_exponent: I256 =
+                        self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
 
                     if upcast_exponent > E::MAX_EXPONENT.into() {
                         return Self {

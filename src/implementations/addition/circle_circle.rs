@@ -228,12 +228,15 @@ where
                 let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
                 let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
                 let leading = leading_r.min(leading_i);
-                let offset = small.exponent.wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                let offset = small
+                    .exponent
+                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
@@ -266,12 +269,15 @@ where
                 let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
                 let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
                 let leading = leading_r.min(leading_i);
-                let offset = small.exponent.wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                let offset = small
+                    .exponent
+                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
@@ -304,12 +310,15 @@ where
                 let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
                 let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
                 let leading = leading_r.min(leading_i);
-                let offset = small.exponent.wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                let offset = small
+                    .exponent
+                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
@@ -342,12 +351,15 @@ where
                 let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
                 let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
                 let leading = leading_r.min(leading_i);
-                let offset = small.exponent.wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                let offset = small
+                    .exponent
+                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
@@ -380,7 +392,9 @@ where
                 let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
                 let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
                 let leading = leading_r.min(leading_i);
-                let offset = small.exponent.wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                let offset = small
+                    .exponent
+                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {

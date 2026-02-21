@@ -107,6 +107,14 @@
 // │   ├── scalar_rust.rs       Scalar-to-primitive ops
 // │   └── scalar_scalar.rs     Scalar-Scalar operations
 // │
+// ├── tensor/                  Tensor operations and neural networks
+// │   ├── autograd.rs          Automatic differentiation
+// │   ├── mod.rs               Tensor exports
+// │   ├── nn.rs                Neural network layers
+// │   ├── ops.rs               Tensor operations
+// │   ├── optim.rs             Optimization algorithms
+// │   └── tensor.rs            Core Tensor type
+// │
 // └── lib.rs                   Library root and exports (this file)
 
 //! # Spirix
@@ -576,7 +584,9 @@ pub mod constants;
 pub mod conversions;
 pub mod core;
 pub mod implementations;
+pub mod lut;
 pub mod operators;
+pub mod simd;
 
 // Public core types and traits
 pub use crate::core::{
@@ -597,3 +607,10 @@ pub use crate::constants::{
 
 // Operator traits for mixed-type operations
 pub use crate::operators::{Clamp, Logarithm, Max, Min, Power};
+
+pub mod tensor;
+
+pub use tensor::{
+    linear_backward, matmul, mse_loss, mse_loss_grad, relu, relu_backward, scale, transpose,
+    Linear, LinearGradients, SimpleNet, Tensor, SGD,
+};

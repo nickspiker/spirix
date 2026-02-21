@@ -3,7 +3,7 @@ use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::{FullInt, IntConvert};
 use crate::{operators::*, Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
-use num_traits::{AsPrimitive, WrappingNeg, WrappingAdd, WrappingMul, WrappingSub};
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 // =====================================================

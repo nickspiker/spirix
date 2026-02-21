@@ -417,10 +417,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -430,10 +430,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > Modulo<Circle<F, E>> for Scalar<F, E>
 where
     Circle<F, E>: CircleConstants,

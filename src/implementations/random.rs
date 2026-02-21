@@ -278,7 +278,8 @@ where
                     result.imaginary = result.imaginary << shift.wrapping_sub(1);
 
                     // Fill lower bits with random values
-                    let mask: F = (F::POS_ONE_FRACTION << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
+                    let mask: F =
+                        (F::POS_ONE_FRACTION << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
                     let random_fill_r: F = F::random() & mask;
                     let random_fill_i: F = F::random() & mask;
                     result.real = result.real | random_fill_r;

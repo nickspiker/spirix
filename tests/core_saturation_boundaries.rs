@@ -100,7 +100,11 @@ fn test_u16_boundary() {
     // 2^16 = 65536 must saturate to 65535
     let s = ScalarF4E4::from(65536);
     let result: u16 = s.into();
-    assert_eq!(result, u16::MAX, "2^16 (65536) must saturate to u16::MAX (65535)");
+    assert_eq!(
+        result,
+        u16::MAX,
+        "2^16 (65536) must saturate to u16::MAX (65535)"
+    );
 
     // Just below: 65535 should convert exactly
     let s = ScalarF4E4::from(65535);

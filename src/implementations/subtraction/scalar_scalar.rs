@@ -205,7 +205,8 @@ where
                     let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -228,7 +229,8 @@ where
                     let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -251,7 +253,8 @@ where
                     let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -274,7 +277,8 @@ where
                     let offset = scalar.exponent.wrapping_add(&o);
                     if self.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -350,7 +354,8 @@ where
                     let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -373,7 +378,8 @@ where
                     let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -396,7 +402,8 @@ where
                     let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }
@@ -419,7 +426,8 @@ where
                     let offset = self.exponent.wrapping_add(&o);
                     if scalar.exponent.is_negative() && !offset.is_negative() {
                         return Self {
-                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                            fraction: ((result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                                .as_(),
                             exponent: E::AMBIGUOUS_EXPONENT,
                         };
                     }

@@ -2167,10 +2167,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2180,10 +2180,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialEq for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2230,10 +2230,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2243,10 +2243,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialEq<&Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2292,10 +2292,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2305,10 +2305,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialEq<Scalar<F, E>> for &Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2355,10 +2355,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2368,10 +2368,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialOrd for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2417,10 +2417,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2430,10 +2430,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialEq<&mut Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2480,10 +2480,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2493,10 +2493,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialEq<Scalar<F, E>> for &mut Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2542,10 +2542,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2555,10 +2555,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialOrd<&Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2605,10 +2605,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2618,10 +2618,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialOrd<Scalar<F, E>> for &Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2668,10 +2668,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2681,10 +2681,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialOrd<&mut Scalar<F, E>> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -2730,10 +2730,10 @@ impl<
             + Shr<F, Output = F>
             + Shl<E, Output = F>
             + Shr<E, Output = F>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + ExponentConstants
             + FullInt
@@ -2743,10 +2743,10 @@ impl<
             + Shr<E, Output = E>
             + Shl<F, Output = E>
             + Shr<F, Output = E>
-                    + WrappingNeg
-                    + WrappingAdd
-                    + WrappingMul
-                    + WrappingSub,
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
     > PartialOrd<Scalar<F, E>> for &mut Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,

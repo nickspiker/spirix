@@ -187,6 +187,62 @@ Undefined states propagate thru operations, preserving their cause.
 ### Arithmetic Operations
 Note that Rust primitives like f32, i8 are treated as Scalars. For convenience, Circles can be converted to/from Num::Complex::<f32> or <f64>, where circle.r() and circle.i() return normalized Scalars from each respective component. A Circle can be constructed from a single Scalar/Rust primitive CircleF3E3::from(3),CircleF3E3::from(Scalar), or from a tuple of two valid types like CircleF5E4::from((scalar, i8))
 
+### Truth Tables
+
+The following tables show how different value states interact during basic arithmetic operations:
+
+#### Addition
+
+| + | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [℘+⬆] | [℘+⬆] | [℘?] |
+| **[↓]** | [↓] | [℘↓+↓] | [#] | [℘ +⬆] | [℘ +⬆] | [℘?] |
+| **[#]** | [#] | [#] | [0], [#], [↓], [↑] | [℘ +⬆] | [℘ +⬆] | [℘?] |
+| **[↑]** | [℘ ⬆+] | [℘ ⬆+] | [℘ ⬆+] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
+| **[∞]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Subtraction
+
+| - | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [℘-⬆] | [℘-⬆] | [℘?] |
+| **[↓]** | [↓] | [℘↓-↓] | [#] | [℘ -⬆] | [℘ -⬆] | [℘?] |
+| **[#]** | [#], [↓], [↑] | [#], [↓], [↑] | [0], [#], [↓], [↑] | [℘ -⬆] | [℘ -⬆] | [℘?] |
+| **[↑]** | [℘ ⬆-] | [℘ ⬆-] | [℘ ⬆-] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
+| **[∞]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Multiplication
+
+| × | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [0] | [0] | [0] | [℘⬆×⬇] | [℘?] |
+| **[↓]** | [0] | [↓] | [↓] | [℘⬆×⬇] | [∞] | [℘?] |
+| **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
+| **[↑]** | [0] | [℘⬇×⬆] | [↑] | [↑] | [∞] | [℘?] |
+| **[∞]** | [℘⬆×⬇] | [∞] | [∞] | [∞] | [∞] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Division
+
+| ÷ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [℘ ⬇/⬇] | [∞] | [∞] | [∞] | [∞] | [℘?] |
+| **[↓]** | [0] | [℘ ⬇/⬇] | [↑] | [↑] | [∞] | [℘?] |
+| **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
+| **[↑]** | [0] | [↓] | [↓] | [℘ ⬆/⬆] | [∞] | [℘?] |
+| **[∞]** | [0] | [0] | [0] | [0] | [℘ ⬆/⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+Where:
+- **[0]**: Zero
+- **[↓]**: Vanished (extremely small)
+- **[#]**: Normal values
+- **[↑]**: Exploded (extremely large)
+- **[∞]**: Infinity
+- **[℘?]**: Undefined states
+
 Spirix Rust native operations supported:
 
 # Spirix Mathematical Operations

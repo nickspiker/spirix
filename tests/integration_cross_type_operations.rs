@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
-use spirix::*;
 use paste::paste;
+use spirix::*;
 
 /// Test operations between different types: Scalar ↔ Circle, different precisions, and Rust primitives
 /// Verify conversion accuracy, mixed-type arithmetic, and precision preservation

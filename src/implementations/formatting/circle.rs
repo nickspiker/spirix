@@ -1,3 +1,42 @@
+//! Circle Display and Debug formatting implementations.
+//!
+//! This module implements `Display` and `Debug` traits for `Circle<F, E>` types,
+//! providing flexible complex number formatting in any base (2-36) with any number of digits.
+//!
+//! # Key Design Principle
+//!
+//! **All digit extraction uses Spirix arithmetic directly** - just like the Scalar formatter,
+//! the Circle formatter does NOT convert numbers to u8 or use bitmasks. Instead, it:
+//! 1. Formats each component (real and imaginary) using the same Spirix arithmetic as Scalar
+//! 2. Uses `floor()` to separate integer and fractional parts
+//! 3. Uses division and multiplication by the base to extract individual digits
+//! 4. Uses `to_u8()` only for converting already-extracted single digits to characters
+//!
+//! # Circle Format
+//!
+//! Circle values are displayed as `⦇real,imaginary⦈` where both real and imaginary
+//! components are formatted using the same algorithm as Scalar formatting.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use spirix::CircleF5E3;
+//!
+//! let z = CircleF5E3::new(3, 4);  // 3 + 4i
+//!
+//! // Default formatting (base-10)
+//! println!("{}", z);  // ⦇+3,+4⦈
+//!
+//! // Hexadecimal (base-16)
+//! println!("{:.16}", z);  // ⦇+3,+4⦈
+//!
+//! // Binary (base-2) with 16 digits
+//! println!("{:16.2}", z);  // ⦇+11,+100⦈
+//!
+//! // Debug output shows internal bit pattern for both components
+//! println!("{:?}", z);
+//! ```
+
 use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
@@ -66,7 +105,25 @@ where
     I256: From<E>,
     Scalar<i128, i128>: From<Scalar<F, E>>,
 {
+    /// Formats a Circle for display using precision and width specifiers.
+    ///
+    /// # Format Parameters
+    ///
+    /// - **Precision** (`.N`): Specifies the base (2-36). Default is 10.
+    /// - **Width** (`:N`): Specifies how many digits to display per component. Default is
+    ///   calculated from the fraction bits as `log_base(2^fraction_bits)`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spirix::CircleF5E3;
+    /// let z = CircleF5E3::new(15, 31);
+    /// assert_eq!(format!("{:.16}", z), "⦇+F,+1F⦈");  // Hex
+    /// assert_eq!(format!("{:.2}", z), "⦇+1111,+11111⦈");  // Binary
+    /// assert_eq!(format!("{:3.10}", z), "⦇+15,+31⦈");  // Base-10, max 3 digits
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Extract base from precision specifier (default: base-10)
         let mut base: u8 = 10;
         if let Some(prec) = f.precision() {
             base = prec as u8;
@@ -75,6 +132,8 @@ where
             }
         }
 
+        // Calculate default digit count based on fraction bit precision
+        // For very large fraction types, use a smaller type to avoid overflow
         let mut digits = if F::FRACTION_BITS > 100 && E::EXPONENT_BITS < 12 {
             crate::ScalarF7E4::TWO
                 .pow(F::FRACTION_BITS)
@@ -89,6 +148,7 @@ where
                 .to_isize()
         };
 
+        // Override digit count if width is specified
         if let Some(width) = f.width() {
             digits = width as isize;
         }
@@ -157,12 +217,33 @@ where
     I256: From<E>,
     Scalar<i128, i128>: From<Scalar<F, E>>,
 {
+    /// Formats a Circle for debug output showing internal bit representation.
+    ///
+    /// # Debug Modes
+    ///
+    /// - **Plain (`{:?}`)**: Shows raw binary bits as 0s and 1s for both components
+    /// - **Fancy (`{:#?}`)**: Shows coloured binary with special characters
+    ///
+    /// # Format
+    ///
+    /// The output shows: `real_fraction_bits | imaginary_fraction_bits *2^ exponent_bits`
+    ///
+    /// Both real and imaginary components share the same exponent.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spirix::CircleF5E3;
+    /// let z = CircleF5E3::new(1, -1);
+    /// println!("{:?}", z);   // Plain binary
+    /// println!("{:#?}", z);  // Coloured with special chars
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            // {:#?}
+            // {:#?} - Fancy coloured output
             write!(f, "{}", self.format_debug_fancy())
         } else {
-            // {:?}
+            // {:?} - Plain binary output
             write!(f, "{}", self.format_debug_plain())
         }
     }
@@ -227,6 +308,36 @@ where
     I256: From<F>,
     I256: From<E>,
 {
+    /// Core formatting function that converts a Circle to a string representation.
+    ///
+    /// This function formats both the real and imaginary components using the same
+    /// **Spirix arithmetic** approach as `Scalar::format_scalar()`. It does NOT
+    /// convert numbers to u8 or use bitmasks - instead, it extracts digits one at a time
+    /// using division, multiplication, floor, and subtraction operations.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. **Special Values**: Check for undefined, infinity, exploded, vanished, or zero
+    /// 2. **Mode Selection**: Choose between scientific (big/small) or normal notation
+    /// 3. **Format Real Component**: Extract digits using Spirix arithmetic
+    /// 4. **Format Imaginary Component**: Extract digits using Spirix arithmetic
+    /// 5. **Combine**: Return as `⦇real,imaginary⦈`
+    ///
+    /// # Parameters
+    ///
+    /// - `base`: The numeric base (2-36) to use for digit extraction
+    /// - `digits`: Maximum number of significant digits to display per component
+    ///
+    /// # Returns
+    ///
+    /// A string with the format `⦇real,imaginary⦈` for normal values, or special
+    /// symbols for non-normal values.
+    ///
+    /// # Key Point
+    ///
+    /// Just like Scalar formatting, this uses `to_u8()` ONLY for converting
+    /// already-extracted single digits (0-35) to characters. All digit extraction
+    /// is done using Spirix division and multiplication.
     fn format_circle(&self, base: u8, digits: isize) -> String {
         if !self.is_normal() {
             if self.is_undefined() {
@@ -343,6 +454,7 @@ where
                 string.push('%');
             } else {
                 string.push('0');
+                string.push('⦈');
             }
         } else {
             let base_scalar = Scalar::<F, E>::from(base);
@@ -530,6 +642,28 @@ where
         string
     }
 
+    /// Formats large complex numbers in scientific notation.
+    ///
+    /// Used when either component's magnitude is greater than or equal to `base^digits`.
+    /// Both components are scaled by the same exponent to maintain their relative magnitudes.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. **Find Unified Scale**: Use the larger of the two component magnitudes
+    /// 2. **Calculate Exponent**: Take `log_base(max_magnitude).floor()`
+    /// 3. **Normalize Both**: Divide both components by `base^exponent`
+    /// 4. **Extract Digits**: Use Spirix arithmetic on each component separately
+    /// 5. **Add Exponent**: Append `×base^exponent` suffix
+    ///
+    /// # Unified Scaling
+    ///
+    /// Unlike formatting two separate Scalars, Circle uses a single shared exponent
+    /// based on the larger component. This ensures the relative magnitudes of real
+    /// and imaginary parts are preserved in the output.
+    ///
+    /// # Output Format
+    ///
+    /// `⦇±d.ddd...,±d.ddd...⦈×base^±exp`
     fn format_scientific_big(&self, base: u8, digits: isize) -> String {
         let base_scalar = Scalar::<F, E>::from(base);
 
@@ -626,45 +760,53 @@ where
             result.push('^');
             if scale.is_negative() {
                 result.push('-');
-                let power = (-scale).to_usize();
-                let mut pow_digits = Vec::new();
-                let mut remaining = power;
-                if remaining == 0 {
-                    pow_digits.push(48); // '0'
+                // Extract digits from exponent using Spirix arithmetic (avoids saturation)
+                let mut exp_value = -scale;
+                let mut exp_digits = Vec::new();
+                if exp_value.is_zero() {
+                    exp_digits.push(0u8);
                 } else {
-                    while remaining != 0 {
-                        let remainder = (remaining % base as usize) as u8;
-                        if remainder < 10 {
-                            pow_digits.push(remainder.wrapping_add(48) as u8);
-                        } else {
-                            pow_digits.push(remainder.wrapping_add(55) as u8);
-                        }
-                        remaining /= base as usize;
+                    while exp_value.is_normal() && !exp_value.is_zero() {
+                        let scaled = exp_value / base_scalar;
+                        let floored = scaled.floor();
+                        let digit =
+                            ((scaled - floored) * base_scalar + Scalar::<F, E>::HALF).to_u8();
+                        exp_digits.push(digit);
+                        exp_value = floored;
                     }
                 }
-                for &digit in pow_digits.iter().rev() {
-                    result.push(digit as char);
+                for &digit in exp_digits.iter().rev() {
+                    let digit_char = if digit < 10 {
+                        digit.wrapping_add(b'0') as char
+                    } else {
+                        digit.wrapping_sub(10).wrapping_add(b'A') as char
+                    };
+                    result.push(digit_char);
                 }
             } else {
                 result.push('+');
-                let power = scale.to_usize();
-                let mut pow_digits = Vec::new();
-                let mut remaining = power;
-                if remaining == 0 {
-                    pow_digits.push(48); // '0'
+                // Extract digits from exponent using Spirix arithmetic (avoids saturation)
+                let mut exp_value = scale;
+                let mut exp_digits = Vec::new();
+                if exp_value.is_zero() {
+                    exp_digits.push(0u8);
                 } else {
-                    while remaining != 0 {
-                        let remainder = (remaining % base as usize) as u8;
-                        if remainder < 10 {
-                            pow_digits.push(remainder.wrapping_add(48) as u8);
-                        } else {
-                            pow_digits.push(remainder.wrapping_add(55) as u8);
-                        }
-                        remaining /= base as usize;
+                    while exp_value.is_normal() && !exp_value.is_zero() {
+                        let scaled = exp_value / base_scalar;
+                        let floored = scaled.floor();
+                        let digit =
+                            ((scaled - floored) * base_scalar + Scalar::<F, E>::HALF).to_u8();
+                        exp_digits.push(digit);
+                        exp_value = floored;
                     }
                 }
-                for &digit in pow_digits.iter().rev() {
-                    result.push(digit as char);
+                for &digit in exp_digits.iter().rev() {
+                    let digit_char = if digit < 10 {
+                        digit.wrapping_add(b'0') as char
+                    } else {
+                        digit.wrapping_sub(10).wrapping_add(b'A') as char
+                    };
+                    result.push(digit_char);
                 }
             }
         }
@@ -672,6 +814,28 @@ where
         result
     }
 
+    /// Formats tiny complex numbers in scientific notation.
+    ///
+    /// Used when both components have magnitude less than `base^-4`.
+    /// Like `format_scientific_big()`, uses unified scaling for both components.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. **Find Unified Scale**: Use the larger of the two component magnitudes
+    /// 2. **Calculate Exponent**: Take `-log_base(max_magnitude).floor()`
+    /// 3. **Normalize Both**: Multiply both components by `base^exponent`
+    /// 4. **Handle Overflow**: If `base^exponent` would explode, use incremental multiplication
+    /// 5. **Extract Digits**: Use Spirix arithmetic on each component separately
+    /// 6. **Add Exponent**: Append `×base^-exp` suffix
+    ///
+    /// # Unified Scaling
+    ///
+    /// Both components share the same negative exponent to preserve their relative
+    /// magnitudes in the output, just like `format_scientific_big()`.
+    ///
+    /// # Output Format
+    ///
+    /// `⦇±d.ddd...,±d.ddd...⦈×base^-exp`
     fn format_scientific_small(&self, base: u8, digits: isize) -> String {
         let base_scalar = Scalar::<F, E>::from(base);
 
@@ -785,30 +949,50 @@ where
             }
             result.push('^');
             result.push('-');
-            let exponent = power.to_usize();
-            let mut pow_digits = Vec::new();
-            let mut remaining = exponent;
-            if remaining == 0 {
-                pow_digits.push(48); // '0'
+            // Extract digits from exponent using Spirix arithmetic (avoids saturation)
+            let mut exp_value = power;
+            let mut exp_digits = Vec::new();
+            if exp_value.is_zero() {
+                exp_digits.push(0u8);
             } else {
-                while remaining != 0 {
-                    let remainder = (remaining % base as usize) as u8;
-                    if remainder < 10 {
-                        pow_digits.push(remainder.wrapping_add(48) as u8);
-                    } else {
-                        pow_digits.push(remainder.wrapping_add(55) as u8);
-                    }
-                    remaining /= base as usize;
+                while exp_value.is_normal() && !exp_value.is_zero() {
+                    let scaled = exp_value / base_scalar;
+                    let floored = scaled.floor();
+                    let digit = ((scaled - floored) * base_scalar + Scalar::<F, E>::HALF).to_u8();
+                    exp_digits.push(digit);
+                    exp_value = floored;
                 }
             }
-            for &digit in pow_digits.iter().rev() {
-                result.push(digit as char);
+            for &digit in exp_digits.iter().rev() {
+                let digit_char = if digit < 10 {
+                    digit.wrapping_add(b'0') as char
+                } else {
+                    digit.wrapping_sub(10).wrapping_add(b'A') as char
+                };
+                result.push(digit_char);
             }
         }
 
         result
     }
 
+    /// Formats the Circle as plain binary for debug output (`{:?}`).
+    ///
+    /// Shows the raw bit representation of both fraction components and the shared exponent.
+    /// Unlike display formatting which uses arithmetic, debug formatting directly inspects
+    /// the bits using `rotate_left()`.
+    ///
+    /// # Output Format
+    ///
+    /// `real_fraction_bits | imaginary_fraction_bits *2^ exponent_bits`
+    ///
+    /// Where:
+    /// - `real_fraction_bits`: Binary representation of the real component's fraction (0s and 1s)
+    /// - `imaginary_fraction_bits`: Binary representation of the imaginary component's fraction
+    /// - `exponent_bits`: Binary representation of the shared exponent field
+    /// - Bits are shown from MSB to LSB (most significant first)
+    /// - Spaces are added every 8 bits for readability
+    /// - Double space in the middle of each fraction component (except for 8-bit fractions)
     fn format_debug_plain(&self) -> String {
         let mut binary = String::new();
         let middle = F::FRACTION_BITS / 2;
@@ -864,12 +1048,32 @@ where
         binary
     }
 
+    /// Formats the Circle with colours and special characters for debug output (`{:#?}`).
+    ///
+    /// Similar to `format_debug_plain()`, but with ANSI colour codes and Unicode characters
+    /// that indicate each component's state visually.
+    ///
+    /// # Visual Elements
+    ///
+    /// - **Colours**: Each component gets its own colour based on its state:
+    ///   - Real component: Coloured based on real value's state
+    ///   - Imaginary component: Coloured based on imaginary value's state
+    ///   - Exponent: Coloured based on sign (integer/fractional)
+    /// - **Characters**: Same as Scalar debug formatting:
+    ///   - Normal: □ (unset bit), ■ (set bit)
+    ///   - Undefined: ▵ (unset bit), ▴ (set bit)
+    ///   - Zero: 0 (unset bit), | (set bit)
+    ///   - Other: ○ (unset bit), ● (set bit)
+    ///
+    /// # ANSI Colour Format
+    ///
+    /// Uses `\x1B[38;2;R;G;Bm` for 24-bit RGB colours and `\x1B[0m` for reset.
     fn format_debug_fancy(&self) -> String {
         let mut binary = String::new();
         let middle = F::FRACTION_BITS / 2;
         let (unset, set) = self.get_binary_chars();
 
-        // Format real component with appropriate color
+        // Format real component with appropriate colour
         let real_scheme = self.get_real_colour_scheme();
         let real_rgb = &real_scheme.colour;
         binary.push_str(&format!(
@@ -896,7 +1100,7 @@ where
 
         binary.push_str("\x1B[0m| ");
 
-        // Format imaginary component with appropriate color
+        // Format imaginary component with appropriate colour
         let imag_scheme = self.get_imag_colour_scheme();
         let imag_rgb = &imag_scheme.colour;
         binary.push_str(&format!(
@@ -923,7 +1127,7 @@ where
 
         binary.push_str("\x1B[0m *2^ ");
 
-        // Format exponent bits with their color
+        // Format exponent bits with their colour
         let exp_scheme = if self.exponent.is_negative() {
             &COLOURS.fractional_exponent
         } else if self.exponent.is_positive() {
@@ -954,6 +1158,13 @@ where
         binary
     }
 
+    /// Selects the appropriate colour scheme for the real component.
+    ///
+    /// Used by `format_debug_fancy()` to choose the right colour for the real fraction bits.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the appropriate `ColourScheme` from the global `COLOURS` palette.
     fn get_real_colour_scheme(&self) -> &'static ColourScheme {
         if self.is_normal() {
             if self.real.is_negative() {
@@ -980,6 +1191,13 @@ where
         }
     }
 
+    /// Selects the appropriate colour scheme for the imaginary component.
+    ///
+    /// Used by `format_debug_fancy()` to choose the right colour for the imaginary fraction bits.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the appropriate `ColourScheme` from the global `COLOURS` palette.
     fn get_imag_colour_scheme(&self) -> &'static ColourScheme {
         if self.is_normal() {
             if self.imaginary.is_negative() {
@@ -1006,6 +1224,13 @@ where
         }
     }
 
+    /// Selects the appropriate Unicode characters for representing bits.
+    ///
+    /// Used by `format_debug_fancy()` to choose special characters based on the Circle's state.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(unset_char, set_char)` representing 0 and 1 bits respectively.
     fn get_binary_chars(&self) -> (char, char) {
         if self.is_normal() {
             ('□', '■')

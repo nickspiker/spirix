@@ -324,8 +324,8 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u16;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2))) / (mag_sq >> F::FRACTION_BITS)) as i16;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i16;
 
                 let ac = a.wrapping_mul(c);
                 let bd = b.wrapping_mul(d);
@@ -361,8 +361,8 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u32;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2))) / (mag_sq >> F::FRACTION_BITS)) as i32;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i32;
 
                 let ac = a.wrapping_mul(c);
                 let bd = b.wrapping_mul(d);
@@ -398,8 +398,8 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u64;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2))) / (mag_sq >> F::FRACTION_BITS)) as i64;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i64;
 
                 let ac = a.wrapping_mul(c);
                 let bd = b.wrapping_mul(d);
@@ -435,8 +435,8 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u128;
-                let reciprocal =
-                    ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2))) / (mag_sq >> F::FRACTION_BITS)) as i128;
+                let reciprocal = ((1 << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS)) as i128;
 
                 let ac = a.wrapping_mul(c);
                 let bd = b.wrapping_mul(d);
@@ -474,7 +474,8 @@ where
                 let mag_sq: U256 = (cc.wrapping_add(dd)).as_unsigned();
                 let one: I256 = 1.into();
                 let one: U256 = one.as_unsigned();
-                let reciprocal = (one << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2))) / (mag_sq >> F::FRACTION_BITS);
+                let reciprocal = (one << (F::FRACTION_BITS.wrapping_mul(2).wrapping_sub(2)))
+                    / (mag_sq >> F::FRACTION_BITS);
                 let reciprocal = reciprocal.as_signed();
 
                 let ac = a.wrapping_mul(c);

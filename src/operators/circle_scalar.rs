@@ -4,7 +4,7 @@ use crate::{
     ScalarConstants,
 };
 use i256::I256;
-use num_traits::{AsPrimitive, WrappingNeg, WrappingAdd, WrappingMul, WrappingSub};
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::ops::*;
 
 macro_rules! impl_circle_op_scalar {

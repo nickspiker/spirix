@@ -6,9 +6,9 @@ use crate::{
 };
 use i256::I256;
 use num_traits::AsPrimitive;
-use num_traits::WrappingNeg;
 use num_traits::WrappingAdd;
 use num_traits::WrappingMul;
+use num_traits::WrappingNeg;
 use num_traits::WrappingSub;
 use std::ops::*;
 #[allow(private_bounds)]
@@ -277,14 +277,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -315,14 +318,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -353,14 +359,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -391,14 +400,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -759,14 +771,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -797,14 +812,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -835,14 +853,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -873,14 +894,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -1143,14 +1167,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -1181,14 +1208,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -1219,14 +1249,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -1257,14 +1290,17 @@ where
                     .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
+                        real: ((real_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
+                        imaginary: ((imag_result << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                            .as_(),
                         exponent: E::AMBIGUOUS_EXPONENT,
                     };
                 }
                 return Self {
                     real: ((real_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
+                    imaginary: ((imag_result << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                        .as_(),
                     exponent: offset.wrapping_add(&E::ONE),
                 };
             }
@@ -1343,7 +1379,9 @@ where
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
-        if shift.is_negative() && self.exponent.is_negative() && !(new_exp.wrapping_sub(&E::ONE)).is_negative()
+        if shift.is_negative()
+            && self.exponent.is_negative()
+            && !(new_exp.wrapping_sub(&E::ONE)).is_negative()
         {
             return Self {
                 real: self.real >> 1isize,
@@ -1369,7 +1407,9 @@ where
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
-        if !shift.is_negative() && self.exponent.is_negative() && !(new_exp.wrapping_sub(&E::ONE)).is_negative()
+        if !shift.is_negative()
+            && self.exponent.is_negative()
+            && !(new_exp.wrapping_sub(&E::ONE)).is_negative()
         {
             return Self {
                 real: self.real >> 1isize,

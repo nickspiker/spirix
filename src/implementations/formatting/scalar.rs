@@ -1,3 +1,45 @@
+//! Scalar Display and Debug formatting implementations.
+//!
+//! This module implements `Display` and `Debug` traits for `Scalar<F, E>` types,
+//! providing flexible number formatting in any base (2-36) with any number of digits.
+//!
+//! # Key Design Principle
+//!
+//! **All digit extraction uses Spirix arithmetic directly** - the formatter does NOT convert
+//! numbers to u8 or use bitmasks. Instead, it extracts each digit by:
+//! 1. Using `floor()` to separate integer and fractional parts
+//! 2. Using division and multiplication by the base to extract individual digits
+//! 3. Using `to_u8()` only for the final character conversion of already-extracted single digits
+//!
+//! This approach works for ANY base and ANY precision without needing special-case handling.
+//!
+//! # Formatting Modes
+//!
+//! The formatter automatically selects one of three display modes based on magnitude:
+//! - **Big Numbers** (`|value| >= base^digits`): Scientific notation for large numbers
+//! - **Normal Numbers**: Standard decimal-like notation with integer.fractional format
+//! - **Small Numbers** (`|value| < base^-4`): Scientific notation for tiny numbers
+//!
+//! # Examples
+//!
+//! ```rust
+//! use spirix::ScalarF5E3;
+//!
+//! let x = ScalarF5E3::from(42.5);
+//!
+//! // Default formatting (base-10)
+//! println!("{}", x);  // ⦉+42.5⦊
+//!
+//! // Hexadecimal (base-16)
+//! println!("{:.16}", x);  // ⦉+2A.8⦊
+//!
+//! // Binary (base-2) with 32 digits
+//! println!("{:32.2}", x);  // ⦉+101010.1⦊
+//!
+//! // Debug output shows internal bit pattern
+//! println!("{:?}", x);
+//! ```
+
 use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
@@ -6,7 +48,7 @@ use crate::{
     ScalarConstants, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7,
 };
 use i256::I256;
-use num_traits::{AsPrimitive, WrappingNeg, WrappingAdd, WrappingMul, WrappingSub};
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use std::fmt::{self};
 use std::ops::*;
 impl<
@@ -67,7 +109,25 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
+    /// Formats a Scalar for display using precision and width specifiers.
+    ///
+    /// # Format Parameters
+    ///
+    /// - **Precision** (`.N`): Specifies the base (2-36). Default is 10.
+    /// - **Width** (`:N`): Specifies how many digits to display. Default is calculated
+    ///   from the fraction bits as `log_base(2^fraction_bits)`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spirix::ScalarF5E3;
+    /// let x = ScalarF5E3::from(255);
+    /// assert_eq!(format!("{:.16}", x), "⦉+FF⦊");  // Hex
+    /// assert_eq!(format!("{:.2}", x), "⦉+11111111⦊");  // Binary
+    /// assert_eq!(format!("{:4.10}", x), "⦉+255⦊");  // Base-10, max 4 digits
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Extract base from precision specifier (default: base-10)
         let mut base: u8 = 10;
         if let Some(prec) = f.precision() {
             base = prec as u8;
@@ -76,6 +136,8 @@ where
             }
         }
 
+        // Calculate default digit count based on fraction bit precision
+        // For very large fraction types, use a smaller type to avoid overflow in the calculation
         let mut digits = if F::FRACTION_BITS > 100 && E::EXPONENT_BITS < 12 {
             crate::ScalarF7E4::TWO
                 .pow(F::FRACTION_BITS)
@@ -86,6 +148,7 @@ where
             Self::TWO.pow(F::FRACTION_BITS).log(base).floor().to_isize()
         };
 
+        // Override digit count if width is specified
         if let Some(width) = f.width() {
             digits = width as isize;
         }
@@ -153,12 +216,35 @@ where
     I256: From<F>,
     I256: From<E>,
 {
+    /// Formats a Scalar for debug output showing internal bit representation.
+    ///
+    /// # Debug Modes
+    ///
+    /// - **Plain (`{:?}`)**: Shows raw binary bits as 0s and 1s
+    /// - **Fancy (`{:#?}`)**: Shows coloured binary with special characters:
+    ///   - Normal values: □ (unset) and ■ (set)
+    ///   - Undefined values: ▵ (unset) and ▴ (set)
+    ///   - Zero: 0 (unset) and | (set)
+    ///   - Other states: ○ (unset) and ● (set)
+    ///
+    /// # Format
+    ///
+    /// The output shows: `fraction_bits *2^ exponent_bits`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use spirix::ScalarF5E3;
+    /// let x = ScalarF5E3::from(5);
+    /// println!("{:?}", x);   // Plain binary
+    /// println!("{:#?}", x);  // Coloured with special chars
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            // {:#?}
+            // {:#?} - Fancy coloured output
             write!(f, "{}", self.format_debug_fancy())
         } else {
-            // {:?}
+            // {:?} - Plain binary output
             write!(f, "{}", self.format_debug_plain())
         }
     }
@@ -223,6 +309,37 @@ where
     I256: From<F>,
     I256: From<E>,
 {
+    /// Core formatting function that converts a Scalar to a string representation.
+    ///
+    /// This function uses **Spirix arithmetic exclusively** to extract digits - it does NOT
+    /// convert the entire number to u8 or use bitmasks. The formatter can handle any base
+    /// (2-36) and any number of digits because it works with the Spirix number directly.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. **Special Values**: Check for undefined, infinity, exploded, vanished, or zero
+    /// 2. **Mode Selection**: Choose between scientific (big/small) or normal notation
+    /// 3. **Digit Extraction**:
+    ///    - Use `floor()` to separate integer and fractional parts
+    ///    - For integer part: repeatedly divide by base, extract remainder digit
+    ///    - For fractional part: repeatedly multiply by base, extract integer digit
+    ///    - Convert each extracted single digit to a character using `to_u8()`
+    ///
+    /// # Parameters
+    ///
+    /// - `base`: The numeric base (2-36) to use for digit extraction
+    /// - `digits`: Maximum number of significant digits to display
+    ///
+    /// # Returns
+    ///
+    /// A string with the format `⦉[+/-]digits⦊` for normal values, or special symbols
+    /// for non-normal values (∞, ↑, ↓, etc.).
+    ///
+    /// # Important Note
+    ///
+    /// The `to_u8()` call is ONLY used for converting already-extracted single digits
+    /// (0-35) to their character representation. The actual digit extraction uses
+    /// Spirix division and multiplication, which works for any base and precision.
     fn format_scalar(&self, base: u8, digits: isize) -> String {
         if !self.is_normal() {
             if self.is_undefined() {
@@ -249,6 +366,7 @@ where
                 };
             } else {
                 string.push('0');
+                string.push('⦊');
             }
         } else {
             let base_scalar = Self::from(base);
@@ -363,6 +481,26 @@ where
         string
     }
 
+    /// Formats large numbers in scientific notation: `⦉±d.ddd...⦊×base^exponent`
+    ///
+    /// Used when the number's magnitude is greater than or equal to `base^digits`.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. **Find Scale**: Calculate the exponent by taking `log_base(magnitude).floor()`
+    /// 2. **Normalize**: Divide the number by `base^exponent` to get a value in [1, base)
+    /// 3. **Extract Digits**: Use Spirix arithmetic to extract each digit:
+    ///    - Get integer part with `to_u8()` (which is 0-9 or 0-35)
+    ///    - Subtract that digit from the scaled value
+    ///    - Multiply by base to shift next digit into integer position
+    ///    - Repeat for the specified number of digits
+    /// 4. **Format Exponent**: Extract exponent digits using the same division technique
+    ///
+    /// # Key Point
+    ///
+    /// This function demonstrates that **digit extraction works for any base** because
+    /// it uses Spirix division and multiplication, not bitmasks or u8 conversions.
+    /// The `to_u8()` is only called on individual digits (0-35), not on the full number.
     fn format_scientific_big(&self, base: u8, digits: isize) -> String {
         let base_scalar = Self::from(base);
 
@@ -450,6 +588,26 @@ where
         result
     }
 
+    /// Formats tiny numbers in scientific notation: `⦉±d.ddd...⦊×base^-exponent`
+    ///
+    /// Used when the number's magnitude is less than `base^-4`.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. **Find Scale**: Calculate the negative exponent by taking `-log_base(magnitude).floor()`
+    /// 2. **Normalize**: Multiply the number by `base^exponent` to get a value in [1, base)
+    /// 3. **Handle Overflow**: If `base^exponent` would explode, use incremental multiplication
+    /// 4. **Extract Digits**: Same process as `format_scientific_big`:
+    ///    - Extract each digit using `to_u8()` on the integer part
+    ///    - Subtract and multiply by base to get next digit
+    ///    - All arithmetic is done with Spirix operations
+    /// 5. **Format Exponent**: Extract negative exponent digits using division
+    ///
+    /// # Why This Works
+    ///
+    /// The formatter handles arbitrary precision because it never converts the whole
+    /// number to a primitive type. It only extracts one digit at a time using Spirix
+    /// arithmetic (division/multiplication), then converts that single digit to a char.
     fn format_scientific_small(&self, base: u8, digits: isize) -> String {
         let base_scalar = Self::from(base);
 
@@ -545,6 +703,22 @@ where
         result
     }
 
+    /// Formats the Scalar as plain binary for debug output (`{:?}`).
+    ///
+    /// Shows the raw bit representation of the internal fraction and exponent components.
+    /// Unlike display formatting which extracts digits using arithmetic, debug formatting
+    /// directly inspects the bits using `rotate_left()` to examine each bit position.
+    ///
+    /// # Output Format
+    ///
+    /// `fraction_bits *2^ exponent_bits`
+    ///
+    /// Where:
+    /// - `fraction_bits`: Binary representation of the fraction field (0s and 1s)
+    /// - `exponent_bits`: Binary representation of the exponent field (0s and 1s)
+    /// - Bits are shown from MSB to LSB (most significant first)
+    /// - Spaces are added every 8 bits for readability
+    /// - Double space in the middle of the fraction (except for 8-bit fractions)
     fn format_debug_plain(&self) -> String {
         let mut binary = String::new();
         let mut rotating = self.fraction;
@@ -577,6 +751,29 @@ where
         binary
     }
 
+    /// Formats the Scalar with colours and special characters for debug output (`{:#?}`).
+    ///
+    /// Similar to `format_debug_plain()`, but with ANSI colour codes and special Unicode
+    /// characters that indicate the number's state visually.
+    ///
+    /// # Visual Elements
+    ///
+    /// - **Colours**: Different RGB colours for different states (see `COLOURS` constant)
+    ///   - Normal positive/negative: Light red/blue
+    ///   - Exploded: Bright red/blue
+    ///   - Vanished: Bright red/blue
+    ///   - Zero: Light green
+    ///   - Undefined: Light magenta
+    ///   - Integer/fractional exponents: Light yellow/cyan
+    /// - **Characters**:
+    ///   - Normal: □ (unset bit), ■ (set bit)
+    ///   - Undefined: ▵ (unset bit), ▴ (set bit)
+    ///   - Zero: 0 (unset bit), | (set bit)
+    ///   - Other: ○ (unset bit), ● (set bit)
+    ///
+    /// # ANSI Colour Format
+    ///
+    /// Uses `\x1B[38;2;R;G;Bm` for 24-bit RGB colours and `\x1B[0m` for reset.
     fn format_debug_fancy(&self) -> String {
         let mut binary = String::new();
         let mut rotating = self.fraction;
@@ -638,6 +835,14 @@ where
         binary
     }
 
+    /// Selects the appropriate colour scheme based on the Scalar's state.
+    ///
+    /// Used by `format_debug_fancy()` to choose the right colour for the fraction bits.
+    /// The exponent bits use a separate colour selection based on their sign.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the appropriate `ColourScheme` from the global `COLOURS` palette.
     fn get_colour_scheme(&self) -> &'static ColourScheme {
         if self.is_normal() {
             if self.fraction.is_negative() {
@@ -667,6 +872,13 @@ where
         }
     }
 
+    /// Selects the appropriate Unicode characters for representing bits.
+    ///
+    /// Used by `format_debug_fancy()` to choose special characters based on the number's state.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of `(unset_char, set_char)` representing 0 and 1 bits respectively.
     fn get_binary_chars(&self) -> (char, char) {
         if self.is_normal() {
             ('□', '■')
