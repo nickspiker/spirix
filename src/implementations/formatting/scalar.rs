@@ -430,7 +430,7 @@ where
                     while !integer_part.is_zero() && digit_count < digits {
                         let scaled = integer_part / base_scalar;
                         integer_part = scaled.floor();
-                        let digit = ((scaled - scaled.floor()) * base_scalar + 0.5f32).to_u8();
+                        let digit = ((scaled - scaled.floor()) * base_scalar + Self::HALF).to_u8();
                         int_digits.push(digit);
 
                         // Only count non-leading digits

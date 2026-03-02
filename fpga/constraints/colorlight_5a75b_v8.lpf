@@ -1,0 +1,8 @@
+# Colorlight 5A-75B v8.0 constraints for ECP5-25F CABGA256
+# Reference: https://github.com/q3k/chubby75/blob/master/5a-75b/hardware_V8.0.md
+
+LOCATE COMP "clk" SITE "P6";
+IOBUF PORT "clk" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "led" SITE "T6";
+IOBUF PORT "led" IO_TYPE=LVCMOS33;

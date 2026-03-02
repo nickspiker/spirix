@@ -608,6 +608,29 @@ pub use crate::constants::{
 // Operator traits for mixed-type operations
 pub use crate::operators::{Clamp, Logarithm, Max, Min, Power};
 
+/// Compile-time `ScalarF4E4` literal from an f32 expression.
+///
+/// `sf!(0.0031308)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary.
+/// The argument must be a normal finite non-zero f32 literal or simple const expression.
+#[macro_export]
+macro_rules! sf {
+    ($e:expr) => {
+        $crate::ScalarF4E4::from_f32($e as f32)
+    };
+}
+
+/// Compile-time `ScalarF4E4` literal from an f64 expression.
+///
+/// `sd!(1.0/3.0)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary.
+/// Provides higher precision than `sf!` for constants with more than 7 significant digits.
+/// The argument must be a normal finite non-zero f64 literal or simple const expression.
+#[macro_export]
+macro_rules! sd {
+    ($e:expr) => {
+        $crate::ScalarF4E4::from_f64($e as f64)
+    };
+}
+
 pub mod tensor;
 
 pub use tensor::{

@@ -518,7 +518,7 @@ where
                     while !real_integer.is_zero() && digit_count < digits {
                         let scaled = real_integer / base_scalar;
                         real_integer = scaled.floor();
-                        let digit = ((scaled - scaled.floor()) * base_scalar + 0.5f32).to_u8();
+                        let digit = ((scaled - scaled.floor()) * base_scalar + Scalar::<F, E>::HALF).to_u8();
                         int_digits.push(digit);
 
                         // Only count non-leading digits
@@ -585,7 +585,7 @@ where
                     while !imaginary_integer.is_zero() && digit_count < digits {
                         let scaled = imaginary_integer / base_scalar;
                         imaginary_integer = scaled.floor();
-                        let digit = ((scaled - scaled.floor()) * base_scalar + 0.5f32).to_u8();
+                        let digit = ((scaled - scaled.floor()) * base_scalar + Scalar::<F, E>::HALF).to_u8();
                         int_digits.push(digit);
 
                         // Only count non-leading digits

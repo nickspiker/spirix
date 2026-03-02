@@ -19,3 +19,28 @@
 /logo text.ai
 /patent/
 /web/
+/out/
+
+# FPGA synthesis artifacts
+fpga/sim/
+
+# GPU/HIP build artifacts (all directories)
+gpu/hip/**/*.o
+gpu/hip/**/*.bc
+gpu/hip/**/*.s
+gpu/hip/**/*.out
+gpu/hip/**/*.hipi
+gpu/hip/**/*.hipfb
+gpu/hip/**/*.resolution.txt
+# HIP compiled binaries (extensionless)
+gpu/hip/benchmarks/bench_compute_vs_memory
+gpu/hip/benchmarks/bench_multiply_divide
+gpu/hip/benchmarks/bench_pure_compute
+gpu/hip/benchmarks/bench_sqrt
+gpu/hip/benchmarks/bench_subtract
+gpu/hip/tests/test_accuracy
+gpu/hip/tests/test_accuracy_add
+gpu/hip/tests/test_denormal_ftz
+gpu/hip/tests/test_scalar_add
+gpu/hip/tests/test_scalar_sqrt
+gpu/hip/tests/test_subtract

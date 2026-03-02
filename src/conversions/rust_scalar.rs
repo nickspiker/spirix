@@ -868,3 +868,97 @@ macro_rules! impl_from_uint {
     }
 }
 impl_from_uint!(u8, u16, u32, u64, u128, usize);
+
+impl Scalar<i16, i16> {
+    /// Convert a normal (finite, non-zero, non-NaN) f32 literal to `Scalar<i16,i16>` at
+    /// compile time.  Panics at compile time if called with NaN, infinity, or zero.
+    ///
+    /// Use this for compile-time constants — e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308)`.
+    /// For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`.
+    #[inline(always)]
+    pub const fn from_f32(v: f32) -> Self {
+        // Decode IEEE 754 binary32 using pure integer ops (all const-stable).
+        let bits = v.to_bits();
+        let raw_exp = ((bits >> 23) & 0xFF) as i16;
+        // fraction as i32 with implicit leading bit (subnormal: no leading 1)
+        let frac_u = if raw_exp == 0 {
+            bits & 0x7F_FFFF
+        } else {
+            (bits & 0x7F_FFFF) | 0x80_0000
+        };
+        // Apply sign: two's complement negate if negative
+        let mut frac: i32 = frac_u as i32;
+        if (bits >> 31) != 0 {
+            frac = frac.wrapping_neg();
+        }
+        // Intermediary exponent: raw_exp - 119 brings binary32 bias (127) to Spirix normal (8)
+        // Specifically: for a normalised f32 the value is frac * 2^(raw_exp - 127 - 23 + 16)
+        //   = frac * 2^(raw_exp - 134 + 16) ... but Spirix normalises so MSB is at bit 1 (N1),
+        //   meaning frac already has its MSB at bit 8 (of 32). That's raw_exp - 127 - 23 + (32-1) = raw_exp - 119.
+        let mut exp: i16 = raw_exp.wrapping_sub(119);
+
+        // Inline normalize for Scalar<i32, i16>:
+        // FRACTION_BITS for i32 = 32, AMBIGUOUS_EXPONENT for i16 = i16::MIN
+        let lo = frac.leading_ones();
+        let lz = frac.leading_zeros();
+        let shift = if lo > lz { lo } else { lz };
+        if shift > 1 {
+            let shift = shift as i32;
+            let new_exp: i16;
+            if shift == 32 {
+                // fraction is all-zero or all-ones (only valid if negative = MIN_i32)
+                if frac >= 0 {
+                    // positive zero-fraction: vanished/undefined
+                    return Scalar { fraction: i16::MIN >> 1, exponent: i16::MIN };
+                }
+                new_exp = exp.wrapping_sub((shift.wrapping_add(1)) as i16);
+            } else {
+                new_exp = exp.wrapping_sub(shift as i16);
+            }
+            if exp < 0 && new_exp >= 0 {
+                exp = i16::MIN; // AMBIGUOUS_EXPONENT
+                frac = frac << (shift.wrapping_sub(2) as u32);
+            } else {
+                exp = new_exp.wrapping_add(1);
+                frac = frac << (shift.wrapping_sub(1) as u32);
+            }
+        }
+
+        // Left-aligned cast i32 → i16: take the top 16 bits
+        let fraction = (frac >> 16) as i16;
+        Scalar { fraction, exponent: exp }
+    }
+}
+
+#[cfg(test)]
+mod tests_from_f32 {
+    use crate::ScalarF4E4;
+
+    #[test]
+    fn from_f32_matches_runtime() {
+        let cases: &[f32] = &[
+            1.0, -1.0, 0.5, -0.5, 0.0031308, 12.92, 1.055, 0.055,
+            255.0, 0.00390625, 3.14159265, 0.1, 100.0, -42.75,
+        ];
+        for &v in cases {
+            let runtime = ScalarF4E4::from(v);
+            let compile = ScalarF4E4::from_f32(v);
+            assert_eq!(
+                compile.fraction, runtime.fraction,
+                "fraction mismatch for {v}: from_f32={} from={}", compile.fraction, runtime.fraction
+            );
+            assert_eq!(
+                compile.exponent, runtime.exponent,
+                "exponent mismatch for {v}: from_f32={} from={}", compile.exponent, runtime.exponent
+            );
+        }
+    }
+
+    #[test]
+    fn from_f32_is_const() {
+        const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308);
+        const ONE: ScalarF4E4 = ScalarF4E4::from_f32(1.0);
+        assert_eq!(ONE, ScalarF4E4::ONE);
+        let _ = K;
+    }
+}

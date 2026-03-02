@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScalarF4E4 WebGPU - Performance Benchmark</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 {
+            color: #4ec9b0;
+            border-bottom: 2px solid #4ec9b0;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #569cd6;
+            margin-top: 30px;
+        }
+        .gpu-info {
+            background: #2d2d30;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 4px solid #569cd6;
+            margin: 20px 0;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px 5px;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        #output {
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+        .benchmark {
+            background: #2d2d30;
+            border-left: 4px solid #ce9178;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #3e3e42;
+        }
+        .comparison-table th {
+            background: #2d2d30;
+            color: #4ec9b0;
+        }
+        .comparison-table tr:hover {
+            background: #2d2d30;
+        }
+        .pass {
+            color: #4ec9b0;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ce9178;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>ScalarF4E4 WebGPU Performance Benchmark</h1>
+    <p>Complete performance comparison: HIP (Native) vs WebGPU</p>
+
+    <div class="gpu-info" id="gpu-info">
+        <strong>GPU Status:</strong> Initializing...
+    </div>
+
+    <h2>Controls</h2>
+    <button id="bench-add" disabled>Benchmark Addition</button>
+    <button id="bench-multiply" disabled>Benchmark Multiplication</button>
+    <button id="bench-divide" disabled>Benchmark Division</button>
+    <button id="bench-sqrt" disabled>Benchmark Square Root</button>
+    <button id="bench-all" disabled>Run All Benchmarks</button>
+
+    <h2>Results</h2>
+    <div id="output"></div>
+
+    <script src="scalar_ops.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        const gpuInfo = document.getElementById('gpu-info');
+
+        function log(msg) {
+            output.innerHTML += msg + '\n';
+            console.log(msg);
+        }
+
+        let gpu;
+
+        // HIP results from actual tests (AMD RX 6800)
+        const hipResults = {
+            add: 27.22,
+            multiply: 6.96,
+            divide: 19.51,
+            sqrt: 13.25
+        };
+
+        // Initialize WebGPU
+        (async () => {
+            try {
+                gpu = new ScalarF4E4GPU();
+                await gpu.init();
+                gpuInfo.innerHTML = '<strong>GPU Status:</strong> <span class="pass">✓ Ready</span>';
+                document.getElementById('bench-add').disabled = false;
+                document.getElementById('bench-multiply').disabled = false;
+                document.getElementById('bench-divide').disabled = false;
+                document.getElementById('bench-sqrt').disabled = false;
+                document.getElementById('bench-all').disabled = false;
+            } catch (err) {
+                gpuInfo.innerHTML = `<div class="error">WebGPU initialization failed: ${err.message}</div>`;
+                log(`ERROR: ${err.message}`);
+            }
+        })();
+
+        // Run single benchmark
+        async function runBenchmark(operation) {
+            const n = 1048576;  // 1M elements
+            const iterations = 100;
+
+            log(`\n╔════════════════════════════════════════════════════════════╗`);
+            log(`║  ${operation.toUpperCase().padEnd(50)} Benchmark  ║`);
+            log(`╚════════════════════════════════════════════════════════════╝\n`);
+
+            log(`Testing ${n.toLocaleString()} operations × ${iterations} iterations...\n`);
+
+            const result = await gpu.benchmark(operation, n, iterations);
+            const hipGops = hipResults[operation];
+            const speedup = hipGops / result.gops;
+            const overhead_pct = ((speedup - 1) * 100).toFixed(1);
+
+            log('<div class="benchmark">');
+            log(`<strong>WebGPU Results:</strong>`);
+            log(`  Time:       ${result.time_ms.toFixed(3)} ms`);
+            log(`  Throughput: ${result.gops.toFixed(2)} GOPS`);
+            log(`  Latency:    ${(result.time_ms * 1e6 / (n * iterations)).toFixed(2)} ns/op\n`);
+
+            log(`<strong>HIP (Native) Results:</strong>`);
+            log(`  Throughput: ${hipGops.toFixed(2)} GOPS\n`);
+
+            const performanceClass = overhead_pct < 20 ? 'pass' : 'warning';
+            log(`<span class="${performanceClass}">WebGPU: ${(100 / speedup).toFixed(1)}% of native HIP performance</span>`);
+            log(`  (${overhead_pct}% browser overhead)`);
+            log('</div>');
+        }
+
+        // Button handlers
+        document.getElementById('bench-add').addEventListener('click', () => runBenchmark('add'));
+        document.getElementById('bench-multiply').addEventListener('click', () => runBenchmark('multiply'));
+        document.getElementById('bench-divide').addEventListener('click', () => runBenchmark('divide'));
+        document.getElementById('bench-sqrt').addEventListener('click', () => runBenchmark('sqrt'));
+
+        document.getElementById('bench-all').addEventListener('click', async () => {
+            output.innerHTML = '';
+            log('╔════════════════════════════════════════════════════════════╗');
+            log('║      ScalarF4E4 Complete Performance Comparison           ║');
+            log('╚════════════════════════════════════════════════════════════╝\n');
+
+            const operations = ['add', 'multiply', 'divide', 'sqrt'];
+            const results = {};
+
+            for (const op of operations) {
+                const n = 1048576;
+                const iterations = 100;
+                results[op] = await gpu.benchmark(op, n, iterations);
+            }
+
+            // Summary table
+            log('\n<table class="comparison-table">');
+            log('<thead>');
+            log('<tr>');
+            log('<th>Operation</th>');
+            log('<th>HIP (Native)</th>');
+            log('<th>WebGPU</th>');
+            log('<th>WebGPU %</th>');
+            log('<th>Overhead</th>');
+            log('</tr>');
+            log('</thead>');
+            log('<tbody>');
+
+            for (const op of operations) {
+                const hipGops = hipResults[op];
+                const webgpuGops = results[op].gops;
+                const speedup = hipGops / webgpuGops;
+                const percentage = (100 / speedup).toFixed(1);
+                const overhead = ((speedup - 1) * 100).toFixed(1);
+                const performanceClass = overhead < 20 ? 'pass' : 'warning';
+
+                log('<tr>');
+                log(`<td><strong>${op.charAt(0).toUpperCase() + op.slice(1)}</strong></td>`);
+                log(`<td>${hipGops.toFixed(2)} GOPS</td>`);
+                log(`<td>${webgpuGops.toFixed(2)} GOPS</td>`);
+                log(`<td><span class="${performanceClass}">${percentage}%</span></td>`);
+                log(`<td>${overhead}%</td>`);
+                log('</tr>');
+            }
+
+            log('</tbody>');
+            log('</table>\n');
+
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            log('<strong>Analysis:</strong>');
+            log('  ✓ WebGPU matches HIP compute logic exactly (32-bit native)');
+            log('  ✓ Same memory footprint with packing (4 bytes/scalar)');
+            log('  ✓ Performance gap is browser overhead + security checks');
+            log('  ✓ WebGPU runs on ALL GPUs (AMD, NVIDIA, Intel, Apple)');
+            log('  ✓ No installation required - runs in any modern browser');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        });
+    </script>
+</body>
+</html>

@@ -10,6 +10,5 @@ pub mod bitwise;
 pub mod comparison;
 pub mod exponents;
 pub mod formatting;
-pub mod random;
 pub mod statistics;
 pub mod trigonometry;

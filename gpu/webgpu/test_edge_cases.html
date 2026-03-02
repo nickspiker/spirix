@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScalarF4E4 WebGPU - Edge Case Validation</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        h1 { color: #4ec9b0; border-bottom: 2px solid #4ec9b0; padding-bottom: 10px; }
+        h2 { color: #569cd6; margin-top: 30px; }
+        .pass { color: #4ec9b0; font-weight: bold; }
+        .fail { color: #f48771; font-weight: bold; }
+        .test-case {
+            background: #2d2d30;
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #4ec9b0;
+            border-radius: 4px;
+        }
+        .test-case.failed {
+            border-left-color: #f48771;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 10px 5px;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover { background: #1177bb; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        #output { white-space: pre-wrap; font-size: 13px; }
+        .summary {
+            background: #2d2d30;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            border-left: 4px solid #ce9178;
+        }
+    </style>
+</head>
+<body>
+    <h1>ScalarF4E4 Edge Case Validation Suite</h1>
+    <p>Validates WebGPU kernel against CPU reference for all edge cases</p>
+
+    <button id="run-all" disabled>Run All Edge Case Tests</button>
+    <button id="clear">Clear Output</button>
+
+    <h2>Test Output</h2>
+    <div id="output"></div>
+
+    <script src="scalar_ops.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        const AMBIGUOUS_EXPONENT = -32768;
+
+        function log(msg) {
+            output.innerHTML += msg + '\n';
+        }
+
+        // CPU Reference Implementation (matches HIP test code)
+        class CPUReference {
+            static normalize(frac, exp) {
+                if (frac === 0 || exp === AMBIGUOUS_EXPONENT) {
+                    return { fraction: 0, exponent: AMBIGUOUS_EXPONENT };
+                }
+
+                let f = frac;
+                let e = exp;
+
+                // Count leading zeros and ones
+                let lz = this.clz32(f >>> 0);
+                let lo = this.clz32((~f) >>> 0);
+                let leading = Math.max(lz, lo);
+
+                // Normalize fraction
+                f = (f << (leading - 1)) >> 16;
+                e = e + 17 - leading;
+
+                if (e <= AMBIGUOUS_EXPONENT) {
+                    return { fraction: 0, exponent: AMBIGUOUS_EXPONENT };
+                }
+
+                // Truncate to 16 bits with sign extension
+                f = (f << 16) >> 16;
+                e = (e << 16) >> 16;
+
+                return { fraction: f, exponent: e };
+            }
+
+            static clz32(x) {
+                if (x === 0) return 32;
+                let n = 0;
+                if ((x & 0xFFFF0000) === 0) { n += 16; x <<= 16; }
+                if ((x & 0xFF000000) === 0) { n += 8; x <<= 8; }
+                if ((x & 0xF0000000) === 0) { n += 4; x <<= 4; }
+                if ((x & 0xC0000000) === 0) { n += 2; x <<= 2; }
+                if ((x & 0x80000000) === 0) { n += 1; }
+                return n;
+            }
+
+            static add(a, b) {
+                let a_frac = a.fraction | 0;
+                let b_frac = b.fraction | 0;
+                let a_exp = a.exponent | 0;
+                let b_exp = b.exponent | 0;
+
+                // Check for ambiguous
+                if (a_exp === AMBIGUOUS_EXPONENT || b_exp === AMBIGUOUS_EXPONENT) {
+                    return { fraction: 0, exponent: AMBIGUOUS_EXPONENT };
+                }
+
+                let exp_diff = a_exp - b_exp;
+                let abs_diff = exp_diff < 0 ? -exp_diff : exp_diff;
+
+                // Check negligible
+                if (abs_diff >= 16) {
+                    if (exp_diff >= 0) {
+                        return { fraction: a_frac, exponent: a_exp };
+                    } else {
+                        return { fraction: b_frac, exponent: b_exp };
+                    }
+                }
+
+                // Align and ADD
+                let add_result, result_exp;
+                if (exp_diff >= 0) {
+                    add_result = (a_frac << abs_diff) + b_frac;
+                    result_exp = b_exp;
+                } else {
+                    add_result = a_frac + (b_frac << abs_diff);
+                    result_exp = a_exp;
+                }
+
+                // Sign-extend
+                add_result = (add_result << 16) >> 16;
+
+                // Check zero
+                if (add_result === 0) {
+                    return { fraction: 0, exponent: AMBIGUOUS_EXPONENT };
+                }
+
+                // Count leading same bits
+                let lz = this.clz32(add_result >>> 0);
+                let lo = this.clz32((~add_result) >>> 0);
+                let leading = Math.max(lz, lo);
+
+                // Calculate exponent
+                let temp_exp = result_exp + 17 - leading;
+
+                // Check underflow
+                if (temp_exp <= AMBIGUOUS_EXPONENT) {
+                    let norm_frac = (add_result << (leading - 2)) >> 16;
+                    return { fraction: norm_frac, exponent: AMBIGUOUS_EXPONENT };
+                }
+
+                // Normalize
+                let norm_frac = (add_result << (leading - 1)) >> 16;
+
+                return { fraction: norm_frac, exponent: temp_exp };
+            }
+        }
+
+        let gpu;
+
+        // Initialize
+        (async () => {
+            try {
+                gpu = new ScalarF4E4GPU();
+                await gpu.init();
+                document.getElementById('run-all').disabled = false;
+            } catch (err) {
+                log(`ERROR: ${err.message}`);
+            }
+        })();
+
+        // Test runner
+        async function runTest(name, a, b) {
+            const cpu_result = CPUReference.add(a, b);
+            const gpu_result = (await gpu.add([a], [b]))[0];
+
+            const match = cpu_result.fraction === gpu_result.fraction &&
+                         cpu_result.exponent === gpu_result.exponent;
+
+            const status = match ? '<span class="pass">✓ PASS</span>' : '<span class="fail">✗ FAIL</span>';
+
+            log(`<div class="test-case ${match ? '' : 'failed'}">`);
+            log(`  ${status} ${name}`);
+            log(`    Input:  a=(${a.fraction}, ${a.exponent})  b=(${b.fraction}, ${b.exponent})`);
+            log(`    CPU:    (${cpu_result.fraction}, ${cpu_result.exponent})`);
+            log(`    GPU:    (${gpu_result.fraction}, ${gpu_result.exponent})`);
+            if (!match) {
+                log(`    <span class="fail">MISMATCH!</span>`);
+            }
+            log(`</div>`);
+
+            return match;
+        }
+
+        // Run all edge case tests
+        document.getElementById('run-all').addEventListener('click', async () => {
+            output.innerHTML = '';
+            log('╔═══════════════════════════════════════════════════════════════╗');
+            log('║     ScalarF4E4 WebGPU Edge Case Validation vs CPU Reference   ║');
+            log('╚═══════════════════════════════════════════════════════════════╝\n');
+
+            const tests = [];
+            let passed = 0;
+            let total = 0;
+
+            // Category: Normal Operations
+            log('<h3>Normal Operations</h3>');
+            total++; if (await runTest("Same exponent, same sign",
+                { fraction: 20000, exponent: 5 },
+                { fraction: 10000, exponent: 5 })) passed++;
+
+            total++; if (await runTest("Same exponent, opposite signs",
+                { fraction: 20000, exponent: 5 },
+                { fraction: -10000, exponent: 5 })) passed++;
+
+            total++; if (await runTest("Different exponents (a larger)",
+                { fraction: 16384, exponent: 10 },
+                { fraction: 8192, exponent: 5 })) passed++;
+
+            total++; if (await runTest("Different exponents (b larger)",
+                { fraction: 8192, exponent: 5 },
+                { fraction: 16384, exponent: 10 })) passed++;
+
+            // Category: Ambiguous/Special Values
+            log('\n<h3>Ambiguous & Special Values</h3>');
+            total++; if (await runTest("Ambiguous + Normal",
+                { fraction: 0, exponent: AMBIGUOUS_EXPONENT },
+                { fraction: 10000, exponent: 5 })) passed++;
+
+            total++; if (await runTest("Normal + Ambiguous",
+                { fraction: 10000, exponent: 5 },
+                { fraction: 0, exponent: AMBIGUOUS_EXPONENT })) passed++;
+
+            total++; if (await runTest("Ambiguous + Ambiguous",
+                { fraction: 0, exponent: AMBIGUOUS_EXPONENT },
+                { fraction: 0, exponent: AMBIGUOUS_EXPONENT })) passed++;
+
+            total++; if (await runTest("Zero + Zero",
+                { fraction: 0, exponent: 0 },
+                { fraction: 0, exponent: 0 })) passed++;
+
+            total++; if (await runTest("Zero + Normal",
+                { fraction: 0, exponent: 0 },
+                { fraction: 16384, exponent: 5 })) passed++;
+
+            // Category: Cancellation (Vanished)
+            log('\n<h3>Cancellation (Vanished Results)</h3>');
+            total++; if (await runTest("Exact cancellation (same magnitude)",
+                { fraction: 16384, exponent: 5 },
+                { fraction: -16384, exponent: 5 })) passed++;
+
+            total++; if (await runTest("Near cancellation",
+                { fraction: 20000, exponent: 5 },
+                { fraction: -19999, exponent: 5 })) passed++;
+
+            total++; if (await runTest("Vanished - Vanished (both ambiguous)",
+                { fraction: 0, exponent: AMBIGUOUS_EXPONENT },
+                { fraction: 0, exponent: AMBIGUOUS_EXPONENT })) passed++;
+
+            // Category: Negligible
+            log('\n<h3>Negligible Differences</h3>');
+            total++; if (await runTest("Huge exponent difference (a negligible)",
+                { fraction: 10000, exponent: 100 },
+                { fraction: 10000, exponent: 20 })) passed++;
+
+            total++; if (await runTest("Huge exponent difference (b negligible)",
+                { fraction: 10000, exponent: 20 },
+                { fraction: 10000, exponent: 100 })) passed++;
+
+            total++; if (await runTest("Exactly 16 bit difference (boundary)",
+                { fraction: 16384, exponent: 50 },
+                { fraction: 16384, exponent: 34 })) passed++;
+
+            // Category: Overflow
+            log('\n<h3>Overflow Cases</h3>');
+            total++; if (await runTest("Large + Large (same sign)",
+                { fraction: 30000, exponent: 100 },
+                { fraction: 30000, exponent: 100 })) passed++;
+
+            total++; if (await runTest("Max fraction + Max fraction",
+                { fraction: 32767, exponent: 50 },
+                { fraction: 32767, exponent: 50 })) passed++;
+
+            total++; if (await runTest("Near overflow normalization",
+                { fraction: 16384, exponent: 10 },
+                { fraction: 16384, exponent: 10 })) passed++;
+
+            // Category: Underflow
+            log('\n<h3>Underflow Cases</h3>');
+            total++; if (await runTest("Near-zero values",
+                { fraction: 100, exponent: AMBIGUOUS_EXPONENT + 10 },
+                { fraction: 50, exponent: AMBIGUOUS_EXPONENT + 10 })) passed++;
+
+            total++; if (await runTest("Underflow to ambiguous",
+                { fraction: 10, exponent: AMBIGUOUS_EXPONENT + 2 },
+                { fraction: 10, exponent: AMBIGUOUS_EXPONENT + 2 })) passed++;
+
+            // Category: Negative Values
+            log('\n<h3>Negative Values</h3>');
+            total++; if (await runTest("Negative + Negative",
+                { fraction: -16384, exponent: 10 },
+                { fraction: -16384, exponent: 10 })) passed++;
+
+            total++; if (await runTest("Large negative + Small positive",
+                { fraction: -20000, exponent: 8 },
+                { fraction: 5000, exponent: 8 })) passed++;
+
+            total++; if (await runTest("Small negative + Large positive",
+                { fraction: -5000, exponent: 8 },
+                { fraction: 20000, exponent: 8 })) passed++;
+
+            // Category: Boundary Values
+            log('\n<h3>Boundary Values</h3>');
+            total++; if (await runTest("Max positive fraction",
+                { fraction: 32767, exponent: 0 },
+                { fraction: 100, exponent: 0 })) passed++;
+
+            total++; if (await runTest("Min negative fraction",
+                { fraction: -32768, exponent: 0 },
+                { fraction: 100, exponent: 0 })) passed++;
+
+            total++; if (await runTest("Max exponent",
+                { fraction: 16384, exponent: 32767 },
+                { fraction: 100, exponent: 32767 })) passed++;
+
+            total++; if (await runTest("Min exponent (near ambiguous)",
+                { fraction: 16384, exponent: AMBIGUOUS_EXPONENT + 100 },
+                { fraction: 100, exponent: AMBIGUOUS_EXPONENT + 100 })) passed++;
+
+            // Summary
+            log('\n<div class="summary">');
+            log('╔═══════════════════════════════════════════════════════════════╗');
+            log('║                        Test Summary                            ║');
+            log('╠═══════════════════════════════════════════════════════════════╣');
+            log(`║  Total tests:  ${total.toString().padEnd(48)} ║`);
+            log(`║  Passed:       ${passed.toString().padEnd(48)} ║`);
+            log(`║  Failed:       ${(total - passed).toString().padEnd(48)} ║`);
+            log(`║  Success rate: ${((passed / total * 100).toFixed(2) + '%').padEnd(48)} ║`);
+            log('╚═══════════════════════════════════════════════════════════════╝');
+            log('</div>');
+
+            if (passed === total) {
+                log('\n<span class="pass">✓ ALL TESTS PASSED - WebGPU matches CPU reference exactly!</span>');
+            } else {
+                log(`\n<span class="fail">✗ ${total - passed} TESTS FAILED - Check output above</span>`);
+            }
+        });
+
+        document.getElementById('clear').addEventListener('click', () => {
+            output.innerHTML = '';
+        });
+    </script>
+</body>
+</html>
