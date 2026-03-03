@@ -1,6 +1,8 @@
-// Spirix Addition: a + b (close/far split, shared barrel, shared rounding)
+// Spirix Addition: a ± b (close/far split, shared barrel, shared rounding)
 //
-// Parameterized combinational adder for Spirix floating-point scalars.
+// Parameterized combinational adder/subtractor for Spirix floating-point scalars.
+// sub=0: add (a + b).  sub=1: subtract (a - b).
+// Subtraction integrated via XOR + carry-in on existing adders — zero extra LUTs.
 // Close path (exp_diff <= 1): free align, add, full CLZ, barrel normalize.
 // Far path (exp_diff >= 2): barrel align, add, bounded 0-2 bit normalize.
 // ONE physical barrel shared: close uses it for normalize (bit-reverse +
@@ -22,6 +24,7 @@ module spirix_add_unified #(
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
     input  wire signed [EXP_BITS-1:0]  b_exp,
+    input  wire                         sub,
     output wire signed [FRAC_BITS-1:0] result_frac,
     output wire signed [EXP_BITS-1:0]  result_exp
 );
@@ -48,6 +51,11 @@ module spirix_add_unified #(
     wire negligible = (exp_diff >= FRAC_BITS);
     wire is_close = (exp_diff <= 1) && !negligible;
 
+    // Subtraction: negate whichever operand holds b.
+    // XOR + carry-in absorbed into existing adder LUT4s (zero extra cost).
+    wire negate_small = sub & a_is_big;
+    wire negate_big   = sub & !a_is_big;
+
     // =========================================================================
     // Step 2: Extend
     // =========================================================================
@@ -60,7 +68,9 @@ module spirix_add_unified #(
     // =========================================================================
     wire signed [INT_BITS-1:0] close_small = exp_diff[0] ? (small_ext >>> 1) : small_ext;
     wire close_align_sticky = exp_diff[0] & small_ext[0];
-    wire signed [INT_BITS-1:0] close_sum = big_ext + close_small;
+    wire signed [INT_BITS-1:0] close_sum = (big_ext ^ {INT_BITS{negate_big}})
+                                        + (close_small ^ {INT_BITS{negate_small}})
+                                        + {{(INT_BITS-1){1'b0}}, sub};
     wire close_is_zero = (close_sum == 0);
 
     // CLZ via XOR-adjacent + compress-by-2
@@ -184,7 +194,9 @@ module spirix_add_unified #(
     //   Far sum can shift by 0, 1, or 2. Three-way mux, no barrel needed.
     // =========================================================================
     wire signed [INT_BITS-1:0] far_aligned = $signed(barrel_out);
-    wire signed [INT_BITS-1:0] far_sum = big_ext + far_aligned;
+    wire signed [INT_BITS-1:0] far_sum = (big_ext ^ {INT_BITS{negate_big}})
+                                        + (far_aligned ^ {INT_BITS{negate_small}})
+                                        + {{(INT_BITS-1){1'b0}}, sub};
     wire far_is_zero = (far_sum == 0);
 
     // Bounded normalize: leading is 1, 2, or 3 for N1 inputs with exp_diff >= 2
@@ -253,15 +265,20 @@ module spirix_add_unified #(
 
     // =========================================================================
     // Step 8: Output
+    //   Negligible bypass only when b is small (negate_small side); when b is
+    //   big and subtracted, -big_frac may not be N1, so let the far path
+    //   normalize it properly.
     // =========================================================================
-    assign result_frac = negligible    ? big_frac :
-                         path_is_zero  ? {FRAC_BITS{1'b0}} :
-                         underflow     ? underflow_frac :
-                                         out_frac;
+    wire use_negligible = negligible & !negate_big;
 
-    assign result_exp  = negligible    ? big_exp :
-                         path_is_zero  ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                         underflow     ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                                         out_exp;
+    assign result_frac = use_negligible ? big_frac :
+                         path_is_zero   ? {FRAC_BITS{1'b0}} :
+                         underflow      ? underflow_frac :
+                                          out_frac;
+
+    assign result_exp  = use_negligible ? big_exp :
+                         path_is_zero   ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                         underflow      ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                                          out_exp;
 
 endmodule

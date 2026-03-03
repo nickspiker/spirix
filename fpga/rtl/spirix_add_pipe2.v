@@ -1,5 +1,7 @@
-// Spirix Addition: a + b — 2-stage pipelined Close/Far split
+// Spirix Addition: a ± b — 2-stage pipelined Close/Far split
 // Shared barrel shifter, banker's rounding, early rovf detection.
+// sub=0: add (a + b).  sub=1: subtract (a - b).
+// Subtraction integrated via XOR + carry-in on existing adders — zero extra LUTs.
 //
 // Inputs are N1-normalized signed fractions with signed exponents.
 // value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
@@ -33,6 +35,7 @@ module spirix_add_pipe2 #(
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
     input  wire signed [EXP_BITS-1:0]  b_exp,
+    input  wire                         sub,
     output reg  signed [FRAC_BITS-1:0] result_frac,
     output reg  signed [EXP_BITS-1:0]  result_exp
 );
@@ -68,6 +71,10 @@ module spirix_add_pipe2 #(
     wire negligible = (exp_diff >= FRAC_BITS);
     wire is_close   = (exp_diff <= 1) && !negligible;
 
+    // Subtraction: negate whichever operand holds b.
+    wire negate_small = sub & a_is_big;
+    wire negate_big   = sub & !a_is_big;
+
     // --- Extend ---
     wire signed [INT_BITS-1:0] big_ext   = $signed(big_frac) <<< 2;
     wire signed [INT_BITS-1:0] small_ext = $signed(small_frac) <<< 2;
@@ -75,7 +82,9 @@ module spirix_add_pipe2 #(
     // --- Close path: 1-bit align + add + CLZ ---
     wire signed [INT_BITS-1:0] close_small = exp_diff[0] ? (small_ext >>> 1) : small_ext;
     wire close_align_sticky = exp_diff[0] & small_ext[0];
-    wire signed [INT_BITS-1:0] close_sum = big_ext + close_small;
+    wire signed [INT_BITS-1:0] close_sum = (big_ext ^ {INT_BITS{negate_big}})
+                                        + (close_small ^ {INT_BITS{negate_small}})
+                                        + {{(INT_BITS-1){1'b0}}, sub};
     wire close_is_zero = (close_sum == 0);
 
     // CLZ via XOR-adjacent + compress-by-2
@@ -205,6 +214,9 @@ module spirix_add_pipe2 #(
     reg signed [EXP_BITS-1:0]   s2_big_exp;
     reg                          s2_is_close;
     reg                          s2_negligible;
+    reg                          s2_negate_big;
+    reg                          s2_negate_small;
+    reg                          s2_sub;
 
     always @(posedge clk) begin
         s2_close_normalized  <= close_normalized;
@@ -217,6 +229,9 @@ module spirix_add_pipe2 #(
         s2_big_exp           <= big_exp;
         s2_is_close          <= is_close;
         s2_negligible        <= negligible;
+        s2_negate_big        <= negate_big;
+        s2_negate_small      <= negate_small;
+        s2_sub               <= sub;
     end
 
     // =========================================================================
@@ -272,7 +287,9 @@ module spirix_add_pipe2 #(
 
     // Reconstruct big_ext from big_frac (free wiring: sign-extend + shift left 2)
     wire signed [INT_BITS-1:0] big_ext_s2 = $signed(s2_big_frac) <<< 2;
-    wire signed [INT_BITS-1:0] far_sum = big_ext_s2 + s2_far_aligned;
+    wire signed [INT_BITS-1:0] far_sum = (big_ext_s2 ^ {INT_BITS{s2_negate_big}})
+                                        + (s2_far_aligned ^ {INT_BITS{s2_negate_small}})
+                                        + {{(INT_BITS-1){1'b0}}, s2_sub};  // s2_sub forwarded directly
     wire far_is_zero = (far_sum == 0);
 
     // Bounded normalize: leading is 1, 2, or 3
@@ -331,14 +348,18 @@ module spirix_add_pipe2 #(
     wire signed [FRAC_BITS-1:0] path_uf_frac = use_close ? close_uf_frac : far_uf_frac;
     wire path_is_zero = use_close ? s2_close_is_zero : far_is_zero;
 
+    // Negligible bypass only when b is small; when b is big and subtracted,
+    // -big_frac may not be N1 — let the far path normalize it.
+    wire s2_use_negligible = s2_negligible & !s2_negate_big;
+
     // Stage 2 output register
     always @(posedge clk) begin
-        result_frac <= s2_negligible     ? s2_big_frac :
+        result_frac <= s2_use_negligible ? s2_big_frac :
                        path_is_zero      ? {FRAC_BITS{1'b0}} :
                        path_underflow    ? path_uf_frac :
                                            path_frac;
 
-        result_exp  <= s2_negligible     ? s2_big_exp :
+        result_exp  <= s2_use_negligible ? s2_big_exp :
                        path_is_zero      ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
                        path_underflow    ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
                                            path_exp;
