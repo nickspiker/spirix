@@ -266,22 +266,6 @@ module synth_mul_pipe3_w (
 endmodule
 EOF
 
-# divide_nr wrapper
-cat > /tmp/synth_divide_nr_w.v << EOF
-module synth_divide_nr_w (
-    input  wire clk,
-    input  wire signed [${FRAC}-1:0] a_frac, b_frac,
-    input  wire signed [${EXP}-1:0]  a_exp, b_exp,
-    output wire signed [${FRAC}-1:0] result_frac,
-    output wire signed [${EXP}-1:0]  result_exp
-);
-    spirix_divide_nr #(.FRAC_BITS(${FRAC}), .EXP_BITS(${EXP})) dut (
-        .clk(clk), .a_frac(a_frac), .a_exp(a_exp),
-        .b_frac(b_frac), .b_exp(b_exp),
-        .result_frac(result_frac), .result_exp(result_exp));
-endmodule
-EOF
-
 # divmod_nr MOD=1 wrapper
 cat > /tmp/synth_divmod_mod1_w.v << EOF
 module synth_divmod_mod1_w (
@@ -381,23 +365,19 @@ synth_pipelined "multiply_pipe2" "spirix_multiply_pipe2" "$RTL/spirix_multiply_p
 synth_pipelined "multiply_pipe3" "spirix_multiply_pipe3" "$RTL/spirix_multiply_pipe3.v" \
     "synth_mul_pipe3_w" "/tmp/synth_mul_pipe3_w.v"
 
-# 6. divide_nr
-synth_pipelined "divide_nr" "spirix_divide_nr" "$RTL/spirix_divide_nr.v" \
-    "synth_divide_nr_w" "/tmp/synth_divide_nr_w.v"
-
-# 7. divmod_nr MOD=1
+# 6. divmod_nr MOD=1
 synth_pipelined "divmod_nr_mod1" "spirix_divmod_nr" "$RTL/spirix_divmod_nr.v" \
     "synth_divmod_mod1_w" "/tmp/synth_divmod_mod1_w.v"
 
-# 8. divmod_nr MOD=0
+# 7. divmod_nr MOD=0
 synth_pipelined "divmod_nr_mod0" "spirix_divmod_nr" "$RTL/spirix_divmod_nr.v" \
     "synth_divmod_mod0_w" "/tmp/synth_divmod_mod0_w.v"
 
-# 9. sqrt_nr
+# 8. sqrt_nr
 synth_pipelined "sqrt_nr" "spirix_sqrt_nr" "$RTL/spirix_sqrt_nr.v" \
     "synth_sqrt_nr_w" "/tmp/synth_sqrt_nr_w.v"
 
-# 10. divide_iter
+# 9. divide_iter
 synth_pipelined "divide_iter" "spirix_divide_iter" "$RTL/spirix_divide_iter.v" \
     "synth_divide_iter_w" "/tmp/synth_divide_iter_w.v"
 

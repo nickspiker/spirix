@@ -33,7 +33,7 @@
 module spirix_divmod_nr #(
     parameter FRAC_BITS  = 25,
     parameter EXP_BITS   = 8,
-    parameter ENABLE_MOD = 1   // 0 = divide only (6 cyc), 1 = divide + modulo (6/8 cyc)
+    parameter ENABLE_MOD = 0   // 0 = divide only (6 cyc), 1 = divide + modulo (6/8 cyc)
 )(
     input  wire clk,
     input  wire signed [FRAC_BITS-1:0] a_frac,
