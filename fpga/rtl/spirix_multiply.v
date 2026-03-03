@@ -1,14 +1,23 @@
-// Spirix Multiplication: a * b (combinational)
-// Parameterized combinational multiplier for Spirix floating-point scalars.
+// spirix_multiply — Combinational multiply for Spirix scalars
 //
-// Inputs are N1-normalized signed fractions with signed exponents.
-// value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
+// Computes a * b on N1-normalized signed fractions with signed exponents.
+// Fully parameterized, purely combinational.
 //
 // Algorithm:
-//   1. Signed multiply: product = a_frac * b_frac (2*FRAC-1 bits)
-//   2. Bounded normalization (0 or 1 bit shift — no barrel shifter).
-//   3. Extract top FRAC bits, banker's round on guard + sticky.
-//   4. Exponent: a_exp + b_exp - norm_shift.
+//   1. Signed multiply: product = a_frac * b_frac (2*FRAC_BITS-1 bits).
+//   2. Bounded normalization: 0 or 1 bit left shift (no barrel needed).
+//      N1 * N1 always produces a leading count of 1 or 2.
+//   3. Extract top FRAC_BITS, banker's round (RNE) on guard + sticky.
+//   4. Early rounding-overflow detection (from pre-round signals).
+//   5. Exponent: a_exp + b_exp - norm_shift +/- rovf adjustment.
+//   6. Overflow/underflow clamp to AMBIGUOUS_EXP.
+//
+// Input format: value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
+// Fraction is signed two's complement, N1-normalized (top two bits differ).
+// Exponent is signed two's complement. The minimum exponent value
+// (AMBIGUOUS_EXP = -2^(EXP_BITS-1)) encodes zero/overflow/underflow.
+//
+// Valid parameter range: FRAC_BITS >= 4, EXP_BITS >= 4.
 
 module spirix_multiply #(
     parameter FRAC_BITS = 25,
@@ -30,22 +39,27 @@ module spirix_multiply #(
     localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
 
     // =========================================================================
-    // Step 1: Signed multiply (2*FRAC-1 bits)
+    // Step 1: Signed multiply (2*FRAC_BITS-1 bits)
     // =========================================================================
     wire signed [PROD_BITS-1:0] product = a_frac * b_frac;
 
     // =========================================================================
     // Step 2: Bounded normalization (0 or 1 bit shift)
-    //   N1 inputs guarantee product leading_same ∈ {1, 2}.
-    //   If top 2 bits differ: already N1 (norm_shift=0).
-    //   If top 2 bits same: shift left 1 (norm_shift=1).
+    //
+    // N1 inputs guarantee the product's leading redundant sign bits are 1 or 2.
+    // If top 2 bits differ: already N1 (shift 0).
+    // If top 2 bits same: shift left 1.
     // =========================================================================
     wire is_n1 = (product[PROD_BITS-1] != product[PROD_BITS-2]);
     wire norm_shift = !is_n1;
     wire signed [PROD_BITS-1:0] normalized = norm_shift ? (product <<< 1) : product;
 
     // =========================================================================
-    // Step 3: Extract top FRAC bits + banker's rounding
+    // Step 3: Extract top FRAC_BITS + banker's rounding (RNE)
+    //
+    // Guard bit is the first bit below the fraction. Sticky is the OR of
+    // all remaining bits (combines IEEE round + sticky into one term).
+    // Round up when guard=1 AND (sticky | lsb).
     // =========================================================================
     wire signed [FRAC_BITS-1:0] frac_raw = normalized[PROD_BITS-1 -: FRAC_BITS];
 
@@ -57,19 +71,26 @@ module spirix_multiply #(
 
     wire signed [FRAC_BITS-1:0] frac_rounded = frac_raw + {{(FRAC_BITS-1){1'b0}}, round_up};
 
-    // Rounding overflow: two cases (same as add module)
-    //   Positive wrap: 01..1 + 1 → 10..0 (sign flips). Fix: POS_HALF, exp+1
-    //   Negative exit: 10..1 + 1 → 11..0 (top bits same). Fix: NEG_ONE, exp-1
-    wire rovf_pos = !frac_raw[FRAC_BITS-1] & frac_rounded[FRAC_BITS-1];
-    wire rovf_neg = frac_rounded[FRAC_BITS-1] & frac_rounded[FRAC_BITS-2];
+    // =========================================================================
+    // Step 4: Rounding overflow — early detection from pre-round signals
+    //
+    // rovf_pos: 0_111...1 + round → sign flips. Fix: POS_HALF, exp+1.
+    // rovf_neg: 10_111...1 + round → exits N1. Fix: NEG_ONE, exp-1.
+    // =========================================================================
+    wire rovf_pos = !frac_raw[FRAC_BITS-1]
+                  & (&frac_raw[FRAC_BITS-2:0])
+                  & round_up;
+    wire rovf_neg = frac_raw[FRAC_BITS-1]
+                  & !frac_raw[FRAC_BITS-2]
+                  & (&frac_raw[FRAC_BITS-3:0])
+                  & round_up;
 
     wire signed [FRAC_BITS-1:0] out_frac = rovf_pos ? POS_HALF :
                                              rovf_neg ? NEG_ONE  :
                                              frac_rounded;
 
     // =========================================================================
-    // Step 4: Exponent
-    //   result_exp = a_exp + b_exp - norm_shift + rovf_pos - rovf_neg
+    // Step 5: Exponent
     // =========================================================================
     wire signed [EXP_BITS:0] exp_wide = $signed({a_exp[EXP_BITS-1], a_exp})
                                        + $signed({b_exp[EXP_BITS-1], b_exp})
@@ -82,7 +103,10 @@ module spirix_multiply #(
     wire signed [EXP_BITS-1:0] out_exp = exp_wide[EXP_BITS-1:0];
 
     // =========================================================================
-    // Step 5: Output with overflow/underflow clamping
+    // Step 6: Output with overflow/underflow clamping
+    //
+    // Overflow: preserve fraction (sign indicates direction), AMBIGUOUS_EXP.
+    // Underflow: truncate fraction (sign + MSBs), AMBIGUOUS_EXP.
     // =========================================================================
     assign result_frac = exp_too_big   ? out_frac :
                          exp_too_small ? {out_frac[FRAC_BITS-1],
