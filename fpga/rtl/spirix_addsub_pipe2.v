@@ -1,32 +1,44 @@
-// Spirix Addition: a ± b — 2-stage pipelined Close/Far split
-// Shared barrel shifter, banker's rounding, early rovf detection.
-// sub=0: add (a + b).  sub=1: subtract (a - b).
-// Subtraction integrated via XOR + carry-in on existing adders — zero extra LUTs.
+// spirix_addsub_pipe2 — 2-stage pipelined add/subtract for Spirix scalars
 //
-// Inputs are N1-normalized signed fractions with signed exponents.
-// value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
+// Computes a + b (sub=0) or a - b (sub=1) on N1-normalized signed fractions
+// with signed exponents. Fully parameterized. Latency: 2 cycles.
+// Throughput: 1 result per clock.
 //
-// Pipeline stages:
+// Architecture: close/far split with one shared barrel shifter, split
+// across two pipeline stages.
+//
 //   Stage 1 (Prepare + Barrel):
-//       Swap: exp subtract → |diff| → mux big/small.
-//       Close: 1-bit align + add + CLZ → compute norm shift.
+//       Swap: exp subtract, |diff|, mux big/small.
+//       Close: 1-bit align + add + CLZ, compute norm shift.
 //       Far: compute align shift.
 //       Shared barrel: close normalizes (bit-reverse right shift),
 //           far aligns (arithmetic right shift + sticky accumulation).
 //       Only one path's barrel result is meaningful per cycle.
+//
 //   Stage 2 (Finish):
-//       Close: extract frac, banker's round, early rovf, exp compute.
-//       Far: add big_ext + aligned, bounded normalize (0-2 bit shift),
-//           banker's round, early rovf, exp compute.
+//       Close: extract frac + GRS, banker's round, early rovf, exp.
+//       Far: add big_ext + aligned (XOR + carry-in for sub),
+//           bounded normalize (0-2 bit shift), banker's round,
+//           early rovf, exp.
 //       big_ext reconstructed from big_frac (free wiring: frac <<< 2).
-//       Output mux.
+//       Output mux: close / far / negligible / zero / underflow.
+//
+// Subtraction: XOR + carry-in on existing adders. After the exponent-based
+// swap, b may land in either the big or small position. negate_small and
+// negate_big track which operand holds b. The close path adder in stage 1
+// and the far path adder in stage 2 both use the same pattern:
+//   (A ^ {N{negate_A}}) + (B ^ {N{negate_B}}) + sub
+// On ECP5, the XOR folds into the LUT4 feeding the CCU2C carry chain.
+//
+// Input format: value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
+// Fraction is signed two's complement, N1-normalized (top two bits differ).
+// Exponent is signed two's complement. The minimum exponent value
+// (AMBIGUOUS_EXP = -2^(EXP_BITS-1)) encodes zero/underflow.
 //
 // Valid parameter range: FRAC_BITS 4..29, EXP_BITS 4..16.
-// (Barrel is 5 stages; FRAC_BITS > 29 → INT_BITS > 32 needs a 6th stage.)
-//
-// Latency: 2 clock cycles. Throughput: 1 result per clock cycle.
+// (Barrel is 5 stages; FRAC_BITS > 29 needs a 6th stage.)
 
-module spirix_add_pipe2 #(
+module spirix_addsub_pipe2 #(
     parameter FRAC_BITS = 25,
     parameter EXP_BITS  = 8
 )(
@@ -41,7 +53,7 @@ module spirix_add_pipe2 #(
 );
 
     localparam AMBIGUOUS_EXP = -(1 <<< (EXP_BITS - 1));
-    localparam INT_BITS = FRAC_BITS + 3; // frac + G + R + S
+    localparam INT_BITS = FRAC_BITS + 3; // frac + guard + round + sticky
     localparam BARREL_BITS = $clog2(INT_BITS);  // shift amount width
     localparam LEAD_BITS   = BARREL_BITS + 1;   // leading count width
     localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
@@ -51,11 +63,11 @@ module spirix_add_pipe2 #(
     // STAGE 1: Swap + Close Add + CLZ + Shared Barrel
     //
     // The full close path through the barrel completes here. The far path
-    // uses the barrel for alignment. Both paths produce a barrel_out that
-    // feeds the stage 1→2 register.
+    // uses the barrel for alignment. Both produce a barrel output that
+    // feeds the S1-S2 register.
     //
-    // Critical path: exp_sub → swap_mux → close_add → CLZ → barrel_mux
-    //     → barrel stages (5 levels).
+    // Critical path: exp_sub -> swap_mux -> close_add -> CLZ -> barrel_mux
+    //     -> barrel stages (5 levels).
     // =========================================================================
 
     // --- Swap ---
@@ -71,11 +83,11 @@ module spirix_add_pipe2 #(
     wire negligible = (exp_diff >= FRAC_BITS);
     wire is_close   = (exp_diff <= 1) && !negligible;
 
-    // Subtraction: negate whichever operand holds b.
+    // Subtraction: negate whichever operand holds b after swap.
     wire negate_small = sub & a_is_big;
     wire negate_big   = sub & !a_is_big;
 
-    // --- Extend ---
+    // --- Extend to internal width ---
     wire signed [INT_BITS-1:0] big_ext   = $signed(big_frac) <<< 2;
     wire signed [INT_BITS-1:0] small_ext = $signed(small_frac) <<< 2;
 
@@ -87,7 +99,7 @@ module spirix_add_pipe2 #(
                                         + {{(INT_BITS-1){1'b0}}, sub};
     wire close_is_zero = (close_sum == 0);
 
-    // CLZ via XOR-adjacent + compress-by-2
+    // CLZ: XOR adjacent bits, compress pairs, isolation-bit coarse position.
     localparam DIFF_W = INT_BITS - 1;
     wire [DIFF_W-1:0] xor_diff = close_sum[INT_BITS-1:1] ^ close_sum[INT_BITS-2:0];
 
@@ -128,8 +140,8 @@ module spirix_add_pipe2 #(
     wire [BARREL_BITS-1:0] close_norm_shift = close_leading - 1;
 
     // --- Shared barrel shifter ---
-    // Close: bit-reverse(close_sum) → logical right shift → bit-reverse
-    // Far:   small_ext → arithmetic right shift (+ sticky accumulation)
+    // Close: bit-reverse -> logical right shift -> bit-reverse = left shift.
+    // Far:   arithmetic right shift with sticky accumulation.
 
     wire [INT_BITS-1:0] close_sum_rev;
     genvar bi;
@@ -145,22 +157,22 @@ module spirix_add_pipe2 #(
     wire [INT_BITS-1:0] barrel_in = is_close ? close_sum_rev : $unsigned(small_ext);
     wire [BARREL_BITS-1:0] barrel_shift = is_close ? close_norm_shift : far_shift;
 
-    // Stage 0: shift by 1
+    // Barrel stage 0: shift by 1
     wire fill0 = !is_close & barrel_in[INT_BITS-1];
     wire [INT_BITS-1:0] b0_val = barrel_shift[0] ? {fill0, barrel_in[INT_BITS-1:1]} : barrel_in;
     wire b0_sticky = barrel_shift[0] & barrel_in[0];
 
-    // Stage 1: shift by 2
+    // Barrel stage 1: shift by 2
     wire fill1 = !is_close & b0_val[INT_BITS-1];
     wire [INT_BITS-1:0] b1_val = barrel_shift[1] ? {{2{fill1}}, b0_val[INT_BITS-1:2]} : b0_val;
     wire b1_sticky = b0_sticky | (barrel_shift[1] & |b0_val[1:0]);
 
-    // Stage 2: shift by 4
+    // Barrel stage 2: shift by 4
     wire fill2 = !is_close & b1_val[INT_BITS-1];
     wire [INT_BITS-1:0] b2_val = barrel_shift[2] ? {{4{fill2}}, b1_val[INT_BITS-1:4]} : b1_val;
     wire b2_sticky = b1_sticky | (barrel_shift[2] & |b1_val[3:0]);
 
-    // Stage 3: shift by 8
+    // Barrel stage 3: shift by 8
     wire [INT_BITS-1:0] b3_val;
     wire b3_sticky;
     generate if (INT_BITS > 8) begin : gen_b3
@@ -173,7 +185,7 @@ module spirix_add_pipe2 #(
         assign b3_sticky = b2_sticky | (barrel_shift[3] & |b2_val);
     end endgenerate
 
-    // Stage 4: shift by 16
+    // Barrel stage 4: shift by 16
     wire [INT_BITS-1:0] b4_val;
     wire b4_sticky;
     generate if (INT_BITS > 16) begin : gen_b4
@@ -186,7 +198,7 @@ module spirix_add_pipe2 #(
         assign b4_sticky = b3_sticky | (barrel_shift[4] & |b3_val);
     end endgenerate
 
-    // Bit-reverse barrel output for close path (free wiring)
+    // Bit-reverse barrel output for close path (free wiring, no logic)
     wire [INT_BITS-1:0] close_normalized;
     generate
         for (bi = 0; bi < INT_BITS; bi = bi + 1) begin : bitrev_out
@@ -195,13 +207,14 @@ module spirix_add_pipe2 #(
     endgenerate
 
     // =========================================================================
-    // S1→S2 pipeline registers
+    // S1-S2 pipeline registers
     //
-    // Close: close_normalized (barrel output, bit-reversed), close_leading,
-    //        close_is_zero, close_align_sticky.
-    // Far:   barrel_out (aligned small), barrel_sticky.
-    // Shared: big_frac (reconstruct big_ext in S2), big_exp, is_close,
-    //         negligible.
+    // Close path: close_normalized, close_leading, close_is_zero,
+    //     close_align_sticky.
+    // Far path: barrel output (aligned small), barrel sticky.
+    // Shared: big_frac (reconstruct big_ext in S2 via free wiring),
+    //     big_exp, is_close, negligible.
+    // Subtraction: negate_big, negate_small, sub (forwarded directly).
     // =========================================================================
 
     reg [INT_BITS-1:0]          s2_close_normalized;
@@ -238,11 +251,11 @@ module spirix_add_pipe2 #(
     // STAGE 2: Finish
     //
     // Close: extract frac + GRS bits, banker's round, early rovf, exp.
-    // Far: reconstruct big_ext, add + bounded normalize, round, early rovf, exp.
-    // Output mux selects close/far/negligible/zero.
+    // Far: reconstruct big_ext, add + bounded normalize, round, rovf, exp.
+    // Output mux selects close / far / negligible / zero / underflow.
     //
-    // Critical path (far): big_ext_reconstruct(free) → far_add(carry chain)
-    //     → bounded normalize(mux) → round → rovf → exp → output mux.
+    // Critical path (far): big_ext_reconstruct(free) -> far_add(carry chain)
+    //     -> bounded normalize(mux) -> round -> rovf -> exp -> output mux.
     // =========================================================================
 
     // --- Close path: extract + round ---
@@ -258,7 +271,7 @@ module spirix_add_pipe2 #(
     wire signed [FRAC_BITS-1:0] close_frac_rounded = close_frac_raw
                                                     + {{(FRAC_BITS-1){1'b0}}, close_round_up};
 
-    // Early rovf detection (pre-round signals)
+    // Early rovf detection (from pre-round signals, no post-round compare)
     wire close_rovf_pos = !close_frac_raw[FRAC_BITS-1]
                         & (&close_frac_raw[FRAC_BITS-2:0])
                         & close_round_up;
@@ -289,10 +302,10 @@ module spirix_add_pipe2 #(
     wire signed [INT_BITS-1:0] big_ext_s2 = $signed(s2_big_frac) <<< 2;
     wire signed [INT_BITS-1:0] far_sum = (big_ext_s2 ^ {INT_BITS{s2_negate_big}})
                                         + (s2_far_aligned ^ {INT_BITS{s2_negate_small}})
-                                        + {{(INT_BITS-1){1'b0}}, s2_sub};  // s2_sub forwarded directly
+                                        + {{(INT_BITS-1){1'b0}}, s2_sub};
     wire far_is_zero = (far_sum == 0);
 
-    // Bounded normalize: leading is 1, 2, or 3
+    // Bounded normalize: result needs at most a 0-2 bit left shift.
     wire far_d0 = far_sum[INT_BITS-1] ^ far_sum[INT_BITS-2];
     wire far_d1 = far_sum[INT_BITS-2] ^ far_sum[INT_BITS-3];
     wire [1:0] far_norm_shift = far_d0 ? 2'd0 : far_d1 ? 2'd1 : 2'd2;
@@ -302,7 +315,7 @@ module spirix_add_pipe2 #(
                                           far_d1 ? ($unsigned(far_sum) << 1) :
                                                    ($unsigned(far_sum) << 2);
 
-    // Far rounding
+    // Far rounding (banker's round / RNE)
     wire signed [FRAC_BITS-1:0] far_frac_raw = far_normalized[INT_BITS-1 -: FRAC_BITS];
     wire far_guard     = far_normalized[INT_BITS - 1 - FRAC_BITS];
     wire far_lsb       = far_normalized[INT_BITS - FRAC_BITS];
@@ -348,8 +361,8 @@ module spirix_add_pipe2 #(
     wire signed [FRAC_BITS-1:0] path_uf_frac = use_close ? close_uf_frac : far_uf_frac;
     wire path_is_zero = use_close ? s2_close_is_zero : far_is_zero;
 
-    // Negligible bypass only when b is small; when b is big and subtracted,
-    // -big_frac may not be N1 — let the far path normalize it.
+    // Negligible bypass: disabled when subtracting and b is big, because
+    // -big_frac may not be N1 (let the far path normalize it).
     wire s2_use_negligible = s2_negligible & !s2_negate_big;
 
     // Stage 2 output register
