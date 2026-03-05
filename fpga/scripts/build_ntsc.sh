@@ -139,7 +139,7 @@ yosys -p "
     $HF_FILES
     read_verilog $RTL/ntsc_framebuf.v
     read_verilog $PLL_DEFINES $DUT_DEFINE $RTL/top_ntsc.v
-    synth_ecp5 -top top_ntsc -json $BUILD/ntsc.json
+    synth_ecp5 ${NODSP:+-nodsp} -top top_ntsc -json $BUILD/ntsc.json
     stat
 " > "$BUILD/ntsc_yosys.log" 2>&1
 

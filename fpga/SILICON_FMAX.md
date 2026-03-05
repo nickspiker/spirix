@@ -83,11 +83,14 @@ hardware (Colorlight 5A-75B, seed=4).
 
 #### ASIC-equivalent (no DSP, `-nodsp -nowidelut`)
 
-| Operation | Spirix LUT4 | FPnew LUT4 | HF+IEEE LUT4 |
-|-----------|-------------|------------|---------------|
-| Add/Sub | **618** | 825 | 1050 |
-| Multiply | 1956 | **574** | 786 |
-| FMA | 3045 | **1283** | 2057 |
+| Operation | Spirix LUT4 | Fmax | FPnew LUT4 | Fmax | HF+IEEE LUT4 |
+|-----------|-------------|----------|------------|----------|---------------|
+| Add/Sub | **618** | **95 MHz** | 825 | 74 MHz | 1050 |
+| Multiply | 1956 | - | **574** | 74 MHz | 786 |
+| FMA | 3045 | **57 MHz** | **1283** | 25 MHz | 2057 |
+
+Note: Spirix add/sub never uses DSPs, so its no-DSP Fmax is the same 95 MHz.
+Spirix FMA no-DSP silicon verified: 57 pass, 58 fail (nextpnr est. ~20 MHz, 2.9x margin).
 
 **Spirix wins silicon Fmax on every operation** in FPGA deployment.
 
