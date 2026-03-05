@@ -330,6 +330,32 @@ module top_ntsc (
     always @(posedge sys_clk) if (ce) fpn_out_r <= fpn_result;
     wire [31:0] mul_fold = fpn_out_r;
 
+`elsif DUT_SPIRIX_MUL
+    // ----- Spirix multiply (standalone) -----
+    wire signed [24:0] mul_a_frac = lfsr[24:0];
+    wire signed  [7:0] mul_a_exp  = lfsr[32:25];
+    wire signed [24:0] mul_b_frac = lfsr[57:33];
+    wire signed  [7:0] mul_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+
+    wire signed [24:0] mul_r_frac;
+    wire signed  [7:0] mul_r_exp;
+
+    spirix_multiply #(.FRAC_BITS(25), .EXP_BITS(8)) dut_mul (
+        .a_frac(mul_a_frac), .a_exp(mul_a_exp),
+        .b_frac(mul_b_frac), .b_exp(mul_b_exp),
+        .result_frac(mul_r_frac), .result_exp(mul_r_exp)
+    );
+
+    reg signed [24:0] mul_r_frac_r;
+    reg signed  [7:0] mul_r_exp_r;
+    always @(posedge sys_clk) if (ce) begin
+        mul_r_frac_r <= mul_r_frac;
+        mul_r_exp_r  <= mul_r_exp;
+    end
+
+    wire [32:0] mul_out = {mul_r_exp_r, mul_r_frac_r};
+    wire [31:0] mul_fold = mul_out[31:0] ^ {31'b0, mul_out[32]};
+
 `else
     // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];

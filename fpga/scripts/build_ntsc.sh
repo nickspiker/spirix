@@ -112,11 +112,15 @@ case "$DUT" in
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew add/sub (native IEEE 754)"
         ;;
+    spirix_mul)
+        DUT_DEFINE="-DDUT_SPIRIX_MUL"
+        echo "  DUT: Spirix multiply (standalone)"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, fpn_fma, fpn_mul, fpn_add, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, fpn_fma, fpn_mul, fpn_add, spirix_mul, or empty."
         exit 1
         ;;
 esac
