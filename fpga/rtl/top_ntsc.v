@@ -216,6 +216,120 @@ module top_ntsc (
     always @(posedge sys_clk) if (ce) hf_out_r <= hf_ieee_out;
     wire [31:0] mul_fold = hf_out_r;
 
+`elsif DUT_FPN_FMA
+    // ----- FPnew FMA (binary32), native IEEE 754 I/O -----
+    wire [31:0] fpn_a = lfsr[31:0];
+    wire [31:0] fpn_b = lfsr[63:32];
+    wire [31:0] fpn_c = lfsr2[31:0];
+    wire        fpn_sub = lfsr2[32];
+
+    wire [31:0] fpn_result;
+    fpnew_fma dut_fpn_fma (
+        .clk_i          (sys_clk),
+        .rst_ni         (b3_reset_n),
+        .operands_i     ({fpn_c, fpn_b, fpn_a}),
+        .is_boxed_i     (3'b111),
+        .rnd_mode_i     (3'b000),       // RNE
+        .op_i           (4'd0),         // FMADD
+        .op_mod_i       (fpn_sub),
+        .tag_i          (1'b0),
+        .mask_i         (1'b1),
+        .aux_i          (1'b0),
+        .in_valid_i     (1'b1),
+        .flush_i        (1'b0),
+        .out_ready_i    (1'b1),
+        .result_o       (fpn_result),
+        .status_o       (),
+        .extension_bit_o(),
+        .tag_o          (),
+        .mask_o         (),
+        .aux_o          (),
+        .out_valid_o    (),
+        .in_ready_o     (),
+        .busy_o         (),
+        .reg_ena_i      (1'b0),
+        .early_out_valid_o()
+    );
+
+    reg [31:0] fpn_out_r;
+    always @(posedge sys_clk) if (ce) fpn_out_r <= fpn_result;
+    wire [31:0] mul_fold = fpn_out_r;
+
+`elsif DUT_FPN_MUL
+    // ----- FPnew multiply (FMA with c=0), native IEEE 754 I/O -----
+    wire [31:0] fpn_a = lfsr[31:0];
+    wire [31:0] fpn_b = lfsr[63:32];
+
+    wire [31:0] fpn_result;
+    fpnew_fma dut_fpn_mul (
+        .clk_i          (sys_clk),
+        .rst_ni         (b3_reset_n),
+        .operands_i     ({32'h00000000, fpn_b, fpn_a}),
+        .is_boxed_i     (3'b111),
+        .rnd_mode_i     (3'b000),       // RNE
+        .op_i           (4'd3),         // MUL
+        .op_mod_i       (1'b0),
+        .tag_i          (1'b0),
+        .mask_i         (1'b1),
+        .aux_i          (1'b0),
+        .in_valid_i     (1'b1),
+        .flush_i        (1'b0),
+        .out_ready_i    (1'b1),
+        .result_o       (fpn_result),
+        .status_o       (),
+        .extension_bit_o(),
+        .tag_o          (),
+        .mask_o         (),
+        .aux_o          (),
+        .out_valid_o    (),
+        .in_ready_o     (),
+        .busy_o         (),
+        .reg_ena_i      (1'b0),
+        .early_out_valid_o()
+    );
+
+    reg [31:0] fpn_out_r;
+    always @(posedge sys_clk) if (ce) fpn_out_r <= fpn_result;
+    wire [31:0] mul_fold = fpn_out_r;
+
+`elsif DUT_FPN_ADD
+    // ----- FPnew add (FMA with b=1.0), native IEEE 754 I/O -----
+    wire [31:0] fpn_a = lfsr[31:0];
+    wire [31:0] fpn_b = lfsr[63:32];
+    wire        fpn_sub = lfsr[0];
+
+    wire [31:0] fpn_result;
+    fpnew_fma dut_fpn_add (
+        .clk_i          (sys_clk),
+        .rst_ni         (b3_reset_n),
+        .operands_i     ({fpn_b, 32'h3F800000, fpn_a}),
+        .is_boxed_i     (3'b111),
+        .rnd_mode_i     (3'b000),       // RNE
+        .op_i           (4'd2),         // ADD
+        .op_mod_i       (fpn_sub),
+        .tag_i          (1'b0),
+        .mask_i         (1'b1),
+        .aux_i          (1'b0),
+        .in_valid_i     (1'b1),
+        .flush_i        (1'b0),
+        .out_ready_i    (1'b1),
+        .result_o       (fpn_result),
+        .status_o       (),
+        .extension_bit_o(),
+        .tag_o          (),
+        .mask_o         (),
+        .aux_o          (),
+        .out_valid_o    (),
+        .in_ready_o     (),
+        .busy_o         (),
+        .reg_ena_i      (1'b0),
+        .early_out_valid_o()
+    );
+
+    reg [31:0] fpn_out_r;
+    always @(posedge sys_clk) if (ce) fpn_out_r <= fpn_result;
+    wire [31:0] mul_fold = fpn_out_r;
+
 `else
     // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];

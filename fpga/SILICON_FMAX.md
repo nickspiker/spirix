@@ -62,44 +62,68 @@ Silicon Fmax from binary search on real hardware.
   - Splits compound — neither helps alone, but together they break two
     independent bottlenecks.
 
-### Spirix vs HardFloat — IEEE 754 End-to-End Comparison
+### Spirix vs HardFloat vs FPnew — IEEE 754 End-to-End Comparison
 
-Binary32-equivalent precision. Pure LUT4 (`-nowidelut`). Both wrapped in
-registered input/output benches. HardFloat includes fNToRecFN input converters
-and recFNToFN output converter for proper IEEE 754 binary32 I/O.
+Binary32-equivalent precision. Pure LUT4 (`-nowidelut`). All wrapped in
+registered input/output benches. Silicon Fmax from binary search on real
+hardware (Colorlight 5A-75B, seed=4).
 
-Spirix: FRAC=25, EXP=8, two's complement, N1-normalized, native IEEE binary32.
-HardFloat: expWidth=8, sigWidth=24, recoded format + IEEE converters.
+- **Spirix:** FRAC=25, EXP=8, two's complement, N1-normalized, native IEEE binary32.
+- **HardFloat:** expWidth=8, sigWidth=24, recoded format + fNToRecFN/recFNToFN IEEE converters.
+- **FPnew (cvfpu):** ETH Zürich PULP platform FPU. Native IEEE 754, unified FMA datapath.
+  Converted from SystemVerilog via sv2v for Yosys compatibility.
 
-| Operation | Spirix LUT4 | DSP | Silicon Fmax | HF+IEEE LUT4 | DSP | Silicon Fmax | LUT4 Delta | Fmax Delta |
-|-----------|-------------|-----|-------------|---------------|-----|-------------|------------|------------|
-| Add/Sub | 618 | 0 | 95 MHz | 1050 | 0 | 88 MHz | **-41%** | **+8%** |
-| Multiply | 94 | 4 | 115 MHz | 786 | 4 | 65 MHz | **-88%** | **+77%** |
-| FMA | 1128 | 4 | 63 MHz | 2057 | 4 | 47 MHz | **-45%** | **+34%** |
+#### FPGA (with DSP blocks)
 
-**Spirix wins on both area and speed for every operation.**
+| Operation | Spirix LUT4 | DSP | Fmax | HF+IEEE LUT4 | DSP | Fmax | FPnew LUT4 | DSP | Fmax |
+|-----------|-------------|-----|----------|---------------|-----|----------|------------|-----|----------|
+| Add/Sub | 618 | 0 | **95 MHz** | 1050 | 0 | 88 MHz | 825 | 0 | 74 MHz |
+| Multiply | 94 | 4 | **115 MHz** | 786 | 4 | 65 MHz | 574 | 0 | 74 MHz |
+| FMA | 1128 | 4 | **63 MHz** | 2057 | 4 | 47 MHz | 1283 | 0 | 25 MHz |
 
-- **Multiply** is the standout: 8.4x smaller and 1.8x faster. Spirix's DSP18
-  blocks handle the 25×25 signed multiply directly; HardFloat's unsigned
-  significand format requires extra logic, and the converters add CLZ +
-  subnormal barrel shifters on top.
+#### ASIC-equivalent (no DSP, `-nodsp -nowidelut`)
 
-- **Add/Sub** is the closest race: only 8% faster on silicon, but 41% smaller.
-  HardFloat's adder is genuinely well-optimized (recoded format eliminates
-  leading-zero detection for subnormals), but the converter overhead at system
-  boundaries erases most of that advantage.
+| Operation | Spirix LUT4 | FPnew LUT4 | HF+IEEE LUT4 |
+|-----------|-------------|------------|---------------|
+| Add/Sub | **618** | 825 | 1050 |
+| Multiply | 1956 | **574** | 786 |
+| FMA | 3045 | **1283** | 2057 |
 
-- **FMA** pre-alignment gives Spirix a 34% speed edge. The barrel shifter runs
-  in parallel with the DSP multiply, hiding alignment latency entirely.
+**Spirix wins silicon Fmax on every operation** in FPGA deployment.
+
+In the ASIC-equivalent (no DSP) comparison, FPnew has the smallest multiply
+and FMA gate count — its pure-LUT multiplier was designed for standard-cell
+synthesis. Spirix wins add/sub (no multipliers involved). However, FPnew's
+area advantage comes at a severe speed cost: its FMA runs at only 25 MHz
+(2.5x slower than Spirix, 1.9x slower than HardFloat).
+
+Key observations:
+
+- **Multiply** is Spirix's standout on FPGA: 94 LUT4 + 4 DSP18 vs FPnew's
+  574 LUT4 + 0 DSP. On an ASIC (no DSP), Spirix balloons to 1956 LUT4 —
+  the DSP18 blocks were doing all the heavy lifting.
+
+- **FPnew add ≈ FPnew mul** at 74 MHz — both go through the same unified
+  FMA datapath, so the constant operand (b=1.0 for add, c=0 for mul)
+  doesn't meaningfully shorten the critical path.
+
+- **FPnew FMA at 25 MHz** is limited by the pure-LUT 24×24 multiplier.
+  This is the full FMA datapath with no DSP assistance — the ASIC use case.
+
+- **Add/Sub** is the closest race: Spirix 95, HardFloat 88, FPnew 74 MHz.
+  All three use pure logic (no DSP), so ASIC LUT counts are the same as
+  FPGA counts.
 
 Apples-to-apples caveats:
 - HardFloat includes full IEEE special-case handling (NaN, Inf, signed zero,
-  all rounding modes, subnormal support). Spirix has none of this — only
-  ambiguous-exponent for zero/underflow and RNE rounding.
+  all rounding modes, subnormal support). FPnew has the same. Spirix has
+  none of this — only ambiguous-exponent for zero/underflow and RNE rounding.
 - HardFloat's recoded format (33-bit) is designed for chained operations
   without conversion overhead. In a pipeline staying in recoded format,
   the converter cost is amortized. These numbers represent the worst case
   for HardFloat (single-op, IEEE in/out).
+- FPnew uses a unified FMA unit for all ops (add via b=1.0, mul via c=0).
+  This means add and mul inherit full FMA complexity, penalizing simple ops.
 - LUT4 counts from `yosys synth_ecp5 -nowidelut`. Silicon Fmax from binary
   search on Colorlight 5A-75B, seed=4.
 

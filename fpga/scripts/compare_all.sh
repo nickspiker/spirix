@@ -1,7 +1,7 @@
 #!/bin/bash
-# Comprehensive Spirix vs HardFloat synthesis comparison.
+# Comprehensive Spirix vs HardFloat vs FPnew synthesis comparison.
 # Target: ECP5-25F CABGA256 speed-6, binary32-equivalent precision.
-# Spirix: FRAC=25, EXP=8 | HardFloat: expWidth=8, sigWidth=24
+# Spirix: FRAC=25, EXP=8 | HardFloat: expWidth=8, sigWidth=24 | FPnew: FP32
 #
 # Each module is synthesized twice:
 #   normal   — uses PFUMX/L6MUX wide LUTs + CCU2C carry chains
@@ -12,6 +12,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FPGA_DIR="$SCRIPT_DIR/.."
 RTL="$FPGA_DIR/rtl"
 HF="$RTL/hardfloat"
+FPN="$RTL/fpnew/src"
+FPN_CC="$FPN/common_cells/src"
+FPN_INC="$FPN/common_cells/include"
+SV2V="${SV2V:-/tmp/sv2v-bin/sv2v-Linux/sv2v}"
 cd "$FPGA_DIR"
 mkdir -p sim/compare_all
 
@@ -25,9 +29,25 @@ SUMMARY="$OUT_DIR/summary.txt"
 HF_COMMON="$HF/HardFloat_primitives.v $HF/HardFloat_rawFN.v $HF/HardFloat_specialize.v $HF/isSigNaNRecFN.v"
 
 echo "================================================================"
-echo " Spirix vs HardFloat — ECP5-25F speed-6, binary32 precision"
-echo " Spirix: FRAC=$FRAC EXP=$EXP | HardFloat: expWidth=8 sigWidth=24"
+echo " Spirix vs HardFloat vs FPnew — ECP5-25F speed-6, binary32"
+echo " Spirix: FRAC=$FRAC EXP=$EXP | HF: expW=8 sigW=24 | FPnew: FP32"
 echo "================================================================"
+
+# ---- FPnew sv2v helper ----
+# FPnew is SystemVerilog; convert to Verilog via sv2v for Yosys
+FPN_COMMON="$FPN_CC/cf_math_pkg.sv $FPN/fpnew_pkg.sv $FPN_CC/lzc.sv $FPN/fpnew_classifier.sv $FPN/fpnew_rounding.sv $FPN/fpnew_fma.sv"
+
+fpnew_convert() {
+    # Usage: fpnew_convert bench_wrapper.sv output.v
+    local BENCH=$1
+    local OUT=$2
+    if [ ! -x "$SV2V" ]; then
+        echo "  SKIP: sv2v not found at $SV2V"
+        return 1
+    fi
+    "$SV2V" -I"$FPN_INC" $FPN_COMMON "$BENCH" > "$OUT" 2>&1
+    [ -s "$OUT" ] || return 1
+}
 echo ""
 
 #---------------------------------------------------------------------------
@@ -211,6 +231,33 @@ EOF
 synth_both "hardfloat_add_ieee" "bench_hardfloat_add_ieee" \
     "$HF_COMMON $HF/addRecFN.v $HF/fNToRecFN.v $HF/recFNToFN.v" "/tmp/bench_hardfloat_add_ieee.v"
 
+# FPnew add (FMA with b=1.0, native IEEE 754)
+cat > /tmp/bench_fpnew_add.sv << 'SVEOF'
+module bench_fpnew_add (
+    input  logic        clk,
+    input  logic        rst_n,
+    input  logic [31:0] a_in, b_in,
+    input  logic        sub_in,
+    output logic [31:0] out_out
+);
+    logic [31:0] a, b; logic sub;
+    always_ff @(posedge clk) begin a <= a_in; b <= b_in; sub <= sub_in; end
+    logic [31:0] result;
+    fpnew_fma #(.FpFormat(fpnew_pkg::FP32), .NumPipeRegs(0), .PipeConfig(fpnew_pkg::BEFORE)) dut (
+        .clk_i(clk), .rst_ni(rst_n), .operands_i({b, 32'h3F800000, a}), .is_boxed_i(3'b111),
+        .rnd_mode_i(fpnew_pkg::RNE), .op_i(fpnew_pkg::ADD), .op_mod_i(sub),
+        .tag_i(1'b0), .mask_i(1'b1), .aux_i(1'b0), .in_valid_i(1'b1), .flush_i(1'b0),
+        .out_ready_i(1'b1), .result_o(result), .status_o(), .extension_bit_o(),
+        .tag_o(), .mask_o(), .aux_o(), .out_valid_o(), .in_ready_o(), .busy_o(),
+        .reg_ena_i(1'b0), .early_out_valid_o());
+    always_ff @(posedge clk) out_out <= result;
+endmodule
+SVEOF
+
+if fpnew_convert /tmp/bench_fpnew_add.sv /tmp/fpnew_add_converted.v; then
+    synth_both "fpnew_add" "bench_fpnew_add" "" "/tmp/fpnew_add_converted.v"
+fi
+
 #===========================================================================
 # MULTIPLY
 #===========================================================================
@@ -312,6 +359,32 @@ EOF
 
 synth_both "hardfloat_mul_ieee" "bench_hardfloat_mul_ieee" \
     "$HF_COMMON $HF/mulRecFN.v $HF/fNToRecFN.v $HF/recFNToFN.v" "/tmp/bench_hardfloat_mul_ieee.v"
+
+# FPnew mul (FMA with c=0, native IEEE 754)
+cat > /tmp/bench_fpnew_mul.sv << 'SVEOF'
+module bench_fpnew_mul (
+    input  logic        clk,
+    input  logic        rst_n,
+    input  logic [31:0] a_in, b_in,
+    output logic [31:0] out_out
+);
+    logic [31:0] a, b;
+    always_ff @(posedge clk) begin a <= a_in; b <= b_in; end
+    logic [31:0] result;
+    fpnew_fma #(.FpFormat(fpnew_pkg::FP32), .NumPipeRegs(0), .PipeConfig(fpnew_pkg::BEFORE)) dut (
+        .clk_i(clk), .rst_ni(rst_n), .operands_i({32'h00000000, b, a}), .is_boxed_i(3'b111),
+        .rnd_mode_i(fpnew_pkg::RNE), .op_i(fpnew_pkg::MUL), .op_mod_i(1'b0),
+        .tag_i(1'b0), .mask_i(1'b1), .aux_i(1'b0), .in_valid_i(1'b1), .flush_i(1'b0),
+        .out_ready_i(1'b1), .result_o(result), .status_o(), .extension_bit_o(),
+        .tag_o(), .mask_o(), .aux_o(), .out_valid_o(), .in_ready_o(), .busy_o(),
+        .reg_ena_i(1'b0), .early_out_valid_o());
+    always_ff @(posedge clk) out_out <= result;
+endmodule
+SVEOF
+
+if fpnew_convert /tmp/bench_fpnew_mul.sv /tmp/fpnew_mul_converted.v; then
+    synth_both "fpnew_mul" "bench_fpnew_mul" "" "/tmp/fpnew_mul_converted.v"
+fi
 
 #===========================================================================
 # DIVIDE
@@ -542,6 +615,33 @@ EOF
 
 synth_both "hardfloat_fma_ieee" "bench_hardfloat_fma_ieee" \
     "$HF_COMMON $HF/mulAddRecFN.v $HF/fNToRecFN.v $HF/recFNToFN.v" "/tmp/bench_hardfloat_fma_ieee.v"
+
+# FPnew FMA (native IEEE 754)
+cat > /tmp/bench_fpnew_fma.sv << 'SVEOF'
+module bench_fpnew_fma (
+    input  logic        clk,
+    input  logic        rst_n,
+    input  logic [31:0] a_in, b_in, c_in,
+    input  logic        sub_in,
+    output logic [31:0] out_out
+);
+    logic [31:0] a, b, c; logic sub;
+    always_ff @(posedge clk) begin a <= a_in; b <= b_in; c <= c_in; sub <= sub_in; end
+    logic [31:0] result;
+    fpnew_fma #(.FpFormat(fpnew_pkg::FP32), .NumPipeRegs(0), .PipeConfig(fpnew_pkg::BEFORE)) dut (
+        .clk_i(clk), .rst_ni(rst_n), .operands_i({c, b, a}), .is_boxed_i(3'b111),
+        .rnd_mode_i(fpnew_pkg::RNE), .op_i(fpnew_pkg::FMADD), .op_mod_i(sub),
+        .tag_i(1'b0), .mask_i(1'b1), .aux_i(1'b0), .in_valid_i(1'b1), .flush_i(1'b0),
+        .out_ready_i(1'b1), .result_o(result), .status_o(), .extension_bit_o(),
+        .tag_o(), .mask_o(), .aux_o(), .out_valid_o(), .in_ready_o(), .busy_o(),
+        .reg_ena_i(1'b0), .early_out_valid_o());
+    always_ff @(posedge clk) out_out <= result;
+endmodule
+SVEOF
+
+if fpnew_convert /tmp/bench_fpnew_fma.sv /tmp/fpnew_fma_converted.v; then
+    synth_both "fpnew_fma" "bench_fpnew_fma" "" "/tmp/fpnew_fma_converted.v"
+fi
 
 #===========================================================================
 # Print summary

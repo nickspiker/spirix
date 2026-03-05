@@ -94,11 +94,29 @@ case "$DUT" in
         HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/addRecFN.v;"
         echo "  DUT: HardFloat addRecFN (add/sub) with IEEE 754 I/O"
         ;;
+    fpn_fma)
+        DUT_DEFINE="-DDUT_FPN_FMA"
+        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_fma_fp32.v"
+        HF_FILES="read_verilog $FPN_V;"
+        echo "  DUT: FPnew FMA (native IEEE 754)"
+        ;;
+    fpn_mul)
+        DUT_DEFINE="-DDUT_FPN_MUL"
+        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_fma_fp32.v"
+        HF_FILES="read_verilog $FPN_V;"
+        echo "  DUT: FPnew multiply (native IEEE 754)"
+        ;;
+    fpn_add)
+        DUT_DEFINE="-DDUT_FPN_ADD"
+        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_fma_fp32.v"
+        HF_FILES="read_verilog $FPN_V;"
+        echo "  DUT: FPnew add/sub (native IEEE 754)"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, fpn_fma, fpn_mul, fpn_add, or empty."
         exit 1
         ;;
 esac
