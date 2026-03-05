@@ -53,6 +53,57 @@ else
 fi
 
 # -------------------------------------------------------------------------
+# DUT selection: DUT=hf_fma | hf_mul | hf_add | spirix_fma (default)
+# -------------------------------------------------------------------------
+DUT="${DUT:-}"
+DUT_DEFINE=""
+HF_FILES=""
+HF_DIR="$RTL/hardfloat"
+
+case "$DUT" in
+    hf_fma)
+        DUT_DEFINE="-DDUT_HF_FMA"
+        HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_rawFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_specialize.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/isSigNaNRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/fNToRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/recFNToFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/mulAddRecFN.v;"
+        echo "  DUT: HardFloat mulAddRecFN (FMA) with IEEE 754 I/O"
+        ;;
+    hf_mul)
+        DUT_DEFINE="-DDUT_HF_MUL"
+        HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_rawFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_specialize.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/isSigNaNRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/fNToRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/recFNToFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/mulRecFN.v;"
+        echo "  DUT: HardFloat mulRecFN (multiply) with IEEE 754 I/O"
+        ;;
+    hf_add)
+        DUT_DEFINE="-DDUT_HF_ADD"
+        HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_rawFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_specialize.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/isSigNaNRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/fNToRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/recFNToFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/addRecFN.v;"
+        echo "  DUT: HardFloat addRecFN (add/sub) with IEEE 754 I/O"
+        ;;
+    "")
+        echo "  DUT: Spirix FMA (default)"
+        ;;
+    *)
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, or empty."
+        exit 1
+        ;;
+esac
+
+# -------------------------------------------------------------------------
 # Collect all RTL files
 # -------------------------------------------------------------------------
 RTL_FILES=""
@@ -67,8 +118,9 @@ echo ""
 echo "--- Synthesize ---"
 yosys -p "
     $RTL_FILES
+    $HF_FILES
     read_verilog $RTL/ntsc_framebuf.v
-    read_verilog $PLL_DEFINES $RTL/top_ntsc.v
+    read_verilog $PLL_DEFINES $DUT_DEFINE $RTL/top_ntsc.v
     synth_ecp5 -top top_ntsc -json $BUILD/ntsc.json
     stat
 " > "$BUILD/ntsc_yosys.log" 2>&1

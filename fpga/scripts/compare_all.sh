@@ -183,6 +183,34 @@ synth_both "spirix_addsub_pipe2" "bench_spirix_addsub_pipe2" \
 synth_both "hardfloat_add" "bench_hardfloat_add" \
     "$HF_COMMON $HF/addRecFN.v $HF/add_f32.v" "$HF/bench_hardfloat_add.v"
 
+# HardFloat add with IEEE 754 I/O (fNToRecFN + addRecFN + recFNToFN)
+cat > /tmp/bench_hardfloat_add_ieee.v << 'EOF'
+module bench_hardfloat_add_ieee (
+    input  wire        clk,
+    input  wire [31:0] a_in,
+    input  wire [31:0] b_in,
+    input  wire        sub_in,
+    output reg  [31:0] out_out
+);
+    reg [31:0] a, b;
+    reg sub;
+    always @(posedge clk) begin a <= a_in; b <= b_in; sub <= sub_in; end
+    wire [32:0] rec_a, rec_b, rec_out;
+    wire [4:0] flags;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(b), .out(rec_b));
+    addRecFN #(.expWidth(8), .sigWidth(24)) dut (
+        .control(1'b1), .subOp(sub), .a(rec_a), .b(rec_b),
+        .roundingMode(3'b000), .out(rec_out), .exceptionFlags(flags));
+    wire [31:0] ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(rec_out), .out(ieee_out));
+    always @(posedge clk) out_out <= ieee_out;
+endmodule
+EOF
+
+synth_both "hardfloat_add_ieee" "bench_hardfloat_add_ieee" \
+    "$HF_COMMON $HF/addRecFN.v $HF/fNToRecFN.v $HF/recFNToFN.v" "/tmp/bench_hardfloat_add_ieee.v"
+
 #===========================================================================
 # MULTIPLY
 #===========================================================================
@@ -238,25 +266,6 @@ EOF
 synth_both "spirix_mul_pipe2" "bench_spirix_mul_pipe2" \
     "$RTL/spirix_multiply_pipe2.v" "/tmp/bench_spirix_mul_pipe2.v"
 
-# Spirix multiply_pipe3
-cat > /tmp/bench_spirix_mul_pipe3.v << EOF
-module bench_spirix_mul_pipe3 (
-    input  wire clk,
-    input  wire signed [${FRAC}-1:0] a_frac, b_frac,
-    input  wire signed [${EXP}-1:0]  a_exp, b_exp,
-    output wire signed [${FRAC}-1:0] result_frac,
-    output wire signed [${EXP}-1:0]  result_exp
-);
-    spirix_multiply_pipe3 #(.FRAC_BITS(${FRAC}), .EXP_BITS(${EXP})) dut (
-        .clk(clk), .a_frac(a_frac), .a_exp(a_exp),
-        .b_frac(b_frac), .b_exp(b_exp),
-        .result_frac(result_frac), .result_exp(result_exp));
-endmodule
-EOF
-
-synth_both "spirix_mul_pipe3" "bench_spirix_mul_pipe3" \
-    "$RTL/spirix_multiply_pipe3.v" "/tmp/bench_spirix_mul_pipe3.v"
-
 # HardFloat mul (combinational, registered wrapper)
 cat > /tmp/bench_hardfloat_mul.v << 'EOF'
 module bench_hardfloat_mul (
@@ -277,6 +286,32 @@ EOF
 
 synth_both "hardfloat_mul" "bench_hardfloat_mul" \
     "$HF_COMMON $HF/mulRecFN.v $HF/mul_f32.v" "/tmp/bench_hardfloat_mul.v"
+
+# HardFloat mul with IEEE 754 I/O (fNToRecFN + mulRecFN + recFNToFN)
+cat > /tmp/bench_hardfloat_mul_ieee.v << 'EOF'
+module bench_hardfloat_mul_ieee (
+    input  wire        clk,
+    input  wire [31:0] a_in,
+    input  wire [31:0] b_in,
+    output reg  [31:0] out_out
+);
+    reg [31:0] a, b;
+    always @(posedge clk) begin a <= a_in; b <= b_in; end
+    wire [32:0] rec_a, rec_b, rec_out;
+    wire [4:0] flags;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(b), .out(rec_b));
+    mulRecFN #(.expWidth(8), .sigWidth(24)) dut (
+        .control(1'b1), .a(rec_a), .b(rec_b),
+        .roundingMode(3'b000), .out(rec_out), .exceptionFlags(flags));
+    wire [31:0] ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(rec_out), .out(ieee_out));
+    always @(posedge clk) out_out <= ieee_out;
+endmodule
+EOF
+
+synth_both "hardfloat_mul_ieee" "bench_hardfloat_mul_ieee" \
+    "$HF_COMMON $HF/mulRecFN.v $HF/fNToRecFN.v $HF/recFNToFN.v" "/tmp/bench_hardfloat_mul_ieee.v"
 
 #===========================================================================
 # DIVIDE
@@ -410,6 +445,103 @@ EOF
 
 synth_both "hardfloat_sqrt" "bench_hardfloat_sqrt" \
     "$HF_COMMON $HF/divSqrtRecFN_small.v $HF/sqrt_f32.v" "/tmp/bench_hardfloat_sqrt.v"
+
+#===========================================================================
+# FMA
+#===========================================================================
+echo "--- FMA ---"
+echo "" >> "$SUMMARY"
+echo "--- FMA ---" >> "$SUMMARY"
+
+# Spirix FMA (combinational, registered wrapper)
+cat > /tmp/bench_spirix_fma.v << EOF
+module bench_spirix_fma (
+    input  wire clk,
+    input  wire signed [${FRAC}-1:0] a_frac, b_frac, c_frac,
+    input  wire signed [${EXP}-1:0]  a_exp, b_exp, c_exp,
+    input  wire sub,
+    output reg  signed [${FRAC}-1:0] result_frac,
+    output reg  signed [${EXP}-1:0]  result_exp
+);
+    reg signed [${FRAC}-1:0] a_frac_r, b_frac_r, c_frac_r;
+    reg signed [${EXP}-1:0]  a_exp_r, b_exp_r, c_exp_r;
+    reg sub_r;
+    always @(posedge clk) begin
+        a_frac_r <= a_frac; a_exp_r <= a_exp;
+        b_frac_r <= b_frac; b_exp_r <= b_exp;
+        c_frac_r <= c_frac; c_exp_r <= c_exp;
+        sub_r <= sub;
+    end
+    wire signed [${FRAC}-1:0] w_frac;
+    wire signed [${EXP}-1:0]  w_exp;
+    spirix_fma #(.FRAC_BITS(${FRAC}), .EXP_BITS(${EXP})) dut (
+        .a_frac(a_frac_r), .a_exp(a_exp_r),
+        .b_frac(b_frac_r), .b_exp(b_exp_r),
+        .c_frac(c_frac_r), .c_exp(c_exp_r),
+        .sub(sub_r),
+        .result_frac(w_frac), .result_exp(w_exp)
+    );
+    always @(posedge clk) begin result_frac <= w_frac; result_exp <= w_exp; end
+endmodule
+EOF
+
+synth_both "spirix_fma" "bench_spirix_fma" \
+    "$RTL/spirix_fma.v" "/tmp/bench_spirix_fma.v"
+
+# HardFloat FMA (combinational, registered wrapper)
+cat > /tmp/bench_hardfloat_fma.v << 'EOF'
+module bench_hardfloat_fma (
+    input  wire        clk,
+    input  wire [32:0] a_in,
+    input  wire [32:0] b_in,
+    input  wire [32:0] c_in,
+    input  wire [1:0]  op_in,
+    output reg  [32:0] out_out,
+    output reg  [4:0]  flags_out
+);
+    reg [32:0] a, b, c;
+    reg [1:0] op;
+    always @(posedge clk) begin a <= a_in; b <= b_in; c <= c_in; op <= op_in; end
+    wire [32:0] r_out;
+    wire [4:0]  r_flags;
+    fma_f32 fma (.a(a), .b(b), .c(c), .op(op), .roundingMode(3'b000),
+                 .out(r_out), .exceptionFlags(r_flags));
+    always @(posedge clk) begin out_out <= r_out; flags_out <= r_flags; end
+endmodule
+EOF
+
+synth_both "hardfloat_fma" "bench_hardfloat_fma" \
+    "$HF_COMMON $HF/mulAddRecFN.v $HF/fma_f32.v" "/tmp/bench_hardfloat_fma.v"
+
+# HardFloat FMA with IEEE 754 I/O (fNToRecFN + mulAddRecFN + recFNToFN)
+cat > /tmp/bench_hardfloat_fma_ieee.v << 'EOF'
+module bench_hardfloat_fma_ieee (
+    input  wire        clk,
+    input  wire [31:0] a_in,
+    input  wire [31:0] b_in,
+    input  wire [31:0] c_in,
+    input  wire [1:0]  op_in,
+    output reg  [31:0] out_out
+);
+    reg [31:0] a, b, c;
+    reg [1:0] op;
+    always @(posedge clk) begin a <= a_in; b <= b_in; c <= c_in; op <= op_in; end
+    wire [32:0] rec_a, rec_b, rec_c, rec_out;
+    wire [4:0] flags;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(b), .out(rec_b));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_c (.in(c), .out(rec_c));
+    mulAddRecFN #(.expWidth(8), .sigWidth(24)) dut (
+        .control(1'b1), .op(op), .a(rec_a), .b(rec_b), .c(rec_c),
+        .roundingMode(3'b000), .out(rec_out), .exceptionFlags(flags));
+    wire [31:0] ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(rec_out), .out(ieee_out));
+    always @(posedge clk) out_out <= ieee_out;
+endmodule
+EOF
+
+synth_both "hardfloat_fma_ieee" "bench_hardfloat_fma_ieee" \
+    "$HF_COMMON $HF/mulAddRecFN.v $HF/fNToRecFN.v $HF/recFNToFN.v" "/tmp/bench_hardfloat_fma_ieee.v"
 
 #===========================================================================
 # Print summary

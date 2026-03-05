@@ -116,13 +116,108 @@ module top_ntsc (
     wire [63:0] lfsr_next = {1'b0, lfsr[63:1]} ^ (lfsr_fb ? LFSR_TAPS : 64'b0);
 
     // =========================================================================
-    // DUT: fma (combinational, 4 DSP)
+    // DUT — switchable via defines
+    //
+    // DUT_SPIRIX_FMA (default), DUT_HF_FMA, DUT_HF_MUL, DUT_HF_ADD
+    // All combinational + registered output with CE. Output: 32-bit mul_fold.
     // =========================================================================
-    // Second LFSR for c operand (independent sequence)
+
+    // Second LFSR for 3-operand DUTs (FMA)
     reg [63:0] lfsr2;
     wire       lfsr2_fb = lfsr2[0];
     wire [63:0] lfsr2_next = {1'b0, lfsr2[63:1]} ^ (lfsr2_fb ? LFSR_TAPS : 64'b0);
 
+`ifdef DUT_HF_FMA
+    // ----- HardFloat mulAddRecFN (binary32 FMA), IEEE 754 I/O -----
+    // LFSR provides 32-bit IEEE inputs; fNToRecFN/recFNToFN convert at boundary
+    wire [31:0] ieee_a = lfsr[31:0];
+    wire [31:0] ieee_b = lfsr[63:32];
+    wire [31:0] ieee_c = lfsr2[31:0];
+    wire [1:0]  hf_op  = lfsr2[33:32];
+
+    wire [32:0] rec_a, rec_b, rec_c;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(ieee_a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(ieee_b), .out(rec_b));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_c (.in(ieee_c), .out(rec_c));
+
+    wire [32:0] rec_out;
+    wire [4:0]  hf_flags;
+    mulAddRecFN #(.expWidth(8), .sigWidth(24)) dut_hf_fma (
+        .control      (1'b1),
+        .op           (hf_op),
+        .a            (rec_a),
+        .b            (rec_b),
+        .c            (rec_c),
+        .roundingMode (3'b000),
+        .out          (rec_out),
+        .exceptionFlags(hf_flags)
+    );
+
+    wire [31:0] hf_ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(rec_out), .out(hf_ieee_out));
+
+    reg [31:0] hf_out_r;
+    always @(posedge sys_clk) if (ce) hf_out_r <= hf_ieee_out;
+    wire [31:0] mul_fold = hf_out_r;
+
+`elsif DUT_HF_MUL
+    // ----- HardFloat mulRecFN (binary32 multiply), IEEE 754 I/O -----
+    wire [31:0] ieee_a = lfsr[31:0];
+    wire [31:0] ieee_b = lfsr[63:32];
+
+    wire [32:0] rec_a, rec_b;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(ieee_a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(ieee_b), .out(rec_b));
+
+    wire [32:0] rec_out;
+    wire [4:0]  hf_flags;
+    mulRecFN #(.expWidth(8), .sigWidth(24)) dut_hf_mul (
+        .control      (1'b1),
+        .a            (rec_a),
+        .b            (rec_b),
+        .roundingMode (3'b000),
+        .out          (rec_out),
+        .exceptionFlags(hf_flags)
+    );
+
+    wire [31:0] hf_ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(rec_out), .out(hf_ieee_out));
+
+    reg [31:0] hf_out_r;
+    always @(posedge sys_clk) if (ce) hf_out_r <= hf_ieee_out;
+    wire [31:0] mul_fold = hf_out_r;
+
+`elsif DUT_HF_ADD
+    // ----- HardFloat addRecFN (binary32 add/sub), IEEE 754 I/O -----
+    wire [31:0] ieee_a = lfsr[31:0];
+    wire [31:0] ieee_b = lfsr[63:32];
+    wire        hf_sub = lfsr[0];
+
+    wire [32:0] rec_a, rec_b;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(ieee_a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(ieee_b), .out(rec_b));
+
+    wire [32:0] rec_out;
+    wire [4:0]  hf_flags;
+    addRecFN #(.expWidth(8), .sigWidth(24)) dut_hf_add (
+        .control      (1'b1),
+        .subOp        (hf_sub),
+        .a            (rec_a),
+        .b            (rec_b),
+        .roundingMode (3'b000),
+        .out          (rec_out),
+        .exceptionFlags(hf_flags)
+    );
+
+    wire [31:0] hf_ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(rec_out), .out(hf_ieee_out));
+
+    reg [31:0] hf_out_r;
+    always @(posedge sys_clk) if (ce) hf_out_r <= hf_ieee_out;
+    wire [31:0] mul_fold = hf_out_r;
+
+`else
+    // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];
     wire signed  [7:0] fma_a_exp  = lfsr[32:25];
     wire signed [24:0] fma_b_frac = lfsr[57:33];
@@ -142,7 +237,6 @@ module top_ntsc (
         .result_frac(fma_r_frac), .result_exp(fma_r_exp)
     );
 
-    // Register output with CE (combinational DUT)
     reg signed [24:0] fma_r_frac_r;
     reg signed  [7:0] fma_r_exp_r;
     always @(posedge sys_clk) if (ce) begin
@@ -152,6 +246,7 @@ module top_ntsc (
 
     wire [32:0] fma_out = {fma_r_exp_r, fma_r_frac_r};
     wire [31:0] mul_fold = fma_out[31:0] ^ {31'b0, fma_out[32]};
+`endif
 
     // =========================================================================
     // Protocol counter + accumulator + phase FSM

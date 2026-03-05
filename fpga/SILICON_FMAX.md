@@ -62,6 +62,62 @@ Silicon Fmax from binary search on real hardware.
   - Splits compound — neither helps alone, but together they break two
     independent bottlenecks.
 
+### Spirix vs HardFloat — IEEE 754 End-to-End Comparison
+
+Binary32-equivalent precision. Pure LUT4 (`-nowidelut`). Both wrapped in
+registered input/output benches. HardFloat includes fNToRecFN input converters
+and recFNToFN output converter for proper IEEE 754 binary32 I/O.
+
+Spirix: FRAC=25, EXP=8, two's complement, N1-normalized, native IEEE binary32.
+HardFloat: expWidth=8, sigWidth=24, recoded format + IEEE converters.
+
+| Operation | Spirix LUT4 | DSP | Silicon Fmax | HF+IEEE LUT4 | DSP | Silicon Fmax | LUT4 Delta | Fmax Delta |
+|-----------|-------------|-----|-------------|---------------|-----|-------------|------------|------------|
+| Add/Sub | 618 | 0 | 95 MHz | 1050 | 0 | 88 MHz | **-41%** | **+8%** |
+| Multiply | 94 | 4 | 115 MHz | 786 | 4 | 65 MHz | **-88%** | **+77%** |
+| FMA | 1128 | 4 | 63 MHz | 2057 | 4 | 47 MHz | **-45%** | **+34%** |
+
+**Spirix wins on both area and speed for every operation.**
+
+- **Multiply** is the standout: 8.4x smaller and 1.8x faster. Spirix's DSP18
+  blocks handle the 25×25 signed multiply directly; HardFloat's unsigned
+  significand format requires extra logic, and the converters add CLZ +
+  subnormal barrel shifters on top.
+
+- **Add/Sub** is the closest race: only 8% faster on silicon, but 41% smaller.
+  HardFloat's adder is genuinely well-optimized (recoded format eliminates
+  leading-zero detection for subnormals), but the converter overhead at system
+  boundaries erases most of that advantage.
+
+- **FMA** pre-alignment gives Spirix a 34% speed edge. The barrel shifter runs
+  in parallel with the DSP multiply, hiding alignment latency entirely.
+
+Apples-to-apples caveats:
+- HardFloat includes full IEEE special-case handling (NaN, Inf, signed zero,
+  all rounding modes, subnormal support). Spirix has none of this — only
+  ambiguous-exponent for zero/underflow and RNE rounding.
+- HardFloat's recoded format (33-bit) is designed for chained operations
+  without conversion overhead. In a pipeline staying in recoded format,
+  the converter cost is amortized. These numbers represent the worst case
+  for HardFloat (single-op, IEEE in/out).
+- LUT4 counts from `yosys synth_ecp5 -nowidelut`. Silicon Fmax from binary
+  search on Colorlight 5A-75B, seed=4.
+
+### HardFloat Core-Only Reference (no IEEE converters)
+
+For comparison, HardFloat core modules in their native recoded format:
+
+| Operation | HF Core LUT4 | DSP | Fmax (est) |
+|-----------|-------------|-----|------------|
+| addRecFN | 546 | 0 | 38 MHz |
+| mulRecFN | 282 | 4 | 41 MHz |
+| divSqrtRecFN (div) | 407 | 0 | 96 MHz |
+| divSqrtRecFN (sqrt) | 393 | 0 | 76 MHz |
+| mulAddRecFN | 1344 | 4 | 21 MHz |
+
+Note: Spirix divide_iter is multi-cycle (25 clocks); HardFloat divSqrtRecFN is
+also multi-cycle (~26 clocks). Both have similar throughput (~6 Mop/s).
+
 ### Test Harness
 
 - **PRNG:** 64-bit Galois LFSR, taps x^64+x^63+x^61+x^60 (1 LUT critical path)
