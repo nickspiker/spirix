@@ -36,6 +36,7 @@ module spirix_divmod_nr #(
     parameter ENABLE_MOD = 0   // 0 = divide only (6 cyc), 1 = divide + modulo (6/8 cyc)
 )(
     input  wire clk,
+    input  wire ce,
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
@@ -357,7 +358,7 @@ module spirix_divmod_nr #(
     reg [FRAC_BITS:0]        s1_e1_r;
     reg                      s1_b_zero_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s1_sign_r      <= s1_result_sign;
         if (ENABLE_MOD) s1_a_sign_r <= s1_a_sign;
         s1_a_exp_adj_r <= s1_a_exp_adj;
@@ -387,7 +388,7 @@ module spirix_divmod_nr #(
     reg [FRAC_BITS:0]        s2_p2_r;
     reg                      s2_b_zero_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s2_sign_r      <= s1_sign_r;
         if (ENABLE_MOD) s2_a_sign_r <= s1_a_sign_r;
         s2_a_exp_adj_r <= s1_a_exp_adj_r;
@@ -415,7 +416,7 @@ module spirix_divmod_nr #(
     reg [FRAC_BITS-1:0]      s3_x2_r;
     reg                      s3_b_zero_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s3_sign_r      <= s2_sign_r;
         if (ENABLE_MOD) s3_a_sign_r <= s2_a_sign_r;
         s3_a_exp_adj_r <= s2_a_exp_adj_r;
@@ -440,7 +441,7 @@ module spirix_divmod_nr #(
     reg [MAG-1:0]            s4_abs_a_r, s4_abs_b_r;
     reg                      s4_b_zero_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s4_sign_r       <= s3_sign_r;
         if (ENABLE_MOD) s4_a_sign_r <= s3_a_sign_r;
         s4_a_exp_adj_r  <= s3_a_exp_adj_r;
@@ -541,7 +542,7 @@ module spirix_divmod_nr #(
     reg                      s5_d_neg_r;
     reg                      s5_d_gt_F_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s5_sign_r       <= s4_sign_r;
         s5_a_exp_adj_r  <= s4_a_exp_adj_r;
         s5_b_exp_adj_r  <= s4_b_exp_adj_r;
@@ -604,7 +605,7 @@ module spirix_divmod_nr #(
     wire signed [EXP_BITS-1:0] s6_final_exp = s6_exp_final[EXP_BITS-1:0];
 
     // --- Quotient output register ---
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         q_frac <= s5_b_zero_r     ? {FRAC_BITS{1'b0}} :
                   s6_exp_too_big   ? s6_final_frac :
                   s6_exp_too_small ? {s6_final_frac[FRAC_BITS-1],
@@ -642,7 +643,7 @@ module spirix_divmod_nr #(
     reg signed [EXP_BITS:0]  s6_a_exp_mod_r;
     reg signed [EXP_BITS:0]  s6_b_exp_mod_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         if (ENABLE_MOD) begin
             s6_M_r              <= s6_M;
             s6_abs_a_r          <= s5_abs_a_r;
@@ -723,7 +724,7 @@ module spirix_divmod_nr #(
     reg                      s7_mod_zero_r;
     reg                      s7_mod_ambig_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         if (ENABLE_MOD) begin
             s7_mod_mag_r   <= s7_mod_mag;
             s7_mod_exp_r   <= s7_mod_exp_raw;
@@ -777,7 +778,7 @@ module spirix_divmod_nr #(
     wire s8_exp_too_small = (s8_exp_final < MIN_EXP);
 
     // --- Modulo output register ---
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         if (ENABLE_MOD) begin
             mod_frac <= (s7_mod_zero_r | s7_mod_ambig_r) ? {FRAC_BITS{1'b0}} :
                         s8_exp_too_big   ? s8_signed_frac :

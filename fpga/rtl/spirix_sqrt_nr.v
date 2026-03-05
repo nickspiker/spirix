@@ -1,19 +1,21 @@
-// spirix_sqrt_nr — 7-stage pipelined Newton-Raphson square root for Spirix scalars
+// spirix_sqrt_nr — 10-stage pipelined Newton-Raphson square root for Spirix scalars
 //
 // Computes sqrt(a) using inverse-sqrt NR approximation:
 //   1/sqrt(S) via LUT seed + 2 quadratic-convergence iterations (10→20→40 bits),
 //   then multiply by S to get sqrt(S), with ±1 correction for exact results.
 //
-// Latency: 8 cycles. Throughput: 1 sqrt per clock.
+// Latency: 10 cycles. Throughput: 1 sqrt per clock.
 //
-//   Stage 1: Sign/abs, exponent even/odd → radicand S, LUT → x₀, x₀² → H₀
-//   Stage 2: S×H₀ → P₁, E₁ = 3·2²⁴ − P₁, x₀×E₁ >> 25 → X₁  (cascaded)
-//   Stage 3: X₁² → H₁
-//   Stage 4: S×H₁ → P₂, E₂ = 3·2²⁴ − P₂
-//   Stage 5: X₁×E₂ >> 25 → X₂  (~30-bit accurate 1/sqrt)
-//   Stage 6: S×X₂ → raw sqrt, raw²  (two serial multiplies, no logic)
-//   Stage 7: ±4 correction via additive thresholds  (no multiplies)
-//   Stage 8: Normalize + Banker's round + exponent + clamp
+//   Stage 1:  Sign/abs, exponent even/odd → radicand S, LUT → x₀, x₀² → H₀
+//   Stage 2:  S×H₀ → P₁, E₁ = 3·2²⁴ − P₁
+//   Stage 3:  x₀×E₁ >> 25 → X₁
+//   Stage 4:  X₁² → H₁
+//   Stage 5:  S×H₁ → P₂, E₂ = 3·2²⁴ − P₂
+//   Stage 6:  X₁×E₂ >> 25 → X₂  (~30-bit accurate 1/sqrt)
+//   Stage 7:  S×X₂ → raw sqrt
+//   Stage 8:  raw²
+//   Stage 9:  ±4 correction via additive thresholds  (no multiplies)
+//   Stage 10: Normalize + Banker's round + exponent + clamp
 //
 // Negative input or zero returns (0, AMBIGUOUS_EXP).
 //
@@ -31,6 +33,7 @@ module spirix_sqrt_nr #(
     parameter EXP_BITS  = 8
 )(
     input  wire clk,
+    input  wire ce,
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
     output reg  signed [FRAC_BITS-1:0] result_frac,
@@ -299,7 +302,7 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s1_h0_r;
     reg                      s1_invalid_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s1_exp_base_r <= s1_result_exp_base;
         s1_S_r        <= s1_S;
         s1_x0_r       <= s1_x0;
@@ -308,250 +311,278 @@ module spirix_sqrt_nr #(
     end
 
     // =========================================================================
-    // Stage 2: P₁ = (S×H₀)[48:24], E₁ = 3·2²⁴ − P₁, X₁ = (x₀×E₁)[49:25]
+    // Stage 2: P₁ = (S×H₀)[48:24], E₁ = 3·2²⁴ − P₁
     //
-    // NR iteration 1: x₁ = x₀/2 × (3 − s×x₀²)
-    // Fixed-point: P₁ ≈ s×(1/s)×2²⁴ = 2²⁴ at convergence
-    //              E₁ ≈ (3−1)×2²⁴ = 2²⁵ at convergence
-    //              X₁ ≈ x₀×2²⁵/2²⁵ = x₀ at convergence
+    // NR iteration 1, first half: one multiply + subtraction.
     // =========================================================================
 
-    // S (25b) × H₀ (25b) = 50 bits. P₁ = [48:24] = 25 bits
     wire [2*FRAC_BITS-1:0] s2_sh0_full = s1_S_r * s1_h0_r;
     wire [FRAC_BITS-1:0] s2_p1 = s2_sh0_full[2*FRAC_BITS-2 : FRAC_BITS-1]; // [48:24]
 
-    // E₁ = 3·2²⁴ − P₁ (26 bits, ≈ 2²⁵ at convergence)
     wire [FRAC_BITS:0] s2_e1 = {2'b11, {(FRAC_BITS-1){1'b0}}} - {1'b0, s2_p1};
-
-    // X₁ = (x₀ × E₁) >> 25: x₀ (25b) × E₁ (26b) = 51 bits. [49:25] = 25 bits
-    wire [FRAC_BITS + FRAC_BITS:0] s2_x0e1_full = s1_x0_r * s2_e1;  // 51 bits
-    wire [FRAC_BITS-1:0] s2_x1 = s2_x0e1_full[2*FRAC_BITS-1 : FRAC_BITS]; // [49:25]
 
     reg signed [EXP_BITS:0] s2_exp_base_r;
     reg [FRAC_BITS-1:0]     s2_S_r;
-    reg [FRAC_BITS-1:0]     s2_x1_r;
+    reg [FRAC_BITS-1:0]     s2_x0_r;
+    reg [FRAC_BITS:0]        s2_e1_r;
     reg                      s2_invalid_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s2_exp_base_r <= s1_exp_base_r;
         s2_S_r        <= s1_S_r;
-        s2_x1_r       <= s2_x1;
+        s2_x0_r       <= s1_x0_r;
+        s2_e1_r       <= s2_e1;
         s2_invalid_r  <= s1_invalid_r;
     end
 
     // =========================================================================
-    // Stage 3: H₁ = X₁² >> 24
+    // Stage 3: X₁ = (x₀ × E₁) >> 25
+    //
+    // NR iteration 1, second half: one multiply.
     // =========================================================================
 
-    wire [2*FRAC_BITS-1:0] s3_x1_sq_full = s2_x1_r * s2_x1_r;  // 50 bits
-    wire [FRAC_BITS-1:0] s3_h1 = s3_x1_sq_full[2*FRAC_BITS-2 : FRAC_BITS-1]; // [48:24]
+    wire [FRAC_BITS + FRAC_BITS:0] s3_x0e1_full = s2_x0_r * s2_e1_r;  // 51 bits
+    wire [FRAC_BITS-1:0] s3_x1 = s3_x0e1_full[2*FRAC_BITS-1 : FRAC_BITS]; // [49:25]
 
     reg signed [EXP_BITS:0] s3_exp_base_r;
     reg [FRAC_BITS-1:0]     s3_S_r;
     reg [FRAC_BITS-1:0]     s3_x1_r;
-    reg [FRAC_BITS-1:0]     s3_h1_r;
     reg                      s3_invalid_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s3_exp_base_r <= s2_exp_base_r;
         s3_S_r        <= s2_S_r;
-        s3_x1_r       <= s2_x1_r;
-        s3_h1_r       <= s3_h1;
+        s3_x1_r       <= s3_x1;
         s3_invalid_r  <= s2_invalid_r;
     end
 
     // =========================================================================
-    // Stage 4: P₂ = (S×H₁)[48:24], E₂ = 3·2²⁴ − P₂
+    // Stage 4: H₁ = X₁² >> 24
     // =========================================================================
 
-    wire [2*FRAC_BITS-1:0] s4_sh1_full = s3_S_r * s3_h1_r;
-    wire [FRAC_BITS-1:0] s4_p2 = s4_sh1_full[2*FRAC_BITS-2 : FRAC_BITS-1]; // [48:24]
-
-    wire [FRAC_BITS:0] s4_e2 = {2'b11, {(FRAC_BITS-1){1'b0}}} - {1'b0, s4_p2};
+    wire [2*FRAC_BITS-1:0] s4_x1_sq_full = s3_x1_r * s3_x1_r;  // 50 bits
+    wire [FRAC_BITS-1:0] s4_h1 = s4_x1_sq_full[2*FRAC_BITS-2 : FRAC_BITS-1]; // [48:24]
 
     reg signed [EXP_BITS:0] s4_exp_base_r;
     reg [FRAC_BITS-1:0]     s4_S_r;
     reg [FRAC_BITS-1:0]     s4_x1_r;
-    reg [FRAC_BITS:0]        s4_e2_r;
+    reg [FRAC_BITS-1:0]     s4_h1_r;
     reg                      s4_invalid_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s4_exp_base_r <= s3_exp_base_r;
         s4_S_r        <= s3_S_r;
         s4_x1_r       <= s3_x1_r;
-        s4_e2_r       <= s4_e2;
+        s4_h1_r       <= s4_h1;
         s4_invalid_r  <= s3_invalid_r;
     end
 
     // =========================================================================
-    // Stage 5: X₂ = (X₁ × E₂) >> 25   (~40-bit accurate 1/sqrt(S))
+    // Stage 5: P₂ = (S×H₁)[48:24], E₂ = 3·2²⁴ − P₂
     // =========================================================================
 
-    wire [FRAC_BITS + FRAC_BITS:0] s5_x1e2_full = s4_x1_r * s4_e2_r;  // 51 bits
-    wire [FRAC_BITS-1:0] s5_x2 = s5_x1e2_full[2*FRAC_BITS-1 : FRAC_BITS]; // [49:25]
+    wire [2*FRAC_BITS-1:0] s5_sh1_full = s4_S_r * s4_h1_r;
+    wire [FRAC_BITS-1:0] s5_p2 = s5_sh1_full[2*FRAC_BITS-2 : FRAC_BITS-1]; // [48:24]
+
+    wire [FRAC_BITS:0] s5_e2 = {2'b11, {(FRAC_BITS-1){1'b0}}} - {1'b0, s5_p2};
 
     reg signed [EXP_BITS:0] s5_exp_base_r;
     reg [FRAC_BITS-1:0]     s5_S_r;
-    reg [FRAC_BITS-1:0]     s5_x2_r;
+    reg [FRAC_BITS-1:0]     s5_x1_r;
+    reg [FRAC_BITS:0]        s5_e2_r;
     reg                      s5_invalid_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s5_exp_base_r <= s4_exp_base_r;
         s5_S_r        <= s4_S_r;
-        s5_x2_r       <= s5_x2;
+        s5_x1_r       <= s4_x1_r;
+        s5_e2_r       <= s5_e2;
         s5_invalid_r  <= s4_invalid_r;
     end
 
     // =========================================================================
-    // Stage 6: sqrt_raw = (S × X₂)[48:23], raw² (two serial multiplies)
-    //
-    // Split from correction to avoid two multiplies + compare in one clock.
+    // Stage 6: X₂ = (X₁ × E₂) >> 25   (~40-bit accurate 1/sqrt(S))
     // =========================================================================
 
-    wire [2*FRAC_BITS-1:0] s6_sx2_full = s5_S_r * s5_x2_r;  // 50 bits
-    wire [FRAC_BITS:0] s6_sqrt_raw = s6_sx2_full[2*FRAC_BITS-2 : FRAC_BITS-2]; // [48:23] = 26 bits
-
-    localparam CW = 2*(FRAC_BITS+1);  // 52 bits for comparison
-    wire [CW-1:0] s6_raw_sq = s6_sqrt_raw * s6_sqrt_raw;
+    wire [FRAC_BITS + FRAC_BITS:0] s6_x1e2_full = s5_x1_r * s5_e2_r;  // 51 bits
+    wire [FRAC_BITS-1:0] s6_x2 = s6_x1e2_full[2*FRAC_BITS-1 : FRAC_BITS]; // [49:25]
 
     reg signed [EXP_BITS:0] s6_exp_base_r;
     reg [FRAC_BITS-1:0]     s6_S_r;
-    reg [FRAC_BITS:0]        s6_raw_r;
-    reg [CW-1:0]             s6_raw_sq_r;
+    reg [FRAC_BITS-1:0]     s6_x2_r;
     reg                      s6_invalid_r;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s6_exp_base_r <= s5_exp_base_r;
         s6_S_r        <= s5_S_r;
-        s6_raw_r      <= s6_sqrt_raw;
-        s6_raw_sq_r   <= s6_raw_sq;
+        s6_x2_r       <= s6_x2;
         s6_invalid_r  <= s5_invalid_r;
     end
 
     // =========================================================================
-    // Stage 7: ±4 correction from registered raw² (no multiplies)
+    // Stage 7: sqrt_raw = (S × X₂)[48:23]  (one multiply)
+    // =========================================================================
+
+    wire [2*FRAC_BITS-1:0] s7_sx2_full = s6_S_r * s6_x2_r;  // 50 bits
+    wire [FRAC_BITS:0] s7_sqrt_raw = s7_sx2_full[2*FRAC_BITS-2 : FRAC_BITS-2]; // [48:23] = 26 bits
+
+    reg signed [EXP_BITS:0] s7_exp_base_r;
+    reg [FRAC_BITS-1:0]     s7_S_r;
+    reg [FRAC_BITS:0]        s7_raw_r;
+    reg                      s7_invalid_r;
+
+    always @(posedge clk) if (ce) begin
+        s7_exp_base_r <= s6_exp_base_r;
+        s7_S_r        <= s6_S_r;
+        s7_raw_r      <= s7_sqrt_raw;
+        s7_invalid_r  <= s6_invalid_r;
+    end
+
+    // =========================================================================
+    // Stage 8: raw² = sqrt_raw × sqrt_raw  (one multiply)
+    // =========================================================================
+
+    localparam CW = 2*(FRAC_BITS+1);  // 52 bits for comparison
+    wire [CW-1:0] s8_raw_sq = s7_raw_r * s7_raw_r;
+
+    reg signed [EXP_BITS:0] s8_exp_base_r;
+    reg [FRAC_BITS-1:0]     s8_S_r;
+    reg [FRAC_BITS:0]        s8_raw_r;
+    reg [CW-1:0]             s8_raw_sq_r;
+    reg                      s8_invalid_r;
+
+    always @(posedge clk) if (ce) begin
+        s8_exp_base_r <= s7_exp_base_r;
+        s8_S_r        <= s7_S_r;
+        s8_raw_r      <= s7_raw_r;
+        s8_raw_sq_r   <= s8_raw_sq;
+        s8_invalid_r  <= s7_invalid_r;
+    end
+
+    // =========================================================================
+    // Stage 9: ±4 correction from registered raw² (no multiplies)
     //
     // Uses additive identity: (raw±k)² = raw² ± 2k·raw + k²
     // Compares against S_scaled = S << 26 to find floor(sqrt(S·2²⁶)).
     // =========================================================================
 
-    wire [CW-1:0] s7_S_scaled = {1'b0, s6_S_r, {(FRAC_BITS+1){1'b0}}};
+    wire [CW-1:0] s9_S_scaled = {1'b0, s8_S_r, {(FRAC_BITS+1){1'b0}}};
 
-    wire s7_is_big = (s6_raw_sq_r > s7_S_scaled);
-    wire [CW-1:0] s7_diff = s7_is_big ? (s6_raw_sq_r - s7_S_scaled)
-                                        : (s7_S_scaled - s6_raw_sq_r);
+    wire s9_is_big = (s8_raw_sq_r > s9_S_scaled);
+    wire [CW-1:0] s9_diff = s9_is_big ? (s8_raw_sq_r - s9_S_scaled)
+                                        : (s9_S_scaled - s8_raw_sq_r);
 
     // Multiples of raw (shifts + one add for 6×)
-    wire [CW-1:0] s7_2r = {{(CW-FRAC_BITS-2){1'b0}}, s6_raw_r, 1'b0};
-    wire [CW-1:0] s7_4r = {{(CW-FRAC_BITS-3){1'b0}}, s6_raw_r, 2'b0};
-    wire [CW-1:0] s7_6r = s7_4r + s7_2r;
-    wire [CW-1:0] s7_8r = {{(CW-FRAC_BITS-4){1'b0}}, s6_raw_r, 3'b0};
+    wire [CW-1:0] s9_2r = {{(CW-FRAC_BITS-2){1'b0}}, s8_raw_r, 1'b0};
+    wire [CW-1:0] s9_4r = {{(CW-FRAC_BITS-3){1'b0}}, s8_raw_r, 2'b0};
+    wire [CW-1:0] s9_6r = s9_4r + s9_2r;
+    wire [CW-1:0] s9_8r = {{(CW-FRAC_BITS-4){1'b0}}, s8_raw_r, 3'b0};
 
     // Too-big thresholds: diff ≤ 2k·raw − k²
-    wire [CW-1:0] s7_tm1 = s7_2r - 1;
-    wire [CW-1:0] s7_tm2 = s7_4r - 4;
-    wire [CW-1:0] s7_tm3 = s7_6r - 9;
-    wire [CW-1:0] s7_tm4 = s7_8r - 16;
+    wire [CW-1:0] s9_tm1 = s9_2r - 1;
+    wire [CW-1:0] s9_tm2 = s9_4r - 4;
+    wire [CW-1:0] s9_tm3 = s9_6r - 9;
+    wire [CW-1:0] s9_tm4 = s9_8r - 16;
 
     // Too-small thresholds: gap ≥ 2k·raw + k²
-    wire [CW-1:0] s7_tp1 = s7_2r + 1;
-    wire [CW-1:0] s7_tp2 = s7_4r + 4;
-    wire [CW-1:0] s7_tp3 = s7_6r + 9;
-    wire [CW-1:0] s7_tp4 = s7_8r + 16;
+    wire [CW-1:0] s9_tp1 = s9_2r + 1;
+    wire [CW-1:0] s9_tp2 = s9_4r + 4;
+    wire [CW-1:0] s9_tp3 = s9_6r + 9;
+    wire [CW-1:0] s9_tp4 = s9_8r + 16;
 
-    reg [FRAC_BITS:0] s7_sqrt_corrected;
-    reg               s7_rem_sticky;
+    reg [FRAC_BITS:0] s9_sqrt_corrected;
+    reg               s9_rem_sticky;
 
     always @(*) begin
-        if (s7_is_big) begin
-            if (s7_diff <= s7_tm1) begin
-                s7_sqrt_corrected = s6_raw_r - 1;
-                s7_rem_sticky     = (s7_diff != s7_tm1);
-            end else if (s7_diff <= s7_tm2) begin
-                s7_sqrt_corrected = s6_raw_r - 2;
-                s7_rem_sticky     = (s7_diff != s7_tm2);
-            end else if (s7_diff <= s7_tm3) begin
-                s7_sqrt_corrected = s6_raw_r - 3;
-                s7_rem_sticky     = (s7_diff != s7_tm3);
+        if (s9_is_big) begin
+            if (s9_diff <= s9_tm1) begin
+                s9_sqrt_corrected = s8_raw_r - 1;
+                s9_rem_sticky     = (s9_diff != s9_tm1);
+            end else if (s9_diff <= s9_tm2) begin
+                s9_sqrt_corrected = s8_raw_r - 2;
+                s9_rem_sticky     = (s9_diff != s9_tm2);
+            end else if (s9_diff <= s9_tm3) begin
+                s9_sqrt_corrected = s8_raw_r - 3;
+                s9_rem_sticky     = (s9_diff != s9_tm3);
             end else begin
-                s7_sqrt_corrected = s6_raw_r - 4;
-                s7_rem_sticky     = (s7_diff != s7_tm4);
+                s9_sqrt_corrected = s8_raw_r - 4;
+                s9_rem_sticky     = (s9_diff != s9_tm4);
             end
         end else begin
-            if (s7_diff >= s7_tp4) begin
-                s7_sqrt_corrected = s6_raw_r + 4;
-                s7_rem_sticky     = (s7_diff != s7_tp4);
-            end else if (s7_diff >= s7_tp3) begin
-                s7_sqrt_corrected = s6_raw_r + 3;
-                s7_rem_sticky     = (s7_diff != s7_tp3);
-            end else if (s7_diff >= s7_tp2) begin
-                s7_sqrt_corrected = s6_raw_r + 2;
-                s7_rem_sticky     = (s7_diff != s7_tp2);
-            end else if (s7_diff >= s7_tp1) begin
-                s7_sqrt_corrected = s6_raw_r + 1;
-                s7_rem_sticky     = (s7_diff != s7_tp1);
+            if (s9_diff >= s9_tp4) begin
+                s9_sqrt_corrected = s8_raw_r + 4;
+                s9_rem_sticky     = (s9_diff != s9_tp4);
+            end else if (s9_diff >= s9_tp3) begin
+                s9_sqrt_corrected = s8_raw_r + 3;
+                s9_rem_sticky     = (s9_diff != s9_tp3);
+            end else if (s9_diff >= s9_tp2) begin
+                s9_sqrt_corrected = s8_raw_r + 2;
+                s9_rem_sticky     = (s9_diff != s9_tp2);
+            end else if (s9_diff >= s9_tp1) begin
+                s9_sqrt_corrected = s8_raw_r + 1;
+                s9_rem_sticky     = (s9_diff != s9_tp1);
             end else begin
-                s7_sqrt_corrected = s6_raw_r;
-                s7_rem_sticky     = (s7_diff != 0);
+                s9_sqrt_corrected = s8_raw_r;
+                s9_rem_sticky     = (s9_diff != 0);
             end
         end
     end
 
-    reg signed [EXP_BITS:0] s7_exp_base_r;
-    reg [FRAC_BITS:0]        s7_sqrt_r;
-    reg                      s7_rem_sticky_r;
-    reg                      s7_invalid_r;
+    reg signed [EXP_BITS:0] s9_exp_base_r;
+    reg [FRAC_BITS:0]        s9_sqrt_r;
+    reg                      s9_rem_sticky_r;
+    reg                      s9_invalid_r;
 
-    always @(posedge clk) begin
-        s7_exp_base_r   <= s6_exp_base_r;
-        s7_sqrt_r       <= s7_sqrt_corrected;
-        s7_rem_sticky_r <= s7_rem_sticky;
-        s7_invalid_r    <= s6_invalid_r;
+    always @(posedge clk) if (ce) begin
+        s9_exp_base_r   <= s8_exp_base_r;
+        s9_sqrt_r       <= s9_sqrt_corrected;
+        s9_rem_sticky_r <= s9_rem_sticky;
+        s9_invalid_r    <= s8_invalid_r;
     end
 
     // =========================================================================
-    // Stage 8: Normalize + Banker's round + exponent + clamp
+    // Stage 10: Normalize + Banker's round + exponent + clamp
     //
     // sqrt_corrected ≈ sqrt(s)×2²⁵, 26 bits.
     // sqrt(s) ∈ [0.707, 1.414], so value ∈ [2²⁴·⁵, 2²⁵·⁵].
     // Bit 25 may or may not be set → normalize by 0 or 1 right shift.
     // =========================================================================
 
-    wire s8_norm_shift = s7_sqrt_r[FRAC_BITS];
-    wire [FRAC_BITS:0] s8_q_norm = s8_norm_shift ? (s7_sqrt_r >> 1) : s7_sqrt_r;
+    wire s10_norm_shift = s9_sqrt_r[FRAC_BITS];
+    wire [FRAC_BITS:0] s10_q_norm = s10_norm_shift ? (s9_sqrt_r >> 1) : s9_sqrt_r;
 
-    wire [FRAC_BITS-1:0] s8_frac_pos_raw = s8_q_norm[FRAC_BITS:1];
+    wire [FRAC_BITS-1:0] s10_frac_pos_raw = s10_q_norm[FRAC_BITS:1];
 
     // Banker's rounding (RNE)
-    wire s8_guard = s8_q_norm[0];
-    wire s8_norm_sticky = s8_norm_shift & s7_sqrt_r[0];
-    wire s8_sticky = s8_norm_sticky | s7_rem_sticky_r;
-    wire s8_lsb = s8_frac_pos_raw[0];
-    wire s8_round_up = s8_guard & (s8_sticky | s8_lsb);
+    wire s10_guard = s10_q_norm[0];
+    wire s10_norm_sticky = s10_norm_shift & s9_sqrt_r[0];
+    wire s10_sticky = s10_norm_sticky | s9_rem_sticky_r;
+    wire s10_lsb = s10_frac_pos_raw[0];
+    wire s10_round_up = s10_guard & (s10_sticky | s10_lsb);
 
-    wire [FRAC_BITS-1:0] s8_frac_rounded = s8_frac_pos_raw
-                                              + {{(FRAC_BITS-1){1'b0}}, s8_round_up};
+    wire [FRAC_BITS-1:0] s10_frac_rounded = s10_frac_pos_raw
+                                              + {{(FRAC_BITS-1){1'b0}}, s10_round_up};
 
-    wire s8_round_ovf = (&s8_frac_pos_raw[FRAC_BITS-2:0]) & s8_round_up;
-    wire [FRAC_BITS-1:0] s8_pos_frac = s8_round_ovf ? POS_HALF : s8_frac_rounded;
+    wire s10_round_ovf = (&s10_frac_pos_raw[FRAC_BITS-2:0]) & s10_round_up;
+    wire [FRAC_BITS-1:0] s10_pos_frac = s10_round_ovf ? POS_HALF : s10_frac_rounded;
 
     // Exponent: base + norm_shift + round_ovf
-    wire signed [EXP_BITS:0] s8_exp_out = s7_exp_base_r
-                                          + {{EXP_BITS{1'b0}}, s8_norm_shift}
-                                          + {{EXP_BITS{1'b0}}, s8_round_ovf};
+    wire signed [EXP_BITS:0] s10_exp_out = s9_exp_base_r
+                                          + {{EXP_BITS{1'b0}}, s10_norm_shift}
+                                          + {{EXP_BITS{1'b0}}, s10_round_ovf};
 
-    wire s8_exp_too_big   = (s8_exp_out > MAX_EXP);
-    wire s8_exp_too_small = (s8_exp_out < MIN_EXP);
+    wire s10_exp_too_big   = (s10_exp_out > MAX_EXP);
+    wire s10_exp_too_small = (s10_exp_out < MIN_EXP);
 
     // Output register (sqrt is always non-negative)
-    always @(posedge clk) begin
-        result_frac <= s7_invalid_r    ? {FRAC_BITS{1'b0}} :
-                       s8_exp_too_big  ? $signed(s8_pos_frac) :
-                       s8_exp_too_small ? $signed({1'b0, s8_pos_frac[FRAC_BITS-1:1]}) :
-                                          $signed(s8_pos_frac);
+    always @(posedge clk) if (ce) begin
+        result_frac <= s9_invalid_r     ? {FRAC_BITS{1'b0}} :
+                       s10_exp_too_big  ? $signed(s10_pos_frac) :
+                       s10_exp_too_small ? $signed({1'b0, s10_pos_frac[FRAC_BITS-1:1]}) :
+                                          $signed(s10_pos_frac);
 
-        result_exp  <= (s7_invalid_r | s8_exp_too_big | s8_exp_too_small) ?
-                        AMBIGUOUS_EXP[EXP_BITS-1:0] : s8_exp_out[EXP_BITS-1:0];
+        result_exp  <= (s9_invalid_r | s10_exp_too_big | s10_exp_too_small) ?
+                        AMBIGUOUS_EXP[EXP_BITS-1:0] : s10_exp_out[EXP_BITS-1:0];
     end
 
 endmodule

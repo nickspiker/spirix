@@ -6,3 +6,14 @@ IOBUF PORT "clk" IO_TYPE=LVCMOS33;
 
 LOCATE COMP "led" SITE "T6";
 IOBUF PORT "led" IO_TYPE=LVCMOS33;
+
+# J1 HUB75 connector — accent accent NTSC composite output
+LOCATE COMP "ntsc_sync" SITE "C4";
+IOBUF PORT "ntsc_sync" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "ntsc_vid" SITE "D4";
+IOBUF PORT "ntsc_vid" IO_TYPE=LVCMOS33;
+
+# User button (active-low)
+LOCATE COMP "btn" SITE "R7";
+IOBUF PORT "btn" IO_TYPE=LVCMOS33;

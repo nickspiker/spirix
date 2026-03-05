@@ -88,49 +88,19 @@ module spirix_addsub #(
                                         + {{(INT_BITS-1){1'b0}}, sub};
     wire close_is_zero = (close_sum == 0);
 
-    // CLZ: XOR adjacent bits to find the first sign-bit boundary. Compress
-    // pairs with OR to halve the width, then use isolation-bit (lowbit) trick
-    // on the reversed compressed vector for O(1) gate-depth coarse position.
+    // CLZ: XOR adjacent bits to find first sign-bit boundary, then priority
+    // encode to get the leading count. Simple tree — ~3-4 LUT levels for 27 bits.
     localparam DIFF_W = INT_BITS - 1;
     wire [DIFF_W-1:0] xor_diff = close_sum[INT_BITS-1:1] ^ close_sum[INT_BITS-2:0];
 
-    localparam COMP_W = (DIFF_W + 1) / 2;
-    wire [COMP_W-1:0] compressed;
-    genvar gi;
-    generate
-        for (gi = 0; gi < COMP_W; gi = gi + 1) begin : compress
-            if (DIFF_W - 1 - 2*gi - 1 >= 0)
-                assign compressed[COMP_W-1-gi] = xor_diff[DIFF_W-1-2*gi] | xor_diff[DIFF_W-1-2*gi-1];
-            else
-                assign compressed[0] = xor_diff[0];
-        end
-    endgenerate
-
-    localparam COMP_CLZ_BITS = $clog2(COMP_W + 1);
-    wire [COMP_W-1:0] comp_rev;
-    genvar ri;
-    generate
-        for (ri = 0; ri < COMP_W; ri = ri + 1) begin : comp_rev_gen
-            assign comp_rev[ri] = compressed[COMP_W - 1 - ri];
-        end
-    endgenerate
-    wire [COMP_W:0] comp_rev_ext = {1'b1, comp_rev};
-    wire [COMP_W:0] comp_one_hot = comp_rev_ext & (~comp_rev_ext + 1);
-    reg [COMP_CLZ_BITS-1:0] comp_clz;
+    reg [BARREL_BITS-1:0] close_norm_shift;
     integer ci;
     always @(*) begin
-        comp_clz = 0;
-        for (ci = 0; ci <= COMP_W; ci = ci + 1)
-            if (comp_one_hot[ci]) comp_clz = comp_clz | ci[COMP_CLZ_BITS-1:0];
+        close_norm_shift = DIFF_W[BARREL_BITS-1:0];
+        for (ci = 0; ci < DIFF_W; ci = ci + 1)
+            if (xor_diff[ci]) close_norm_shift = DIFF_W[BARREL_BITS-1:0] - 1 - ci[BARREL_BITS-1:0];
     end
-
-    // Coarse position from compressed CLZ, then refine with the original
-    // xor_diff bit at that position to get the exact leading count.
-    wire [$clog2(DIFF_W):0] coarse_pos = {comp_clz, 1'b0};
-    wire fixup_bit = xor_diff[DIFF_W - 1 - coarse_pos];
-    wire [$clog2(DIFF_W):0] actual_clz = fixup_bit ? coarse_pos : (coarse_pos + 1);
-    wire [LEAD_BITS-1:0] close_leading = actual_clz + 1;
-    wire [BARREL_BITS-1:0] close_norm_shift = close_leading - 1;
+    wire [LEAD_BITS-1:0] close_leading = close_norm_shift + 1;
 
     // =========================================================================
     // Step 4: Shared barrel shifter

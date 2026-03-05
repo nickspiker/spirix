@@ -65,8 +65,6 @@ module top_ntsc (
     // =========================================================================
     // Constants
     // =========================================================================
-    localparam [31:0] SEED = 32'hCAFE_BABE;
-    localparam PRNG_FILL   = 24;       // cycles to fill 768 bits
     localparam CE_GOLD_DIV = 256;      // gold CE divider (effective freq = PLL/256)
 
     // Protocol: 10-bit counter, bit taps for events (zero comparisons)
@@ -109,48 +107,55 @@ module top_ntsc (
     // Taps: x^64 + x^63 + x^61 + x^60  (maximal, from Xilinx XAPP052)
     // Output: lfsr[31:0] window
     // =========================================================================
-    localparam [63:0] LFSR_SEED = 64'hCAFE_BABE_DEAD_BEEF;
+    localparam [63:0] LFSR_SEED  = 64'hCAFE_BABE_DEAD_BEEF;
+    localparam [63:0] LFSR_SEED2 = 64'h0123_4567_89AB_CDEF;
     localparam [63:0] LFSR_TAPS = 64'hD800000000000000;  // bits 63,62,60,59
 
     reg [63:0] lfsr;
     wire       lfsr_fb = lfsr[0];
     wire [63:0] lfsr_next = {1'b0, lfsr[63:1]} ^ (lfsr_fb ? LFSR_TAPS : 64'b0);
 
-    // Aliases for blake3 fill path
-    reg [31:0] s1, s2, s3;
-    wire [31:0] s1_next = s3 ^ (s3 << 13);
-    wire [31:0] s2_next = s1 ^ (s1 >> 17);
-    wire [31:0] s3_next = s2 ^ (s2 << 5);
-    reg [767:0] sr;
-
     // =========================================================================
-    // Blake3 (CE-gated)
+    // DUT: fma (combinational, 4 DSP)
     // =========================================================================
-    reg         b3_valid;
-    wire [511:0] b3_hash;
-    wire        b3_done;
+    // Second LFSR for c operand (independent sequence)
+    reg [63:0] lfsr2;
+    wire       lfsr2_fb = lfsr2[0];
+    wire [63:0] lfsr2_next = {1'b0, lfsr2[63:1]} ^ (lfsr2_fb ? LFSR_TAPS : 64'b0);
 
-    blake3 b3 (
-        .i_clk(sys_clk),
-        .i_reset(b3_reset_n),
-        .i_ce(ce),
-        .i_chain(sr[255:0]),
-        .i_mblock(sr[767:256]),
-        .i_counter(64'b0),
-        .i_numbytes(32'd64),
-        .i_dflags(32'h03),
-        .i_valid(b3_valid),
-        .o_hash(b3_hash),
-        .o_valid(b3_done)
+    wire signed [24:0] fma_a_frac = lfsr[24:0];
+    wire signed  [7:0] fma_a_exp  = lfsr[32:25];
+    wire signed [24:0] fma_b_frac = lfsr[57:33];
+    wire signed  [7:0] fma_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+    wire signed [24:0] fma_c_frac = lfsr2[24:0];
+    wire signed  [7:0] fma_c_exp  = lfsr2[32:25];
+    wire               fma_sub    = lfsr[0];
+
+    wire signed [24:0] fma_r_frac;
+    wire signed  [7:0] fma_r_exp;
+
+    spirix_fma #(.FRAC_BITS(25), .EXP_BITS(8)) dut_fma (
+        .a_frac(fma_a_frac), .a_exp(fma_a_exp),
+        .b_frac(fma_b_frac), .b_exp(fma_b_exp),
+        .c_frac(fma_c_frac), .c_exp(fma_c_exp),
+        .sub(fma_sub),
+        .result_frac(fma_r_frac), .result_exp(fma_r_exp)
     );
 
+    // Register output with CE (combinational DUT)
+    reg signed [24:0] fma_r_frac_r;
+    reg signed  [7:0] fma_r_exp_r;
+    always @(posedge sys_clk) if (ce) begin
+        fma_r_frac_r <= fma_r_frac;
+        fma_r_exp_r  <= fma_r_exp;
+    end
+
+    wire [32:0] fma_out = {fma_r_exp_r, fma_r_frac_r};
+    wire [31:0] mul_fold = fma_out[31:0] ^ {31'b0, fma_out[32]};
+
     // =========================================================================
-    // Fill/strobe/wait FSM + protocol counter + accumulator + phase FSM
-    // All in ONE always block to avoid multi-driver issues
+    // Protocol counter + accumulator + phase FSM
     // =========================================================================
-    localparam [1:0] F_FILL = 2'd0, F_STROBE = 2'd1, F_WAIT_ACK = 2'd2, F_WAIT_DONE = 2'd3;
-    reg [1:0]  f_state;
-    reg [4:0]  fill_cnt;
 
     reg [PROTO_BITS-1:0] proto_cnt;
     wire       proto_done = proto_cnt[9];           // bit tap: done at 512
@@ -164,13 +169,7 @@ module top_ntsc (
             // Global reset (PLL not locked OR button held)
             phase         <= PH_GOLD;
             lfsr          <= LFSR_SEED;
-            s1            <= SEED;
-            s2            <= 0;
-            s3            <= 0;
-            sr            <= 0;
-            b3_valid      <= 0;
-            f_state       <= F_FILL;
-            fill_cnt      <= 0;
+            lfsr2         <= LFSR_SEED2;
             proto_cnt      <= 0;
             accum          <= 0;
             gold_reg       <= 0;
@@ -191,13 +190,7 @@ module top_ntsc (
                 PH_SWITCH: begin
                     // Reset datapath for test phase
                     lfsr         <= LFSR_SEED;
-                    s1           <= SEED;
-                    s2           <= 0;
-                    s3           <= 0;
-                    sr           <= 0;
-                    b3_valid     <= 0;
-                    f_state      <= F_FILL;
-                    fill_cnt     <= 0;
+                    lfsr2        <= LFSR_SEED2;
                     proto_cnt      <= 0;
                     accum          <= 0;
                     phase          <= PH_TEST;
@@ -216,41 +209,12 @@ module top_ntsc (
             // CE-gated datapath (only runs when ce=1)
             // =================================================================
             if (ce && phase != PH_SWITCH && phase != PH_DONE) begin
-                b3_valid <= 0;
+                lfsr  <= lfsr_next;
+                lfsr2 <= lfsr2_next;
 
-                // LFSR advance (1 bit per CE cycle)
-                lfsr <= lfsr_next;
+                if (accumulating)
+                    accum <= {accum[30:0], accum[31]} ^ mul_fold;
 
-                // Blake3 fill/strobe/wait FSM
-                case (f_state)
-                    F_FILL: begin
-                        sr <= {sr[735:0], lfsr[31:0]};
-                        s1 <= s1_next; s2 <= s2_next; s3 <= s3_next;
-                        fill_cnt <= fill_cnt + 1;
-                        if (fill_cnt == PRNG_FILL - 1)
-                            f_state <= F_STROBE;
-                    end
-                    F_STROBE: begin
-                        b3_valid <= 1;
-                        f_state  <= F_WAIT_ACK;
-                    end
-                    F_WAIT_ACK: begin
-                        // Wait 1 cycle for blake3 to latch input
-                        f_state <= F_WAIT_DONE;
-                    end
-                    F_WAIT_DONE: begin
-                        if (b3_done) begin
-                            // Accumulate when in accumulation window
-                            if (accumulating)
-                                accum <= {accum[30:0], accum[31]} ^ xor_fold(b3_hash);
-                            // Start next fill
-                            fill_cnt <= 0;
-                            f_state  <= F_FILL;
-                        end
-                    end
-                endcase
-
-                // Counter advance (bit 9 = done, stays high = stops counting)
                 if (!proto_done)
                     proto_cnt <= proto_cnt + 1;
             end

@@ -22,6 +22,7 @@ module spirix_multiply_pipe2 #(
     parameter EXP_BITS  = 8
 )(
     input  wire clk,
+    input  wire ce,
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
@@ -51,7 +52,7 @@ module spirix_multiply_pipe2 #(
     reg signed [PROD_BITS-1:0] s1_product;
     reg signed [EXP_BITS:0]    s1_exp_sum;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s1_product <= product_comb;
         s1_exp_sum <= exp_sum;
     end
@@ -101,7 +102,7 @@ module spirix_multiply_pipe2 #(
     wire signed [EXP_BITS-1:0] out_exp = exp_wide[EXP_BITS-1:0];
 
     // Stage 2 output register
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         result_frac <= exp_too_big   ? out_frac :
                        exp_too_small ? {out_frac[FRAC_BITS-1],
                                         out_frac[FRAC_BITS-1:1]} :

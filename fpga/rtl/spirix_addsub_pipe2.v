@@ -43,6 +43,7 @@ module spirix_addsub_pipe2 #(
     parameter EXP_BITS  = 8
 )(
     input  wire clk,
+    input  wire ce,
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
@@ -99,45 +100,19 @@ module spirix_addsub_pipe2 #(
                                         + {{(INT_BITS-1){1'b0}}, sub};
     wire close_is_zero = (close_sum == 0);
 
-    // CLZ: XOR adjacent bits, compress pairs, isolation-bit coarse position.
+    // CLZ: XOR adjacent bits to find first sign-bit boundary, then priority
+    // encode to get the leading count. Simple tree — ~3-4 LUT levels for 27 bits.
     localparam DIFF_W = INT_BITS - 1;
     wire [DIFF_W-1:0] xor_diff = close_sum[INT_BITS-1:1] ^ close_sum[INT_BITS-2:0];
 
-    localparam COMP_W = (DIFF_W + 1) / 2;
-    wire [COMP_W-1:0] compressed;
-    genvar gi;
-    generate
-        for (gi = 0; gi < COMP_W; gi = gi + 1) begin : compress
-            if (DIFF_W - 1 - 2*gi - 1 >= 0)
-                assign compressed[COMP_W-1-gi] = xor_diff[DIFF_W-1-2*gi] | xor_diff[DIFF_W-1-2*gi-1];
-            else
-                assign compressed[0] = xor_diff[0];
-        end
-    endgenerate
-
-    localparam COMP_CLZ_BITS = $clog2(COMP_W + 1);
-    wire [COMP_W-1:0] comp_rev;
-    genvar ri;
-    generate
-        for (ri = 0; ri < COMP_W; ri = ri + 1) begin : comp_rev_gen
-            assign comp_rev[ri] = compressed[COMP_W - 1 - ri];
-        end
-    endgenerate
-    wire [COMP_W:0] comp_rev_ext = {1'b1, comp_rev};
-    wire [COMP_W:0] comp_one_hot = comp_rev_ext & (~comp_rev_ext + 1);
-    reg [COMP_CLZ_BITS-1:0] comp_clz;
+    reg [BARREL_BITS-1:0] close_norm_shift;
     integer ci;
     always @(*) begin
-        comp_clz = 0;
-        for (ci = 0; ci <= COMP_W; ci = ci + 1)
-            if (comp_one_hot[ci]) comp_clz = comp_clz | ci[COMP_CLZ_BITS-1:0];
+        close_norm_shift = DIFF_W[BARREL_BITS-1:0];
+        for (ci = 0; ci < DIFF_W; ci = ci + 1)
+            if (xor_diff[ci]) close_norm_shift = DIFF_W[BARREL_BITS-1:0] - 1 - ci[BARREL_BITS-1:0];
     end
-
-    wire [$clog2(DIFF_W):0] coarse_pos = {comp_clz, 1'b0};
-    wire fixup_bit = xor_diff[DIFF_W - 1 - coarse_pos];
-    wire [$clog2(DIFF_W):0] actual_clz = fixup_bit ? coarse_pos : (coarse_pos + 1);
-    wire [LEAD_BITS-1:0] close_leading = actual_clz + 1;
-    wire [BARREL_BITS-1:0] close_norm_shift = close_leading - 1;
+    wire [LEAD_BITS-1:0] close_leading = close_norm_shift + 1;
 
     // --- Shared barrel shifter ---
     // Close: bit-reverse -> logical right shift -> bit-reverse = left shift.
@@ -231,7 +206,7 @@ module spirix_addsub_pipe2 #(
     reg                          s2_negate_small;
     reg                          s2_sub;
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         s2_close_normalized  <= close_normalized;
         s2_close_leading     <= close_leading;
         s2_close_is_zero     <= close_is_zero;
@@ -366,7 +341,7 @@ module spirix_addsub_pipe2 #(
     wire s2_use_negligible = s2_negligible & !s2_negate_big;
 
     // Stage 2 output register
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         result_frac <= s2_use_negligible ? s2_big_frac :
                        path_is_zero      ? {FRAC_BITS{1'b0}} :
                        path_underflow    ? path_uf_frac :
