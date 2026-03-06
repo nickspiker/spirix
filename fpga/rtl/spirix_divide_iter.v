@@ -3,13 +3,10 @@
 // Computes a / b on N1-normalized signed fractions with signed exponents.
 // Fully parameterized. Restoring division: 1 quotient bit per clock.
 //
-// Latency: FRAC_BITS + 1 cycles from start to done.
+// Latency: FRAC_BITS + 2 cycles from start to done.
 //   Cycle 0 (start):       First trial subtract folded into start cycle.
-//   Cycles 1..FRAC-1:      Restoring division (shift + subtract).
-//   Cycle FRAC (last):     Final trial subtract + normalize/round/output.
-//
-// The first and last iterations are folded into setup and finalization
-// respectively, eliminating two dead cycles vs the naive approach.
+//   Cycles 1..FRAC:        Restoring division (shift + subtract).
+//   Cycle FRAC+1:          Finalize (normalize/round/sign from registers).
 //
 // Interface:
 //   start:  pulse high for 1 cycle to begin. Inputs sampled on this edge.
@@ -20,11 +17,10 @@
 // one FRAC-bit partial-remainder register, one (FRAC+1)-bit quotient
 // shift register, one counter. No DSP blocks. No barrel shifter.
 //
-// Timing note: the last cycle has a longer critical path than normal
-// iterations (trial subtract -> finalization -> output register).
-// Normal iterations: ~FRAC/2 CCU2C deep. Last cycle: ~FRAC CCU2C deep
-// (rounding + sign negate carry chains). On ECP5 this limits Fmax to
-// roughly 60-80 MHz for FRAC=25, which is fine for most designs.
+// Timing: every COMPUTE cycle is uniform (trial subtract only, ~FRAC/2
+// CCU2C deep). Finalization (normalize + round + sign) runs in its own
+// cycle from registered quotient/remainder, so it doesn't stack on the
+// subtractor.
 //
 // Algorithm: same as spirix_divide (sign out, unsigned restoring division,
 // bounded normalize, banker's round, sign back in, clamp). See that
@@ -63,10 +59,10 @@ module spirix_divide_iter #(
 
     localparam CTR_BITS = $clog2(FRAC_BITS + 1);
 
-    // Two states only: IDLE and COMPUTE. Init and finalization are folded.
-    localparam S_IDLE    = 0;
-    localparam S_COMPUTE = 1;
-    reg state = S_IDLE;
+    localparam S_IDLE     = 0;
+    localparam S_COMPUTE  = 1;
+    localparam S_FINALIZE = 2;
+    reg [1:0] state = S_IDLE;
 
     assign busy = (state != S_IDLE);
 
@@ -114,31 +110,21 @@ module spirix_divide_iter #(
     wire [FRAC_BITS-1:0] r_next = ge ? trial[FRAC_BITS-1:0] : r_in;
 
     // =========================================================================
-    // Finalization logic (from live/combinational values on last cycle)
+    // Finalization logic (reads from registered q_reg/r_reg in S_FINALIZE)
     //
-    // On the last COMPUTE cycle, q_live and r_live reflect the state
-    // AFTER this cycle's trial subtract (the values that WOULD be
-    // registered if we had another cycle). The finalization reads these
-    // directly, saving a dead cycle.
-    //
-    // Key timing observation: q_live's MSB (norm_shift) and most fraction
-    // bits come from q_reg (registered), NOT from ge. Only the LSB of
-    // q_live depends on the current cycle's ge. So the finalization
-    // critical path is shorter than it first appears — the norm_shift
-    // decision and most of frac_pos_raw are registered.
+    // After the last COMPUTE cycle registers q and r, S_FINALIZE reads
+    // them purely from flops — no dependency on the trial subtractor.
     // =========================================================================
-    wire [FRAC_BITS:0] q_live = {q_reg[FRAC_BITS-1:0], ge};
-    wire [FRAC_BITS-1:0] r_live = r_next;
 
     // Bounded normalization
-    wire norm_shift = q_live[FRAC_BITS];
-    wire [FRAC_BITS:0] q_norm = norm_shift ? (q_live >> 1) : q_live;
+    wire norm_shift = q_reg[FRAC_BITS];
+    wire [FRAC_BITS:0] q_norm = norm_shift ? (q_reg >> 1) : q_reg;
     wire [FRAC_BITS-1:0] frac_pos_raw = q_norm[FRAC_BITS:1];
 
     // Banker's round
     wire f_guard      = q_norm[0];
-    wire f_norm_sticky = norm_shift & q_live[0];
-    wire f_rem_sticky  = |r_live;
+    wire f_norm_sticky = norm_shift & q_reg[0];
+    wire f_rem_sticky  = |r_reg;
     wire f_sticky = f_norm_sticky | f_rem_sticky;
     wire f_lsb    = frac_pos_raw[0];
     wire f_round_up = f_guard & (f_sticky | f_lsb);
@@ -178,8 +164,9 @@ module spirix_divide_iter #(
     //
     // IDLE + start: compute abs values, first trial subtract, register
     //     all operands. Transition to COMPUTE with counter = FRAC-1.
-    // COMPUTE: shift-and-subtract each cycle. On counter == 0, compute
-    //     finalization from live q/r and register output directly.
+    // COMPUTE: shift-and-subtract each cycle. On counter == 0, register
+    //     final q/r and transition to FINALIZE.
+    // FINALIZE: normalize/round/sign from registered q_reg/r_reg, output.
     // =========================================================================
     always @(posedge clk) begin
         done <= 1'b0;
@@ -212,14 +199,19 @@ module spirix_divide_iter #(
                 q_reg <= {q_reg[FRAC_BITS-1:0], ge};
 
                 if (counter == 0) begin
-                    // Last iteration: finalize and output directly
-                    result_frac <= out_frac;
-                    result_exp  <= out_exp;
-                    done <= 1'b1;
-                    state <= S_IDLE;
+                    // Last iteration done — register q/r, finalize next cycle
+                    state <= S_FINALIZE;
                 end else begin
                     counter <= counter - 1;
                 end
+            end
+
+            S_FINALIZE: begin
+                // All finalization reads from registered q_reg/r_reg
+                result_frac <= out_frac;
+                result_exp  <= out_exp;
+                done <= 1'b1;
+                state <= S_IDLE;
             end
         endcase
     end
