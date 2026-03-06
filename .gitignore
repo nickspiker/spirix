@@ -21,8 +21,22 @@
 /web/
 /out/
 
+# LaTeX build artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.pdf
+
 # FPGA synthesis artifacts
+fpga/build/
 fpga/sim/
+fpga/tools/gen_font_rom/target/
+
+# Compiled simulation binaries
+fpga/rtl/blake3_tb
 
 # GPU/HIP build artifacts (all directories)
 gpu/hip/**/*.o

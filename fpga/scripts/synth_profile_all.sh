@@ -244,27 +244,12 @@ module synth_mul_pipe2_w (
     output wire signed [${EXP}-1:0]  result_exp
 );
     spirix_multiply_pipe2 #(.FRAC_BITS(${FRAC}), .EXP_BITS(${EXP})) dut (
-        .clk(clk), .a_frac(a_frac), .a_exp(a_exp),
-        .b_frac(b_frac), .b_exp(b_exp),
+        .clk(clk), .ce(1'b1), .a_frac(a_frac), .a_exp(a_exp),
+        .b_frac(b_frac), .b_exp(b_exp), .negate(1'b0),
         .result_frac(result_frac), .result_exp(result_exp));
 endmodule
 EOF
 
-# multiply_pipe3 wrapper
-cat > /tmp/synth_mul_pipe3_w.v << EOF
-module synth_mul_pipe3_w (
-    input  wire clk,
-    input  wire signed [${FRAC}-1:0] a_frac, b_frac,
-    input  wire signed [${EXP}-1:0]  a_exp, b_exp,
-    output wire signed [${FRAC}-1:0] result_frac,
-    output wire signed [${EXP}-1:0]  result_exp
-);
-    spirix_multiply_pipe3 #(.FRAC_BITS(${FRAC}), .EXP_BITS(${EXP})) dut (
-        .clk(clk), .a_frac(a_frac), .a_exp(a_exp),
-        .b_frac(b_frac), .b_exp(b_exp),
-        .result_frac(result_frac), .result_exp(result_exp));
-endmodule
-EOF
 
 # divmod_nr MOD=1 wrapper
 cat > /tmp/synth_divmod_mod1_w.v << EOF
@@ -361,9 +346,6 @@ synth_combinational "multiply" "spirix_multiply" "$RTL/spirix_multiply.v" "2in"
 synth_pipelined "multiply_pipe2" "spirix_multiply_pipe2" "$RTL/spirix_multiply_pipe2.v" \
     "synth_mul_pipe2_w" "/tmp/synth_mul_pipe2_w.v"
 
-# 5. multiply_pipe3
-synth_pipelined "multiply_pipe3" "spirix_multiply_pipe3" "$RTL/spirix_multiply_pipe3.v" \
-    "synth_mul_pipe3_w" "/tmp/synth_mul_pipe3_w.v"
 
 # 6. divmod_nr MOD=1
 synth_pipelined "divmod_nr_mod1" "spirix_divmod_nr" "$RTL/spirix_divmod_nr.v" \
