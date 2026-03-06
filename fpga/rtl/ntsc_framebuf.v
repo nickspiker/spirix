@@ -166,12 +166,30 @@ module ntsc_framebuf #(
                     (hash_sub == 3'd1) ? 1'b1 :
                     hash2_lat[31 - hash_bit];
 
+    // Mismatch indicators: white ticks above & below mismatching bits
+    // Hash1 bar: rows 30-45 (16 tall), half height = 8 rows gap
+    // Hash2 bar: rows 210-225 (16 tall), half height = 8 rows gap
+    wire [31:0] mismatch = hash_lat ^ hash2_lat;
+    wire mismatch_bit = mismatch[31 - hash_bit];
+    wire tick_col = (hash_sub >= 3'd1) & (hash_sub <= 3'd3);
+    // Ticks around hash1: above (rows 16-20) and below (rows 51-55)
+    wire in_tick1_above = (fb_y >= 9'd16) & (fb_y < 9'd21) & in_hash_x
+                        & mismatch_bit & tick_col;
+    wire in_tick1_below = (fb_y >= 9'd51) & (fb_y < 9'd56) & in_hash_x
+                        & mismatch_bit & tick_col;
+    // Ticks around hash2: above (rows 196-200) and below (rows 231-235)
+    wire in_tick2_above = (fb_y >= 9'd196) & (fb_y < 9'd201) & in_hash_x
+                        & mismatch_bit & tick_col;
+    wire in_tick2_below = (fb_y >= 9'd231) & (fb_y < 9'd236) & in_hash_x
+                        & mismatch_bit & tick_col;
+
     // 1-cycle read latency compensation
     reg [2:0] fb_bit_d1;
     reg       content_d1;
     reg       hash1_region_d1, hash2_region_d1;
     reg       hash1_pixel_d1, hash2_pixel_d1;
     reg       marker1_d1, marker2_d1;
+    reg       tick_d1;
     always @(posedge clk) begin
         fb_bit_d1      <= fb_bit;
         content_d1     <= h_in_content & v_in_content;
@@ -181,10 +199,13 @@ module ntsc_framebuf #(
         hash2_region_d1 <= h_in_content & v_in_content & in_hash2_rows & in_hash_x;
         hash2_pixel_d1  <= hash2_px;
         marker2_d1     <= h_in_content & v_in_content & in_marker2_row;
+        tick_d1        <= h_in_content & v_in_content &
+                          (in_tick1_above | in_tick1_below | in_tick2_above | in_tick2_below);
     end
 
-    wire in_overlay = hash1_region_d1 | marker1_d1 | hash2_region_d1 | marker2_d1;
-    wire overlay_px = (marker1_d1 | marker2_d1) ? 1'b1 :
+    wire in_overlay = hash1_region_d1 | marker1_d1 | hash2_region_d1 | marker2_d1 | tick_d1;
+    wire overlay_px = tick_d1 ? 1'b1 :
+                      (marker1_d1 | marker2_d1) ? 1'b1 :
                       hash1_region_d1 ? hash1_pixel_d1 :
                       hash2_pixel_d1;
     wire pixel  = in_overlay ? overlay_px : fb_byte[7 - fb_bit_d1];
