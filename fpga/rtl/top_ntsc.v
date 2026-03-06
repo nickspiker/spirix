@@ -343,6 +343,7 @@ module top_ntsc (
     spirix_multiply #(.FRAC_BITS(25), .EXP_BITS(8)) dut_mul (
         .a_frac(mul_a_frac), .a_exp(mul_a_exp),
         .b_frac(mul_b_frac), .b_exp(mul_b_exp),
+        .negate(1'b0),
         .result_frac(mul_r_frac), .result_exp(mul_r_exp)
     );
 
