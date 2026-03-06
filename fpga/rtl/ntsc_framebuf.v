@@ -65,6 +65,14 @@ module ntsc_framebuf #(
     wire v_sync_region = (v_cnt < V_SYNC);
     wire in_sync = h_sync_region | v_sync_region;
 
+    // Latch hash inputs at frame start (stable for entire frame)
+    reg [31:0] hash_lat, hash2_lat;
+    always @(posedge clk)
+        if (v_cnt == 0 && h_cnt == 0) begin
+            hash_lat  <= hash;
+            hash2_lat <= hash2;
+        end
+
     // =========================================================================
     // Content region tracking
     // =========================================================================
@@ -118,17 +126,45 @@ module ntsc_framebuf #(
     reg [7:0] fb_byte;
     always @(posedge clk) fb_byte <= fb_rom[fb_addr];
 
-    // Hash overlay 1 (BRAM readback): rows 30-45, marker at row 29
-    wire in_hash1_rows = (fb_y >= 9'd30) & (fb_y < 9'd46);
-    wire in_marker1_row = (fb_y == 9'd29 || fb_y == 9'd46) & (fb_x < 10'd256);
-    wire [4:0] hash_idx = fb_x[7:3];
-    wire hash1_px = hash[31 - hash_idx] & ~fb_x[8];
+    // Hash overlay: 32 bits × 5 px/bit = 160 px, centered at 1/4..3/4 width
+    localparam HASH_X_START = 80;
+    localparam HASH_X_END   = 240;
 
-    // Hash overlay 2 (XOR mismatch): rows 210-225, marker at row 209
-    // High rows = top on flipped CRT
+    // Counter-based bit index (5 px/bit, not power-of-2)
+    reg [4:0] hash_bit;   // 0..31
+    reg [2:0] hash_sub;   // 0..4 within each bit
+    always @(posedge clk) begin
+        if (h_in_content && h_scale_cnt == H_SCALE - 1) begin
+            if (fb_x == HASH_X_START - 1) begin
+                hash_bit <= 0;
+                hash_sub <= 0;
+            end else if (fb_x >= HASH_X_START && fb_x < HASH_X_END - 1) begin
+                if (hash_sub == 3'd4) begin
+                    hash_sub <= 0;
+                    hash_bit <= hash_bit + 1;
+                end else begin
+                    hash_sub <= hash_sub + 1;
+                end
+            end
+        end
+    end
+
+    wire in_hash_x = (fb_x >= HASH_X_START) & (fb_x < HASH_X_END);
+
+    // Hash overlay 1: rows 30-45, marker at row 29/46
+    wire in_hash1_rows = (fb_y >= 9'd30) & (fb_y < 9'd46);
+    wire in_marker1_row = (fb_y == 9'd29 || fb_y == 9'd46) & in_hash_x;
+    // BWB separator: sub 0=black, 1=white, 2-4=bit value
+    wire hash1_px = (hash_sub == 3'd0) ? 1'b0 :
+                    (hash_sub == 3'd1) ? 1'b1 :
+                    hash_lat[31 - hash_bit];
+
+    // Hash overlay 2: rows 210-225, marker at row 209/226
     wire in_hash2_rows = (fb_y >= 9'd210) & (fb_y < 9'd226);
-    wire in_marker2_row = (fb_y == 9'd209 || fb_y == 9'd226) & (fb_x < 10'd256);
-    wire hash2_px = hash2[31 - hash_idx] & ~fb_x[8];
+    wire in_marker2_row = (fb_y == 9'd209 || fb_y == 9'd226) & in_hash_x;
+    wire hash2_px = (hash_sub == 3'd0) ? 1'b0 :
+                    (hash_sub == 3'd1) ? 1'b1 :
+                    hash2_lat[31 - hash_bit];
 
     // 1-cycle read latency compensation
     reg [2:0] fb_bit_d1;
@@ -139,10 +175,10 @@ module ntsc_framebuf #(
     always @(posedge clk) begin
         fb_bit_d1      <= fb_bit;
         content_d1     <= h_in_content & v_in_content;
-        hash1_region_d1 <= h_in_content & v_in_content & in_hash1_rows;
+        hash1_region_d1 <= h_in_content & v_in_content & in_hash1_rows & in_hash_x;
         hash1_pixel_d1  <= hash1_px;
         marker1_d1     <= h_in_content & v_in_content & in_marker1_row;
-        hash2_region_d1 <= h_in_content & v_in_content & in_hash2_rows;
+        hash2_region_d1 <= h_in_content & v_in_content & in_hash2_rows & in_hash_x;
         hash2_pixel_d1  <= hash2_px;
         marker2_d1     <= h_in_content & v_in_content & in_marker2_row;
     end

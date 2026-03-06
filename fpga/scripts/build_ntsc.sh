@@ -116,11 +116,15 @@ case "$DUT" in
         DUT_DEFINE="-DDUT_SPIRIX_MUL"
         echo "  DUT: Spirix multiply (standalone)"
         ;;
+    spirix_mul_pipe2)
+        DUT_DEFINE="-DDUT_SPIRIX_MUL_PIPE2"
+        echo "  DUT: Spirix multiply_pipe2 (2-stage pipeline)"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, fpn_fma, fpn_mul, fpn_add, spirix_mul, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, fpn_fma, fpn_mul, fpn_add, spirix_mul, spirix_mul_pipe2, or empty."
         exit 1
         ;;
 esac

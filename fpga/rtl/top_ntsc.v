@@ -89,9 +89,10 @@ module top_ntsc (
     // =========================================================================
     // Phase + CE
     // =========================================================================
-    localparam [1:0] PH_GOLD = 2'd0, PH_SWITCH = 2'd1,
-                     PH_TEST = 2'd2, PH_DONE   = 2'd3;
-    reg [1:0] phase = PH_GOLD;
+    localparam [2:0] PH_IDLE   = 3'd0, PH_GOLD = 3'd1, PH_SWITCH = 3'd2,
+                     PH_TEST   = 3'd3, PH_DONE = 3'd4;
+    reg [2:0] phase = PH_IDLE;
+    reg [63:0] captured_seed, captured_seed2;
 
     // CE generator (registered for clean fanout at high freq)
     reg [7:0] ce_div = 0;
@@ -115,10 +116,15 @@ module top_ntsc (
     wire       lfsr_fb = lfsr[0];
     wire [63:0] lfsr_next = {1'b0, lfsr[63:1]} ^ (lfsr_fb ? LFSR_TAPS : 64'b0);
 
+    // Free-running entropy counter (never stops, XORed into seed on capture)
+    reg [63:0] entropy = 0;
+    always @(posedge sys_clk) entropy <= entropy + 1;
+
     // =========================================================================
     // DUT — switchable via defines
     //
-    // DUT_SPIRIX_FMA (default), DUT_HF_FMA, DUT_HF_MUL, DUT_HF_ADD
+    // DUT_SPIRIX_FMA (default), DUT_SPIRIX_MUL, DUT_SPIRIX_MUL_PIPE2,
+    // DUT_HF_FMA, DUT_HF_MUL, DUT_HF_ADD, DUT_FPN_FMA, DUT_FPN_MUL, DUT_FPN_ADD
     // All combinational + registered output with CE. Output: 32-bit mul_fold.
     // =========================================================================
 
@@ -357,6 +363,27 @@ module top_ntsc (
     wire [32:0] mul_out = {mul_r_exp_r, mul_r_frac_r};
     wire [31:0] mul_fold = mul_out[31:0] ^ {31'b0, mul_out[32]};
 
+`elsif DUT_SPIRIX_MUL_PIPE2
+    // ----- Spirix multiply_pipe2 (2-stage pipeline) -----
+    wire signed [24:0] mul_a_frac = lfsr[24:0];
+    wire signed  [7:0] mul_a_exp  = lfsr[32:25];
+    wire signed [24:0] mul_b_frac = lfsr[57:33];
+    wire signed  [7:0] mul_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+
+    wire signed [24:0] mul_r_frac;
+    wire signed  [7:0] mul_r_exp;
+
+    spirix_multiply_pipe2 #(.FRAC_BITS(25), .EXP_BITS(8)) dut_mul (
+        .clk(sys_clk), .ce(ce),
+        .a_frac(mul_a_frac), .a_exp(mul_a_exp),
+        .b_frac(mul_b_frac), .b_exp(mul_b_exp),
+        .negate(1'b0),
+        .result_frac(mul_r_frac), .result_exp(mul_r_exp)
+    );
+
+    wire [32:0] mul_out = {mul_r_exp, mul_r_frac};
+    wire [31:0] mul_fold = mul_out[31:0] ^ {31'b0, mul_out[32]};
+
 `else
     // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];
@@ -401,22 +428,45 @@ module top_ntsc (
     reg        test_done_sys = 0;
 
     always @(posedge sys_clk) begin
-        if (!pll_lock || !por_done || btn_held_sys) begin
-            // Global reset (PLL not locked OR button held)
-            phase         <= PH_GOLD;
-            lfsr          <= LFSR_SEED;
-            lfsr2         <= LFSR_SEED2;
+        if (!pll_lock || !por_done) begin
+            // Hard reset (PLL not locked or POR)
+            phase          <= PH_IDLE;
+            lfsr           <= LFSR_SEED;
+            lfsr2          <= LFSR_SEED2;
+            captured_seed  <= LFSR_SEED;
+            captured_seed2 <= LFSR_SEED2;
             proto_cnt      <= 0;
             accum          <= 0;
             gold_reg       <= 0;
             test_reg       <= 0;
             test_done_sys  <= 0;
+        end else if (btn_held_sys) begin
+            // Button held: reset to idle, LFSR free-runs for entropy
+            phase         <= PH_IDLE;
+            proto_cnt     <= 0;
+            accum         <= 0;
+            gold_reg      <= 0;
+            test_reg      <= 0;
+            test_done_sys <= 0;
+            lfsr          <= lfsr_next;
+            lfsr2         <= lfsr2_next;
         end else begin
 
             // =================================================================
-            // Phase transitions (not CE-gated, run every sys_clk cycle)
+            // Phase transitions
             // =================================================================
             case (phase)
+                PH_IDLE: begin
+                    // Button just released (or first run after POR):
+                    // XOR entropy counter into LFSR for unique seed each run
+                    captured_seed  <= lfsr ^ entropy;
+                    captured_seed2 <= lfsr2 ^ entropy;
+                    lfsr           <= lfsr ^ entropy;
+                    lfsr2          <= lfsr2 ^ entropy;
+                    proto_cnt      <= 0;
+                    accum          <= 0;
+                    phase          <= PH_GOLD;
+                end
                 PH_GOLD: begin
                     if (proto_done) begin
                         gold_reg <= accum;
@@ -424,9 +474,9 @@ module top_ntsc (
                     end
                 end
                 PH_SWITCH: begin
-                    // Reset datapath for test phase
-                    lfsr         <= LFSR_SEED;
-                    lfsr2        <= LFSR_SEED2;
+                    // Reset LFSR to captured seed for test phase
+                    lfsr           <= captured_seed;
+                    lfsr2          <= captured_seed2;
                     proto_cnt      <= 0;
                     accum          <= 0;
                     phase          <= PH_TEST;
@@ -442,9 +492,9 @@ module top_ntsc (
             endcase
 
             // =================================================================
-            // CE-gated datapath (only runs when ce=1)
+            // CE-gated datapath (gold & test phases only)
             // =================================================================
-            if (ce && phase != PH_SWITCH && phase != PH_DONE) begin
+            if (ce && (phase == PH_GOLD || phase == PH_TEST)) begin
                 lfsr  <= lfsr_next;
                 lfsr2 <= lfsr2_next;
 
@@ -458,27 +508,11 @@ module top_ntsc (
     end
 
     // =========================================================================
-    // Button debounce (clk domain)
+    // Button sync (no debounce — bouncing just re-runs the test, more entropy)
     // =========================================================================
-    reg [1:0] btn_sync = 2'b11;
-    reg [17:0] btn_deb = 0;
-    reg btn_clean = 1, btn_prev = 1;
-    wire btn_press = btn_prev & ~btn_clean;
-
-    always @(posedge clk) begin
-        btn_sync <= {btn_sync[0], btn};
-        if (btn_sync[1] != btn_clean) begin
-            btn_deb <= btn_deb + 1;
-            if (&btn_deb) btn_clean <= btn_sync[1];
-        end else
-            btn_deb <= 0;
-        btn_prev <= btn_clean;
-    end
-
-    // CDC: btn_clean → sys_clk domain (btn_clean=0 when pressed, active-low)
     reg [1:0] btn_sync_sys = 2'b11;
-    always @(posedge sys_clk) btn_sync_sys <= {btn_sync_sys[0], btn_clean};
-    wire btn_held_sys = ~btn_sync_sys[1];  // 1 when button is held down
+    always @(posedge sys_clk) btn_sync_sys <= {btn_sync_sys[0], btn};
+    wire btn_held_sys = ~btn_sync_sys[1];  // 1 when button held (sys_clk domain)
 
     // =========================================================================
     // CDC: test_done_sys → clk domain
@@ -521,7 +555,6 @@ module top_ntsc (
     // NTSC display (clk domain = 25 MHz)
     // =========================================================================
     wire ntsc_sync_w, ntsc_vid_w;
-    wire btn_held = ~btn_clean;  // clk domain: 1 when button held
 
     ntsc_framebuf #(
         .FB_W    (320),
@@ -530,16 +563,15 @@ module top_ntsc (
     ) ntsc (
         .clk       (clk),
         .status    (status),
-        .hash      (gold_reg),
-        .hash2     (test_reg),
+        .hash      (test_done_sys ? gold_reg : lfsr[31:0]),
+        .hash2     (test_done_sys ? test_reg : lfsr[63:32]),
         .sync_pin  (ntsc_sync_w),
         .video_pin (ntsc_vid_w)
     );
 
-    // Kill NTSC output when button held (both low = no signal)
     always @(posedge clk) begin
-        ntsc_sync <= btn_held ? 1'b0 : ntsc_sync_w;
-        ntsc_vid  <= btn_held ? 1'b0 : ntsc_vid_w;
+        ntsc_sync <= ntsc_sync_w;
+        ntsc_vid  <= ntsc_vid_w;
     end
 
 endmodule
