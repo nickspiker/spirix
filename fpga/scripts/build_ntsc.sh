@@ -160,11 +160,23 @@ case "$DUT" in
         HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/sqrt_f32.v;"
         echo "  DUT: HardFloat sqrt (divSqrtRecFN_small) with IEEE 754 I/O"
         ;;
+    fpn_div)
+        DUT_DEFINE="-DDUT_FPN_DIV"
+        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_divsqrt_fp32.v"
+        HF_FILES="read_verilog $FPN_V;"
+        echo "  DUT: FPnew div (fpnew_divsqrt_th_32, op=DIV)"
+        ;;
+    fpn_sqrt)
+        DUT_DEFINE="-DDUT_FPN_SQRT"
+        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_divsqrt_fp32.v"
+        HF_FILES="read_verilog $FPN_V;"
+        echo "  DUT: FPnew sqrt (fpnew_divsqrt_th_32, op=SQRT)"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add, fpn_fma/mul/add, spirix_mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr, hf_div/sqrt, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add, fpn_fma/mul/add/div/sqrt, spirix_mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter, hf_div/sqrt, or empty."
         exit 1
         ;;
 esac

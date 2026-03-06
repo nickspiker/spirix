@@ -584,6 +584,93 @@ module top_ntsc (
     wire dut_advance = hf_outValid;
 `define DUT_ITER_ADVANCE
 
+`elsif DUT_FPN_DIV
+    // ----- FPnew div (div_sqrt_mvp_wrapper, Div_start) -----
+    wire [31:0] ieee_a = lfsr[31:0];
+    wire [31:0] ieee_b = lfsr[63:32];
+
+    wire fpn_ready, fpn_done;
+    wire [63:0] fpn_result64;
+    wire [4:0]  fpn_fflags;
+
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && fpn_ready)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (fpn_done)
+            iter_busy <= 0;
+    end
+
+    div_sqrt_mvp_wrapper #(.PrePipeline_depth_S(0), .PostPipeline_depth_S(0)) dut_fpn_div (
+        .Clk_CI          (sys_clk),
+        .Rst_RBI         (b3_reset_n),
+        .Div_start_SI    (iter_start),
+        .Sqrt_start_SI   (1'b0),
+        .Operand_a_DI    ({32'b0, ieee_a}),
+        .Operand_b_DI    ({32'b0, ieee_b}),
+        .RM_SI           (3'b000),
+        .Precision_ctl_SI(6'b0),
+        .Format_sel_SI   (2'b00),       // FP32
+        .Kill_SI         (1'b0),
+        .Result_DO       (fpn_result64),
+        .Fflags_SO       (fpn_fflags),
+        .Ready_SO        (fpn_ready),
+        .Done_SO         (fpn_done)
+    );
+
+    reg [31:0] fpn_out_r;
+    always @(posedge sys_clk) if (fpn_done) fpn_out_r <= fpn_result64[31:0];
+    wire [31:0] mul_fold = fpn_out_r;
+    wire dut_advance = fpn_done;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_FPN_SQRT
+    // ----- FPnew sqrt (div_sqrt_mvp_wrapper, Sqrt_start) -----
+    wire [31:0] ieee_a = lfsr[31:0];
+
+    wire fpn_ready, fpn_done;
+    wire [63:0] fpn_result64;
+    wire [4:0]  fpn_fflags;
+
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && fpn_ready)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (fpn_done)
+            iter_busy <= 0;
+    end
+
+    div_sqrt_mvp_wrapper #(.PrePipeline_depth_S(0), .PostPipeline_depth_S(0)) dut_fpn_sqrt (
+        .Clk_CI          (sys_clk),
+        .Rst_RBI         (b3_reset_n),
+        .Div_start_SI    (1'b0),
+        .Sqrt_start_SI   (iter_start),
+        .Operand_a_DI    ({32'b0, ieee_a}),
+        .Operand_b_DI    (64'b0),
+        .RM_SI           (3'b000),
+        .Precision_ctl_SI(6'b0),
+        .Format_sel_SI   (2'b00),       // FP32
+        .Kill_SI         (1'b0),
+        .Result_DO       (fpn_result64),
+        .Fflags_SO       (fpn_fflags),
+        .Ready_SO        (fpn_ready),
+        .Done_SO         (fpn_done)
+    );
+
+    reg [31:0] fpn_out_r;
+    always @(posedge sys_clk) if (fpn_done) fpn_out_r <= fpn_result64[31:0];
+    wire [31:0] mul_fold = fpn_out_r;
+    wire dut_advance = fpn_done;
+`define DUT_ITER_ADVANCE
+
 `else
     // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];
