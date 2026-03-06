@@ -120,11 +120,51 @@ case "$DUT" in
         DUT_DEFINE="-DDUT_SPIRIX_MUL_PIPE2"
         echo "  DUT: Spirix multiply_pipe2 (2-stage pipeline)"
         ;;
+    spirix_div_iter)
+        DUT_DEFINE="-DDUT_SPIRIX_DIV_ITER"
+        echo "  DUT: Spirix divide_iter (iterative, 0 DSP)"
+        ;;
+    spirix_divmod_nr)
+        DUT_DEFINE="-DDUT_SPIRIX_DIVMOD_NR"
+        echo "  DUT: Spirix divmod_nr (8-stage pipeline, 20 DSP)"
+        ;;
+    spirix_sqrt_nr)
+        DUT_DEFINE="-DDUT_SPIRIX_SQRT_NR"
+        echo "  DUT: Spirix sqrt_nr (10-stage pipeline, 27 DSP)"
+        ;;
+    spirix_sqrt_iter)
+        DUT_DEFINE="-DDUT_SPIRIX_SQRT_ITER"
+        echo "  DUT: Spirix sqrt_iter (iterative, 0 DSP)"
+        ;;
+    hf_div)
+        DUT_DEFINE="-DDUT_HF_DIV"
+        HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_rawFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_specialize.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/isSigNaNRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/fNToRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/recFNToFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/divSqrtRecFN_small.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/div_f32.v;"
+        echo "  DUT: HardFloat div (divSqrtRecFN_small) with IEEE 754 I/O"
+        ;;
+    hf_sqrt)
+        DUT_DEFINE="-DDUT_HF_SQRT"
+        HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_rawFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/HardFloat_specialize.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/isSigNaNRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/fNToRecFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/recFNToFN.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/divSqrtRecFN_small.v;"
+        HF_FILES="$HF_FILES read_verilog -I$HF_DIR $HF_DIR/sqrt_f32.v;"
+        echo "  DUT: HardFloat sqrt (divSqrtRecFN_small) with IEEE 754 I/O"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma, hf_mul, hf_add, fpn_fma, fpn_mul, fpn_add, spirix_mul, spirix_mul_pipe2, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add, fpn_fma/mul/add, spirix_mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr, hf_div/sqrt, or empty."
         exit 1
         ;;
 esac

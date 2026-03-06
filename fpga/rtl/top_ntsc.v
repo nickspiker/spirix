@@ -124,8 +124,10 @@ module top_ntsc (
     // DUT — switchable via defines
     //
     // DUT_SPIRIX_FMA (default), DUT_SPIRIX_MUL, DUT_SPIRIX_MUL_PIPE2,
-    // DUT_HF_FMA, DUT_HF_MUL, DUT_HF_ADD, DUT_FPN_FMA, DUT_FPN_MUL, DUT_FPN_ADD
-    // All combinational + registered output with CE. Output: 32-bit mul_fold.
+    // DUT_SPIRIX_DIV_ITER, DUT_SPIRIX_DIVMOD_NR, DUT_SPIRIX_SQRT_NR,
+    // DUT_HF_FMA, DUT_HF_MUL, DUT_HF_ADD, DUT_HF_DIV, DUT_HF_SQRT,
+    // DUT_FPN_FMA, DUT_FPN_MUL, DUT_FPN_ADD
+    // All produce: 32-bit mul_fold. Iterative DUTs also define dut_advance.
     // =========================================================================
 
     // Second LFSR for 3-operand DUTs (FMA)
@@ -384,6 +386,204 @@ module top_ntsc (
     wire [32:0] mul_out = {mul_r_exp, mul_r_frac};
     wire [31:0] mul_fold = mul_out[31:0] ^ {31'b0, mul_out[32]};
 
+`elsif DUT_SPIRIX_DIV_ITER
+    // ----- Spirix divide_iter (iterative, 0 DSP) -----
+    wire signed [24:0] dut_a_frac = lfsr[24:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[32:25];
+    wire signed [24:0] dut_b_frac = lfsr[57:33];
+    wire signed  [7:0] dut_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+
+    wire signed [24:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+    wire dut_busy_w, dut_done_w;
+
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && !dut_busy_w)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (dut_done_w)
+            iter_busy <= 0;
+    end
+
+    spirix_divide_iter #(.FRAC_BITS(25), .EXP_BITS(8)) dut (
+        .clk(sys_clk), .start(iter_start),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .b_frac(dut_b_frac), .b_exp(dut_b_exp),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp),
+        .busy(dut_busy_w), .done(dut_done_w)
+    );
+
+    wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+    wire dut_advance = dut_done_w;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_SPIRIX_DIVMOD_NR
+    // ----- Spirix divmod_nr (8-stage pipeline, 20 DSP) -----
+    wire signed [24:0] dut_a_frac = lfsr[24:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[32:25];
+    wire signed [24:0] dut_b_frac = lfsr[57:33];
+    wire signed  [7:0] dut_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+
+    wire signed [24:0] dut_q_frac;
+    wire signed  [7:0] dut_q_exp;
+
+    spirix_divmod_nr #(.FRAC_BITS(25), .EXP_BITS(8), .ENABLE_MOD(0)) dut (
+        .clk(sys_clk), .ce(ce),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .b_frac(dut_b_frac), .b_exp(dut_b_exp),
+        .q_frac(dut_q_frac), .q_exp(dut_q_exp),
+        .mod_frac(), .mod_exp()
+    );
+
+    wire [32:0] dut_out = {dut_q_exp, dut_q_frac};
+    wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+
+`elsif DUT_SPIRIX_SQRT_NR
+    // ----- Spirix sqrt_nr (10-stage pipeline, 27 DSP) -----
+    wire signed [24:0] dut_a_frac = lfsr[24:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[32:25];
+
+    wire signed [24:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+
+    spirix_sqrt_nr #(.FRAC_BITS(25), .EXP_BITS(8)) dut (
+        .clk(sys_clk), .ce(ce),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp)
+    );
+
+    wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+
+`elsif DUT_SPIRIX_SQRT_ITER
+    // ----- Spirix sqrt_iter (iterative, 0 DSP) -----
+    wire signed [24:0] dut_a_frac = lfsr[24:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[32:25];
+
+    wire signed [24:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+    wire dut_busy_w, dut_done_w;
+
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && !dut_busy_w)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (dut_done_w)
+            iter_busy <= 0;
+    end
+
+    spirix_sqrt_iter #(.FRAC_BITS(25), .EXP_BITS(8)) dut (
+        .clk(sys_clk), .start(iter_start),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp),
+        .busy(dut_busy_w), .done(dut_done_w)
+    );
+
+    wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+    wire dut_advance = dut_done_w;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_HF_DIV
+    // ----- HardFloat divSqrtRecFN_small (divide), IEEE 754 I/O -----
+    wire [31:0] ieee_a = lfsr[31:0];
+    wire [31:0] ieee_b = lfsr[63:32];
+
+    wire [32:0] rec_a, rec_b;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(ieee_a), .out(rec_a));
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_b (.in(ieee_b), .out(rec_b));
+
+    wire hf_inReady, hf_outValid;
+    wire [32:0] hf_rec_out;
+    wire [4:0]  hf_flags;
+
+    reg iter_busy = 0;
+    reg iter_inValid = 0;
+    always @(posedge sys_clk) begin
+        iter_inValid <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && hf_inReady)
+            begin iter_inValid <= 1; iter_busy <= 1; end
+        else if (hf_outValid)
+            iter_busy <= 0;
+    end
+
+    div_f32 dut_hf_div (
+        .nReset    (b3_reset_n),
+        .clock     (sys_clk),
+        .inReady   (hf_inReady),
+        .inValid   (iter_inValid),
+        .a         (rec_a),
+        .b         (rec_b),
+        .roundingMode(3'b000),
+        .outValid  (hf_outValid),
+        .out       (hf_rec_out),
+        .exceptionFlags(hf_flags)
+    );
+
+    wire [31:0] hf_ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(hf_rec_out), .out(hf_ieee_out));
+
+    reg [31:0] hf_out_r;
+    always @(posedge sys_clk) if (hf_outValid) hf_out_r <= hf_ieee_out;
+    wire [31:0] mul_fold = hf_out_r;
+    wire dut_advance = hf_outValid;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_HF_SQRT
+    // ----- HardFloat divSqrtRecFN_small (sqrt), IEEE 754 I/O -----
+    wire [31:0] ieee_a = lfsr[31:0];
+
+    wire [32:0] rec_a;
+    fNToRecFN #(.expWidth(8), .sigWidth(24)) cvt_a (.in(ieee_a), .out(rec_a));
+
+    wire hf_inReady, hf_outValid;
+    wire [32:0] hf_rec_out;
+    wire [4:0]  hf_flags;
+
+    reg iter_busy = 0;
+    reg iter_inValid = 0;
+    always @(posedge sys_clk) begin
+        iter_inValid <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && hf_inReady)
+            begin iter_inValid <= 1; iter_busy <= 1; end
+        else if (hf_outValid)
+            iter_busy <= 0;
+    end
+
+    sqrt_f32 dut_hf_sqrt (
+        .nReset    (b3_reset_n),
+        .clock     (sys_clk),
+        .inReady   (hf_inReady),
+        .inValid   (iter_inValid),
+        .a         (rec_a),
+        .roundingMode(3'b000),
+        .outValid  (hf_outValid),
+        .out       (hf_rec_out),
+        .exceptionFlags(hf_flags)
+    );
+
+    wire [31:0] hf_ieee_out;
+    recFNToFN #(.expWidth(8), .sigWidth(24)) cvt_out (.in(hf_rec_out), .out(hf_ieee_out));
+
+    reg [31:0] hf_out_r;
+    always @(posedge sys_clk) if (hf_outValid) hf_out_r <= hf_ieee_out;
+    wire [31:0] mul_fold = hf_out_r;
+    wire dut_advance = hf_outValid;
+`define DUT_ITER_ADVANCE
+
 `else
     // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];
@@ -414,6 +614,10 @@ module top_ntsc (
 
     wire [32:0] fma_out = {fma_r_exp_r, fma_r_frac_r};
     wire [31:0] mul_fold = fma_out[31:0] ^ {31'b0, fma_out[32]};
+`endif
+
+`ifndef DUT_ITER_ADVANCE
+    wire dut_advance = ce;
 `endif
 
     // =========================================================================
@@ -494,7 +698,7 @@ module top_ntsc (
             // =================================================================
             // CE-gated datapath (gold & test phases only)
             // =================================================================
-            if (ce && (phase == PH_GOLD || phase == PH_TEST)) begin
+            if (dut_advance && (phase == PH_GOLD || phase == PH_TEST)) begin
                 lfsr  <= lfsr_next;
                 lfsr2 <= lfsr2_next;
 

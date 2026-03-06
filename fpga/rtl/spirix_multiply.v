@@ -21,7 +21,8 @@
 
 module spirix_multiply #(
     parameter FRAC_BITS = 25,
-    parameter EXP_BITS  = 8
+    parameter EXP_BITS  = 8,
+    parameter USE_KARATSUBA = 0  // 1 = Karatsuba (saves LUT4 no-DSP), 0 = naive (faster with DSP)
 )(
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
@@ -54,39 +55,44 @@ module spirix_multiply #(
                                                            : a_exp;
 
     // =========================================================================
-    // Step 1: Karatsuba signed multiply (2*FRAC_BITS-1 bits)
+    // Step 1: Signed multiply (2*FRAC_BITS-1 bits)
     //
-    // Split inputs at K = ceil(FRAC_BITS/2):
-    //   a = aH * 2^K + aL,  b = bH * 2^K + bL
-    //   product = P_HH * 2^(2K) + (P_MM - P_HH - P_LL) * 2^K + P_LL
-    // Three sub-multiplies instead of one: ~15% LUT4 savings no-DSP.
-    // With DSP: maps to 3 MULT18X18D (was 4). Bit-exact.
+    // USE_KARATSUBA=0: naive a*b, best with DSP (4 MULT18X18D, minimal LUT).
+    // USE_KARATSUBA=1: Karatsuba decomposition, 3 sub-multiplies,
+    //   ~15% LUT4 savings no-DSP but adds reconstruction overhead with DSP.
     // =========================================================================
-    localparam K = (FRAC_BITS + 1) / 2;   // 13 for FRAC_BITS=25
-    localparam H = FRAC_BITS - K;          // 12 for FRAC_BITS=25
+    wire signed [PROD_BITS-1:0] product;
 
-    wire signed [H-1:0] aH = a_frac_eff[FRAC_BITS-1 : K];
-    wire        [K-1:0] aL = a_frac_eff[K-1 : 0];
-    wire signed [H-1:0] bH = b_frac[FRAC_BITS-1 : K];
-    wire        [K-1:0] bL = b_frac[K-1 : 0];
+    generate if (USE_KARATSUBA) begin : gen_karatsuba
+        localparam K = (FRAC_BITS + 1) / 2;
+        localparam H = FRAC_BITS - K;
 
-    wire signed [2*H-1:0]  phh = aH * bH;          // H×H signed
-    wire        [2*K-1:0]  pll = aL * bL;           // K×K unsigned
+        wire signed [H-1:0] aH = a_frac_eff[FRAC_BITS-1 : K];
+        wire        [K-1:0] aL = a_frac_eff[K-1 : 0];
+        wire signed [H-1:0] bH = b_frac[FRAC_BITS-1 : K];
+        wire        [K-1:0] bL = b_frac[K-1 : 0];
 
-    wire signed [K:0] aM = $signed({{(K-H+1){aH[H-1]}}, aH}) + $signed({1'b0, aL});
-    wire signed [K:0] bM = $signed({{(K-H+1){bH[H-1]}}, bH}) + $signed({1'b0, bL});
-    wire signed [2*K+1:0] pmm = aM * bM;            // (K+1)×(K+1) signed
+        wire signed [2*H-1:0]  phh = aH * bH;
+        wire        [2*K-1:0]  pll = aL * bL;
 
-    wire signed [2*K+1:0] cross = pmm
-                                - {{(2*K+2-2*H){phh[2*H-1]}}, phh}
-                                - {2'b0, pll};
+        wire signed [K:0] aM = $signed({{(K-H+1){aH[H-1]}}, aH}) + $signed({1'b0, aL});
+        wire signed [K:0] bM = $signed({{(K-H+1){bH[H-1]}}, bH}) + $signed({1'b0, bL});
+        wire signed [2*K+1:0] pmm = aM * bM;
 
-    wire signed [PROD_BITS:0] product_wide =
-        ($signed({{(PROD_BITS+1-2*H){phh[2*H-1]}}, phh}) <<< (2*K))
-      + ($signed({{(PROD_BITS-2*K-1){cross[2*K+1]}}, cross}) <<< K)
-      + $signed({{(PROD_BITS+1-2*K){1'b0}}, pll});
+        wire signed [2*K+1:0] cross = pmm
+                                    - {{(2*K+2-2*H){phh[2*H-1]}}, phh}
+                                    - {2'b0, pll};
 
-    wire signed [PROD_BITS-1:0] product = product_wide[PROD_BITS-1:0];
+        wire signed [PROD_BITS:0] product_wide =
+            ($signed({{(PROD_BITS+1-2*H){phh[2*H-1]}}, phh}) <<< (2*K))
+          + ($signed({{(PROD_BITS-2*K-1){cross[2*K+1]}}, cross}) <<< K)
+          + $signed({{(PROD_BITS+1-2*K){1'b0}}, pll});
+
+        assign product = product_wide[PROD_BITS-1:0];
+    end else begin : gen_naive
+        wire signed [PROD_BITS:0] product_wide = a_frac_eff * b_frac;
+        assign product = product_wide[PROD_BITS-1:0];
+    end endgenerate
 
     // =========================================================================
     // Step 2: Bounded normalization (0 or 1 bit shift)

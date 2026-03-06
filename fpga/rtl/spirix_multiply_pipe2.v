@@ -19,7 +19,8 @@
 
 module spirix_multiply_pipe2 #(
     parameter FRAC_BITS = 25,
-    parameter EXP_BITS  = 8
+    parameter EXP_BITS  = 8,
+    parameter USE_KARATSUBA = 0  // 1 = Karatsuba (saves LUT4 no-DSP), 0 = naive (faster with DSP)
 )(
     input  wire clk,
     input  wire ce,
@@ -49,36 +50,43 @@ module spirix_multiply_pipe2 #(
                                                            : a_exp;
 
     // =========================================================================
-    // Stage 1: Karatsuba multiply + exponent sum
+    // Stage 1: Signed multiply + exponent sum
     //
-    // Three sub-multiplies: H×H, K×K, (K+1)×(K+1) instead of one N×N.
-    // With DSP: 3 MULT18X18D (was 4). Without DSP: ~15% fewer LUT4.
+    // USE_KARATSUBA=0: naive a*b, best with DSP (4 MULT18X18D, minimal LUT).
+    // USE_KARATSUBA=1: Karatsuba, 3 sub-multiplies, ~15% LUT4 savings no-DSP.
     // =========================================================================
-    localparam K = (FRAC_BITS + 1) / 2;
-    localparam H = FRAC_BITS - K;
+    wire signed [PROD_BITS-1:0] product_comb;
 
-    wire signed [H-1:0] aH = a_frac_eff[FRAC_BITS-1 : K];
-    wire        [K-1:0] aL = a_frac_eff[K-1 : 0];
-    wire signed [H-1:0] bH = b_frac[FRAC_BITS-1 : K];
-    wire        [K-1:0] bL = b_frac[K-1 : 0];
+    generate if (USE_KARATSUBA) begin : gen_karatsuba
+        localparam K = (FRAC_BITS + 1) / 2;
+        localparam H = FRAC_BITS - K;
 
-    wire signed [2*H-1:0]  phh = aH * bH;
-    wire        [2*K-1:0]  pll = aL * bL;
+        wire signed [H-1:0] aH = a_frac_eff[FRAC_BITS-1 : K];
+        wire        [K-1:0] aL = a_frac_eff[K-1 : 0];
+        wire signed [H-1:0] bH = b_frac[FRAC_BITS-1 : K];
+        wire        [K-1:0] bL = b_frac[K-1 : 0];
 
-    wire signed [K:0] aM = $signed({{(K-H+1){aH[H-1]}}, aH}) + $signed({1'b0, aL});
-    wire signed [K:0] bM = $signed({{(K-H+1){bH[H-1]}}, bH}) + $signed({1'b0, bL});
-    wire signed [2*K+1:0] pmm = aM * bM;
+        wire signed [2*H-1:0]  phh = aH * bH;
+        wire        [2*K-1:0]  pll = aL * bL;
 
-    wire signed [2*K+1:0] cross = pmm
-                                - {{(2*K+2-2*H){phh[2*H-1]}}, phh}
-                                - {2'b0, pll};
+        wire signed [K:0] aM = $signed({{(K-H+1){aH[H-1]}}, aH}) + $signed({1'b0, aL});
+        wire signed [K:0] bM = $signed({{(K-H+1){bH[H-1]}}, bH}) + $signed({1'b0, bL});
+        wire signed [2*K+1:0] pmm = aM * bM;
 
-    wire signed [PROD_BITS:0] product_wide =
-        ($signed({{(PROD_BITS+1-2*H){phh[2*H-1]}}, phh}) <<< (2*K))
-      + ($signed({{(PROD_BITS-2*K-1){cross[2*K+1]}}, cross}) <<< K)
-      + $signed({{(PROD_BITS+1-2*K){1'b0}}, pll});
+        wire signed [2*K+1:0] cross = pmm
+                                    - {{(2*K+2-2*H){phh[2*H-1]}}, phh}
+                                    - {2'b0, pll};
 
-    wire signed [PROD_BITS-1:0] product_comb = product_wide[PROD_BITS-1:0];
+        wire signed [PROD_BITS:0] product_wide =
+            ($signed({{(PROD_BITS+1-2*H){phh[2*H-1]}}, phh}) <<< (2*K))
+          + ($signed({{(PROD_BITS-2*K-1){cross[2*K+1]}}, cross}) <<< K)
+          + $signed({{(PROD_BITS+1-2*K){1'b0}}, pll});
+
+        assign product_comb = product_wide[PROD_BITS-1:0];
+    end else begin : gen_naive
+        wire signed [PROD_BITS:0] product_wide = a_frac_eff * b_frac;
+        assign product_comb = product_wide[PROD_BITS-1:0];
+    end endgenerate
 
     wire signed [EXP_BITS:0] exp_sum = $signed({a_exp_eff[EXP_BITS-1], a_exp_eff})
                                       + $signed({b_exp[EXP_BITS-1], b_exp});
