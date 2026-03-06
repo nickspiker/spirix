@@ -75,17 +75,19 @@ module spirix_multiply #(
         wire signed [2*H-1:0]  phh = aH * bH;
         wire        [2*K-1:0]  pll = aL * bL;
 
-        wire signed [K:0] aM = $signed({{(K-H+1){aH[H-1]}}, aH}) + $signed({1'b0, aL});
-        wire signed [K:0] bM = $signed({{(K-H+1){bH[H-1]}}, bH}) + $signed({1'b0, bL});
-        wire signed [2*K+1:0] pmm = aM * bM;
+        // aM, bM need K+2 bits: aH(H-bit signed) + aL(K-bit unsigned) can reach
+        // H_max + K_max = (2^(H-1)-1) + (2^K-1) which exceeds K+1 signed range.
+        wire signed [K+1:0] aM = $signed({{(K-H+2){aH[H-1]}}, aH}) + $signed({2'b0, aL});
+        wire signed [K+1:0] bM = $signed({{(K-H+2){bH[H-1]}}, bH}) + $signed({2'b0, bL});
+        wire signed [2*K+3:0] pmm = aM * bM;
 
-        wire signed [2*K+1:0] cross = pmm
-                                    - {{(2*K+2-2*H){phh[2*H-1]}}, phh}
-                                    - {2'b0, pll};
+        wire signed [2*K+3:0] cross = pmm
+                                    - {{(2*K+4-2*H){phh[2*H-1]}}, phh}
+                                    - {{2{1'b0}}, pll};
 
         wire signed [PROD_BITS:0] product_wide =
             ($signed({{(PROD_BITS+1-2*H){phh[2*H-1]}}, phh}) <<< (2*K))
-          + ($signed({{(PROD_BITS-2*K-1){cross[2*K+1]}}, cross}) <<< K)
+          + ($signed({{(PROD_BITS-2*K-1){cross[2*K+3]}}, cross}) <<< K)
           + $signed({{(PROD_BITS+1-2*K){1'b0}}, pll});
 
         assign product = product_wide[PROD_BITS-1:0];
