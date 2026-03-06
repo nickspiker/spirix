@@ -150,22 +150,20 @@ module ntsc_framebuf #(
     end
 
     wire in_hash_x = (fb_x >= HASH_X_START) & (fb_x < HASH_X_END);
-    wire in_hash_x_plus1 = (fb_x >= HASH_X_START) & (fb_x <= HASH_X_END); // +1px right border
-    wire in_hash_rborder = (fb_x == HASH_X_END);
 
     // Hash overlay 1: rows 30-45, marker at row 29/46
     wire in_hash1_rows = (fb_y >= 9'd30) & (fb_y < 9'd46);
-    wire in_marker1_row = (fb_y == 9'd29 || fb_y == 9'd46) & in_hash_x_plus1;
-    // BWB separator: sub 0=black, 1=white, 2-4=bit value
+    wire in_marker1_row = (fb_y == 9'd29 || fb_y == 9'd46) & in_hash_x;
+    // BWVVW: sub 0=black, 1,4=white, 2-3=bit value
     wire hash1_px = (hash_sub == 3'd0) ? 1'b0 :
-                    (hash_sub == 3'd1) ? 1'b1 :
+                    (hash_sub == 3'd1 || hash_sub == 3'd4) ? 1'b1 :
                     hash_lat[31 - hash_bit];
 
     // Hash overlay 2: rows 210-225, marker at row 209/226
     wire in_hash2_rows = (fb_y >= 9'd210) & (fb_y < 9'd226);
-    wire in_marker2_row = (fb_y == 9'd209 || fb_y == 9'd226) & in_hash_x_plus1;
+    wire in_marker2_row = (fb_y == 9'd209 || fb_y == 9'd226) & in_hash_x;
     wire hash2_px = (hash_sub == 3'd0) ? 1'b0 :
-                    (hash_sub == 3'd1) ? 1'b1 :
+                    (hash_sub == 3'd1 || hash_sub == 3'd4) ? 1'b1 :
                     hash2_lat[31 - hash_bit];
 
     // Mismatch indicators: white ticks above & below mismatching bits
@@ -192,7 +190,6 @@ module ntsc_framebuf #(
     reg       hash1_pixel_d1, hash2_pixel_d1;
     reg       marker1_d1, marker2_d1;
     reg       tick_d1;
-    reg       rborder_d1;
     always @(posedge clk) begin
         fb_bit_d1      <= fb_bit;
         content_d1     <= h_in_content & v_in_content;
@@ -204,12 +201,10 @@ module ntsc_framebuf #(
         marker2_d1     <= h_in_content & v_in_content & in_marker2_row;
         tick_d1        <= h_in_content & v_in_content &
                           (in_tick1_above | in_tick1_below | in_tick2_above | in_tick2_below);
-        rborder_d1     <= h_in_content & v_in_content & in_hash_rborder &
-                          (in_hash1_rows | in_hash2_rows);
     end
 
-    wire in_overlay = hash1_region_d1 | marker1_d1 | hash2_region_d1 | marker2_d1 | tick_d1 | rborder_d1;
-    wire overlay_px = (tick_d1 | rborder_d1) ? 1'b1 :
+    wire in_overlay = hash1_region_d1 | marker1_d1 | hash2_region_d1 | marker2_d1 | tick_d1;
+    wire overlay_px = tick_d1 ? 1'b1 :
                       (marker1_d1 | marker2_d1) ? 1'b1 :
                       hash1_region_d1 ? hash1_pixel_d1 :
                       hash2_pixel_d1;
