@@ -14,7 +14,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FPGA_DIR="$SCRIPT_DIR/.."
-RTL="$FPGA_DIR/rtl"
+RTL="$FPGA_DIR/bench"
 LPF="$FPGA_DIR/constraints/colorlight_5a75b_v8.lpf"
 BUILD="$FPGA_DIR/build"
 
@@ -112,6 +112,14 @@ case "$DUT" in
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew add/sub (native IEEE 754)"
         ;;
+    spirix_addsub)
+        DUT_DEFINE="-DDUT_SPIRIX_ADDSUB"
+        echo "  DUT: Spirix addsub (combinational)"
+        ;;
+    spirix_addsub_pipe2)
+        DUT_DEFINE="-DDUT_SPIRIX_ADDSUB_PIPE2"
+        echo "  DUT: Spirix addsub_pipe2 (2-stage pipeline)"
+        ;;
     spirix_mul)
         DUT_DEFINE="-DDUT_SPIRIX_MUL"
         echo "  DUT: Spirix multiply (standalone)"
@@ -131,6 +139,16 @@ case "$DUT" in
     spirix_sqrt_nr)
         DUT_DEFINE="-DDUT_SPIRIX_SQRT_NR"
         echo "  DUT: Spirix sqrt_nr (10-stage pipeline, 27 DSP)"
+        ;;
+    spirix_nr_div)
+        DUT_DEFINE="-DDUT_SPIRIX_NR_DIV"
+        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_nr_divsqrt.v;"
+        echo "  DUT: Spirix nr_divsqrt (divide mode, iterative, 1 DSP)"
+        ;;
+    spirix_nr_sqrt)
+        DUT_DEFINE="-DDUT_SPIRIX_NR_SQRT"
+        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_nr_divsqrt.v;"
+        echo "  DUT: Spirix nr_divsqrt (sqrt mode, iterative, 1 DSP)"
         ;;
     spirix_sqrt_iter)
         DUT_DEFINE="-DDUT_SPIRIX_SQRT_ITER"
@@ -176,7 +194,7 @@ case "$DUT" in
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add, fpn_fma/mul/add/div/sqrt, spirix_mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter, hf_div/sqrt, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt, or empty."
         exit 1
         ;;
 esac

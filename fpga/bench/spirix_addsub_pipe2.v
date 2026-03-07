@@ -59,6 +59,138 @@ module spirix_addsub_pipe2 #(
     localparam LEAD_BITS   = BARREL_BITS + 1;   // leading count width
     localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
     localparam signed [FRAC_BITS-1:0] NEG_ONE  = {1'b1, {(FRAC_BITS-1){1'b0}}};
+    localparam signed [FRAC_BITS-1:0] POS_SMALL = {2'b00, 1'b1, {(FRAC_BITS-3){1'b0}}};
+    localparam signed [FRAC_BITS-1:0] NEG_SMALL = {2'b11, {(FRAC_BITS-2){1'b0}}};
+
+    // Undefined prefix constants
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF  = {8'h1F, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF  = {8'hE0, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1E, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE1, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h18, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE7, {UPAD{1'b0}}};
+
+    // =========================================================================
+    // Edge case detection (combinational, before stage 1)
+    // =========================================================================
+
+    wire a_is_ambig = (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+    wire b_is_ambig = (b_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire a_frac_zero = (a_frac == {FRAC_BITS{1'b0}});
+    wire a_frac_neg1 = &a_frac;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
+    wire b_frac_neg1 = &b_frac;
+
+    wire a_n0 = a_frac_zero | a_frac_neg1;
+    wire b_n0 = b_frac_zero | b_frac_neg1;
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_n2 = ~a_n1 & (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = ~b_n1 & (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-3]);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    wire a_is_zero   = a_is_ambig & a_frac_zero;
+    wire a_is_inf    = a_is_ambig & a_frac_neg1;
+    wire a_exploded  = a_is_ambig & a_n1;
+    wire a_transf    = a_is_inf | a_exploded;
+    wire a_vanished  = a_n2;
+    wire a_undef     = ~a_n0 & a_top3;
+
+    wire b_is_zero   = b_is_ambig & b_frac_zero;
+    wire b_is_inf    = b_is_ambig & b_frac_neg1;
+    wire b_exploded  = b_is_ambig & b_n1;
+    wire b_transf    = b_is_inf | b_exploded;
+    wire b_vanished  = b_n2;
+    wire b_undef     = ~b_n0 & b_top3;
+
+    wire a_is_normal  = ~a_is_ambig & a_n1;
+    wire b_is_normal  = ~b_is_ambig & b_n1;
+    wire any_non_normal = ~a_is_normal | ~b_is_normal;
+
+    // Spirix negation of b (for sub edge cases)
+    wire b_is_pos_half  = (b_frac == POS_HALF);
+    wire b_is_neg_one_f = (b_frac == NEG_ONE);
+    wire b_is_pos_small = (b_frac == POS_SMALL);
+    wire b_is_neg_small = (b_frac == NEG_SMALL);
+
+    wire signed [EXP_BITS-1:0] ec_b_exp_m1 = b_exp - 1'b1;
+    wire ec_b_exp_m1_ambig = (ec_b_exp_m1 == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire signed [FRAC_BITS-1:0] neg_b_frac_normal =
+        b_is_pos_half  ? (ec_b_exp_m1_ambig ? NEG_SMALL : NEG_ONE) :
+        b_is_neg_one_f ? POS_HALF :
+                         -b_frac;
+    wire signed [EXP_BITS-1:0] neg_b_exp_normal =
+        b_is_pos_half  ? ec_b_exp_m1 :
+        b_is_neg_one_f ? (b_exp + 1'b1) :
+                         b_exp;
+
+    wire b_top3_same = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                       (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+    wire b_nonnorm_nochange = (b_frac_zero | b_frac_neg1) |
+                              (~(b_frac_zero | b_frac_neg1) & b_top3_same);
+
+    wire signed [FRAC_BITS-1:0] neg_b_frac_nonnorm =
+        b_nonnorm_nochange ? b_frac :
+        b_is_pos_half      ? NEG_ONE :
+        b_is_neg_one_f     ? POS_HALF :
+        b_is_pos_small     ? NEG_SMALL :
+        b_is_neg_small     ? POS_SMALL :
+                             -b_frac;
+
+    wire signed [FRAC_BITS-1:0] neg_b_frac = b_is_ambig ? neg_b_frac_nonnorm : neg_b_frac_normal;
+    wire signed [EXP_BITS-1:0]  neg_b_exp  = b_is_ambig ? b_exp               : neg_b_exp_normal;
+
+    // Edge case priority chain
+    wire sc_a_undef   = a_undef;
+    wire sc_b_undef   = ~a_undef & b_undef;
+    wire sc_tf_tf     = ~a_undef & ~b_undef & a_transf & b_transf;
+    wire sc_van_van   = ~a_undef & ~b_undef & ~sc_tf_tf & a_vanished & b_vanished;
+    wire sc_a_transf  = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van & a_transf;
+    wire sc_b_transf  = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van & ~sc_a_transf & b_transf;
+    wire sc_a_van     = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & a_vanished;
+    wire sc_b_van     = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & ~sc_a_van & b_vanished;
+    wire sc_a_zero    = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & ~sc_a_van & ~sc_b_van & a_is_zero;
+    wire sc_fallback  = any_non_normal & ~sc_a_undef & ~sc_b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & ~sc_a_van & ~sc_b_van & ~sc_a_zero;
+
+    wire ec_shortcut = any_non_normal & (sc_a_undef | sc_b_undef | sc_tf_tf | sc_van_van |
+                                         sc_a_transf | sc_b_transf | sc_a_van | sc_b_van |
+                                         sc_a_zero | sc_fallback);
+
+    wire signed [FRAC_BITS-1:0] ec_sc_frac =
+        sc_a_undef  ? a_frac :
+        sc_b_undef  ? b_frac :
+        sc_tf_tf    ? (sub ? UNDEF_TF_M_TF  : UNDEF_TF_P_TF) :
+        sc_van_van  ? (sub ? UNDEF_VAN_M_VAN : UNDEF_VAN_P_VAN) :
+        sc_a_transf ? (sub ? UNDEF_TF_M_FIN  : UNDEF_TF_P_FIN) :
+        sc_b_transf ? (sub ? UNDEF_FIN_M_TF  : UNDEF_FIN_P_TF) :
+        sc_a_van    ? (sub ? neg_b_frac : b_frac) :
+        sc_b_van    ? a_frac :
+        sc_a_zero   ? (sub ? neg_b_frac : b_frac) :
+                      a_frac;
+
+    wire signed [EXP_BITS-1:0] ec_sc_exp =
+        sc_a_undef  ? a_exp :
+        sc_b_undef  ? b_exp :
+        sc_tf_tf    ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        sc_van_van  ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        sc_a_transf ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        sc_b_transf ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        sc_a_van    ? (sub ? neg_b_exp : b_exp) :
+        sc_b_van    ? a_exp :
+        sc_a_zero   ? (sub ? neg_b_exp : b_exp) :
+                      a_exp;
 
     // =========================================================================
     // STAGE 1: Swap + Close Add + CLZ + Shared Barrel
@@ -205,6 +337,9 @@ module spirix_addsub_pipe2 #(
     reg                          s2_negate_big;
     reg                          s2_negate_small;
     reg                          s2_sub;
+    reg                          s2_shortcut;
+    reg signed [FRAC_BITS-1:0]  s2_sc_frac;
+    reg signed [EXP_BITS-1:0]   s2_sc_exp;
 
     always @(posedge clk) if (ce) begin
         s2_close_normalized  <= close_normalized;
@@ -220,6 +355,9 @@ module spirix_addsub_pipe2 #(
         s2_negate_big        <= negate_big;
         s2_negate_small      <= negate_small;
         s2_sub               <= sub;
+        s2_shortcut          <= ec_shortcut;
+        s2_sc_frac           <= ec_sc_frac;
+        s2_sc_exp            <= ec_sc_exp;
     end
 
     // =========================================================================
@@ -342,15 +480,17 @@ module spirix_addsub_pipe2 #(
 
     // Stage 2 output register
     always @(posedge clk) if (ce) begin
-        result_frac <= s2_use_negligible ? s2_big_frac :
-                       path_is_zero      ? {FRAC_BITS{1'b0}} :
-                       path_underflow    ? path_uf_frac :
-                                           path_frac;
+        result_frac <= s2_shortcut        ? s2_sc_frac :
+                       s2_use_negligible  ? s2_big_frac :
+                       path_is_zero       ? {FRAC_BITS{1'b0}} :
+                       path_underflow     ? path_uf_frac :
+                                            path_frac;
 
-        result_exp  <= s2_use_negligible ? s2_big_exp :
-                       path_is_zero      ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                       path_underflow    ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                                           path_exp;
+        result_exp  <= s2_shortcut        ? s2_sc_exp :
+                       s2_use_negligible  ? s2_big_exp :
+                       path_is_zero       ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                       path_underflow     ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                                            path_exp;
     end
 
 endmodule

@@ -138,7 +138,7 @@ macro_rules! impl_int_convert {
                     } else {
                         self.as_()
                     }
-                    // (self as $u).reverse_bits().as_().reverse_bits() // apparently the compiler isn't smart enough to figure out this is a simple left handed as so it turns into 38 lines of asm when it could be one op and now I have to write a massive macro
+                    // (self as $u).reverse_bits().as_().reverse_bits() // apparently the compiler isn't smart enough to figure out this is a simple left handed cast so it turns into 38 lines of asm when it could be one op and now I have to write a massive macro, oh wait x-86 just completely forgot
                 }
             }
         )*

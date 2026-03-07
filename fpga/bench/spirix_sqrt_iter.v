@@ -24,7 +24,10 @@
 // Result magnitude = Q >> 2, with Q[1:0] and remainder providing rounding info.
 // Banker's round applied. Output is always non-negative (sqrt of negative = 0).
 //
-// Negative input or zero returns (0, AMBIGUOUS_EXP) after the normal latency.
+// Edge cases follow the Spirix state model:
+//   AMBIG exponent → undef passthrough, N0 passthrough, vanished, exploded
+//   Negative normal → UNDEF_SQRT_NEG
+//   Positive normal → compute
 //
 // Input format: value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
 // Fraction is signed two's complement, N1-normalized (top two bits differ).
@@ -58,9 +61,29 @@ module spirix_sqrt_iter #(
     localparam R_BITS  = N_ITER + 2;        // 28-bit remainder
     localparam CTR_BITS = $clog2(N_ITER);
 
-    localparam S_IDLE    = 0;
-    localparam S_COMPUTE = 1;
-    reg state = S_IDLE;
+    localparam S_IDLE     = 0;
+    localparam S_COMPUTE  = 1;
+    localparam S_SHORTCUT = 2;
+    reg [1:0] state = S_IDLE;
+
+    // Edge case constants
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIGUOUS_EXP[EXP_BITS-1:0];
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_NEG    = $signed({8'hF6, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_EXPLOD = $signed({8'h08, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_VANISH = $signed({8'hF7, {UPAD{1'b0}}});
+
+    // Input state classification (combinational)
+    wire a_is_ambig = (a_exp == AMBIG_E);
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire a_n2 = !a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire a_vanished = a_n2;
+    wire [7:0] a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire a_n0 = (a_pref == 8'h00) || (a_pref == 8'hFF);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire a_undef = !a_n0 && a_top3;
+    wire a_is_normal = a_n1 && !a_is_ambig;
 
     assign busy = (state != S_IDLE);
 
@@ -69,9 +92,10 @@ module spirix_sqrt_iter #(
     reg [R_BITS-1:0]        rem_reg;        // partial remainder
     reg [N_ITER-1:0]        root_reg;       // root accumulator
     reg [CTR_BITS-1:0]      counter;
-    reg                     invalid_reg;
     reg                     exp_odd_reg;
     reg signed [EXP_BITS:0] exp_half_reg;
+    reg signed [FRAC_BITS-1:0] sc_frac_r;
+    reg signed [EXP_BITS-1:0]  sc_exp_r;
 
     // =========================================================================
     // Trial subtraction (restoring sqrt iteration)
@@ -119,7 +143,7 @@ module spirix_sqrt_iter #(
     wire exp_too_big   = (exp_base > MAX_EXP);
     wire exp_too_small = (exp_base < MIN_EXP);
 
-    wire clamp = invalid_reg | exp_too_big | exp_too_small;
+    wire clamp = exp_too_big | exp_too_small;
     wire signed [FRAC_BITS-1:0] out_frac = clamp ? {FRAC_BITS{1'b0}} :
                                             $signed({1'b0, pos_frac});
     wire signed [EXP_BITS-1:0]  out_exp  = clamp ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
@@ -139,25 +163,39 @@ module spirix_sqrt_iter #(
         case (state)
             S_IDLE: begin
                 if (start) begin
-                    // Negative or zero/ambiguous → invalid
-                    invalid_reg  <= a_frac[FRAC_BITS-1] |
-                                   (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+                    if (!a_is_normal) begin
+                        // Edge case chain: undef → N0 → vanished → exploded
+                        state <= S_SHORTCUT;
+                        sc_exp_r <= AMBIG_E;
+                        if (a_undef) begin
+                            sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                        end else if (a_n0) begin
+                            sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                        end else if (a_vanished) begin
+                            sc_frac_r <= UNDEF_SQRT_VANISH;
+                        end else begin
+                            sc_frac_r <= UNDEF_SQRT_EXPLOD;
+                        end
+                    end else if (a_frac[FRAC_BITS-1]) begin
+                        // Negative normal → sqrt of negative
+                        state <= S_SHORTCUT;
+                        sc_frac_r <= UNDEF_SQRT_NEG;
+                        sc_exp_r  <= AMBIG_E;
+                    end else begin
+                        // Positive normal — compute sqrt
+                        exp_odd_reg  <= a_exp[0];
+                        exp_half_reg <= $signed({a_exp[EXP_BITS-1], a_exp}) >>> 1;
 
-                    exp_odd_reg  <= a_exp[0];
-                    exp_half_reg <= $signed({a_exp[EXP_BITS-1], a_exp}) >>> 1;
+                        if (a_exp[0])
+                            rad_reg <= {1'b0, a_frac[MAG-1:0], {(RAD_BITS-MAG-1){1'b0}}};
+                        else
+                            rad_reg <= {a_frac[MAG-1:0], {(RAD_BITS-MAG){1'b0}}};
 
-                    // Radicand: 52 bits, |frac| positioned for even/odd exponent
-                    //   Even: |frac| at bits [51:28], zeros below
-                    //   Odd:  |frac| at bits [50:27], zeros below (and bit 51=0)
-                    if (a_exp[0])
-                        rad_reg <= {1'b0, a_frac[MAG-1:0], {(RAD_BITS-MAG-1){1'b0}}};
-                    else
-                        rad_reg <= {a_frac[MAG-1:0], {(RAD_BITS-MAG){1'b0}}};
-
-                    rem_reg  <= {R_BITS{1'b0}};
-                    root_reg <= {N_ITER{1'b0}};
-                    counter  <= N_ITER[CTR_BITS-1:0] - 1;
-                    state    <= S_COMPUTE;
+                        rem_reg  <= {R_BITS{1'b0}};
+                        root_reg <= {N_ITER{1'b0}};
+                        counter  <= N_ITER[CTR_BITS-1:0] - 1;
+                        state    <= S_COMPUTE;
+                    end
                 end
             end
 
@@ -176,6 +214,13 @@ module spirix_sqrt_iter #(
                 end else begin
                     counter <= counter - 1;
                 end
+            end
+
+            S_SHORTCUT: begin
+                result_frac <= sc_frac_r;
+                result_exp  <= sc_exp_r;
+                done  <= 1'b1;
+                state <= S_IDLE;
             end
         endcase
     end

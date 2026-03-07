@@ -1,6 +1,6 @@
 # SPIRIX LICENSE
-Version 1.0, December 2024
-Copyright © 2024 Nick Spiker
+Version 2, March 2026
+Copyright © 2024-2026 Nick Spiker
 
 ## Terms and Conditions
 
@@ -8,60 +8,42 @@ Copyright © 2024 Nick Spiker
 
 - "Spirix" refers to the numerical library implementing two's complement floating-point arithmetic
 - "Software Implementation" refers to any implementation in a programming language
-- "Hardware Implementation" refers to any physical or simulated hardware implementation
+- "FPGA Implementation" refers to any implementation targeting field-programmable gate arrays, including bitstream generation and hardware simulation/emulation of FPGA designs
+- "ASIC Implementation" refers to any implementation targeting fixed silicon fabrication, including but not limited to: mask creation, tape-out, standard cell synthesis for manufacturing, any photolithographic process, or any other process that produces a non-reprogrammable integrated circuit
 - "Python" refers to the Python programming language and any derivative implementations
 - "Licensee" refers to any individual or entity using Spirix
 
 ### Grant of License
 
-Subject to the terms and conditions of this License, Nick Spiker hereby grants you a worldwide, royalty-free, non-exclusive license to use, copy, modify, and distribute Software Implementations of Spirix, provided that:
+Subject to the terms and conditions of this License, Nick Spiker hereby grants you a worldwide, royalty-free, non-exclusive license to use, copy, modify, and distribute Spirix, provided that the use falls within one of the following permitted categories:
 
-- The implementation is in the Rust programming language, or
-- The implementation has received explicit written approval from Nick Spiker, digitally signed with Nick Spiker's authorized key
+#### Software Implementations
+- Rust implementations are explicitly permitted and recommended
+- Other language implementations are permitted but not supported
+
+#### FPGA Implementations
+FPGA implementations are explicitly permitted, worldwide, royalty-free, for any purpose, including commercial use. You may freely:
+- Synthesize, place, route, and program any FPGA device
+- Use in commercial products containing FPGAs
+- Modify and distribute FPGA designs derived from Spirix
+- Simulate and emulate FPGA designs
+
+No approval, notification, or attribution is required for FPGA use.
 
 ### Explicit Prohibitions
 
-#### Hardware Implementations
-This license explicitly PROHIBITS:
-- Any hardware implementation
-- Any ASIC design
-- Any FPGA implementation
-- Any hardware accelerator design
-- Any silicon implementation
-- Any custom processor design
-- Any microcode implementation
-- Any hardware simulation or emulation
-- Any attempt to create physical embodiments of the algorithms
+#### ASIC Implementations
+This license explicitly PROHIBITS any ASIC implementation without a separate commercial license. This includes:
+- Any mask creation or tape-out
+- Any standard cell synthesis targeting fixed silicon fabrication
+- Any photolithographic or other non-reprogrammable IC manufacturing process
+- Any shuttle run, MPW, or full production run
+- Any engagement with a foundry or semiconductor manufacturer for the purpose of producing fixed silicon embodying Spirix algorithms
 
-#### Programming Language Restrictions
-This license explicitly PROHIBITS:
-- Any implementation in Python
-- Any bindings to Python
-- Any wrappers for Python
-- Any interface that allows Python to access Spirix functionality
-- Any attempt to circumvent these Python restrictions
+ASIC implementations require a separate commercial license. See "Commercial Licensing" below.
 
-### Implementation Permissions
-
-#### Recommended Implementation
-- Rust implementations are explicitly permitted and recommended
-
-#### Other Languages
-Other language implementations require explicit approval and must meet these criteria:
-- Memory safety guarantees
-- Strong type system
-- Clear justification for necessity
-- Complete test coverage
-- Documentation of safety measures
-- Isolation of unsafe code
-
-#### Approval Process
-To request approval for other language implementations:
--Submit formal written request to fractaldecoder@proton.me
--Include complete technical documentation
--Provide safety and testing documentation
--Await written approval digitally signed by Nick Spiker
--Maintain compliance with any additional requirements
+#### Python
+Reimplementation of Spirix algorithms in Python is prohibited. Bindings and interfaces that call the Rust implementation are permitted.
 
 ### Derivative Works
 
@@ -69,17 +51,17 @@ To request approval for other language implementations:
 Any implementation of binary floating-point arithmetic using two's complement representation is considered a derivative work of Spirix, whether in software or hardware.
 
 #### Restrictions
-Derivative works are prohibited unless explicitly authorized in writing by Nick Spiker.
+Derivative works are prohibited unless explicitly authorized in writing by Nick Spiker, or unless they fall within the FPGA permissions granted above.
 
 ### Commercial Licensing
 
-#### Hardware Implementation Licensing
-For hardware implementation rights, contact:
+#### ASIC Implementation Licensing
+For ASIC and fixed-silicon implementation rights, contact:
 Nick Spiker
 fractaldecoder@proton.me
 
 #### Commercial Use
-Commercial use of the software implementation is permitted within the terms of this license.
+Commercial use of software and FPGA implementations is permitted within the terms of this license.
 
 ### Contributions and Modifications
 
@@ -103,7 +85,7 @@ All contributions must be:
 Nick Spiker reserves the right to revoke this license for:
 - Attempting to circumvent license restrictions
 - Creating unauthorized implementations
-- Attempting unauthorized hardware implementations
+- Unauthorized ASIC implementations
 - Malicious use or intent
 - Violation of any license terms
 
@@ -120,10 +102,10 @@ THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPL
 ### Patent Rights
 
 #### Patent License
-This license includes a patent license for software implementations only.
+This license includes a patent license for software and FPGA implementations.
 
-#### Hardware Patents
-All patent rights for hardware implementations are explicitly reserved.
+#### ASIC Patents
+All patent rights for ASIC implementations are explicitly reserved.
 
 ### Export Compliance
 
@@ -132,6 +114,16 @@ Licensee must comply with all applicable export and re-export control laws and r
 ### Governing Law
 
 This license shall be governed by and construed in accordance with the laws of the United States of America.
+
+### Authorized Signing Key
+
+Approvals referenced in this license are valid only when digitally signed using the following Ed25519 public key:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE123ZAAw1MxwbBGVPIv3pgtezJFYHm10XvhkRRwFkRI
+```
+
+Verify signatures with: `ssh-keygen -Y verify -f allowed_signers -I fractaldecoder@proton.me -n spirix -s <signature>`
 
 ### Contact Information
 

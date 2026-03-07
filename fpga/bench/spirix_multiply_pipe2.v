@@ -40,6 +40,73 @@ module spirix_multiply_pipe2 #(
     localparam signed [EXP_BITS:0] MAX_EXP = (1 <<< (EXP_BITS - 1)) - 1;
     localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
 
+    // Undefined prefix constants
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
+
+    // =========================================================================
+    // Edge case detection (combinational, stage 0)
+    // =========================================================================
+
+    wire a_is_ambig = (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+    wire b_is_ambig = (b_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire a_frac_zero = (a_frac == {FRAC_BITS{1'b0}});
+    wire a_frac_neg1 = &a_frac;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
+    wire b_frac_neg1 = &b_frac;
+
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_n2 = ~a_n1 & (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = ~b_n1 & (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-3]);
+    wire a_n0 = a_frac_zero | a_frac_neg1;
+    wire b_n0 = b_frac_zero | b_frac_neg1;
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    wire a_is_zero  = a_is_ambig & a_frac_zero;
+    wire a_is_inf   = a_is_ambig & a_frac_neg1;
+    wire a_exploded = a_is_ambig & a_n1;
+    wire a_vanished = a_n2;
+    wire a_undef    = ~a_n0 & a_top3;
+
+    wire b_is_zero  = b_is_ambig & b_frac_zero;
+    wire b_is_inf   = b_is_ambig & b_frac_neg1;
+    wire b_exploded = b_is_ambig & b_n1;
+    wire b_vanished = b_n2;
+    wire b_undef    = ~b_n0 & b_top3;
+
+    wire a_is_normal  = ~a_is_ambig & a_n1;
+    wire b_is_normal  = ~b_is_ambig & b_n1;
+    wire any_non_normal = ~a_is_normal | ~b_is_normal;
+
+    wire sc_a_undef  = a_undef;
+    wire sc_b_undef  = ~a_undef & b_undef;
+    wire sc_inf_zero = ~a_undef & ~b_undef & ((a_is_inf & b_is_zero) | (a_is_zero & b_is_inf));
+    wire sc_any_zero = ~a_undef & ~b_undef & ~sc_inf_zero & (a_is_zero | b_is_zero);
+    wire sc_exp_van  = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_zero &
+                       ((a_exploded & b_vanished) | (a_vanished & b_exploded));
+    wire shortcut    = sc_a_undef | sc_b_undef | sc_inf_zero | sc_any_zero | sc_exp_van;
+
+    wire abnormal_compute = any_non_normal & ~shortcut;
+    wire n_level_neg1 = a_exploded | b_exploded;
+
+    wire signed [FRAC_BITS-1:0] sc_frac =
+        sc_a_undef  ? a_frac :
+        sc_b_undef  ? b_frac :
+        sc_inf_zero ? ((a_is_inf | a_exploded) ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF) :
+        sc_any_zero ? {FRAC_BITS{1'b0}} :
+                      ((a_exploded)             ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF);
+
+    wire signed [EXP_BITS-1:0] sc_exp =
+        sc_a_undef  ? a_exp :
+        sc_b_undef  ? b_exp :
+                      AMBIGUOUS_EXP[EXP_BITS-1:0];
+
     // =========================================================================
     // Optional negate — flip sign of a_frac before multiply
     // =========================================================================
@@ -93,10 +160,20 @@ module spirix_multiply_pipe2 #(
 
     reg signed [PROD_BITS-1:0] s1_product;
     reg signed [EXP_BITS:0]    s1_exp_sum;
+    reg                         s1_shortcut;
+    reg                         s1_abnormal;
+    reg                         s1_abnormal_n2;
+    reg signed [FRAC_BITS-1:0] s1_sc_frac;
+    reg signed [EXP_BITS-1:0]  s1_sc_exp;
 
     always @(posedge clk) if (ce) begin
-        s1_product <= product_comb;
-        s1_exp_sum <= exp_sum;
+        s1_product    <= product_comb;
+        s1_exp_sum    <= exp_sum;
+        s1_shortcut   <= shortcut;
+        s1_abnormal   <= abnormal_compute;
+        s1_abnormal_n2<= abnormal_compute & ~n_level_neg1;
+        s1_sc_frac    <= sc_frac;
+        s1_sc_exp     <= sc_exp;
     end
 
     // =========================================================================
@@ -143,15 +220,23 @@ module spirix_multiply_pipe2 #(
     wire exp_too_small = (exp_wide < MIN_EXP);
     wire signed [EXP_BITS-1:0] out_exp = exp_wide[EXP_BITS-1:0];
 
+    // Abnormal compute: n_level=-2 right-shifts result to N2
+    wire signed [FRAC_BITS-1:0] abnormal_frac = s1_abnormal_n2
+        ? {out_frac[FRAC_BITS-1], out_frac[FRAC_BITS-1:1]} : out_frac;
+
     // Stage 2 output register
     always @(posedge clk) if (ce) begin
-        result_frac <= exp_too_big   ? out_frac :
-                       exp_too_small ? {out_frac[FRAC_BITS-1],
-                                        out_frac[FRAC_BITS-1:1]} :
-                                       out_frac;
+        result_frac <= s1_shortcut    ? s1_sc_frac :
+                       s1_abnormal    ? abnormal_frac :
+                       exp_too_big    ? out_frac :
+                       exp_too_small  ? {out_frac[FRAC_BITS-1],
+                                         out_frac[FRAC_BITS-1:1]} :
+                                        out_frac;
 
-        result_exp  <= (exp_too_big | exp_too_small) ?
-                        AMBIGUOUS_EXP[EXP_BITS-1:0] : out_exp;
+        result_exp  <= s1_shortcut                    ? s1_sc_exp :
+                       (s1_abnormal |
+                        exp_too_big | exp_too_small)  ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                                                        out_exp;
     end
 
 endmodule

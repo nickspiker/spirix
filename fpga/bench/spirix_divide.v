@@ -54,6 +54,90 @@ module spirix_divide #(
     localparam signed [EXP_BITS:0] MAX_EXP = (1 <<< (EXP_BITS - 1)) - 1;
     localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
 
+    // Edge case constants
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIGUOUS_EXP[EXP_BITS-1:0];
+    localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'hE9, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'h16, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL      = $signed({8'hFE, {UPAD{1'b0}}});
+
+    // =========================================================================
+    // Edge case classification
+    // =========================================================================
+    wire ec_a_is_ambig = (a_exp == AMBIG_E);
+    wire ec_b_is_ambig = (b_exp == AMBIG_E);
+
+    wire ec_a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire ec_b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+
+    wire [7:0] ec_a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire [7:0] ec_b_pref = b_frac[FRAC_BITS-1 -: 8];
+    wire ec_a_n0 = (ec_a_pref == 8'h00) || (ec_a_pref == 8'hFF);
+    wire ec_b_n0 = (ec_b_pref == 8'h00) || (ec_b_pref == 8'hFF);
+
+    wire ec_a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                     (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire ec_b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &&
+                     (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    wire ec_a_undef = !ec_a_n0 && ec_a_top3;
+    wire ec_b_undef = !ec_b_n0 && ec_b_top3;
+
+    wire ec_a_n2 = !ec_a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire ec_b_n2 = !ec_b_n1 && (b_frac[FRAC_BITS-2] != b_frac[FRAC_BITS-3]);
+
+    wire ec_a_is_zero_st = ec_a_n0 && !a_frac[FRAC_BITS-1];
+    wire ec_b_is_zero_st = ec_b_n0 && !b_frac[FRAC_BITS-1];
+    wire ec_a_is_inf = ec_a_n0 && a_frac[FRAC_BITS-1];
+    wire ec_b_is_inf = ec_b_n0 && b_frac[FRAC_BITS-1];
+
+    wire ec_a_vanished = ec_a_n2;
+    wire ec_b_vanished = ec_b_n2;
+    wire ec_a_exploded = ec_a_is_ambig && ec_a_n1;
+    wire ec_b_exploded = ec_b_is_ambig && ec_b_n1;
+
+    wire ec_a_is_normal = ec_a_n1 && !ec_a_is_ambig;
+    wire ec_b_is_normal = ec_b_n1 && !ec_b_is_ambig;
+    wire ec_any_non_normal = !ec_a_is_normal || !ec_b_is_normal;
+
+    // Edge case shortcut priority chain
+    reg ec_shortcut;
+    reg signed [FRAC_BITS-1:0] ec_sc_frac;
+    reg signed [EXP_BITS-1:0]  ec_sc_exp;
+
+    always @(*) begin
+        ec_shortcut = 1'b0;
+        ec_sc_frac  = {FRAC_BITS{1'b0}};
+        ec_sc_exp   = AMBIG_E;
+        if (ec_any_non_normal) begin
+            ec_shortcut = 1'b1;
+            if (ec_a_undef) begin
+                ec_sc_frac = a_frac; ec_sc_exp = a_exp;
+            end else if (ec_b_undef) begin
+                ec_sc_frac = b_frac; ec_sc_exp = b_exp;
+            end else if (ec_b_is_zero_st) begin
+                ec_sc_frac = ec_a_is_zero_st ? UNDEF_NEG_DIV_NEG : ALL_ONES;
+            end else if (ec_a_is_inf) begin
+                ec_sc_frac = ec_b_is_inf ? UNDEF_TF_DIV_TF : ALL_ONES;
+            end else if (ec_a_is_zero_st || ec_b_is_inf) begin
+                ec_sc_frac = {FRAC_BITS{1'b0}};
+            end else if (ec_a_exploded && ec_b_exploded) begin
+                ec_sc_frac = UNDEF_TF_DIV_TF;
+            end else if (ec_a_vanished && ec_b_vanished) begin
+                ec_sc_frac = UNDEF_NEG_DIV_NEG;
+            end else if (ec_a_vanished || ec_b_vanished) begin
+                ec_sc_frac = UNDEF_GENERAL;
+            end else begin
+                ec_sc_frac = UNDEF_GENERAL;
+            end
+        end else if (b_frac == 0) begin
+            // Normal b with zero fraction (shouldn't happen for true N1, but defensive)
+            ec_shortcut = 1'b1;
+            ec_sc_frac  = ALL_ONES;
+        end
+    end
+
     // =========================================================================
     // Step 1: Sign and absolute values
     //
@@ -174,13 +258,14 @@ module spirix_divide #(
     // Overflow: preserve fraction sign, AMBIGUOUS_EXP.
     // Underflow: truncate fraction (sign + MSBs), AMBIGUOUS_EXP.
     // =========================================================================
-    assign result_frac = b_is_zero     ? {FRAC_BITS{1'b0}} :
+    assign result_frac = ec_shortcut    ? ec_sc_frac :
                          exp_too_big   ? final_frac :
                          exp_too_small ? {final_frac[FRAC_BITS-1],
                                           final_frac[FRAC_BITS-1:1]} :
                                          final_frac;
 
-    assign result_exp  = (b_is_zero | exp_too_big | exp_too_small) ?
+    assign result_exp  = ec_shortcut   ? ec_sc_exp :
+                         (exp_too_big | exp_too_small) ?
                           AMBIGUOUS_EXP[EXP_BITS-1:0] : final_exp;
 
 endmodule

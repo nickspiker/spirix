@@ -5,7 +5,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FPGA_DIR="$SCRIPT_DIR/.."
-RTL="$FPGA_DIR/rtl"
+RTL="$FPGA_DIR/bench"
 cd "$FPGA_DIR"
 mkdir -p sim/profile
 

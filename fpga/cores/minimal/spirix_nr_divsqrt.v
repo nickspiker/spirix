@@ -53,7 +53,21 @@ module spirix_nr_divsqrt #(
     localparam AMBIG_EXP = -(1 <<< (EXP_BITS - 1));
     localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
     localparam signed [FRAC_BITS-1:0] NEG_ONE  = {1'b1, {(FRAC_BITS-1){1'b0}}};
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIG_EXP[EXP_BITS-1:0];
     localparam MAG = FRAC_BITS - 1;
+
+    // Spirix state constants:
+    //   Zero     = (frac=0, exp=AMBIG)
+    //   Infinity = (frac=-1 [all bits set], exp=AMBIG)
+    localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};  // = -1
+
+    // Undefined prefix fractions (sa-aligned: prefix in top 8 bits, zero-padded)
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'hE9, {(FRAC_BITS-8){1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'h16, {(FRAC_BITS-8){1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_NEG    = $signed({8'hF6, {(FRAC_BITS-8){1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_EXPLOD = $signed({8'h08, {(FRAC_BITS-8){1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_VANISH = $signed({8'hF7, {(FRAC_BITS-8){1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL     = $signed({8'hFE, {(FRAC_BITS-8){1'b0}}});
 
     // NR iteration count: LUT gives ~10 bits, each iteration doubles.
     // Sqrt has 3 truncation points per iter (vs 2 for divide), so needs
@@ -92,9 +106,17 @@ module spirix_nr_divsqrt #(
     reg [MAG-1:0]            abs_a_r, abs_b_r;
     reg                      sign_r;
     reg                      a_neg_r;     // for Euclidean adjustment
-    reg                      b_zero_r;
-    reg                      invalid_r;   // sqrt: negative or ambig input
     reg signed [EXP_BITS:0]  a_exp_adj_r, b_exp_adj_r;
+
+    // Edge case shortcut: precomputed result for abnormal inputs
+    reg                              shortcut_r;
+    reg signed [FRAC_BITS-1:0]       sc_frac_r;
+    reg signed [EXP_BITS-1:0]        sc_exp_r;
+
+    // Exploded handling: run NR on N1-normalized exploded fractions,
+    // force AMBIG exp on output. n2_result_r: shift right 1 for N2 result.
+    reg                              force_ambig_r;
+    reg                              n2_result_r;
 
     // NR working registers
     reg [FRAC_BITS-1:0]      x_reg;      // current NR approximation
@@ -123,6 +145,43 @@ module spirix_nr_divsqrt #(
     wire [MAG-1:0] abs_a_comb, abs_b_comb;
     wire a_is_neg_one = (a_frac == NEG_ONE);
     wire b_is_neg_one = (b_frac == NEG_ONE);
+
+    // =========================================================================
+    // Input state classification (combinational, for edge case shortcuts)
+    // is_normal = exp != AMBIG. Everything with AMBIG exp is abnormal.
+    // =========================================================================
+    wire a_is_ambig = (a_exp == AMBIG_E);
+    wire b_is_ambig = (b_exp == AMBIG_E);
+    // Zero  = (frac=0, exp=AMBIG)
+    wire a_is_zero_st = a_is_ambig && (a_frac == {FRAC_BITS{1'b0}});
+    wire b_is_zero_st = b_is_ambig && (b_frac == {FRAC_BITS{1'b0}});
+    // Infinity = (frac=ALL_ONES=-1, exp=AMBIG). NOT NEG_ONE (which is i_MIN, the -1.0 fraction).
+    wire a_is_inf = a_is_ambig && (a_frac == ALL_ONES);
+    wire b_is_inf = b_is_ambig && (b_frac == ALL_ONES);
+    // N1 (top 2 bits differ): exploded when AMBIG
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_exploded = a_is_ambig && a_n1;
+    wire b_exploded = b_is_ambig && b_n1;
+    // N2 (top 2 same, bit 2 differs): Rust vanished() = is_n2() (fraction-only, no exp check)
+    wire a_n2 = !a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = !b_n1 && (b_frac[FRAC_BITS-2] != b_frac[FRAC_BITS-3]);
+    wire a_vanished = a_n2;  // fraction-only, matches Rust vanished()
+    wire b_vanished = b_n2;  // fraction-only, matches Rust vanished()
+    // N0 (all prefix bits same): only 0x00 and 0xFF
+    wire [7:0] a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire [7:0] b_pref = b_frac[FRAC_BITS-1 -: 8];
+    wire a_n0 = (a_pref == 8'h00) || (a_pref == 8'hFF);
+    wire b_n0 = (b_pref == 8'h00) || (b_pref == 8'hFF);
+    // Undefined: Rust is_undefined() = !is_n0() && top3_same (fraction-only, no exp check)
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &&
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+    wire a_undef = !a_n0 && a_top3;  // fraction-only, matches Rust is_undefined()
+    wire b_undef = !b_n0 && b_top3;  // fraction-only, matches Rust is_undefined()
+    // Normal frac=0 safety (non-AMBIG but zero fraction)
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
 
     assign abs_a_comb = a_is_neg_one ? POS_HALF[MAG-1:0] :
                          (a_frac[FRAC_BITS-1] ? (~a_frac[MAG-1:0] + 1'b1) :
@@ -500,15 +559,20 @@ module spirix_nr_divsqrt #(
     wire signed [FRAC_BITS-1:0] fin_d_vanished_frac = {fin_d_final_frac[FRAC_BITS-1],
                                                          fin_d_final_frac[FRAC_BITS-1:1]};
 
+    // N2 shift: arithmetic right shift by 1 for exploded-denominator results
+    wire signed [FRAC_BITS-1:0] fin_d_n2_frac = {fin_d_final_frac[FRAC_BITS-1],
+                                                   fin_d_final_frac[FRAC_BITS-1:1]};
+
+    // Output mux: normal path, overflow/underflow, or force_ambig (exploded inputs)
     wire signed [FRAC_BITS-1:0] d_out_frac =
-        b_zero_r       ? {FRAC_BITS{1'b0}} :
+        force_ambig_r   ? (n2_result_r ? fin_d_n2_frac : fin_d_final_frac) :
         fin_d_overflow  ? fin_d_final_frac :
         fin_d_underflow ? fin_d_vanished_frac :
                           fin_d_final_frac;
 
     wire signed [EXP_BITS-1:0] d_out_exp =
-        (b_zero_r | fin_d_overflow | fin_d_underflow) ? AMBIG_EXP[EXP_BITS-1:0] :
-                                                         fin_d_exp_calc[EXP_BITS-1:0];
+        (force_ambig_r | fin_d_overflow | fin_d_underflow) ? AMBIG_E :
+                                                              fin_d_exp_calc[EXP_BITS-1:0];
 
     // =========================================================================
     // Sqrt: ±4 correction (combinational, used at correction step)
@@ -562,13 +626,12 @@ module spirix_nr_divsqrt #(
     wire [FRAC_BITS:0] fin_sq_q_norm = fin_sq_norm_shift ? (q_reg >> 1) : q_reg;
     wire [FRAC_BITS-1:0] fin_sq_frac_pos = fin_sq_q_norm[FRAC_BITS:1];
 
-    wire signed [FRAC_BITS-1:0] sq_out_frac = invalid_r ? {FRAC_BITS{1'b0}} :
-                                                $signed(fin_sq_frac_pos);
+    // Normal-path output (edge cases handled by shortcut, never reach here)
+    wire signed [FRAC_BITS-1:0] sq_out_frac = $signed(fin_sq_frac_pos);
 
     wire signed [EXP_BITS:0] sq_exp_out = sqrt_exp_r
                                           + {{EXP_BITS{1'b0}}, fin_sq_norm_shift};
-    wire signed [EXP_BITS-1:0] sq_out_exp = invalid_r ? AMBIG_EXP[EXP_BITS-1:0] :
-                                              sq_exp_out[EXP_BITS-1:0];
+    wire signed [EXP_BITS-1:0] sq_out_exp = sq_exp_out[EXP_BITS-1:0];
 
     // =========================================================================
     // FSM
@@ -610,14 +673,11 @@ module spirix_nr_divsqrt #(
             step    <= 0;
             mode_r  <= mode;
 
-            // Register operands
+            // Register operands (used by NR path)
             abs_a_r <= abs_a_comb;
             abs_b_r <= abs_b_comb;
             sign_r  <= a_frac[FRAC_BITS-1] ^ b_frac[FRAC_BITS-1];
             a_neg_r <= a_frac[FRAC_BITS-1];
-            b_zero_r <= (b_frac == 0);
-            invalid_r <= a_frac[FRAC_BITS-1] | (a_frac == 0) |
-                         (a_exp == AMBIG_EXP[EXP_BITS-1:0]);
 
             a_exp_adj_r <= $signed({a_exp[EXP_BITS-1], a_exp})
                           + {{EXP_BITS{1'b0}}, a_is_neg_one};
@@ -631,7 +691,96 @@ module spirix_nr_divsqrt #(
             // Sqrt radicand
             S_reg <= S_comb;
 
-            // Initial NR seed + issue first multiply
+            // =============================================================
+            // Edge case shortcuts (priority matches Rust reference)
+            // =============================================================
+            shortcut_r    <= 1'b0;  // default: run NR
+            force_ambig_r <= 1'b0;
+            n2_result_r   <= 1'b0;
+
+            if (mode == 0) begin
+                // ----- DIVIDE edge cases -----
+                // Gated by any non-normal: Rust gates with !self.is_normal() || !other.is_normal()
+                if (!(a_n1 && !a_is_ambig) || !(b_n1 && !b_is_ambig)) begin
+                    if (a_undef) begin
+                        shortcut_r <= 1'b1; sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                    end else if (b_undef) begin
+                        shortcut_r <= 1'b1; sc_frac_r <= b_frac; sc_exp_r <= b_exp;
+                    end else if (b_is_zero_st) begin
+                        shortcut_r <= 1'b1;
+                        sc_exp_r   <= AMBIG_E;
+                        sc_frac_r  <= a_is_zero_st ? UNDEF_NEG_DIV_NEG : ALL_ONES;
+                    end else if (a_is_inf) begin
+                        shortcut_r <= 1'b1;
+                        sc_exp_r   <= AMBIG_E;
+                        sc_frac_r  <= b_is_inf ? UNDEF_TF_DIV_TF : ALL_ONES;
+                    end else if (a_is_zero_st || b_is_inf) begin
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= {FRAC_BITS{1'b0}};
+                        sc_exp_r   <= AMBIG_E;
+                    end else if (a_exploded && b_exploded) begin
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= UNDEF_TF_DIV_TF;
+                        sc_exp_r   <= AMBIG_E;
+                    end else if (a_vanished && b_vanished) begin
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= UNDEF_NEG_DIV_NEG;
+                        sc_exp_r   <= AMBIG_E;
+                    end else if (a_vanished || b_vanished) begin
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= UNDEF_GENERAL;
+                        sc_exp_r   <= AMBIG_E;
+                    end else if (a_exploded || b_exploded) begin
+                        // One exploded (AMBIG+N1). Other must have N1 frac for NR.
+                        // If other is normal (non-AMBIG), it's N1 by definition.
+                        // If other is AMBIG+non-N1 (N0 residual), NR LUT can't handle it.
+                        if ((a_is_ambig && !a_n1) || (b_is_ambig && !b_n1)) begin
+                            shortcut_r <= 1'b1;
+                            sc_frac_r  <= UNDEF_GENERAL;
+                            sc_exp_r   <= AMBIG_E;
+                        end else begin
+                            force_ambig_r <= 1'b1;
+                            n2_result_r   <= b_exploded;
+                        end
+                    end else begin
+                        // Remaining AMBIG (N0 non-zero/non-inf, etc.) — NR can't handle
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= UNDEF_GENERAL;
+                        sc_exp_r   <= AMBIG_E;
+                    end
+                end else if (b_frac_zero) begin
+                    // Normal b with frac=0 (not N1, safety net): → Infinity
+                    shortcut_r <= 1'b1;
+                    sc_frac_r  <= ALL_ONES;
+                    sc_exp_r   <= AMBIG_E;
+                end
+            end else begin
+                // ----- SQRT edge cases -----
+                // Gated by !is_normal: Rust gates with !self.is_normal()
+                if (!(a_n1 && !a_is_ambig)) begin
+                    if (a_undef) begin
+                        shortcut_r <= 1'b1; sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                    end else if (a_n0) begin
+                        shortcut_r <= 1'b1; sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                    end else if (a_vanished) begin
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= UNDEF_SQRT_VANISH;
+                        sc_exp_r   <= AMBIG_E;
+                    end else begin
+                        // Remaining AMBIG (exploded, infinity, etc.)
+                        shortcut_r <= 1'b1;
+                        sc_frac_r  <= UNDEF_SQRT_EXPLOD;
+                        sc_exp_r   <= AMBIG_E;
+                    end
+                end else if (a_frac[FRAC_BITS-1]) begin
+                    // Negative normal → sqrt of negative
+                    shortcut_r <= 1'b1;
+                    sc_frac_r  <= UNDEF_SQRT_NEG;
+                    sc_exp_r   <= AMBIG_E;
+                end
+            end
+
+            // Initial NR seed + issue first multiply (only matters if !shortcut)
             if (mode == 0) begin
                 x_reg <= x0_div;
                 mul_a <= {2'b0, abs_b_comb};
@@ -643,6 +792,15 @@ module spirix_nr_divsqrt #(
             end
 
         end else if (running) begin
+
+            // Shortcut: edge case result computed at setup, output immediately
+            if (shortcut_r) begin
+                result_frac <= sc_frac_r;
+                result_exp  <= sc_exp_r;
+                done    <= 1'b1;
+                running <= 1'b0;
+            end else begin
+
             step <= step + 1;
 
             if (mode_r == 0) begin
@@ -730,6 +888,8 @@ module spirix_nr_divsqrt #(
                     running <= 1'b0;
                 end
             end
+
+            end // else !shortcut
         end
     end
 

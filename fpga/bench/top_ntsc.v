@@ -125,8 +125,9 @@ module top_ntsc (
     //
     // DUT_SPIRIX_FMA (default), DUT_SPIRIX_MUL, DUT_SPIRIX_MUL_PIPE2,
     // DUT_SPIRIX_DIV_ITER, DUT_SPIRIX_DIVMOD_NR, DUT_SPIRIX_SQRT_NR,
+    // DUT_SPIRIX_NR_DIV, DUT_SPIRIX_NR_SQRT, DUT_SPIRIX_SQRT_ITER,
     // DUT_HF_FMA, DUT_HF_MUL, DUT_HF_ADD, DUT_HF_DIV, DUT_HF_SQRT,
-    // DUT_FPN_FMA, DUT_FPN_MUL, DUT_FPN_ADD
+    // DUT_FPN_FMA, DUT_FPN_MUL, DUT_FPN_ADD, DUT_FPN_DIV, DUT_FPN_SQRT
     // All produce: 32-bit mul_fold. Iterative DUTs also define dut_advance.
     // =========================================================================
 
@@ -338,6 +339,56 @@ module top_ntsc (
     always @(posedge sys_clk) if (ce) fpn_out_r <= fpn_result;
     wire [31:0] mul_fold = fpn_out_r;
 
+`elsif DUT_SPIRIX_ADDSUB
+    // ----- Spirix addsub (combinational + registered output) -----
+    wire signed [24:0] as_a_frac = lfsr[24:0];
+    wire signed  [7:0] as_a_exp  = lfsr[32:25];
+    wire signed [24:0] as_b_frac = lfsr[57:33];
+    wire signed  [7:0] as_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+    wire               as_sub    = lfsr[0];
+
+    wire signed [24:0] as_r_frac;
+    wire signed  [7:0] as_r_exp;
+
+    spirix_addsub #(.FRAC_BITS(25), .EXP_BITS(8)) dut_as (
+        .a_frac(as_a_frac), .a_exp(as_a_exp),
+        .b_frac(as_b_frac), .b_exp(as_b_exp),
+        .sub(as_sub),
+        .result_frac(as_r_frac), .result_exp(as_r_exp)
+    );
+
+    reg signed [24:0] as_r_frac_r;
+    reg signed  [7:0] as_r_exp_r;
+    always @(posedge sys_clk) if (ce) begin
+        as_r_frac_r <= as_r_frac;
+        as_r_exp_r  <= as_r_exp;
+    end
+
+    wire [32:0] as_out = {as_r_exp_r, as_r_frac_r};
+    wire [31:0] mul_fold = as_out[31:0] ^ {31'b0, as_out[32]};
+
+`elsif DUT_SPIRIX_ADDSUB_PIPE2
+    // ----- Spirix addsub_pipe2 (2-stage pipeline) -----
+    wire signed [24:0] as_a_frac = lfsr[24:0];
+    wire signed  [7:0] as_a_exp  = lfsr[32:25];
+    wire signed [24:0] as_b_frac = lfsr[57:33];
+    wire signed  [7:0] as_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+    wire               as_sub    = lfsr[0];
+
+    wire signed [24:0] as_r_frac;
+    wire signed  [7:0] as_r_exp;
+
+    spirix_addsub_pipe2 #(.FRAC_BITS(25), .EXP_BITS(8)) dut_as (
+        .clk(sys_clk), .ce(ce),
+        .a_frac(as_a_frac), .a_exp(as_a_exp),
+        .b_frac(as_b_frac), .b_exp(as_b_exp),
+        .sub(as_sub),
+        .result_frac(as_r_frac), .result_exp(as_r_exp)
+    );
+
+    wire [32:0] as_out = {as_r_exp, as_r_frac};
+    wire [31:0] mul_fold = as_out[31:0] ^ {31'b0, as_out[32]};
+
 `elsif DUT_SPIRIX_MUL
     // ----- Spirix multiply (standalone) -----
     wire signed [24:0] mul_a_frac = lfsr[24:0];
@@ -459,6 +510,76 @@ module top_ntsc (
 
     wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
     wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+
+`elsif DUT_SPIRIX_NR_DIV
+    // ----- Spirix nr_divsqrt (divide mode, iterative, 1 DSP) -----
+    wire signed [24:0] dut_a_frac = lfsr[24:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[32:25];
+    wire signed [24:0] dut_b_frac = lfsr[57:33];
+    wire signed  [7:0] dut_b_exp  = {lfsr[63], lfsr[63], lfsr[63:58]};
+
+    wire signed [24:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+    wire dut_busy_w, dut_done_w;
+
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && !dut_busy_w)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (dut_done_w)
+            iter_busy <= 0;
+    end
+
+    spirix_nr_divsqrt #(.FRAC_BITS(25), .EXP_BITS(8)) dut (
+        .clk(sys_clk), .start(iter_start), .mode(1'b0),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .b_frac(dut_b_frac), .b_exp(dut_b_exp),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp),
+        .busy(dut_busy_w), .done(dut_done_w)
+    );
+
+    wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+    wire dut_advance = dut_done_w;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_SPIRIX_NR_SQRT
+    // ----- Spirix nr_divsqrt (sqrt mode, iterative, 1 DSP) -----
+    wire signed [24:0] dut_a_frac = lfsr[24:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[32:25];
+
+    wire signed [24:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+    wire dut_busy_w, dut_done_w;
+
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && !dut_busy_w)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (dut_done_w)
+            iter_busy <= 0;
+    end
+
+    spirix_nr_divsqrt #(.FRAC_BITS(25), .EXP_BITS(8)) dut (
+        .clk(sys_clk), .start(iter_start), .mode(1'b1),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .b_frac(25'sb0), .b_exp(8'sb0),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp),
+        .busy(dut_busy_w), .done(dut_done_w)
+    );
+
+    wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+    wire dut_advance = dut_done_w;
+`define DUT_ITER_ADVANCE
 
 `elsif DUT_SPIRIX_SQRT_ITER
     // ----- Spirix sqrt_iter (iterative, 0 DSP) -----

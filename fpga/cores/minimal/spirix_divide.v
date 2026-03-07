@@ -52,7 +52,47 @@ module spirix_divide #(
     localparam S_IDLE     = 0;
     localparam S_COMPUTE  = 1;
     localparam S_FINALIZE = 2;
+    localparam S_SHORTCUT = 3;
     reg [1:0] state = S_IDLE;
+
+    // Edge case shortcut result
+    reg signed [FRAC_BITS-1:0] sc_frac_r;
+    reg signed [EXP_BITS-1:0]  sc_exp_r;
+
+    // Spirix state constants
+    localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};  // = -1 = infinity frac
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIG_EXP[EXP_BITS-1:0];
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'hE9, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'h16, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL      = $signed({8'hFE, {UPAD{1'b0}}});
+
+    // Input state classification (combinational)
+    wire a_is_ambig = (a_exp == AMBIG_E);
+    wire b_is_ambig = (b_exp == AMBIG_E);
+    wire a_is_zero_st = a_is_ambig && (a_frac == {FRAC_BITS{1'b0}});
+    wire b_is_zero_st = b_is_ambig && (b_frac == {FRAC_BITS{1'b0}});
+    wire a_is_inf = a_is_ambig && (a_frac == ALL_ONES);
+    wire b_is_inf = b_is_ambig && (b_frac == ALL_ONES);
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_exploded = a_is_ambig && a_n1;
+    wire b_exploded = b_is_ambig && b_n1;
+    wire a_n2 = !a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = !b_n1 && (b_frac[FRAC_BITS-2] != b_frac[FRAC_BITS-3]);
+    wire a_vanished = a_n2;
+    wire b_vanished = b_n2;
+    wire [7:0] a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire [7:0] b_pref = b_frac[FRAC_BITS-1 -: 8];
+    wire a_n0 = (a_pref == 8'h00) || (a_pref == 8'hFF);
+    wire b_n0 = (b_pref == 8'h00) || (b_pref == 8'hFF);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &&
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+    wire a_undef = !a_n0 && a_top3;
+    wire b_undef = !b_n0 && b_top3;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
 
     assign busy = (state != S_IDLE);
 
@@ -164,21 +204,57 @@ module spirix_divide #(
         case (state)
             S_IDLE: begin
                 if (start) begin
-                    sign_reg <= a_frac[FRAC_BITS-1] ^ b_frac[FRAC_BITS-1];
-                    a_neg_reg <= a_frac[FRAC_BITS-1];
-                    b_zero_reg <= (b_frac == 0);
+                    // Edge case detection (gated by any non-normal input)
+                    if (!(a_n1 && !a_is_ambig) || !(b_n1 && !b_is_ambig)) begin
+                        state <= S_SHORTCUT;
+                        sc_exp_r <= AMBIG_E;
+                        if (a_undef) begin
+                            sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                        end else if (b_undef) begin
+                            sc_frac_r <= b_frac; sc_exp_r <= b_exp;
+                        end else if (b_is_zero_st) begin
+                            sc_frac_r <= a_is_zero_st ? UNDEF_NEG_DIV_NEG : ALL_ONES;
+                        end else if (a_is_inf) begin
+                            sc_frac_r <= b_is_inf ? UNDEF_TF_DIV_TF : ALL_ONES;
+                        end else if (a_is_zero_st || b_is_inf) begin
+                            sc_frac_r <= {FRAC_BITS{1'b0}};
+                        end else if (a_exploded && b_exploded) begin
+                            sc_frac_r <= UNDEF_TF_DIV_TF;
+                        end else if (a_vanished && b_vanished) begin
+                            sc_frac_r <= UNDEF_NEG_DIV_NEG;
+                        end else if (a_vanished || b_vanished) begin
+                            sc_frac_r <= UNDEF_GENERAL;
+                        end else if (a_exploded || b_exploded) begin
+                            if ((a_is_ambig && !a_n1) || (b_is_ambig && !b_n1))
+                                sc_frac_r <= UNDEF_GENERAL;
+                            else
+                                sc_frac_r <= UNDEF_GENERAL;  // long div can't fix exp
+                        end else begin
+                            sc_frac_r <= UNDEF_GENERAL;
+                        end
+                    end else if (b_frac_zero) begin
+                        // Normal b with frac=0 (malformed, safety net) → infinity
+                        state <= S_SHORTCUT;
+                        sc_frac_r <= ALL_ONES;
+                        sc_exp_r  <= AMBIG_E;
+                    end else begin
+                        // Normal path: run long division
+                        sign_reg <= a_frac[FRAC_BITS-1] ^ b_frac[FRAC_BITS-1];
+                        a_neg_reg <= a_frac[FRAC_BITS-1];
+                        b_zero_reg <= 1'b0;
 
-                    a_exp_adj_r <= $signed({a_exp[EXP_BITS-1], a_exp})
-                                 + {{EXP_BITS{1'b0}}, a_is_neg_one};
-                    b_exp_adj_r <= $signed({b_exp[EXP_BITS-1], b_exp})
-                                 + {{EXP_BITS{1'b0}}, b_is_neg_one};
+                        a_exp_adj_r <= $signed({a_exp[EXP_BITS-1], a_exp})
+                                     + {{EXP_BITS{1'b0}}, a_is_neg_one};
+                        b_exp_adj_r <= $signed({b_exp[EXP_BITS-1], b_exp})
+                                     + {{EXP_BITS{1'b0}}, b_is_neg_one};
 
-                    d_reg <= abs_b_comb;
-                    r_reg <= r_next;
-                    q_reg <= {{FRAC_BITS{1'b0}}, ge};
+                        d_reg <= abs_b_comb;
+                        r_reg <= r_next;
+                        q_reg <= {{FRAC_BITS{1'b0}}, ge};
 
-                    counter <= FRAC_BITS[CTR_BITS-1:0] - 1;
-                    state <= S_COMPUTE;
+                        counter <= FRAC_BITS[CTR_BITS-1:0] - 1;
+                        state <= S_COMPUTE;
+                    end
                 end
             end
 
@@ -196,6 +272,13 @@ module spirix_divide #(
             S_FINALIZE: begin
                 result_frac <= out_frac;
                 result_exp  <= out_exp_final;
+                done <= 1'b1;
+                state <= S_IDLE;
+            end
+
+            S_SHORTCUT: begin
+                result_frac <= sc_frac_r;
+                result_exp  <= sc_exp_r;
                 done <= 1'b1;
                 state <= S_IDLE;
             end

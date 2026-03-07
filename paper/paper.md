@@ -6,7 +6,7 @@
 
 I present silicon-verified FPGA implementations of two's complement floating-point add, multiply, and FMA at binary32-equivalent precision (25-bit fraction, 8-bit exponent), compared head-to-head against Berkeley HardFloat and ETH Zurich FPnew on identical hardware (Lattice ECP5-25F). True silicon Fmax is measured via a clock-enable-gated self-test harness rather than static timing estimates, which I show underestimate by 1.5--3.7x on ECP5.
 
-**With DSP:** add 95 MHz / 615 LUT4 (vs HardFloat 88 / 1050), multiply 115 MHz / 130 LUT4 / 4 DSP (vs 65 / 786 / 4), FMA 63 MHz / 1188 LUT4 / 3 DSP (vs 47 / 2057 / 4). **Without DSP:** add 95 / 615 (vs FPnew 74 / 825), multiply 95 / 1750 (vs 74 / 2850), FMA 53 / 2768 (vs 25 / 2850). Spirix wins area and speed on every operation in both configurations.
+**With DSP:** add 95 MHz / 842 LUT4 (vs HardFloat 88 / 1050), multiply 115 MHz / 227 LUT4 / 4 DSP (vs 65 / 786 / 4), FMA 63 MHz / 1472 LUT4 / 3 DSP (vs 47 / 2057 / 4). **Without DSP:** add 95 / 842 (vs FPnew 74 / 825), multiply 95 / 2131 (vs 74 / 2850), FMA 53 / 3004 (vs 25 / 2850). Spirix wins speed on every operation in both configurations. All Spirix numbers include full spec-compliant edge case handling.
 
 ---
 
@@ -48,7 +48,7 @@ Close/far path split, same idea as IEEE adders but simpler: both operands are al
 
 Both paths share one barrel shifter and converge at a shared rounding stage (banker's rounding). Rounding overflow detection uses pre-round signals -- exhaustive 8-bit testing confirms it fires on ~0.8% of pairs and is essential for correctness (521K mismatches without it).
 
-Purely combinational, 0 DSP, 615 LUT4, 95 MHz silicon.
+Purely combinational, 0 DSP, 842 LUT4, 95 MHz silicon.
 
 ### Multiplication
 
@@ -58,19 +58,19 @@ Karatsuba decomposition splits the 25-bit fraction into 12-bit signed high + 13-
 
 Fused negate input ($-a \times b$) handles the corner case where two's complement minimum (`10...0`) wraps to itself.
 
-130 LUT4 + 4 DSP (or 157 LUT4 + 3 DSP with Karatsuba), 115 MHz silicon.
+227 LUT4 + 4 DSP (or Karatsuba: 3 DSP), 115 MHz silicon.
 
 ### Fused Multiply-Add
 
 $a \times b + c$ with single rounding (truly fused). The key optimization: **pre-align the addend in parallel with the multiply**, using the raw exponent sum $e_a + e_b$ before the product is available. This removes the multiply-then-align serial dependency and gives ~26% higher Fmax (63 vs 50 MHz).
 
-Same Karatsuba multiply, same close/far path addition. 1188 LUT4 + 3 DSP, 63 MHz silicon.
+Same Karatsuba multiply, same close/far path addition. 1472 LUT4 + 3 DSP, 63 MHz silicon.
 
 ### Division and Square Root
 
 Two implementations each, at different design points:
 
-**Iterative** (single-cycle-per-iteration): `divide_iter` uses restoring long division (28 cycles, 0 DSP, 234 MHz). `sqrt_iter` uses restoring binary square root (27 cycles, 0 DSP, 400 MHz -- hitting the harness ceiling). These are simple and fast per-cycle but high-latency.
+**Iterative** (single-cycle-per-iteration): `divide_iter` uses restoring long division (28 cycles, 0 DSP, 535 LUT4, 234 MHz). `sqrt_iter` uses restoring binary square root (27 cycles, 0 DSP, 101 LUT4, 400 MHz -- hitting the harness ceiling). These are simple and fast per-cycle but high-latency.
 
 **Newton-Raphson pipelined**: `divmod_nr` (8-stage, 20 DSP, 120 MHz) and `sqrt_nr` (10-stage, 27 DSP, 125 MHz). High thruput but DSP-hungry -- the two units together need 47 DSP18, exceeding the ECP5-25F's 28. An ECP5-45F or larger is required for both simultaneously.
 
@@ -147,11 +147,11 @@ HardFloat cores are wrapped with `fNToRecFN`/`recFNToFN` converters for fair IEE
 
 | Op | Spirix LUT4 | DSP | MHz | HardFloat LUT4 | DSP | MHz |
 |---|---|---|---|---|---|---|
-| Add/Sub | 615 | 0 | **95** | 1050 | 0 | 88 |
-| Multiply | 130 | 4 | **115** | 786 | 4 | 65 |
-| FMA | 1188 | 3 | **63** | 2057 | 4 | 47 |
+| Add/Sub | 842 | 0 | **95** | 1050 | 0 | 88 |
+| Multiply | 227 | 4 | **115** | 786 | 4 | 65 |
+| FMA | 1472 | 3 | **63** | 2057 | 4 | 47 |
 
-Spirix: +8% Fmax / -41% area (add), +77% Fmax / -83% area (mul), +34% Fmax / -42% area / -1 DSP (FMA). The multiplier also has a Karatsuba variant (157 LUT4, 3 DSP) that trades one DSP for LUT overhead.
+All Spirix numbers include full edge case handling. Spirix: +8% Fmax / -20% area (add), +77% Fmax / -71% area (mul), +34% Fmax / -28% area / -1 DSP (FMA).
 
 ### Division and Square Root
 
@@ -159,7 +159,7 @@ Div/sqrt is not apples-to-apples: the implementations use fundamentally differen
 
 | Unit | Arch | Fmax | LUT4 | DSP | Latency |
 |---|---|---|---|---|---|
-| Spirix divide_iter | Restoring, iterative | **234** | 376 | 0 | 28 cyc |
+| Spirix divide_iter | Restoring, iterative | **234** | 535 | 0 | 28 cyc |
 | Spirix sqrt_iter | Restoring, iterative | **>400**\* | 101 | 0 | 27 cyc |
 | Spirix divmod_nr | Newton-Raphson, 8-stage pipe | 120 | 560 | 20 | 8 cyc |
 | Spirix sqrt_nr | Newton-Raphson, 10-stage pipe | 125 | 863 | 27 | 10 cyc |
@@ -170,7 +170,7 @@ Div/sqrt is not apples-to-apples: the implementations use fundamentally differen
 
 \*Harness ceiling is ~500 MHz (LFSR-only bypass). sqrt_iter passed at 400 MHz; true Fmax is between 400--500 MHz but cannot be isolated from the harness at these frequencies.
 
-The Spirix iterative units achieve the highest per-cycle Fmax (234/>400 MHz vs HardFloat's 182/200 MHz) and are dramatically smaller (376/101 LUT4 vs 2047/2000). HardFloat and FPnew extract more bits per cycle (radix-4 gets 2 bits/cycle, reducing latency), but at much higher area cost. The Spirix NR pipelined units offer full throughput (one result per clock) but consume 20--27 DSP18 each -- impractical on smaller FPGAs. Room for optimization here.
+The Spirix iterative units achieve the highest per-cycle Fmax (234/>400 MHz vs HardFloat's 182/200 MHz) and are dramatically smaller (535/101 LUT4 vs 2047/2000). HardFloat and FPnew extract more bits per cycle (radix-4 gets 2 bits/cycle, reducing latency), but at much higher area cost. The Spirix NR pipelined units offer full throughput (one result per clock) but consume 20--27 DSP18 each -- impractical on smaller FPGAs. Room for optimization here.
 
 ### Spirix vs FPnew (ASIC, no DSP)
 
@@ -178,11 +178,11 @@ FPnew is pure-LUT by design, making this the natural 1:1 comparison. FPnew uses 
 
 | Op | Spirix LUT4 | MHz | FPnew LUT4 | MHz |
 |---|---|---|---|---|
-| Add/Sub | 615 | **95** | 825 | 74 |
-| Multiply | 1750 | **95** | 2850 | 74 |
-| FMA | 2768 | **53** | 2850 | 25 |
+| Add/Sub | 842 | **95** | 825 | 74 |
+| Multiply | 2131 | **95** | 2850 | 74 |
+| FMA | 3004 | **53** | 2850 | 25 |
 
-Spirix wins area and speed across the board. FMA is 2.1x faster at 3% less area.
+All Spirix numbers include full edge case handling. Spirix wins speed across the board -- FMA is 2.1x faster. Add/sub is 2% larger than FPnew; multiply is 25% smaller; FMA is 5% larger but over 2x the speed.
 
 ### Static Timing vs Silicon
 
@@ -211,7 +211,7 @@ This table is the reason the CE-gated harness exists. If you compared designs us
 
 | Variant | Fmax | LUT4 | DSP | vs Combinational |
 |---|---|---|---|---|
-| Adder pipe2 | 148 MHz | 679 | 0 | +56% Fmax (vs 95) |
+| Adder pipe2 | 147 MHz | 679 | 0 | +55% Fmax (vs 95) |
 | Multiplier pipe2 | 181 MHz | 139 | 4 | +57% Fmax (vs 115) |
 
 ### IEEE f32 Accuracy
@@ -246,22 +246,22 @@ To my knowledge, no prior work presents a silicon-verified area and frequency co
 | Module | Silicon Fmax | LUT4 | DSP | Latency |
 |---|---|---|---|---|
 | Spirix sqrt_iter | >400 MHz\* | 101 | 0 | 27 cyc |
-| Spirix divide_iter | 234 | 376 | 0 | 28 cyc |
+| Spirix divide_iter | 234 | 535 | 0 | 28 cyc |
 | HardFloat sqrt | 200 | 2000 | 0 | 24--25 cyc |
 | HardFloat div | 182 | 2047 | 0 | 26 cyc |
-| Spirix multiply pipe2 | 181 | 139 | 4 | 2 cyc |
+| Spirix multiply pipe2 | 181 | 227 | 4 | 2 cyc |
 | FPnew div | 168 | 1863 | 0 | ~14 cyc |
-| Spirix addsub pipe2 | 148 | 679 | 0 | 2 cyc |
+| Spirix addsub pipe2 | 147 | 679 | 0 | 2 cyc |
 | Spirix sqrt_nr | 125 | 863 | 27 | 10 cyc (pipe) |
 | Spirix divmod_nr | 120 | 560 | 20 | 8 cyc (pipe) |
 | FPnew sqrt | 116 | 1903 | 0 | ~14 cyc |
-| Spirix multiply | 115 | 130 | 4 | 1 cyc |
-| Spirix add/sub | 95 | 615 | 0 | 1 cyc |
+| Spirix multiply | 115 | 227 | 4 | 1 cyc |
+| Spirix add/sub | 95 | 842 | 0 | 1 cyc |
 | HardFloat add | 88 | 1050 | 0 | 1 cyc |
 | FPnew add | 74 | 825 | 0 | 1 cyc |
-| FPnew mul | 74 | 574 | 0 | 1 cyc |
+| FPnew mul | 74 | 2850 | 0 | 1 cyc |
 | HardFloat multiply | 65 | 786 | 4 | 1 cyc |
-| Spirix FMA | 63 | 1188 | 3 | 1 cyc |
+| Spirix FMA | 63 | 1472 | 3 | 1 cyc |
 | HardFloat FMA | 47 | 2057 | 4 | 1 cyc |
 | FPnew FMA | 25 | 2850 | 0 | 1 cyc |
 

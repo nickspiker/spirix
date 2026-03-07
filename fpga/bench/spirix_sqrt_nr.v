@@ -47,13 +47,52 @@ module spirix_sqrt_nr #(
     localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
     localparam MAG = FRAC_BITS - 1;  // 24 unsigned magnitude bits
 
+    // Edge case constants
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIGUOUS_EXP[EXP_BITS-1:0];
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_NEG    = $signed({8'hF6, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_EXPLOD = $signed({8'h08, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_VANISH = $signed({8'hF7, {UPAD{1'b0}}});
+
     // =========================================================================
     // Stage 1: Sign/abs, exponent even/odd, radicand S, LUT seed, x₀²
     // =========================================================================
 
     wire s1_is_negative = a_frac[FRAC_BITS-1];
-    wire s1_is_ambig = (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
-    wire s1_invalid = s1_is_negative | s1_is_ambig;
+    wire s1_is_ambig = (a_exp == AMBIG_E);
+
+    // Edge case classification
+    wire s1_a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire s1_a_n2 = !s1_a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire s1_a_vanished = s1_a_n2;
+    wire [7:0] s1_a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire s1_a_n0 = (s1_a_pref == 8'h00) || (s1_a_pref == 8'hFF);
+    wire s1_a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                     (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire s1_a_undef = !s1_a_n0 && s1_a_top3;
+    wire s1_a_is_normal = s1_a_n1 && !s1_is_ambig;
+
+    // Edge case shortcut: compute result in stage 1, propagate through pipeline
+    wire s1_invalid = s1_is_negative | !s1_a_is_normal;
+    reg signed [FRAC_BITS-1:0] s1_sc_frac;
+    reg signed [EXP_BITS-1:0]  s1_sc_exp;
+    always @(*) begin
+        s1_sc_frac = {FRAC_BITS{1'b0}};
+        s1_sc_exp  = AMBIG_E;
+        if (!s1_a_is_normal) begin
+            if (s1_a_undef) begin
+                s1_sc_frac = a_frac; s1_sc_exp = a_exp;
+            end else if (s1_a_n0) begin
+                s1_sc_frac = a_frac; s1_sc_exp = a_exp;
+            end else if (s1_a_vanished) begin
+                s1_sc_frac = UNDEF_SQRT_VANISH;
+            end else begin
+                s1_sc_frac = UNDEF_SQRT_EXPLOD;
+            end
+        end else if (s1_is_negative) begin
+            s1_sc_frac = UNDEF_SQRT_NEG;
+        end
+    end
 
     wire s1_is_neg_one = (a_frac == NEG_ONE);
 
@@ -301,6 +340,8 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s1_x0_r;
     reg [FRAC_BITS-1:0]     s1_h0_r;
     reg                      s1_invalid_r;
+    reg signed [FRAC_BITS-1:0] s1_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s1_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s1_exp_base_r <= s1_result_exp_base;
@@ -308,6 +349,8 @@ module spirix_sqrt_nr #(
         s1_x0_r       <= s1_x0;
         s1_h0_r       <= s1_h0;
         s1_invalid_r  <= s1_invalid;
+        s1_sc_frac_r  <= s1_sc_frac;
+        s1_sc_exp_r   <= s1_sc_exp;
     end
 
     // =========================================================================
@@ -326,6 +369,8 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s2_x0_r;
     reg [FRAC_BITS:0]        s2_e1_r;
     reg                      s2_invalid_r;
+    reg signed [FRAC_BITS-1:0] s2_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s2_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s2_exp_base_r <= s1_exp_base_r;
@@ -333,6 +378,8 @@ module spirix_sqrt_nr #(
         s2_x0_r       <= s1_x0_r;
         s2_e1_r       <= s2_e1;
         s2_invalid_r  <= s1_invalid_r;
+        s2_sc_frac_r  <= s1_sc_frac_r;
+        s2_sc_exp_r   <= s1_sc_exp_r;
     end
 
     // =========================================================================
@@ -348,12 +395,16 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s3_S_r;
     reg [FRAC_BITS-1:0]     s3_x1_r;
     reg                      s3_invalid_r;
+    reg signed [FRAC_BITS-1:0] s3_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s3_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s3_exp_base_r <= s2_exp_base_r;
         s3_S_r        <= s2_S_r;
         s3_x1_r       <= s3_x1;
         s3_invalid_r  <= s2_invalid_r;
+        s3_sc_frac_r  <= s2_sc_frac_r;
+        s3_sc_exp_r   <= s2_sc_exp_r;
     end
 
     // =========================================================================
@@ -368,6 +419,8 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s4_x1_r;
     reg [FRAC_BITS-1:0]     s4_h1_r;
     reg                      s4_invalid_r;
+    reg signed [FRAC_BITS-1:0] s4_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s4_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s4_exp_base_r <= s3_exp_base_r;
@@ -375,6 +428,8 @@ module spirix_sqrt_nr #(
         s4_x1_r       <= s3_x1_r;
         s4_h1_r       <= s4_h1;
         s4_invalid_r  <= s3_invalid_r;
+        s4_sc_frac_r  <= s3_sc_frac_r;
+        s4_sc_exp_r   <= s3_sc_exp_r;
     end
 
     // =========================================================================
@@ -391,6 +446,8 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s5_x1_r;
     reg [FRAC_BITS:0]        s5_e2_r;
     reg                      s5_invalid_r;
+    reg signed [FRAC_BITS-1:0] s5_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s5_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s5_exp_base_r <= s4_exp_base_r;
@@ -398,6 +455,8 @@ module spirix_sqrt_nr #(
         s5_x1_r       <= s4_x1_r;
         s5_e2_r       <= s5_e2;
         s5_invalid_r  <= s4_invalid_r;
+        s5_sc_frac_r  <= s4_sc_frac_r;
+        s5_sc_exp_r   <= s4_sc_exp_r;
     end
 
     // =========================================================================
@@ -411,12 +470,16 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s6_S_r;
     reg [FRAC_BITS-1:0]     s6_x2_r;
     reg                      s6_invalid_r;
+    reg signed [FRAC_BITS-1:0] s6_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s6_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s6_exp_base_r <= s5_exp_base_r;
         s6_S_r        <= s5_S_r;
         s6_x2_r       <= s6_x2;
         s6_invalid_r  <= s5_invalid_r;
+        s6_sc_frac_r  <= s5_sc_frac_r;
+        s6_sc_exp_r   <= s5_sc_exp_r;
     end
 
     // =========================================================================
@@ -430,12 +493,16 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS-1:0]     s7_S_r;
     reg [FRAC_BITS:0]        s7_raw_r;
     reg                      s7_invalid_r;
+    reg signed [FRAC_BITS-1:0] s7_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s7_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s7_exp_base_r <= s6_exp_base_r;
         s7_S_r        <= s6_S_r;
         s7_raw_r      <= s7_sqrt_raw;
         s7_invalid_r  <= s6_invalid_r;
+        s7_sc_frac_r  <= s6_sc_frac_r;
+        s7_sc_exp_r   <= s6_sc_exp_r;
     end
 
     // =========================================================================
@@ -450,6 +517,8 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS:0]        s8_raw_r;
     reg [CW-1:0]             s8_raw_sq_r;
     reg                      s8_invalid_r;
+    reg signed [FRAC_BITS-1:0] s8_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s8_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s8_exp_base_r <= s7_exp_base_r;
@@ -457,6 +526,8 @@ module spirix_sqrt_nr #(
         s8_raw_r      <= s7_raw_r;
         s8_raw_sq_r   <= s8_raw_sq;
         s8_invalid_r  <= s7_invalid_r;
+        s8_sc_frac_r  <= s7_sc_frac_r;
+        s8_sc_exp_r   <= s7_sc_exp_r;
     end
 
     // =========================================================================
@@ -532,12 +603,16 @@ module spirix_sqrt_nr #(
     reg [FRAC_BITS:0]        s9_sqrt_r;
     reg                      s9_rem_sticky_r;
     reg                      s9_invalid_r;
+    reg signed [FRAC_BITS-1:0] s9_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s9_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s9_exp_base_r   <= s8_exp_base_r;
         s9_sqrt_r       <= s9_sqrt_corrected;
         s9_rem_sticky_r <= s9_rem_sticky;
         s9_invalid_r    <= s8_invalid_r;
+        s9_sc_frac_r    <= s8_sc_frac_r;
+        s9_sc_exp_r     <= s8_sc_exp_r;
     end
 
     // =========================================================================
@@ -574,15 +649,18 @@ module spirix_sqrt_nr #(
     wire s10_exp_too_big   = (s10_exp_out > MAX_EXP);
     wire s10_exp_too_small = (s10_exp_out < MIN_EXP);
 
-    // Output register (sqrt is always non-negative)
+    // Output register: shortcut for edge cases, computed for valid inputs
     always @(posedge clk) if (ce) begin
-        result_frac <= s9_invalid_r     ? {FRAC_BITS{1'b0}} :
-                       s10_exp_too_big  ? $signed(s10_pos_frac) :
-                       s10_exp_too_small ? $signed({1'b0, s10_pos_frac[FRAC_BITS-1:1]}) :
-                                          $signed(s10_pos_frac);
-
-        result_exp  <= (s9_invalid_r | s10_exp_too_big | s10_exp_too_small) ?
-                        AMBIGUOUS_EXP[EXP_BITS-1:0] : s10_exp_out[EXP_BITS-1:0];
+        if (s9_invalid_r) begin
+            result_frac <= s9_sc_frac_r;
+            result_exp  <= s9_sc_exp_r;
+        end else begin
+            result_frac <= s10_exp_too_big  ? $signed(s10_pos_frac) :
+                           s10_exp_too_small ? $signed({1'b0, s10_pos_frac[FRAC_BITS-1:1]}) :
+                                              $signed(s10_pos_frac);
+            result_exp  <= (s10_exp_too_big | s10_exp_too_small) ?
+                            AMBIGUOUS_EXP[EXP_BITS-1:0] : s10_exp_out[EXP_BITS-1:0];
+        end
     end
 
 endmodule

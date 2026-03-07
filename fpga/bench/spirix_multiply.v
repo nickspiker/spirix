@@ -4,6 +4,7 @@
 // Fully parameterized, purely combinational.
 //
 // Algorithm:
+//   0. Edge case detection and shortcutting (matches Rust spec).
 //   1. Signed multiply: product = a_frac * b_frac (2*FRAC_BITS-1 bits).
 //   2. Bounded normalization: 0 or 1 bit left shift (no barrel needed).
 //      N1 * N1 always produces a leading count of 1 or 2.
@@ -40,8 +41,79 @@ module spirix_multiply #(
     localparam signed [EXP_BITS:0] MAX_EXP = (1 <<< (EXP_BITS - 1)) - 1;
     localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
 
+    // Undefined prefix constants (top 8 bits of fraction, zero-padded)
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
+
     // =========================================================================
-    // Step 0: Optional negate — flip sign of a_frac before multiply
+    // Step 0a: Edge case detection (matches Rust scalar_multiply_scalar)
+    // =========================================================================
+
+    wire a_is_ambig = (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+    wire b_is_ambig = (b_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire a_frac_zero = (a_frac == {FRAC_BITS{1'b0}});
+    wire a_frac_neg1 = &a_frac;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
+    wire b_frac_neg1 = &b_frac;
+
+    wire a_n0 = a_frac_zero | a_frac_neg1;
+    wire b_n0 = b_frac_zero | b_frac_neg1;
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_n2 = ~a_n1 & (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = ~b_n1 & (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-3]);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    wire a_is_zero  = a_is_ambig & a_frac_zero;
+    wire a_is_inf   = a_is_ambig & a_frac_neg1;
+    wire a_exploded = a_is_ambig & a_n1;
+    wire a_vanished = a_n2;
+    wire a_undef    = ~a_n0 & a_top3;
+
+    wire b_is_zero  = b_is_ambig & b_frac_zero;
+    wire b_is_inf   = b_is_ambig & b_frac_neg1;
+    wire b_exploded = b_is_ambig & b_n1;
+    wire b_vanished = b_n2;
+    wire b_undef    = ~b_n0 & b_top3;
+
+    wire a_is_normal  = ~a_is_ambig & a_n1;
+    wire b_is_normal  = ~b_is_ambig & b_n1;
+    wire any_non_normal = ~a_is_normal | ~b_is_normal;
+
+    // Edge case priority chain
+    wire sc_a_undef  = a_undef;
+    wire sc_b_undef  = ~a_undef & b_undef;
+    wire sc_inf_zero = ~a_undef & ~b_undef & ((a_is_inf & b_is_zero) | (a_is_zero & b_is_inf));
+    wire sc_any_zero = ~a_undef & ~b_undef & ~sc_inf_zero & (a_is_zero | b_is_zero);
+    wire sc_exp_van  = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_zero &
+                       ((a_exploded & b_vanished) | (a_vanished & b_exploded));
+    wire shortcut    = sc_a_undef | sc_b_undef | sc_inf_zero | sc_any_zero | sc_exp_van;
+
+    // Abnormal compute: run multiply normally but force exp to AMBIG
+    wire abnormal_compute = any_non_normal & ~shortcut;
+    wire n_level_neg1 = a_exploded | b_exploded;
+
+    // Shortcut fraction
+    wire signed [FRAC_BITS-1:0] sc_frac =
+        sc_a_undef  ? a_frac :
+        sc_b_undef  ? b_frac :
+        sc_inf_zero ? ((a_is_inf | a_exploded) ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF) :
+        sc_any_zero ? {FRAC_BITS{1'b0}} :
+                      ((a_exploded)             ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF);
+
+    // Shortcut exponent
+    wire signed [EXP_BITS-1:0] sc_exp =
+        sc_a_undef  ? a_exp :
+        sc_b_undef  ? b_exp :
+                      AMBIGUOUS_EXP[EXP_BITS-1:0];
+
+    // =========================================================================
+    // Step 0b: Optional negate — flip sign of a_frac before multiply
     //
     // -(a*b) = (-a)*b. Two's complement negation works for all N1 values
     // except NEG_ONE (10...0), which wraps to itself. Fix: use POS_HALF
@@ -156,17 +228,26 @@ module spirix_multiply #(
     wire signed [EXP_BITS-1:0] out_exp = exp_wide[EXP_BITS-1:0];
 
     // =========================================================================
-    // Step 6: Output with overflow/underflow clamping
+    // Step 6: Output with edge cases, overflow/underflow clamping
     //
-    // Overflow: preserve fraction (sign indicates direction), AMBIGUOUS_EXP.
-    // Underflow: truncate fraction (sign + MSBs), AMBIGUOUS_EXP.
+    // Priority: shortcut > abnormal_compute > overflow > underflow > normal.
+    // Abnormal compute: result frac from multiply, exp forced to AMBIG.
+    //   n_level=-2 (neither exploded): right-shift result to N2.
     // =========================================================================
-    assign result_frac = exp_too_big   ? out_frac :
-                         exp_too_small ? {out_frac[FRAC_BITS-1],
-                                          out_frac[FRAC_BITS-1:1]} :
-                                         out_frac;
+    wire abnormal_n2 = abnormal_compute & ~n_level_neg1;
+    wire signed [FRAC_BITS-1:0] abnormal_frac = abnormal_n2
+        ? {out_frac[FRAC_BITS-1], out_frac[FRAC_BITS-1:1]} : out_frac;
 
-    assign result_exp  = (exp_too_big | exp_too_small) ?
-                          AMBIGUOUS_EXP[EXP_BITS-1:0] : out_exp;
+    assign result_frac = shortcut          ? sc_frac :
+                         abnormal_compute  ? abnormal_frac :
+                         exp_too_big       ? out_frac :
+                         exp_too_small     ? {out_frac[FRAC_BITS-1],
+                                              out_frac[FRAC_BITS-1:1]} :
+                                             out_frac;
+
+    assign result_exp  = shortcut                           ? sc_exp :
+                         (abnormal_compute |
+                          exp_too_big | exp_too_small)      ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                                                              out_exp;
 
 endmodule

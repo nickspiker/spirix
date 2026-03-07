@@ -1,13 +1,12 @@
-// spirix_addsub — Minimal combinational add/subtract for Spirix scalars
+// spirix_addsub — Combinational add/subtract for Spirix scalars with edge cases
 //
 // Floor-only (no rounding), single-path design.
-// Parameterized: FRAC_BITS in {2..256}, EXP_BITS in {2..256}.
+// Parameterized: FRAC_BITS in {8..256}, EXP_BITS in {2..256}.
 //
-// Architecture: left-shift big -> add -> CLZ -> normalize -> extract (floor).
-//   Matches the Rust reference model exactly (2x intermediate width,
-//   single floor point at extraction).
-//   No close/far split. No rounding. No sticky tracking.
-//   Barrel shifters inferred by synthesis from <<< operators.
+// Architecture: edge detect -> left-shift big -> add -> CLZ -> normalize -> extract (floor).
+//   Matches the Rust reference model (scalar_add_scalar / scalar_subtract_scalar) exactly.
+//   Edge cases handled: undefined passthrough, transfinite+transfinite,
+//   vanished+vanished, transfinite+finite, vanished+normal, zero+anything.
 //
 // Input format: value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
 // Fraction: signed two's complement, N1-normalized (top two bits differ).
@@ -28,7 +27,6 @@ module spirix_addsub #(
 );
 
     // 2x width intermediate — matches Rust i16/i32/i64 promotion.
-    // Single floor at extraction; no precision loss from alignment.
     localparam INT_BITS   = 2 * FRAC_BITS;
     localparam SHIFT_BITS = $clog2(INT_BITS);
     localparam AMBIG_EXP  = -(1 <<< (EXP_BITS - 1));
@@ -36,8 +34,169 @@ module spirix_addsub #(
     localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
     localparam signed [FRAC_BITS-1:0] NEG_ONE  = {1'b1, {(FRAC_BITS-1){1'b0}}};
 
-    // Exponent calc width: enough to hold small_exp + FRAC - norm_shift
+    // Exponent calc width
     localparam ECW = (SHIFT_BITS + 1 > EXP_BITS + 1) ? SHIFT_BITS + 2 : EXP_BITS + 2;
+
+    // Undefined prefix constants (top 8 bits, zero-padded)
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF  = {8'h1F, {UPAD{1'b0}}}; // ℘⬆+⬆
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF  = {8'hE0, {UPAD{1'b0}}}; // ℘⬆-⬆
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1E, {UPAD{1'b0}}}; // ℘↓+↓
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE1, {UPAD{1'b0}}}; // ℘↓-↓
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}}; // ℘⬆+
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}}; // ℘⬆-
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h18, {UPAD{1'b0}}}; // ℘+⬆
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE7, {UPAD{1'b0}}}; // ℘-⬆
+
+    // ========== State detection =================================================
+
+    wire a_is_ambig = (a_exp == AMBIG_EXP[EXP_BITS-1:0]);
+    wire b_is_ambig = (b_exp == AMBIG_EXP[EXP_BITS-1:0]);
+
+    wire a_frac_zero = (a_frac == {FRAC_BITS{1'b0}});
+    wire a_frac_neg1 = &a_frac;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
+    wire b_frac_neg1 = &b_frac;
+
+    wire a_n0 = a_frac_zero | a_frac_neg1;
+    wire b_n0 = b_frac_zero | b_frac_neg1;
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_n2 = ~a_n1 & (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = ~b_n1 & (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-3]);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    // Rust: is_zero/is_infinite/exploded/is_transfinite check AMBIG exp.
+    //       vanished/is_undefined check fraction only (no exp check).
+    wire a_is_zero   = a_is_ambig & a_frac_zero;
+    wire a_is_inf    = a_is_ambig & a_frac_neg1;
+    wire a_exploded  = a_is_ambig & a_n1;
+    wire a_transf    = a_is_inf | a_exploded;  // is_transfinite
+    wire a_vanished  = a_n2;                    // fraction-only
+    wire a_undef     = ~a_n0 & a_top3;          // fraction-only
+
+    wire b_is_zero   = b_is_ambig & b_frac_zero;
+    wire b_is_inf    = b_is_ambig & b_frac_neg1;
+    wire b_exploded  = b_is_ambig & b_n1;
+    wire b_transf    = b_is_inf | b_exploded;
+    wire b_vanished  = b_n2;
+    wire b_undef     = ~b_n0 & b_top3;
+
+    wire a_is_normal  = ~a_is_ambig & a_n1;
+    wire b_is_normal  = ~b_is_ambig & b_n1;
+    wire any_non_normal = ~a_is_normal | ~b_is_normal;
+
+    // ========== Spirix negation of b (for sub edge cases) =======================
+    //
+    // Normal path: POS_HALF→(NEG_ONE, exp-1) or (NEG_SMALL if exp-1==AMBIG)
+    //              NEG_ONE→(POS_HALF, exp+1)
+    //              else→(-frac, exp)
+    // Non-normal: top3_same (undef/zero/inf)→unchanged
+    //             POS_HALF↔NEG_ONE, POS_SMALL↔NEG_SMALL (no exp change)
+    //             else→wrapping_neg (no exp change)
+
+    localparam signed [FRAC_BITS-1:0] POS_SMALL = {2'b00, 1'b1, {(FRAC_BITS-3){1'b0}}};
+    localparam signed [FRAC_BITS-1:0] NEG_SMALL = {2'b11, {(FRAC_BITS-2){1'b0}}};
+
+    wire b_is_pos_half = (b_frac == POS_HALF);
+    wire b_is_neg_one  = (b_frac == NEG_ONE);
+    wire b_is_pos_small = (b_frac == POS_SMALL);
+    wire b_is_neg_small = (b_frac == NEG_SMALL);
+
+    // Normal negation (b has non-AMBIG exp)
+    wire signed [EXP_BITS-1:0] b_exp_m1 = b_exp - 1'b1;
+    wire b_exp_m1_ambig = (b_exp_m1 == AMBIG_EXP[EXP_BITS-1:0]);
+
+    wire signed [FRAC_BITS-1:0] neg_b_frac_normal =
+        b_is_pos_half ? (b_exp_m1_ambig ? NEG_SMALL : NEG_ONE) :
+        b_is_neg_one  ? POS_HALF :
+                        -b_frac;
+    wire signed [EXP_BITS-1:0] neg_b_exp_normal =
+        b_is_pos_half ? b_exp_m1 :
+        b_is_neg_one  ? (b_exp + 1'b1) :
+                        b_exp;
+
+    // Non-normal negation (b has AMBIG exp)
+    // top3_same → unchanged (zero, inf, undef don't negate)
+    wire b_top3_same = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                       (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+    wire b_n0_local = b_frac_zero | b_frac_neg1;
+    wire b_nonnorm_nochange = b_n0_local | (~b_n0_local & b_top3_same);
+
+    wire signed [FRAC_BITS-1:0] neg_b_frac_nonnorm =
+        b_nonnorm_nochange ? b_frac :
+        b_is_pos_half  ? NEG_ONE :
+        b_is_neg_one   ? POS_HALF :
+        b_is_pos_small ? NEG_SMALL :
+        b_is_neg_small ? POS_SMALL :
+                         -b_frac;
+
+    // Select normal vs non-normal negation
+    wire signed [FRAC_BITS-1:0] neg_b_frac = b_is_ambig ? neg_b_frac_nonnorm : neg_b_frac_normal;
+    wire signed [EXP_BITS-1:0]  neg_b_exp  = b_is_ambig ? b_exp               : neg_b_exp_normal;
+
+    // ========== Edge case priority (matches Rust spec) ==========================
+    //
+    // Add:                                    Sub:
+    // 1. a undef    -> a                      1. a undef    -> a
+    // 2. b undef    -> b                      2. b undef    -> b
+    // 3. a_tf & b_tf -> TF_PLUS_TF            3. a_tf & b_tf -> TF_MINUS_TF
+    // 4. a_van & b_van -> VAN_PLUS_VAN        4. a_van & b_van -> VAN_MINUS_VAN
+    // 5. a_tf       -> TF_PLUS_FIN            5. a_tf       -> TF_MINUS_FIN
+    // 6. b_tf       -> FIN_PLUS_TF            6. b_tf       -> FIN_MINUS_TF
+    // 7. a_van      -> b                      7. a_van      -> -b
+    // 8. b_van      -> a                      8. b_van      -> a
+    // 9. a_zero     -> b                      9. a_zero     -> -b
+    // 10. fallback  -> a                      10. fallback  -> a
+
+    wire sc_a_undef   = a_undef;
+    wire sc_b_undef   = ~a_undef & b_undef;
+    wire sc_tf_tf     = ~a_undef & ~b_undef & a_transf & b_transf;
+    wire sc_van_van   = ~a_undef & ~b_undef & ~sc_tf_tf & a_vanished & b_vanished;
+    wire sc_a_transf  = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van & a_transf;
+    wire sc_b_transf  = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van & ~sc_a_transf & b_transf;
+    wire sc_a_van     = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & a_vanished;
+    wire sc_b_van     = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & ~sc_a_van & b_vanished;
+    wire sc_a_zero    = ~a_undef & ~b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & ~sc_a_van & ~sc_b_van & a_is_zero;
+    wire sc_fallback  = any_non_normal & ~sc_a_undef & ~sc_b_undef & ~sc_tf_tf & ~sc_van_van &
+                        ~sc_a_transf & ~sc_b_transf & ~sc_a_van & ~sc_b_van & ~sc_a_zero;
+
+    wire shortcut = any_non_normal & (sc_a_undef | sc_b_undef | sc_tf_tf | sc_van_van |
+                                      sc_a_transf | sc_b_transf | sc_a_van | sc_b_van |
+                                      sc_a_zero | sc_fallback);
+
+    // Shortcut fraction (add vs sub selects different undefined prefixes)
+    wire signed [FRAC_BITS-1:0] sc_frac =
+        sc_a_undef  ? a_frac :
+        sc_b_undef  ? b_frac :
+        sc_tf_tf    ? (sub ? UNDEF_TF_M_TF  : UNDEF_TF_P_TF) :
+        sc_van_van  ? (sub ? UNDEF_VAN_M_VAN : UNDEF_VAN_P_VAN) :
+        sc_a_transf ? (sub ? UNDEF_TF_M_FIN  : UNDEF_TF_P_FIN) :
+        sc_b_transf ? (sub ? UNDEF_FIN_M_TF  : UNDEF_FIN_P_TF) :
+        sc_a_van    ? (sub ? neg_b_frac : b_frac) :
+        sc_b_van    ? a_frac :
+        sc_a_zero   ? (sub ? neg_b_frac : b_frac) :
+                      a_frac;  // fallback
+
+    wire signed [EXP_BITS-1:0] sc_exp =
+        sc_a_undef  ? a_exp :
+        sc_b_undef  ? b_exp :
+        sc_tf_tf    ? AMBIG_EXP[EXP_BITS-1:0] :
+        sc_van_van  ? AMBIG_EXP[EXP_BITS-1:0] :
+        sc_a_transf ? AMBIG_EXP[EXP_BITS-1:0] :
+        sc_b_transf ? AMBIG_EXP[EXP_BITS-1:0] :
+        sc_a_van    ? (sub ? neg_b_exp : b_exp) :
+        sc_b_van    ? a_exp :
+        sc_a_zero   ? (sub ? neg_b_exp : b_exp) :
+                      a_exp;
+
+    // ========== Normal arithmetic (unchanged, only used when !shortcut) ==========
 
     // == Step 1: Exponent difference + swap ===================================
 
@@ -57,11 +216,6 @@ module spirix_addsub #(
     wire negate_big   = sub & !a_is_big;
 
     // == Bypass: negligible operand ===========================================
-    //
-    // When exp_diff >= FRAC_BITS, small is less than 1 ULP of big.
-    // Add: return big. Sub with b as big: return -big (Spirix negation).
-    // Negation special cases: -POS_HALF and -NEG_ONE need exponent adjust
-    // to stay N1-normalized.
 
     wire big_is_pos_half = (big_frac == POS_HALF);
     wire big_is_neg_one  = (big_frac == NEG_ONE);
@@ -111,10 +265,6 @@ module spirix_addsub #(
     wire signed [FRAC_BITS-1:0] out_frac = normalized[INT_BITS-1 -: FRAC_BITS];
 
     // == Step 6: Exponent =====================================================
-    //
-    // result_exp = small_exp + (FRAC_BITS - leading) + 1
-    //            = small_exp + FRAC_BITS - (norm_shift + 1) + 1
-    //            = small_exp + FRAC_BITS - norm_shift
 
     wire signed [ECW-1:0] exp_calc =
         $signed({{(ECW-EXP_BITS){small_exp[EXP_BITS-1]}}, small_exp})
@@ -129,16 +279,20 @@ module spirix_addsub #(
     wire signed [FRAC_BITS-1:0] vanished_frac = {normalized[INT_BITS-1],
                                                    normalized[INT_BITS-1 -: FRAC_BITS-1]};
 
-    // == Step 7: Output mux ===================================================
+    // ========== Output mux ===================================================
+    //
+    // Priority: shortcut > bypass > zero > underflow > normal
 
-    assign result_frac = bypass_add ? big_frac :
-                         bypass_sub ? neg_big_frac :
-                         is_zero    ? {FRAC_BITS{1'b0}} :
-                         underflow  ? vanished_frac :
-                                      out_frac;
+    assign result_frac = shortcut    ? sc_frac :
+                         bypass_add  ? big_frac :
+                         bypass_sub  ? neg_big_frac :
+                         is_zero     ? {FRAC_BITS{1'b0}} :
+                         underflow   ? vanished_frac :
+                                       out_frac;
 
-    assign result_exp  = bypass_add ? big_exp :
-                         bypass_sub ? neg_big_exp :
+    assign result_exp  = shortcut              ? sc_exp :
+                         bypass_add            ? big_exp :
+                         bypass_sub            ? neg_big_exp :
                          (is_zero | underflow) ? AMBIG_EXP[EXP_BITS-1:0] :
                                                   out_exp;
 

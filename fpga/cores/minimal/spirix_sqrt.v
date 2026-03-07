@@ -46,17 +46,38 @@ module spirix_sqrt #(
     localparam S_IDLE     = 0;
     localparam S_COMPUTE  = 1;
     localparam S_FINALIZE = 2;
+    localparam S_SHORTCUT = 3;
     reg [1:0] state = S_IDLE;
 
     assign busy = (state != S_IDLE);
+
+    // Edge case constants
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIG_EXP[EXP_BITS-1:0];
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_NEG    = $signed({8'hF6, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_EXPLOD = $signed({8'h08, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_VANISH = $signed({8'hF7, {UPAD{1'b0}}});
+
+    // Input state classification (combinational)
+    wire a_is_ambig = (a_exp == AMBIG_E);
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire a_n2 = !a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire a_vanished = a_n2;
+    wire [7:0] a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire a_n0 = (a_pref == 8'h00) || (a_pref == 8'hFF);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire a_undef = !a_n0 && a_top3;
+    wire a_is_normal = a_n1 && !a_is_ambig;
 
     // Registers
     reg [RAD_BITS-1:0]      rad_reg;        // radicand shift register
     reg [R_BITS-1:0]        rem_reg;        // partial remainder
     reg [FRAC_BITS-1:0]     root_reg;       // root accumulator
     reg [CTR_BITS-1:0]      counter;
-    reg                     invalid_reg;
     reg signed [EXP_BITS:0] exp_out_reg;
+    reg signed [FRAC_BITS-1:0] sc_frac_r;
+    reg signed [EXP_BITS-1:0]  sc_exp_r;
 
     // == Restoring sqrt iteration ================================================
     //
@@ -75,10 +96,8 @@ module spirix_sqrt #(
     // fraction = {0, root[FRAC-1:1]} = positive N1-normalized result.
     // root[0] is the truncated bit (floor behavior).
     // ============================================================================
-    wire [FRAC_BITS-1:0] final_frac = invalid_reg ? {FRAC_BITS{1'b0}} :
-                                       {1'b0, root_reg[FRAC_BITS-1:1]};
-    wire signed [EXP_BITS-1:0] final_exp = invalid_reg ? AMBIG_EXP[EXP_BITS-1:0] :
-                                             exp_out_reg[EXP_BITS-1:0];
+    wire [FRAC_BITS-1:0] final_frac = {1'b0, root_reg[FRAC_BITS-1:1]};
+    wire signed [EXP_BITS-1:0] final_exp = exp_out_reg[EXP_BITS-1:0];
 
     // == State machine ===========================================================
 
@@ -88,25 +107,39 @@ module spirix_sqrt #(
         case (state)
             S_IDLE: begin
                 if (start) begin
-                    // Invalid: negative, zero, or ambiguous exponent
-                    invalid_reg <= a_frac[FRAC_BITS-1] | (a_frac == 0) |
-                                   (a_exp == AMBIG_EXP[EXP_BITS-1:0]);
+                    // Edge case detection (non-normal input)
+                    if (!a_is_normal) begin
+                        state <= S_SHORTCUT;
+                        sc_exp_r <= AMBIG_E;
+                        if (a_undef) begin
+                            sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                        end else if (a_n0) begin
+                            sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                        end else if (a_vanished) begin
+                            sc_frac_r <= UNDEF_SQRT_VANISH;
+                        end else begin
+                            sc_frac_r <= UNDEF_SQRT_EXPLOD;
+                        end
+                    end else if (a_frac[FRAC_BITS-1]) begin
+                        // Negative normal → sqrt of negative
+                        state <= S_SHORTCUT;
+                        sc_frac_r <= UNDEF_SQRT_NEG;
+                        sc_exp_r  <= AMBIG_E;
+                    end else begin
+                        // Positive normal — compute sqrt
+                        exp_out_reg <= ($signed({a_exp[EXP_BITS-1], a_exp}) >>> 1)
+                                     + {{EXP_BITS{1'b0}}, a_exp[0]};
 
-                    // Exponent: (a_exp >>> 1) + (a_exp & 1)
-                    // Matches Rust: exp/2 + even, with -1 for negative odd.
-                    exp_out_reg <= ($signed({a_exp[EXP_BITS-1], a_exp}) >>> 1)
-                                 + {{EXP_BITS{1'b0}}, a_exp[0]};
+                        if (a_exp[0])
+                            rad_reg <= {1'b0, a_frac[MAG-1:0], {(RAD_BITS-MAG-1){1'b0}}};
+                        else
+                            rad_reg <= {a_frac[MAG-1:0], {(RAD_BITS-MAG){1'b0}}};
 
-                    // Radicand: 2*FRAC bits, magnitude positioned for even/odd
-                    if (a_exp[0])  // odd exponent: shift right by 1
-                        rad_reg <= {1'b0, a_frac[MAG-1:0], {(RAD_BITS-MAG-1){1'b0}}};
-                    else           // even exponent
-                        rad_reg <= {a_frac[MAG-1:0], {(RAD_BITS-MAG){1'b0}}};
-
-                    rem_reg  <= {R_BITS{1'b0}};
-                    root_reg <= {FRAC_BITS{1'b0}};
-                    counter  <= FRAC_BITS[CTR_BITS-1:0] - 1;
-                    state    <= S_COMPUTE;
+                        rem_reg  <= {R_BITS{1'b0}};
+                        root_reg <= {FRAC_BITS{1'b0}};
+                        counter  <= FRAC_BITS[CTR_BITS-1:0] - 1;
+                        state    <= S_COMPUTE;
+                    end
                 end
             end
 
@@ -124,6 +157,13 @@ module spirix_sqrt #(
             S_FINALIZE: begin
                 result_frac <= final_frac;
                 result_exp  <= final_exp;
+                done <= 1'b1;
+                state <= S_IDLE;
+            end
+
+            S_SHORTCUT: begin
+                result_frac <= sc_frac_r;
+                result_exp  <= sc_exp_r;
                 done <= 1'b1;
                 state <= S_IDLE;
             end

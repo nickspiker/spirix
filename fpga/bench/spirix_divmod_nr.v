@@ -57,6 +57,14 @@ module spirix_divmod_nr #(
     localparam WIDE = 2 * FRAC_BITS;
     localparam MAG = FRAC_BITS - 1;  // magnitude bits = 24
 
+    // Edge case constants
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIGUOUS_EXP[EXP_BITS-1:0];
+    localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'hE9, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'h16, {UPAD{1'b0}}});
+    localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL      = $signed({8'hFE, {UPAD{1'b0}}});
+
     // =========================================================================
     // Stage 1: Sign extraction, absolute values, LUT seed, first NR multiply
     // =========================================================================
@@ -64,6 +72,78 @@ module spirix_divmod_nr #(
     wire s1_result_sign = a_frac[FRAC_BITS-1] ^ b_frac[FRAC_BITS-1];
     wire s1_a_sign = a_frac[FRAC_BITS-1];
     wire s1_b_is_zero = (b_frac == 0);
+
+    // Edge case classification
+    wire s1_a_is_ambig = (a_exp == AMBIG_E);
+    wire s1_b_is_ambig = (b_exp == AMBIG_E);
+
+    wire s1_a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire s1_b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire s1_a_n2 = !s1_a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire s1_b_n2 = !s1_b_n1 && (b_frac[FRAC_BITS-2] != b_frac[FRAC_BITS-3]);
+
+    wire [7:0] s1_a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire [7:0] s1_b_pref = b_frac[FRAC_BITS-1 -: 8];
+    wire s1_a_n0 = (s1_a_pref == 8'h00) || (s1_a_pref == 8'hFF);
+    wire s1_b_n0 = (s1_b_pref == 8'h00) || (s1_b_pref == 8'hFF);
+
+    wire s1_a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                     (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire s1_b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &&
+                     (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    wire s1_a_undef = !s1_a_n0 && s1_a_top3;
+    wire s1_b_undef = !s1_b_n0 && s1_b_top3;
+
+    wire s1_a_is_zero_st = s1_a_n0 && !a_frac[FRAC_BITS-1];  // frac=0x00..
+    wire s1_b_is_zero_st = s1_b_n0 && !b_frac[FRAC_BITS-1];  // frac=0x00..
+    wire s1_a_is_inf = s1_a_n0 && a_frac[FRAC_BITS-1];        // frac=0xFF..
+    wire s1_b_is_inf = s1_b_n0 && b_frac[FRAC_BITS-1];        // frac=0xFF..
+
+    wire s1_a_vanished = s1_a_n2;
+    wire s1_b_vanished = s1_b_n2;
+    wire s1_a_exploded = s1_a_is_ambig && s1_a_n1;
+    wire s1_b_exploded = s1_b_is_ambig && s1_b_n1;
+
+    // Edge case shortcut computation
+    wire s1_a_is_normal = s1_a_n1 && !s1_a_is_ambig;
+    wire s1_b_is_normal = s1_b_n1 && !s1_b_is_ambig;
+    wire s1_any_non_normal = !s1_a_is_normal || !s1_b_is_normal;
+    reg s1_shortcut;
+    reg signed [FRAC_BITS-1:0] s1_sc_frac;
+    reg signed [EXP_BITS-1:0]  s1_sc_exp;
+
+    always @(*) begin
+        s1_shortcut = 1'b0;
+        s1_sc_frac  = {FRAC_BITS{1'b0}};
+        s1_sc_exp   = AMBIG_E;
+        if (s1_any_non_normal) begin
+            s1_shortcut = 1'b1;
+            if (s1_a_undef) begin
+                s1_sc_frac = a_frac; s1_sc_exp = a_exp;
+            end else if (s1_b_undef) begin
+                s1_sc_frac = b_frac; s1_sc_exp = b_exp;
+            end else if (s1_b_is_zero_st) begin
+                s1_sc_frac = s1_a_is_zero_st ? UNDEF_NEG_DIV_NEG : ALL_ONES;
+            end else if (s1_a_is_inf) begin
+                s1_sc_frac = s1_b_is_inf ? UNDEF_TF_DIV_TF : ALL_ONES;
+            end else if (s1_a_is_zero_st || s1_b_is_inf) begin
+                s1_sc_frac = {FRAC_BITS{1'b0}};
+            end else if (s1_a_exploded && s1_b_exploded) begin
+                s1_sc_frac = UNDEF_TF_DIV_TF;
+            end else if (s1_a_vanished && s1_b_vanished) begin
+                s1_sc_frac = UNDEF_NEG_DIV_NEG;
+            end else if (s1_a_vanished || s1_b_vanished) begin
+                s1_sc_frac = UNDEF_GENERAL;
+            end else begin
+                // Remaining AMBIG (exploded/normal, N0-residual, etc.)
+                s1_sc_frac = UNDEF_GENERAL;
+            end
+        end else if (s1_b_is_zero) begin
+            s1_shortcut = 1'b1;
+            s1_sc_frac  = ALL_ONES;
+        end
+    end
 
     wire s1_a_is_neg_one = (a_frac == NEG_ONE);
     wire s1_b_is_neg_one = (b_frac == NEG_ONE);
@@ -356,7 +436,9 @@ module spirix_divmod_nr #(
     reg [MAG-1:0]            s1_abs_a_r, s1_abs_b_r;
     reg [FRAC_BITS-1:0]      s1_x0_r;
     reg [FRAC_BITS:0]        s1_e1_r;
-    reg                      s1_b_zero_r;
+    reg                      s1_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s1_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s1_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s1_sign_r      <= s1_result_sign;
@@ -367,7 +449,9 @@ module spirix_divmod_nr #(
         s1_abs_b_r     <= s1_abs_b;
         s1_x0_r        <= s1_x0;
         s1_e1_r        <= s1_e1;
-        s1_b_zero_r    <= s1_b_is_zero;
+        s1_shortcut_r  <= s1_shortcut;
+        s1_sc_frac_r   <= s1_sc_frac;
+        s1_sc_exp_r    <= s1_sc_exp;
     end
 
     // =========================================================================
@@ -386,7 +470,9 @@ module spirix_divmod_nr #(
     reg [MAG-1:0]            s2_abs_a_r, s2_abs_b_r;
     reg [FRAC_BITS-1:0]      s2_x1_r;
     reg [FRAC_BITS:0]        s2_p2_r;
-    reg                      s2_b_zero_r;
+    reg                      s2_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s2_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s2_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s2_sign_r      <= s1_sign_r;
@@ -397,7 +483,9 @@ module spirix_divmod_nr #(
         s2_abs_b_r     <= s1_abs_b_r;
         s2_x1_r        <= s2_x1;
         s2_p2_r        <= s2_p2;
-        s2_b_zero_r    <= s1_b_zero_r;
+        s2_shortcut_r  <= s1_shortcut_r;
+        s2_sc_frac_r   <= s1_sc_frac_r;
+        s2_sc_exp_r    <= s1_sc_exp_r;
     end
 
     // =========================================================================
@@ -414,7 +502,9 @@ module spirix_divmod_nr #(
     reg signed [EXP_BITS:0]  s3_a_exp_adj_r, s3_b_exp_adj_r;
     reg [MAG-1:0]            s3_abs_a_r, s3_abs_b_r;
     reg [FRAC_BITS-1:0]      s3_x2_r;
-    reg                      s3_b_zero_r;
+    reg                      s3_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s3_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s3_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s3_sign_r      <= s2_sign_r;
@@ -424,7 +514,9 @@ module spirix_divmod_nr #(
         s3_abs_a_r     <= s2_abs_a_r;
         s3_abs_b_r     <= s2_abs_b_r;
         s3_x2_r        <= s3_x2;
-        s3_b_zero_r    <= s2_b_zero_r;
+        s3_shortcut_r  <= s2_shortcut_r;
+        s3_sc_frac_r   <= s2_sc_frac_r;
+        s3_sc_exp_r    <= s2_sc_exp_r;
     end
 
     // =========================================================================
@@ -439,7 +531,9 @@ module spirix_divmod_nr #(
     reg signed [EXP_BITS:0]  s4_a_exp_adj_r, s4_b_exp_adj_r;
     reg [FRAC_BITS:0]        s4_q_raw_r;
     reg [MAG-1:0]            s4_abs_a_r, s4_abs_b_r;
-    reg                      s4_b_zero_r;
+    reg                      s4_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s4_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s4_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         s4_sign_r       <= s3_sign_r;
@@ -449,7 +543,9 @@ module spirix_divmod_nr #(
         s4_q_raw_r      <= s4_q_raw;
         s4_abs_a_r      <= s3_abs_a_r;
         s4_abs_b_r      <= s3_abs_b_r;
-        s4_b_zero_r     <= s3_b_zero_r;
+        s4_shortcut_r   <= s3_shortcut_r;
+        s4_sc_frac_r    <= s3_sc_frac_r;
+        s4_sc_exp_r     <= s3_sc_exp_r;
     end
 
     // =========================================================================
@@ -530,7 +626,9 @@ module spirix_divmod_nr #(
     reg signed [EXP_BITS:0]  s5_a_exp_adj_r, s5_b_exp_adj_r;
     reg [FRAC_BITS:0]        s5_q_exact_r;
     reg                      s5_rem_sticky_r;
-    reg                      s5_b_zero_r;
+    reg                      s5_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s5_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s5_sc_exp_r;
     // Modulo-specific registers
     reg [MAG-1:0]            s5_abs_a_r;
     reg [MAG-1:0]            s5_abs_b_r;
@@ -548,7 +646,9 @@ module spirix_divmod_nr #(
         s5_b_exp_adj_r  <= s4_b_exp_adj_r;
         s5_q_exact_r    <= s5_q_exact;
         s5_rem_sticky_r <= s5_rem_sticky;
-        s5_b_zero_r     <= s4_b_zero_r;
+        s5_shortcut_r   <= s4_shortcut_r;
+        s5_sc_frac_r    <= s4_sc_frac_r;
+        s5_sc_exp_r     <= s4_sc_exp_r;
         if (ENABLE_MOD) begin
             s5_a_sign_r     <= s4_a_sign_r;
             s5_abs_a_r      <= s4_abs_a_r;
@@ -606,14 +706,17 @@ module spirix_divmod_nr #(
 
     // --- Quotient output register ---
     always @(posedge clk) if (ce) begin
-        q_frac <= s5_b_zero_r     ? {FRAC_BITS{1'b0}} :
-                  s6_exp_too_big   ? s6_final_frac :
-                  s6_exp_too_small ? {s6_final_frac[FRAC_BITS-1],
-                                       s6_final_frac[FRAC_BITS-1:1]} :
-                                      s6_final_frac;
-
-        q_exp  <= (s5_b_zero_r | s6_exp_too_big | s6_exp_too_small) ?
-                   AMBIGUOUS_EXP[EXP_BITS-1:0] : s6_final_exp;
+        if (s5_shortcut_r) begin
+            q_frac <= s5_sc_frac_r;
+            q_exp  <= s5_sc_exp_r;
+        end else begin
+            q_frac <= s6_exp_too_big   ? s6_final_frac :
+                      s6_exp_too_small ? {s6_final_frac[FRAC_BITS-1],
+                                           s6_final_frac[FRAC_BITS-1:1]} :
+                                          s6_final_frac;
+            q_exp  <= (s6_exp_too_big | s6_exp_too_small) ?
+                       AMBIGUOUS_EXP[EXP_BITS-1:0] : s6_final_exp;
+        end
     end
 
     // --- Modulo path (stage 6): DSP multiply + add only ---
@@ -642,6 +745,9 @@ module spirix_divmod_nr #(
     reg                      s6_d_gt_F_mod_r;
     reg signed [EXP_BITS:0]  s6_a_exp_mod_r;
     reg signed [EXP_BITS:0]  s6_b_exp_mod_r;
+    reg                      s6_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s6_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s6_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         if (ENABLE_MOD) begin
@@ -653,10 +759,13 @@ module spirix_divmod_nr #(
             s6_neg_d_r          <= s5_neg_d_r;
             s6_signs_differ_r   <= s6_signs_differ;
             s6_b_sign_r         <= s6_b_sign;
-            s6_b_zero_mod_r     <= s5_b_zero_r;
+            s6_b_zero_mod_r     <= s5_shortcut_r;
             s6_d_gt_F_mod_r     <= s5_d_gt_F_r;
             s6_a_exp_mod_r      <= s5_a_exp_adj_r;
             s6_b_exp_mod_r      <= s5_b_exp_adj_r;
+            s6_shortcut_r       <= s5_shortcut_r;
+            s6_sc_frac_r        <= s5_sc_frac_r;
+            s6_sc_exp_r         <= s5_sc_exp_r;
         end
     end
 
@@ -723,6 +832,9 @@ module spirix_divmod_nr #(
     reg                      s7_mod_sign_r;
     reg                      s7_mod_zero_r;
     reg                      s7_mod_ambig_r;
+    reg                      s7_shortcut_r;
+    reg signed [FRAC_BITS-1:0] s7_sc_frac_r;
+    reg signed [EXP_BITS-1:0]  s7_sc_exp_r;
 
     always @(posedge clk) if (ce) begin
         if (ENABLE_MOD) begin
@@ -731,6 +843,9 @@ module spirix_divmod_nr #(
             s7_mod_sign_r  <= s6_b_sign_r;
             s7_mod_zero_r  <= s7_mod_is_zero;
             s7_mod_ambig_r <= s7_mod_ambiguous;
+            s7_shortcut_r  <= s6_shortcut_r;
+            s7_sc_frac_r   <= s6_sc_frac_r;
+            s7_sc_exp_r    <= s6_sc_exp_r;
         end
     end
 
@@ -780,14 +895,18 @@ module spirix_divmod_nr #(
     // --- Modulo output register ---
     always @(posedge clk) if (ce) begin
         if (ENABLE_MOD) begin
-            mod_frac <= (s7_mod_zero_r | s7_mod_ambig_r) ? {FRAC_BITS{1'b0}} :
-                        s8_exp_too_big   ? s8_signed_frac :
-                        s8_exp_too_small ? {s8_signed_frac[FRAC_BITS-1],
-                                             s8_signed_frac[FRAC_BITS-1:1]} :
-                                            s8_signed_frac;
-
-            mod_exp  <= (s7_mod_zero_r | s7_mod_ambig_r | s8_exp_too_big | s8_exp_too_small) ?
-                        AMBIGUOUS_EXP[EXP_BITS-1:0] : s8_exp_final[EXP_BITS-1:0];
+            if (s7_shortcut_r) begin
+                mod_frac <= s7_sc_frac_r;
+                mod_exp  <= s7_sc_exp_r;
+            end else begin
+                mod_frac <= (s7_mod_zero_r | s7_mod_ambig_r) ? {FRAC_BITS{1'b0}} :
+                            s8_exp_too_big   ? s8_signed_frac :
+                            s8_exp_too_small ? {s8_signed_frac[FRAC_BITS-1],
+                                                 s8_signed_frac[FRAC_BITS-1:1]} :
+                                                s8_signed_frac;
+                mod_exp  <= (s7_mod_zero_r | s7_mod_ambig_r | s8_exp_too_big | s8_exp_too_small) ?
+                            AMBIGUOUS_EXP[EXP_BITS-1:0] : s8_exp_final[EXP_BITS-1:0];
+            end
         end else begin
             mod_frac <= {FRAC_BITS{1'b0}};
             mod_exp  <= AMBIGUOUS_EXP[EXP_BITS-1:0];

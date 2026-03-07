@@ -51,10 +51,10 @@ use crate::Integer;
 /// ```rust
 /// use spirix::{Scalar, ScalarF5E3};
 ///
-/// // Create a Scalar with 32-bit fraction and 8-bit exponent
+/// // Create a Scalar with 32-bit fraction and 8-bit exponent, roughly equivalent to IEEE 754 binary32
 /// let a = Scalar::<i32, i8>::from(42);
 ///
-/// // Using a type alias for the same size
+/// // Using a type alias for the same size, note the power of two names 2^5=32 and 2^3=8
 /// let mut b = ScalarF5E3::from(-1);
 /// b /= 12; // Divide -1 by 12 and assign to b
 ///

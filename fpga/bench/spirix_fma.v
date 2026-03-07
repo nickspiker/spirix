@@ -47,6 +47,244 @@ module spirix_fma #(
     localparam LEAD_BITS   = BARREL_BITS + 1;
     localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
     localparam signed [FRAC_BITS-1:0] NEG_ONE  = {1'b1, {(FRAC_BITS-1){1'b0}}};
+    localparam signed [FRAC_BITS-1:0] POS_SMALL = {2'b00, 1'b1, {(FRAC_BITS-3){1'b0}}};
+    localparam signed [FRAC_BITS-1:0] NEG_SMALL = {2'b11, {(FRAC_BITS-2){1'b0}}};
+
+    // Undefined prefix constants
+    localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
+    // Multiply prefixes
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
+    // Add prefixes
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF  = {8'h1F, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF  = {8'hE0, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1E, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE1, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h18, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE7, {UPAD{1'b0}}};
+
+    // =========================================================================
+    // Edge case detection — Multiply (a*b) then Add (product + c)
+    //
+    // FMA decomposes into multiply edge cases for a*b, producing an effective
+    // product, then add edge cases between the effective product and c.
+    // The fused datapath only runs when all three inputs are normal.
+    // =========================================================================
+
+    // --- Multiply input classification ---
+    wire a_is_ambig = (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+    wire b_is_ambig = (b_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire a_frac_zero = (a_frac == {FRAC_BITS{1'b0}});
+    wire a_frac_neg1 = &a_frac;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
+    wire b_frac_neg1 = &b_frac;
+
+    wire a_n0 = a_frac_zero | a_frac_neg1;
+    wire b_n0 = b_frac_zero | b_frac_neg1;
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_n2 = ~a_n1 & (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = ~b_n1 & (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-3]);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+
+    wire a_is_zero  = a_is_ambig & a_frac_zero;
+    wire a_is_inf   = a_is_ambig & a_frac_neg1;
+    wire a_exploded = a_is_ambig & a_n1;
+    wire a_vanished = a_n2;
+    wire a_undef    = ~a_n0 & a_top3;
+
+    wire b_is_zero  = b_is_ambig & b_frac_zero;
+    wire b_is_inf   = b_is_ambig & b_frac_neg1;
+    wire b_exploded = b_is_ambig & b_n1;
+    wire b_vanished = b_n2;
+    wire b_undef    = ~b_n0 & b_top3;
+
+    wire a_is_normal  = ~a_is_ambig & a_n1;
+    wire b_is_normal  = ~b_is_ambig & b_n1;
+    wire mul_any_non_normal = ~a_is_normal | ~b_is_normal;
+
+    // Multiply edge case priority chain
+    wire mul_sc_a_undef  = a_undef;
+    wire mul_sc_b_undef  = ~a_undef & b_undef;
+    wire mul_sc_inf_zero = ~a_undef & ~b_undef &
+                           ((a_is_inf & b_is_zero) | (a_is_zero & b_is_inf));
+    wire mul_sc_any_zero = ~a_undef & ~b_undef & ~mul_sc_inf_zero &
+                           (a_is_zero | b_is_zero);
+    wire mul_sc_exp_van  = ~a_undef & ~b_undef & ~mul_sc_inf_zero & ~mul_sc_any_zero &
+                           ((a_exploded & b_vanished) | (a_vanished & b_exploded));
+    wire mul_shortcut = mul_sc_a_undef | mul_sc_b_undef | mul_sc_inf_zero |
+                        mul_sc_any_zero | mul_sc_exp_van;
+
+    wire mul_abnormal = mul_any_non_normal & ~mul_shortcut;
+    wire mul_n_level_neg1 = a_exploded | b_exploded;
+
+    // Effective product classification (for add edge case chain)
+    wire eff_prod_undef = mul_sc_a_undef | mul_sc_b_undef | mul_sc_inf_zero | mul_sc_exp_van;
+    wire eff_prod_zero  = mul_sc_any_zero;
+    wire eff_prod_transf = mul_abnormal & mul_n_level_neg1;  // AMBIG + N1 = exploded
+    wire eff_prod_vanished = mul_abnormal & ~mul_n_level_neg1; // AMBIG + N2
+    wire eff_prod_normal = a_is_normal & b_is_normal;
+
+    // Effective product fraction/exponent (for passthrough)
+    wire signed [FRAC_BITS-1:0] mul_sc_frac =
+        mul_sc_a_undef  ? a_frac :
+        mul_sc_b_undef  ? b_frac :
+        mul_sc_inf_zero ? ((a_is_inf | a_exploded) ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF) :
+        mul_sc_any_zero ? {FRAC_BITS{1'b0}} :
+                          ((a_exploded)             ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF);
+
+    wire signed [EXP_BITS-1:0] mul_sc_exp =
+        mul_sc_a_undef  ? a_exp :
+        mul_sc_b_undef  ? b_exp :
+                          AMBIGUOUS_EXP[EXP_BITS-1:0];
+
+    // --- C classification ---
+    wire c_is_ambig = (c_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire c_frac_zero = (c_frac == {FRAC_BITS{1'b0}});
+    wire c_frac_neg1 = &c_frac;
+    wire c_n0 = c_frac_zero | c_frac_neg1;
+    wire c_n1 = (c_frac[FRAC_BITS-1] != c_frac[FRAC_BITS-2]);
+    wire c_n2 = ~c_n1 & (c_frac[FRAC_BITS-1] != c_frac[FRAC_BITS-3]);
+    wire c_top3 = (c_frac[FRAC_BITS-1] == c_frac[FRAC_BITS-2]) &
+                  (c_frac[FRAC_BITS-2] == c_frac[FRAC_BITS-3]);
+
+    wire c_is_zero   = c_is_ambig & c_frac_zero;
+    wire c_is_inf    = c_is_ambig & c_frac_neg1;
+    wire c_exploded  = c_is_ambig & c_n1;
+    wire c_transf    = c_is_inf | c_exploded;
+    wire c_vanished  = c_n2;
+    wire c_undef     = ~c_n0 & c_top3;
+
+    // Spirix negation of c (for sub edge cases)
+    wire c_is_pos_half  = (c_frac == POS_HALF);
+    wire c_is_neg_one_f = (c_frac == NEG_ONE);
+    wire c_is_pos_small = (c_frac == POS_SMALL);
+    wire c_is_neg_small = (c_frac == NEG_SMALL);
+
+    wire signed [EXP_BITS-1:0] c_exp_m1 = c_exp - 1'b1;
+    wire c_exp_m1_ambig = (c_exp_m1 == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+
+    wire signed [FRAC_BITS-1:0] neg_c_frac_normal =
+        c_is_pos_half  ? (c_exp_m1_ambig ? NEG_SMALL : NEG_ONE) :
+        c_is_neg_one_f ? POS_HALF :
+                         -c_frac;
+    wire signed [EXP_BITS-1:0] neg_c_exp_normal =
+        c_is_pos_half  ? c_exp_m1 :
+        c_is_neg_one_f ? (c_exp + 1'b1) :
+                         c_exp;
+
+    wire c_top3_same = (c_frac[FRAC_BITS-1] == c_frac[FRAC_BITS-2]) &
+                       (c_frac[FRAC_BITS-2] == c_frac[FRAC_BITS-3]);
+    wire c_nonnorm_nochange = (c_frac_zero | c_frac_neg1) |
+                              (~(c_frac_zero | c_frac_neg1) & c_top3_same);
+
+    wire signed [FRAC_BITS-1:0] neg_c_frac_nonnorm =
+        c_nonnorm_nochange ? c_frac :
+        c_is_pos_half      ? NEG_ONE :
+        c_is_neg_one_f     ? POS_HALF :
+        c_is_pos_small     ? NEG_SMALL :
+        c_is_neg_small     ? POS_SMALL :
+                             -c_frac;
+
+    wire signed [FRAC_BITS-1:0] neg_c_frac = c_is_ambig ? neg_c_frac_nonnorm : neg_c_frac_normal;
+    wire signed [EXP_BITS-1:0]  neg_c_exp  = c_is_ambig ? c_exp               : neg_c_exp_normal;
+
+    // --- Add edge case chain (effective product + c) ---
+    // "p" = effective product (a*b), "c" = addend
+    // For sub=1: product - c, so c is the one being subtracted (negated)
+
+    // p_undef check: product is undefined → passthrough product
+    wire add_sc_p_undef = eff_prod_undef;
+
+    // c_undef check: c is undefined → passthrough c
+    wire add_sc_c_undef = ~eff_prod_undef & c_undef;
+
+    // transfinite+transfinite
+    wire p_transf = eff_prod_transf;
+    wire add_sc_tf_tf = ~eff_prod_undef & ~c_undef & p_transf & c_transf;
+
+    // vanished+vanished
+    wire p_vanished = eff_prod_vanished;
+    wire add_sc_van_van = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf &
+                          p_vanished & c_vanished;
+
+    // product transfinite (only)
+    wire add_sc_p_transf = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                           p_transf;
+
+    // c transfinite (only)
+    wire add_sc_c_transf = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                           ~add_sc_p_transf & c_transf;
+
+    // product vanished → return c (or -c)
+    wire add_sc_p_van = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                        ~add_sc_p_transf & ~add_sc_c_transf & p_vanished;
+
+    // c vanished → return product (only when product is non-normal;
+    // normal product + vanished c is handled by the FMA datapath)
+    wire add_sc_c_van = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                        ~add_sc_p_transf & ~add_sc_c_transf & ~add_sc_p_van &
+                        ~eff_prod_normal & c_vanished;
+
+    // product zero → return c (or -c)
+    wire add_sc_p_zero = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                         ~add_sc_p_transf & ~add_sc_c_transf & ~add_sc_p_van & ~add_sc_c_van &
+                         eff_prod_zero;
+
+    // c zero → return product (only when product is non-normal;
+    // normal product + zero c is handled by the FMA datapath)
+    wire add_sc_c_zero = ~eff_prod_undef & ~c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                         ~add_sc_p_transf & ~add_sc_c_transf & ~add_sc_p_van & ~add_sc_c_van &
+                         ~add_sc_p_zero & ~eff_prod_normal & c_is_zero;
+
+    wire c_is_normal  = ~c_is_ambig & c_n1;
+
+    // Fallback: any remaining non-normal → return product
+    // Only fires when product is non-normal; normal product with weird c
+    // goes through the FMA datapath (c contributes ~0 or the math works out).
+    wire add_sc_fallback = ~eff_prod_normal & (mul_any_non_normal | ~c_is_normal) &
+                           ~add_sc_p_undef & ~add_sc_c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
+                           ~add_sc_p_transf & ~add_sc_c_transf & ~add_sc_p_van & ~add_sc_c_van &
+                           ~add_sc_p_zero & ~add_sc_c_zero;
+
+    wire fma_shortcut = add_sc_p_undef | add_sc_c_undef | add_sc_tf_tf | add_sc_van_van |
+                        add_sc_p_transf | add_sc_c_transf | add_sc_p_van | add_sc_c_van |
+                        add_sc_p_zero | add_sc_c_zero | add_sc_fallback;
+
+    // FMA shortcut fraction
+    wire signed [FRAC_BITS-1:0] fma_sc_frac =
+        add_sc_p_undef  ? mul_sc_frac :
+        add_sc_c_undef  ? c_frac :
+        add_sc_tf_tf    ? (sub ? UNDEF_TF_M_TF  : UNDEF_TF_P_TF) :
+        add_sc_van_van  ? (sub ? UNDEF_VAN_M_VAN : UNDEF_VAN_P_VAN) :
+        add_sc_p_transf ? (sub ? UNDEF_TF_M_FIN  : UNDEF_TF_P_FIN) :
+        add_sc_c_transf ? (sub ? UNDEF_FIN_M_TF  : UNDEF_FIN_P_TF) :
+        add_sc_p_van    ? (sub ? neg_c_frac : c_frac) :
+        add_sc_c_van    ? mul_sc_frac :  // for abnormal product
+        add_sc_p_zero   ? (sub ? neg_c_frac : c_frac) :
+        add_sc_c_zero   ? mul_sc_frac :  // for abnormal product
+                          mul_sc_frac;   // fallback → product
+
+    // FMA shortcut exponent
+    wire signed [EXP_BITS-1:0] fma_sc_exp =
+        add_sc_p_undef  ? mul_sc_exp :
+        add_sc_c_undef  ? c_exp :
+        add_sc_tf_tf    ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        add_sc_van_van  ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        add_sc_p_transf ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        add_sc_c_transf ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        add_sc_p_van    ? (sub ? neg_c_exp : c_exp) :
+        add_sc_c_van    ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+        add_sc_p_zero   ? (sub ? neg_c_exp : c_exp) :
+        add_sc_c_zero   ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                          AMBIGUOUS_EXP[EXP_BITS-1:0];
 
     // =========================================================================
     // Multiply (raw product, NOT normalized)
@@ -308,14 +546,16 @@ module spirix_fma #(
     // so we let the far path handle it.
     wire use_negligible = negligible & !negate_big & !prod_is_big;
 
-    assign result_frac = use_negligible ? c_frac :
-                         path_is_zero   ? {FRAC_BITS{1'b0}} :
-                         underflow      ? underflow_frac :
-                                          out_frac;
+    assign result_frac = fma_shortcut    ? fma_sc_frac :
+                         use_negligible  ? c_frac :
+                         path_is_zero    ? {FRAC_BITS{1'b0}} :
+                         underflow       ? underflow_frac :
+                                           out_frac;
 
-    assign result_exp  = use_negligible ? c_exp :
-                         path_is_zero   ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                         underflow      ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                                          out_exp;
+    assign result_exp  = fma_shortcut    ? fma_sc_exp :
+                         use_negligible  ? c_exp :
+                         path_is_zero    ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                         underflow       ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
+                                           out_exp;
 
 endmodule
