@@ -806,18 +806,31 @@ module top_ntsc (
     // ----- Spirix ALU bitwise (single-stage, 11 ops, 64-bit datapath) -----
     // Full 64-bit inputs, random width + op selection from LFSR.
     // Exercises all 4 frac widths (8/16/32/64) and all 4 exp widths.
-    wire signed [63:0] bw_a_frac = lfsr[63:0];
-    wire signed [63:0] bw_a_exp  = lfsr2[63:0];
-    wire signed [63:0] bw_b_frac = {lfsr[31:0], lfsr2[31:0]};
-    wire signed [63:0] bw_b_exp  = {lfsr2[31:0], lfsr[31:0]};
-
-    // Map lfsr2 bits to valid op range 0..10
-    wire [3:0] bw_raw_op = lfsr2[35:32];
-    wire [3:0] bw_op = (bw_raw_op > 4'd10) ? (bw_raw_op - 4'd5) : bw_raw_op;
 
     // Width from shuffled combo: random execution order each run
     wire [1:0] bw_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
     wire [1:0] bw_exp_w  = combo_actual[3:2];  // 00=8 01=16 10=32 11=64
+
+    // MSB-aligned input masking: zero don't-care bits per sa() convention.
+    // Without this, the ALU's full-width AMBIG_EXP/zero/neg1 comparisons
+    // fail on random garbage in the lower bits for narrow widths.
+    wire [63:0] frac_mask = (bw_frac_w == 2'd0) ? 64'hFF00000000000000 :
+                            (bw_frac_w == 2'd1) ? 64'hFFFF000000000000 :
+                            (bw_frac_w == 2'd2) ? 64'hFFFFFFFF00000000 :
+                                                   64'hFFFFFFFFFFFFFFFF;
+    wire [63:0] exp_mask  = (bw_exp_w == 2'd0)  ? 64'hFF00000000000000 :
+                            (bw_exp_w == 2'd1)  ? 64'hFFFF000000000000 :
+                            (bw_exp_w == 2'd2)  ? 64'hFFFFFFFF00000000 :
+                                                   64'hFFFFFFFFFFFFFFFF;
+
+    wire signed [63:0] bw_a_frac = lfsr[63:0]                    & frac_mask;
+    wire signed [63:0] bw_a_exp  = lfsr2[63:0]                   & exp_mask;
+    wire signed [63:0] bw_b_frac = {lfsr[31:0], lfsr2[31:0]}     & frac_mask;
+    wire signed [63:0] bw_b_exp  = {lfsr2[31:0], lfsr[31:0]}     & exp_mask;
+
+    // Map lfsr2 bits to valid op range 0..10
+    wire [3:0] bw_raw_op = lfsr2[35:32];
+    wire [3:0] bw_op = (bw_raw_op > 4'd10) ? (bw_raw_op - 4'd5) : bw_raw_op;
 
     wire signed [63:0] bw_r_frac, bw_r_exp;
     wire bw_cmp_lt, bw_cmp_eq, bw_cmp_gt, bw_cmp_unord;
