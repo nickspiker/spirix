@@ -14,6 +14,13 @@ IOBUF PORT "ntsc_sync" IO_TYPE=LVCMOS33;
 LOCATE COMP "ntsc_vid" SITE "D4";
 IOBUF PORT "ntsc_vid" IO_TYPE=LVCMOS33;
 
+# J1 HUB75 — OLED I2C
+LOCATE COMP "oled_scl" SITE "E4";
+IOBUF PORT "oled_scl" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "oled_sda" SITE "D3";
+IOBUF PORT "oled_sda" IO_TYPE=LVCMOS33;
+
 # User button (active-low)
 LOCATE COMP "btn" SITE "R7";
 IOBUF PORT "btn" IO_TYPE=LVCMOS33;

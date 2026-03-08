@@ -29,8 +29,9 @@ fn main() {
     match args[1].as_str() {
         "font" => gen_font(&args[2..]),
         "bitmap" => gen_bitmap(&args[2..]),
+        "oled-grid" => gen_oled_grid(&args[2..]),
         _ => {
-            eprintln!("Unknown mode: {}. Use 'font' or 'bitmap'.", args[1]);
+            eprintln!("Unknown mode: {}. Use 'font', 'bitmap', or 'oled-grid'.", args[1]);
             std::process::exit(1);
         }
     }
@@ -180,6 +181,124 @@ fn gen_bitmap(args: &[String]) {
         let mut line = String::new();
         let col_step = (width / 80).max(1);
         for x in (0..width).step_by(col_step) {
+            line.push(if pixels[y * width + x] { '#' } else { '.' });
+        }
+        eprintln!("{}", line);
+    }
+}
+
+// ============================================================================
+// Mode: oled-grid — 4×4 labeled pass/fail overlay for SH1106 128×64 OLED
+// ============================================================================
+// Output: 1024 bytes in OLED page format (8 pages × 128 cols).
+// Each byte: bit 0 = top row of page, bit 7 = bottom row.
+// XOR'd with pass/fail bars in hardware for always-visible labels.
+fn gen_oled_grid(args: &[String]) {
+    if args.len() < 2 {
+        eprintln!("Usage: gen_font_rom oled-grid <font.ttf> <output.mem>");
+        std::process::exit(1);
+    }
+
+    let font = load_font(&args[0]);
+    let out_path = &args[1];
+
+    let width = 128usize;
+    let height = 64usize;
+    let cell_w = 32usize;
+    let cell_h = 16usize;
+
+    // Grid labels: F{6-gc}E{3+gr} for grid row gr, grid col gc
+    // Columns: frac=64(left) to frac=8(right), Rows: exp=8(top) to exp=64(bottom)
+    let labels: [[&str; 4]; 4] = [
+        ["F6E3", "F5E3", "F4E3", "F3E3"],
+        ["F6E4", "F5E4", "F4E4", "F3E4"],
+        ["F6E5", "F5E5", "F4E5", "F3E5"],
+        ["F6E6", "F5E6", "F4E6", "F3E6"],
+    ];
+
+    // Binary search for largest font size that fits in a cell (4 chars in 32px)
+    let mut lo: f64 = 1.0;
+    let mut hi: f64 = cell_h as f64;
+    for _ in 0..32 {
+        let mid = (lo + hi) / 2.0;
+        let px = ScalarF4E4::from(mid);
+        let tw: isize = "F6E3".chars()
+            .map(|ch| font.metrics(ch, px).advance_width.ceil().to_isize())
+            .sum();
+        if tw <= cell_w as isize && mid <= cell_h as f64 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let px = ScalarF4E4::from(lo);
+
+    // Render each label centered in its cell
+    let mut pixels = vec![false; width * height];
+
+    for gr in 0..4 {
+        for gc in 0..4 {
+            let text = labels[gr][gc];
+            let x0 = gc * cell_w;
+            let y0 = gr * cell_h;
+
+            // Measure text width and ascent/descent
+            let mut tw: i32 = 0;
+            let mut max_ascent: i32 = 0;
+            let mut max_descent: i32 = 0;
+            for ch in text.chars() {
+                let (m, _) = font.rasterize(ch, px);
+                let top = m.ymin + m.height as i32;
+                if top > max_ascent { max_ascent = top; }
+                if m.ymin < max_descent { max_descent = m.ymin; }
+                tw += m.advance_width.ceil().to_isize() as i32;
+            }
+
+            let th = (max_ascent - max_descent) as usize;
+            let cx = x0 + (cell_w as i32 - tw) as usize / 2;
+            let cy = y0 + (cell_h + th) / 2 - max_ascent as usize;
+
+            let mut cursor_x = cx as i32;
+            for ch in text.chars() {
+                let (m, bitmap) = font.rasterize(ch, px);
+                for gy in 0..m.height as i32 {
+                    let py = cy as i32 + (max_ascent - m.ymin - m.height as i32 + gy);
+                    if py < 0 || py >= height as i32 { continue; }
+                    for gx in 0..m.width as i32 {
+                        let px_x = cursor_x + m.xmin + gx;
+                        if px_x < 0 || px_x >= width as i32 { continue; }
+                        if bitmap[(gy * m.width as i32 + gx) as usize] > THRESHOLD {
+                            pixels[py as usize * width + px_x as usize] = true;
+                        }
+                    }
+                }
+                cursor_x += m.advance_width.ceil().to_isize() as i32;
+            }
+        }
+    }
+
+    // Convert to OLED page format: 8 pages × 128 cols, bit 0 = top row of page
+    let mut out = fs::File::create(out_path).expect("Failed to create output");
+    for page in 0..8 {
+        for col in 0..128 {
+            let mut byte: u8 = 0;
+            for bit in 0..8 {
+                let y = page * 8 + bit;
+                if pixels[y * width + col] {
+                    byte |= 1 << bit;
+                }
+            }
+            writeln!(out, "{:02x}", byte).unwrap();
+        }
+    }
+
+    eprintln!("Generated {}: 1024 bytes (8 pages × 128 cols), font size {:.1}px", out_path, lo);
+
+    // ASCII preview
+    let step = (height / 16).max(1);
+    for y in (0..height).step_by(step) {
+        let mut line = String::new();
+        for x in 0..width {
             line.push(if pixels[y * width + x] { '#' } else { '.' });
         }
         eprintln!("{}", line);

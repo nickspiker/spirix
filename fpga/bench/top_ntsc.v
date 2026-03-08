@@ -12,7 +12,9 @@ module top_ntsc (
     output reg  led,       // LED on T6 (active-low)
     input  wire btn,       // User button on R7 (active-low)
     output reg  ntsc_sync, // J1 R0 (C4) — 560Ω
-    output reg  ntsc_vid   // J1 G0 (D4) — 220Ω
+    output reg  ntsc_vid,  // J1 G0 (D4) — 220Ω
+    output wire oled_scl,  // J1 B0 (E4) — I2C SCL
+    output wire oled_sda   // J1 R1 (D3) — I2C SDA
 );
 
     // =========================================================================
@@ -93,6 +95,14 @@ module top_ntsc (
                      PH_TEST   = 3'd3, PH_DONE = 3'd4;
     reg [2:0] phase = PH_IDLE;
     reg [63:0] captured_seed, captured_seed2;
+
+`ifdef DUT_SPIRIX_BITWISE
+    // Multi-round: cycle through all 16 width combos (4 frac × 4 exp)
+    reg [3:0]  combo = 0;          // sequential counter 0..15
+    reg [3:0]  combo_mask = 0;     // random XOR mask (captured at start)
+    wire [3:0] combo_actual = combo ^ combo_mask;  // shuffled combo index
+    reg [15:0] combo_results = 0;  // pass/fail per combo (indexed by combo_actual)
+`endif
 
     // CE generator (registered for clean fanout at high freq)
     reg [7:0] ce_div = 0;
@@ -792,6 +802,42 @@ module top_ntsc (
     wire dut_advance = fpn_done;
 `define DUT_ITER_ADVANCE
 
+`elsif DUT_SPIRIX_BITWISE
+    // ----- Spirix ALU bitwise (single-stage, 11 ops, 64-bit datapath) -----
+    // Full 64-bit inputs, random width + op selection from LFSR.
+    // Exercises all 4 frac widths (8/16/32/64) and all 4 exp widths.
+    wire signed [63:0] bw_a_frac = lfsr[63:0];
+    wire signed [63:0] bw_a_exp  = lfsr2[63:0];
+    wire signed [63:0] bw_b_frac = {lfsr[31:0], lfsr2[31:0]};
+    wire signed [63:0] bw_b_exp  = {lfsr2[31:0], lfsr[31:0]};
+
+    // Map lfsr2 bits to valid op range 0..10
+    wire [3:0] bw_raw_op = lfsr2[35:32];
+    wire [3:0] bw_op = (bw_raw_op > 4'd10) ? (bw_raw_op - 4'd5) : bw_raw_op;
+
+    // Width from shuffled combo: random execution order each run
+    wire [1:0] bw_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
+    wire [1:0] bw_exp_w  = combo_actual[3:2];  // 00=8 01=16 10=32 11=64
+
+    wire signed [63:0] bw_r_frac, bw_r_exp;
+    wire bw_cmp_lt, bw_cmp_eq, bw_cmp_gt, bw_cmp_unord;
+
+    spirix_alu_bitwise #(.MAX_FRAC(64), .MAX_EXP(64)) dut_bw (
+        .clk(sys_clk), .ce(ce),
+        .op(bw_op),
+        .frac_width(bw_frac_w),
+        .exp_width(bw_exp_w),
+        .a_frac(bw_a_frac), .a_exp(bw_a_exp),
+        .b_frac(bw_b_frac), .b_exp(bw_b_exp),
+        .result_frac(bw_r_frac), .result_exp(bw_r_exp),
+        .cmp_lt(bw_cmp_lt), .cmp_eq(bw_cmp_eq),
+        .cmp_gt(bw_cmp_gt), .cmp_unord(bw_cmp_unord)
+    );
+
+    wire [31:0] mul_fold = bw_r_frac[63:32] ^ bw_r_frac[31:0]
+                         ^ bw_r_exp[63:32]  ^ bw_r_exp[31:0]
+                         ^ {28'b0, bw_cmp_lt, bw_cmp_eq, bw_cmp_gt, bw_cmp_unord};
+
 `else
     // ----- Spirix FMA (default) -----
     wire signed [24:0] fma_a_frac = lfsr[24:0];
@@ -852,6 +898,11 @@ module top_ntsc (
             gold_reg       <= 0;
             test_reg       <= 0;
             test_done_sys  <= 0;
+`ifdef DUT_SPIRIX_BITWISE
+            combo          <= 0;
+            combo_mask     <= 0;
+            combo_results  <= 0;
+`endif
         end else if (btn_held_sys) begin
             // Button held: reset to idle, LFSR free-runs for entropy
             phase         <= PH_IDLE;
@@ -860,6 +911,11 @@ module top_ntsc (
             gold_reg      <= 0;
             test_reg      <= 0;
             test_done_sys <= 0;
+`ifdef DUT_SPIRIX_BITWISE
+            combo         <= 0;
+            combo_mask     <= 0;
+            combo_results <= 0;
+`endif
             lfsr          <= lfsr_next;
             lfsr2         <= lfsr2_next;
         end else begin
@@ -877,6 +933,11 @@ module top_ntsc (
                     lfsr2          <= lfsr2 ^ entropy;
                     proto_cnt      <= 0;
                     accum          <= 0;
+`ifdef DUT_SPIRIX_BITWISE
+                    // Capture shuffle mask on first combo only
+                    if (combo == 0)
+                        combo_mask <= entropy[3:0];
+`endif
                     phase          <= PH_GOLD;
                 end
                 PH_GOLD: begin
@@ -900,7 +961,21 @@ module top_ntsc (
                         phase         <= PH_DONE;
                     end
                 end
-                PH_DONE: ;
+                PH_DONE: begin
+`ifdef DUT_SPIRIX_BITWISE
+                    // Record pass/fail for this width combo, advance to next
+                    combo_results <= combo_results | ({15'b0, (gold_reg == test_reg)} << combo_actual);
+                    if (combo != 4'd15) begin
+                        combo         <= combo + 1;
+                        test_done_sys <= 0;
+                        proto_cnt     <= 0;
+                        accum         <= 0;
+                        gold_reg      <= 0;
+                        test_reg      <= 0;
+                        phase         <= PH_IDLE;
+                    end
+`endif
+                end
             endcase
 
             // =================================================================
@@ -944,7 +1019,11 @@ module top_ntsc (
     // =========================================================================
     // Status (clk domain)
     // =========================================================================
+`ifdef DUT_SPIRIX_BITWISE
+    wire pass = &combo_results;  // all 16 combos must pass
+`else
     wire pass = (gold_reg == test_reg);
+`endif
     wire [1:0] status = !lock_sync2  ? 2'd2 :
                         !done_sync2  ? 2'd0 :
                         pass         ? 2'd1 : 2'd2;
@@ -985,5 +1064,52 @@ module top_ntsc (
         ntsc_sync <= ntsc_sync_w;
         ntsc_vid  <= ntsc_vid_w;
     end
+
+    // =========================================================================
+    // OLED display (25 MHz clk domain, I2C)
+    // =========================================================================
+    // CDC: snapshot sys_clk registers into clk domain (decorative, not critical)
+    // 128-bit wide: full LFSR state, DUT output + accumulators, entropy, control
+    reg [127:0] oled_r0, oled_r1, oled_r2, oled_r3;
+    always @(posedge clk) begin
+`ifdef DUT_SPIRIX_BITWISE
+        // 4×4 pass/fail matrix: rows=exp_width (8/16/32/64), cols=frac_width (64/32/16/8)
+        // combo = {exp_w[1:0], frac_w[1:0]}
+        // Each cell = 32px wide × 16px tall (1 col/bit, 2 pages/row)
+        //         frac=64    frac=32    frac=16    frac=8
+        // exp=8:  combo[3]   combo[2]   combo[1]   combo[0]   <- row 0
+        // exp=16: combo[7]   combo[6]   combo[5]   combo[4]   <- row 1
+        // exp=32: combo[11]  combo[10]  combo[9]   combo[8]   <- row 2
+        // exp=64: combo[15]  combo[14]  combo[13]  combo[12]  <- row 3
+        oled_r0 <= {{32{combo_results[ 3]}}, {32{combo_results[ 2]}},
+                    {32{combo_results[ 1]}}, {32{combo_results[ 0]}}};
+        oled_r1 <= {{32{combo_results[ 7]}}, {32{combo_results[ 6]}},
+                    {32{combo_results[ 5]}}, {32{combo_results[ 4]}}};
+        oled_r2 <= {{32{combo_results[11]}}, {32{combo_results[10]}},
+                    {32{combo_results[ 9]}}, {32{combo_results[ 8]}}};
+        oled_r3 <= {{32{combo_results[15]}}, {32{combo_results[14]}},
+                    {32{combo_results[13]}}, {32{combo_results[12]}}};
+`else
+        oled_r0 <= {lfsr, lfsr2};                              // both LFSRs
+        oled_r1 <= {mul_fold, accum, gold_reg, test_reg};      // DUT + test state
+        oled_r2 <= {entropy, captured_seed};                   // entropy + seed
+        oled_r3 <= {captured_seed2, 64'b0};                    // seed2 + spare
+`endif
+    end
+
+`ifdef DUT_SPIRIX_BITWISE
+    ssd1306_oled #(.OVERLAY_FILE("build/oled_overlay.mem"), .ENABLE_OVERLAY(1)) oled (
+`else
+    ssd1306_oled oled (
+`endif
+        .clk(clk),
+        .rst(~pll_lock),
+        .reg0(oled_r0),
+        .reg1(oled_r1),
+        .reg2(oled_r2),
+        .reg3(oled_r3),
+        .scl(oled_scl),
+        .sda(oled_sda)
+    );
 
 endmodule

@@ -154,6 +154,11 @@ case "$DUT" in
         DUT_DEFINE="-DDUT_SPIRIX_SQRT_ITER"
         echo "  DUT: Spirix sqrt_iter (iterative, 0 DSP)"
         ;;
+    spirix_bitwise)
+        DUT_DEFINE="-DDUT_SPIRIX_BITWISE"
+        HF_FILES="read_verilog $FPGA_DIR/cores/pipelined/spirix_alu_bitwise.v;"
+        echo "  DUT: Spirix ALU bitwise (single-stage, 11 ops, 0 DSP)"
+        ;;
     hf_div)
         DUT_DEFINE="-DDUT_HF_DIV"
         HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
@@ -194,7 +199,7 @@ case "$DUT" in
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/bitwise, or empty."
         exit 1
         ;;
 esac
@@ -216,6 +221,8 @@ yosys -p "
     $RTL_FILES
     $HF_FILES
     read_verilog $RTL/ntsc_framebuf.v
+    read_verilog $RTL/ssd1306_i2c.v
+    read_verilog $RTL/ssd1306_oled.v
     read_verilog $PLL_DEFINES $DUT_DEFINE $RTL/top_ntsc.v
     synth_ecp5 ${NODSP:+-nodsp} -top top_ntsc -json $BUILD/ntsc.json
     stat
