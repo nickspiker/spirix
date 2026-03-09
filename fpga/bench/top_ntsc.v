@@ -105,6 +105,18 @@ module top_ntsc (
 `ifdef DUT_SPIRIX_UNIFIED
 `define DUT_MULTI_COMBO
 `endif
+`ifdef DUT_SPIRIX_BASIC
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_MINMAX
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_ROUND
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_ROUND_PIPE
+`define DUT_MULTI_COMBO
+`endif
 
 `ifdef DUT_MULTI_COMBO
     // Multi-round: cycle through all 16 width combos (4 frac × 4 exp)
@@ -157,7 +169,13 @@ module top_ntsc (
     wire       lfsr2_fb = lfsr2[0];
     wire [63:0] lfsr2_next = {1'b0, lfsr2[63:1]} ^ (lfsr2_fb ? LFSR_TAPS : 64'b0);
 
-`ifdef DUT_HF_FMA
+`ifdef DUT_LFSR_PASSTHRU
+    // ----- LFSR passthrough (harness ceiling benchmark, no DUT) -----
+    // Fold both LFSRs to 32 bits, matching addbit's 128-bit output fanout.
+    wire [31:0] mul_fold = lfsr[63:32] ^ lfsr[31:0]
+                         ^ lfsr2[63:32] ^ lfsr2[31:0];
+
+`elsif DUT_HF_FMA
     // ----- HardFloat mulAddRecFN (binary32 FMA), IEEE 754 I/O -----
     // LFSR provides 32-bit IEEE inputs; fNToRecFN/recFNToFN convert at boundary
     wire [31:0] ieee_a = lfsr[31:0];
@@ -813,64 +831,8 @@ module top_ntsc (
     wire dut_advance = fpn_done;
 `define DUT_ITER_ADVANCE
 
-`elsif DUT_SPIRIX_UNIFIED
-    // ----- Spirix ALU unified (2-stage, 13 ops, 64-bit datapath) -----
-    // Mixed exponent proximity: 25% identical, 25% close (±3), 25% moderate
-    // (±127), 25% fully random. Ensures barrel/alignment paths get exercised
-    // at all exp widths (E4+ would otherwise never hit close path).
-
-    wire signed [63:0] un_a_frac = lfsr[63:0];
-    wire signed [63:0] un_a_exp  = lfsr2[63:0];
-    wire signed [63:0] un_b_frac = {lfsr[31:0], lfsr2[31:0]};
-
-    // Exponent perturbation scaled to MSB-aligned exp_one_msb
-    wire [1:0] un_exp_w  = combo_actual[3:2];  // 00=8 01=16 10=32 11=64
-    wire [5:0] un_exp_rsh = (un_exp_w == 2'd0) ? 6'd56 :   // E3: top 8 bits active
-                            (un_exp_w == 2'd1) ? 6'd48 :   // E4: top 16 bits active
-                            (un_exp_w == 2'd2) ? 6'd32 :   // E5: top 32 bits active
-                                                 6'd0;     // E6: all 64 bits active
-
-    // 4 exponent proximity modes (2 LFSR bits select)
-    wire [1:0] exp_mode = lfsr2[37:36];
-    // Small perturbation: ±3 in exponent space (sign-extend 3 bits)
-    wire signed [63:0] exp_pert_close = {{61{lfsr[2]}}, lfsr[2:0]} <<< un_exp_rsh;
-    // Moderate perturbation: ±127 in exponent space (sign-extend 7 bits)
-    wire signed [63:0] exp_pert_mod   = {{57{lfsr[6]}}, lfsr[6:0]} <<< un_exp_rsh;
-
-    wire signed [63:0] un_b_exp =
-        (exp_mode == 2'b00) ? un_a_exp :                              // identical
-        (exp_mode == 2'b01) ? (un_a_exp + exp_pert_close) :           // close ±3
-        (exp_mode == 2'b10) ? (un_a_exp + exp_pert_mod) :             // moderate ±127
-                              {lfsr2[31:0], lfsr[31:0]};              // fully random
-
-    // Map lfsr2 bits to valid op range 0..12 (13 ops)
-    wire [3:0] un_raw_op = lfsr2[35:32];
-    wire [3:0] un_op = (un_raw_op > 4'd12) ? (un_raw_op - 4'd3) : un_raw_op;
-
-    // Frac width from shuffled combo (exp_w already declared above for perturbation)
-    wire [1:0] un_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
-
-    wire signed [63:0] un_r_frac, un_r_exp;
-    wire un_cmp_lt, un_cmp_eq, un_cmp_gt, un_cmp_unord;
-
-    spirix_alu_unified #(.MAX_FRAC(64), .MAX_EXP(64)) dut_un (
-        .clk(sys_clk), .ce(ce),
-        .op(un_op),
-        .frac_width(un_frac_w),
-        .exp_width(un_exp_w),
-        .a_frac(un_a_frac), .a_exp(un_a_exp),
-        .b_frac(un_b_frac), .b_exp(un_b_exp),
-        .result_frac(un_r_frac), .result_exp(un_r_exp),
-        .cmp_lt(un_cmp_lt), .cmp_eq(un_cmp_eq),
-        .cmp_gt(un_cmp_gt), .cmp_unord(un_cmp_unord)
-    );
-
-    wire [31:0] mul_fold = un_r_frac[63:32] ^ un_r_frac[31:0]
-                         ^ un_r_exp[63:32]  ^ un_r_exp[31:0]
-                         ^ {28'b0, un_cmp_lt, un_cmp_eq, un_cmp_gt, un_cmp_unord};
-
 `elsif DUT_SPIRIX_ADDBIT
-    // ----- Spirix ALU addbit (2-stage pipeline, 5 ops, 64-bit datapath) -----
+    // ----- Spirix ALU addbit (combinational + output reg, 5 ops, 64-bit datapath) -----
     // ADD/SUB/AND/OR/XOR with close/far split + shared barrel.
     // Full 64-bit inputs, random width + op selection from LFSR.
 
@@ -902,42 +864,145 @@ module top_ntsc (
     wire [31:0] mul_fold = ab_r_frac[63:32] ^ ab_r_frac[31:0]
                          ^ ab_r_exp[63:32]  ^ ab_r_exp[31:0];
 
-`elsif DUT_SPIRIX_BITWISE
-    // ----- Spirix ALU bitwise (single-stage, 11 ops, 64-bit datapath) -----
-    // Full 64-bit inputs, random width + op selection from LFSR.
-    // Exercises all 4 frac widths (8/16/32/64) and all 4 exp widths.
+`elsif DUT_SPIRIX_BASIC
+    // ----- Spirix ALU basic (combinational + output reg, 5 ops, 64-bit datapath) -----
+    // NEG/ABS/SIGN/SHL/SHR with full edge case handling.
 
-    wire signed [63:0] bw_a_frac = lfsr[63:0];
-    wire signed [63:0] bw_a_exp  = lfsr2[63:0];
-    wire signed [63:0] bw_b_frac = {lfsr[31:0], lfsr2[31:0]};
-    wire signed [63:0] bw_b_exp  = {lfsr2[31:0], lfsr[31:0]};
+    wire signed [63:0] ba_a_frac = lfsr[63:0];
+    wire signed [63:0] ba_a_exp  = lfsr2[63:0];
+    wire signed [63:0] ba_b_frac = {lfsr[31:0], lfsr2[31:0]};
+    wire signed [63:0] ba_b_exp  = {lfsr2[31:0], lfsr[31:0]};
 
-    // Map lfsr2 bits to valid op range 0..9 (10 ops, no FLOOR)
-    wire [3:0] bw_raw_op = lfsr2[35:32];
-    wire [3:0] bw_op = (bw_raw_op > 4'd9) ? (bw_raw_op - 4'd6) : bw_raw_op;
+    // Map lfsr2 bits to valid op range 0..4 (5 ops)
+    wire [2:0] ba_raw_op = lfsr2[34:32];
+    wire [2:0] ba_op = (ba_raw_op > 3'd4) ? 3'd0 : ba_raw_op;
 
-    // Width from shuffled combo: random execution order each run
-    wire [1:0] bw_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
-    wire [1:0] bw_exp_w  = combo_actual[3:2];  // 00=8 01=16 10=32 11=64
+    wire [1:0] ba_frac_w = combo_actual[1:0];
+    wire [1:0] ba_exp_w  = combo_actual[3:2];
 
-    wire signed [63:0] bw_r_frac, bw_r_exp;
-    wire bw_cmp_lt, bw_cmp_eq, bw_cmp_gt, bw_cmp_unord;
+    wire signed [63:0] ba_r_frac_comb, ba_r_exp_comb;
 
-    spirix_alu_bitwise #(.MAX_FRAC(64), .MAX_EXP(64)) dut_bw (
-        .clk(sys_clk), .ce(ce),
-        .op(bw_op),
-        .frac_width(bw_frac_w),
-        .exp_width(bw_exp_w),
-        .a_frac(bw_a_frac), .a_exp(bw_a_exp),
-        .b_frac(bw_b_frac), .b_exp(bw_b_exp),
-        .result_frac(bw_r_frac), .result_exp(bw_r_exp),
-        .cmp_lt(bw_cmp_lt), .cmp_eq(bw_cmp_eq),
-        .cmp_gt(bw_cmp_gt), .cmp_unord(bw_cmp_unord)
+    spirix_alu_basic #(.MAX_FRAC(64), .MAX_EXP(64)) dut_ba (
+        .op(ba_op),
+        .frac_width(ba_frac_w),
+        .exp_width(ba_exp_w),
+        .a_frac(ba_a_frac), .a_exp(ba_a_exp),
+        .b_frac(ba_b_frac), .b_exp(ba_b_exp),
+        .result_frac(ba_r_frac_comb), .result_exp(ba_r_exp_comb)
     );
 
-    wire [31:0] mul_fold = bw_r_frac[63:32] ^ bw_r_frac[31:0]
-                         ^ bw_r_exp[63:32]  ^ bw_r_exp[31:0]
-                         ^ {28'b0, bw_cmp_lt, bw_cmp_eq, bw_cmp_gt, bw_cmp_unord};
+    // Output register (CE-gated)
+    reg signed [63:0] ba_r_frac, ba_r_exp;
+    always @(posedge sys_clk) if (ce) begin
+        ba_r_frac <= ba_r_frac_comb;
+        ba_r_exp  <= ba_r_exp_comb;
+    end
+
+    wire [31:0] mul_fold = ba_r_frac[63:32] ^ ba_r_frac[31:0]
+                         ^ ba_r_exp[63:32]  ^ ba_r_exp[31:0];
+
+`elsif DUT_SPIRIX_MINMAX
+    // ----- Spirix ALU minmax (combinational + output reg, 2 ops, 64-bit datapath) -----
+    // MIN/MAX with full edge case handling.
+
+    wire signed [63:0] mm_a_frac = lfsr[63:0];
+    wire signed [63:0] mm_a_exp  = lfsr2[63:0];
+    wire signed [63:0] mm_b_frac = {lfsr[31:0], lfsr2[31:0]};
+    wire signed [63:0] mm_b_exp  = {lfsr2[31:0], lfsr[31:0]};
+
+    // 1-bit op from LFSR: 0=MIN, 1=MAX
+    wire mm_op = lfsr2[32];
+
+    wire [1:0] mm_frac_w = combo_actual[1:0];
+    wire [1:0] mm_exp_w  = combo_actual[3:2];
+
+    wire signed [63:0] mm_r_frac_comb, mm_r_exp_comb;
+
+    spirix_alu_minmax #(.MAX_FRAC(64), .MAX_EXP(64)) dut_mm (
+        .op(mm_op),
+        .frac_width(mm_frac_w),
+        .exp_width(mm_exp_w),
+        .a_frac(mm_a_frac), .a_exp(mm_a_exp),
+        .b_frac(mm_b_frac), .b_exp(mm_b_exp),
+        .result_frac(mm_r_frac_comb), .result_exp(mm_r_exp_comb)
+    );
+
+    // Output register (CE-gated)
+    reg signed [63:0] mm_r_frac, mm_r_exp;
+    always @(posedge sys_clk) if (ce) begin
+        mm_r_frac <= mm_r_frac_comb;
+        mm_r_exp  <= mm_r_exp_comb;
+    end
+
+    wire [31:0] mul_fold = mm_r_frac[63:32] ^ mm_r_frac[31:0]
+                         ^ mm_r_exp[63:32]  ^ mm_r_exp[31:0];
+
+`elsif DUT_SPIRIX_ROUND
+    // ----- Spirix ALU round (combinational + output reg, 2 ops, 64-bit datapath) -----
+    // FLOOR/CEIL with full edge case handling.
+
+    wire signed [63:0] rd_a_frac = lfsr[63:0];
+    wire signed [63:0] rd_a_exp  = lfsr2[63:0];
+
+    // 1-bit op from LFSR: 0=FLOOR, 1=CEIL
+    wire rd_op = lfsr2[32];
+
+    wire [1:0] rd_frac_w = combo_actual[1:0];
+    wire [1:0] rd_exp_w  = combo_actual[3:2];
+
+    wire signed [63:0] rd_r_frac_comb, rd_r_exp_comb;
+
+    spirix_alu_round #(.MAX_FRAC(64), .MAX_EXP(64)) dut_rd (
+        .op(rd_op),
+        .frac_width(rd_frac_w),
+        .exp_width(rd_exp_w),
+        .a_frac(rd_a_frac), .a_exp(rd_a_exp),
+        .result_frac(rd_r_frac_comb), .result_exp(rd_r_exp_comb)
+    );
+
+    // Output register (CE-gated)
+    reg signed [63:0] rd_r_frac, rd_r_exp;
+    always @(posedge sys_clk) if (ce) begin
+        rd_r_frac <= rd_r_frac_comb;
+        rd_r_exp  <= rd_r_exp_comb;
+    end
+
+    wire [31:0] mul_fold = rd_r_frac[63:32] ^ rd_r_frac[31:0]
+                         ^ rd_r_exp[63:32]  ^ rd_r_exp[31:0];
+
+`elsif DUT_SPIRIX_ROUND_PIPE
+    // ----- Spirix ALU round_pipe (2-stage, 1 internal reg + output reg, 64-bit) -----
+    // FLOOR/CEIL pipelined with shared barrel shift.
+
+    wire signed [63:0] rp_a_frac = lfsr[63:0];
+    wire signed [63:0] rp_a_exp  = lfsr2[63:0];
+
+    // 1-bit op from LFSR: 0=FLOOR, 1=CEIL
+    wire rp_op = lfsr2[32];
+
+    wire [1:0] rp_frac_w = combo_actual[1:0];
+    wire [1:0] rp_exp_w  = combo_actual[3:2];
+
+    wire signed [63:0] rp_r_frac_comb, rp_r_exp_comb;
+
+    spirix_alu_round_pipe #(.MAX_FRAC(64), .MAX_EXP(64)) dut_rp (
+        .clk(sys_clk), .ce(ce),
+        .op(rp_op),
+        .frac_width(rp_frac_w),
+        .exp_width(rp_exp_w),
+        .a_frac(rp_a_frac), .a_exp(rp_a_exp),
+        .result_frac(rp_r_frac_comb), .result_exp(rp_r_exp_comb)
+    );
+
+    // Output register (CE-gated) — module has 1 internal reg, this adds the 2nd
+    reg signed [63:0] rp_r_frac, rp_r_exp;
+    always @(posedge sys_clk) if (ce) begin
+        rp_r_frac <= rp_r_frac_comb;
+        rp_r_exp  <= rp_r_exp_comb;
+    end
+
+    wire [31:0] mul_fold = rp_r_frac[63:32] ^ rp_r_frac[31:0]
+                         ^ rp_r_exp[63:32]  ^ rp_r_exp[31:0];
 
 `else
     // ----- Spirix FMA (default) -----
@@ -979,9 +1044,13 @@ module top_ntsc (
     // Protocol counter + accumulator + phase FSM
     // =========================================================================
 
-    reg [PROTO_BITS-1:0] proto_cnt;
-    wire       proto_done = proto_cnt[17];           // bit tap: done at 131072
-    wire       accumulating = proto_cnt[15] & ~proto_done;  // bit tap: accum from 32768..131071
+    // Split counter: registered carry between halves to break 18-bit carry chain.
+    // Each half is 9 bits (4-5 CCU2C stages), ~1ns carry — good to 500+ MHz.
+    reg [8:0] proto_lo;
+    reg [8:0] proto_hi;
+    reg       proto_carry;  // registered carry from lo to hi
+    wire       proto_done = proto_hi[8];             // bit tap: done at 131072
+    wire       accumulating = proto_hi[6] & ~proto_done;  // bit tap: accum from 32768..131071
     reg [31:0] accum;
     reg [31:0] gold_reg = 0, test_reg = 0;
     reg        test_done_sys = 0;
@@ -994,7 +1063,7 @@ module top_ntsc (
             lfsr2          <= LFSR_SEED2;
             captured_seed  <= LFSR_SEED;
             captured_seed2 <= LFSR_SEED2;
-            proto_cnt      <= 0;
+            proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
             accum          <= 0;
             gold_reg       <= 0;
             test_reg       <= 0;
@@ -1008,7 +1077,7 @@ module top_ntsc (
         end else if (btn_held_sys) begin
             // Button held: reset to idle, LFSR free-runs for entropy
             phase         <= PH_IDLE;
-            proto_cnt     <= 0;
+            proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
             accum         <= 0;
             gold_reg      <= 0;
             test_reg      <= 0;
@@ -1034,7 +1103,7 @@ module top_ntsc (
                     captured_seed2 <= lfsr2 ^ entropy;
                     lfsr           <= lfsr ^ entropy;
                     lfsr2          <= lfsr2 ^ entropy;
-                    proto_cnt      <= 0;
+                    proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
                     accum          <= 0;
 `ifdef DUT_MULTI_COMBO
                     // Capture shuffle mask on first combo only
@@ -1053,7 +1122,7 @@ module top_ntsc (
                     // Reset LFSR to captured seed for test phase
                     lfsr           <= captured_seed;
                     lfsr2          <= captured_seed2;
-                    proto_cnt      <= 0;
+                    proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
                     accum          <= 0;
                     phase          <= PH_TEST;
                 end
@@ -1072,7 +1141,7 @@ module top_ntsc (
                     if (combo != 4'd15) begin
                         combo         <= combo + 1;
                         test_done_sys <= 0;
-                        proto_cnt     <= 0;
+                        proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
                         accum         <= 0;
                         gold_reg      <= 0;
                         test_reg      <= 0;
@@ -1092,8 +1161,11 @@ module top_ntsc (
                 if (accumulating)
                     accum <= {accum[30:0], accum[31]} ^ mul_fold;
 
-                if (!proto_done)
-                    proto_cnt <= proto_cnt + 1;
+                if (!proto_done) begin
+                    proto_lo    <= proto_lo + 1;
+                    proto_carry <= &proto_lo;  // all-ones = about to wrap
+                    proto_hi    <= proto_hi + {8'b0, proto_carry};
+                end
             end
         end
     end

@@ -61,6 +61,10 @@ HF_FILES=""
 HF_DIR="$RTL/hardfloat"
 
 case "$DUT" in
+    lfsr)
+        DUT_DEFINE="-DDUT_LFSR_PASSTHRU"
+        echo "  DUT: LFSR passthrough (harness ceiling, no DUT)"
+        ;;
     hf_fma)
         DUT_DEFINE="-DDUT_HF_FMA"
         HF_FILES="read_verilog -I$HF_DIR $HF_DIR/HardFloat_primitives.v;"
@@ -142,12 +146,12 @@ case "$DUT" in
         ;;
     spirix_nr_div)
         DUT_DEFINE="-DDUT_SPIRIX_NR_DIV"
-        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_nr_divsqrt.v;"
+        HF_FILES="read_verilog $FPGA_DIR/bench/spirix_nr_divsqrt.v;"
         echo "  DUT: Spirix nr_divsqrt (divide mode, iterative, 1 DSP)"
         ;;
     spirix_nr_sqrt)
         DUT_DEFINE="-DDUT_SPIRIX_NR_SQRT"
-        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_nr_divsqrt.v;"
+        HF_FILES="read_verilog $FPGA_DIR/bench/spirix_nr_divsqrt.v;"
         echo "  DUT: Spirix nr_divsqrt (sqrt mode, iterative, 1 DSP)"
         ;;
     spirix_sqrt_iter)
@@ -156,18 +160,37 @@ case "$DUT" in
         ;;
     spirix_addbit)
         DUT_DEFINE="-DDUT_SPIRIX_ADDBIT"
-        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_alu_addbit.v;"
-        echo "  DUT: Spirix ALU addbit (2-stage, 5 ops, 0 DSP)"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_addbit.v;"
+        echo "  DUT: Spirix ALU addbit (combinational, 5 ops, 0 DSP)"
         ;;
-    spirix_bitwise)
-        DUT_DEFINE="-DDUT_SPIRIX_BITWISE"
-        HF_FILES="read_verilog $FPGA_DIR/cores/pipelined/spirix_alu_bitwise.v;"
-        echo "  DUT: Spirix ALU bitwise (single-stage, 11 ops, 0 DSP)"
+    spirix_addbit_pipe)
+        DUT_DEFINE="-DDUT_SPIRIX_ADDBIT"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_pipe.v;"
+        echo "  DUT: Spirix ALU addbit (2-stage pipe, 5 ops, 0 DSP)"
         ;;
-    spirix_unified)
-        DUT_DEFINE="-DDUT_SPIRIX_UNIFIED"
-        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_alu_unified.v;"
-        echo "  DUT: Spirix ALU unified (2-stage, 13 ops, 0 DSP)"
+    spirix_basic)
+        DUT_DEFINE="-DDUT_SPIRIX_BASIC"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_basic.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_neg.v;"
+        echo "  DUT: Spirix ALU basic (NEG/ABS/SIGN/SHL/SHR, 0 DSP)"
+        ;;
+    spirix_minmax)
+        DUT_DEFINE="-DDUT_SPIRIX_MINMAX"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_minmax.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_cmp.v;"
+        echo "  DUT: Spirix ALU minmax (MIN/MAX, 0 DSP)"
+        ;;
+    spirix_round)
+        DUT_DEFINE="-DDUT_SPIRIX_ROUND"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_round.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_neg.v;"
+        echo "  DUT: Spirix ALU round (FLOOR/CEIL, 0 DSP)"
+        ;;
+    spirix_round_pipe)
+        DUT_DEFINE="-DDUT_SPIRIX_ROUND_PIPE"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_round_pipe.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_neg.v;"
+        echo "  DUT: Spirix ALU round_pipe (FLOOR/CEIL, 2-stage, 0 DSP)"
         ;;
     hf_div)
         DUT_DEFINE="-DDUT_HF_DIV"
@@ -209,7 +232,7 @@ case "$DUT" in
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/bitwise/unified, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/addbit_pipe/bitwise/unified/basic/minmax/round/round_pipe, or empty."
         exit 1
         ;;
 esac
