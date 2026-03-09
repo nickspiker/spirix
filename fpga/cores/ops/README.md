@@ -1,8 +1,7 @@
-# Spirix Ops — Multi-Width Combinational ALU Modules
+# Spirix Ops — Multi-Width ALU Modules
 
 Runtime-selectable 8/16/32/64-bit fraction and exponent widths.
-All modules are combinational (single-cycle). Fractions MSB-aligned, exponents LSB-aligned.
-Full Spirix edge case handling (zero, infinity, vanished, exploded, undefined).
+Fractions MSB-aligned, exponents LSB-aligned. Full Spirix edge case handling.
 
 Target: ECP5-25F speed-6 (Colorlight 5A-75B v8.0). LUT4 counts with `-nowidelut`.
 
@@ -72,3 +71,36 @@ DUT=spirix_basic SEED=4 bash fpga/scripts/build_ntsc.sh 231 --program
 ```
 
 Silicon Fmax found by binary search: highest frequency where all 16 width combos PASS on CRT.
+
+## Architecture — Register Machine
+
+Target: simple register-file ALU, software-sequenced ops.
+
+```
+Registers: R0-R7 (each 128-bit: 64 frac + 64 exp)
+Instruction: opcode[4:0] ra[2:0] rb[2:0] rd[2:0] frac_w[1:0] exp_w[1:0] = 18 bits
+
+         ┌─────────────┐
+         │  Reg File    │
+         │  8 × 128-bit │
+         │  2R / 1W     │
+         └──┬───┬───────┘
+            │a  │b
+       ┌────┴───┴────┐
+       │  Broadcast   │
+       └─┬──┬──┬──┬──┘
+         │  │  │  │
+      basic addbit round mul/div
+         │  │  │  │
+       ┌─┴──┴──┴──┴──┐
+       │  Result Mux  │
+       └──────┬───────┘
+              │
+           Reg Write
+```
+
+- All functional units wired in parallel, selected by opcode
+- 1-2 cycle ops (basic, addbit, round, mul): result writes back automatically
+- Iterative ops (div, sqrt): `done` signal, stall until complete
+- Width select shared across all units from instruction word
+- 14 ops currently, 5-bit opcode has room for 32
