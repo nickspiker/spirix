@@ -69,11 +69,11 @@ module top_ntsc (
     // =========================================================================
     localparam CE_GOLD_DIV = 256;      // gold CE divider (effective freq = PLL/256)
 
-    // Protocol: 16-bit counter, bit taps for events (zero comparisons)
-    //   [0..8191]      warmup (LFSR runs, no accumulation)
-    //   [8192..32767]  accumulate (24576 cycles, 64× original protocol)
-    //   bit 15 high    → done (≥32768)
-    localparam PROTO_BITS = 16;
+    // Protocol: 18-bit counter, bit taps for events (zero comparisons)
+    //   [0..32767]      warmup (LFSR runs, no accumulation)
+    //   [32768..131071] accumulate (98304 cycles, 4× previous protocol)
+    //   bit 17 high     → done (≥131072)
+    localparam PROTO_BITS = 18;
 
     // =========================================================================
     // XOR-fold: 512 bits → 32 bits
@@ -980,8 +980,8 @@ module top_ntsc (
     // =========================================================================
 
     reg [PROTO_BITS-1:0] proto_cnt;
-    wire       proto_done = proto_cnt[15];           // bit tap: done at 32768
-    wire       accumulating = proto_cnt[13] & ~proto_done;  // bit tap: accum from 8192..32767
+    wire       proto_done = proto_cnt[17];           // bit tap: done at 131072
+    wire       accumulating = proto_cnt[15] & ~proto_done;  // bit tap: accum from 32768..131071
     reg [31:0] accum;
     reg [31:0] gold_reg = 0, test_reg = 0;
     reg        test_done_sys = 0;
