@@ -154,10 +154,20 @@ case "$DUT" in
         DUT_DEFINE="-DDUT_SPIRIX_SQRT_ITER"
         echo "  DUT: Spirix sqrt_iter (iterative, 0 DSP)"
         ;;
+    spirix_addbit)
+        DUT_DEFINE="-DDUT_SPIRIX_ADDBIT"
+        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_alu_addbit.v;"
+        echo "  DUT: Spirix ALU addbit (2-stage, 5 ops, 0 DSP)"
+        ;;
     spirix_bitwise)
         DUT_DEFINE="-DDUT_SPIRIX_BITWISE"
         HF_FILES="read_verilog $FPGA_DIR/cores/pipelined/spirix_alu_bitwise.v;"
         echo "  DUT: Spirix ALU bitwise (single-stage, 11 ops, 0 DSP)"
+        ;;
+    spirix_unified)
+        DUT_DEFINE="-DDUT_SPIRIX_UNIFIED"
+        HF_FILES="read_verilog $FPGA_DIR/cores/minimal/spirix_alu_unified.v;"
+        echo "  DUT: Spirix ALU unified (2-stage, 13 ops, 0 DSP)"
         ;;
     hf_div)
         DUT_DEFINE="-DDUT_HF_DIV"
@@ -199,7 +209,7 @@ case "$DUT" in
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/bitwise, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/bitwise/unified, or empty."
         exit 1
         ;;
 esac

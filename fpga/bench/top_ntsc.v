@@ -69,11 +69,11 @@ module top_ntsc (
     // =========================================================================
     localparam CE_GOLD_DIV = 256;      // gold CE divider (effective freq = PLL/256)
 
-    // Protocol: 10-bit counter, bit taps for events (zero comparisons)
-    //   [0..127]   warmup (LFSR runs, no accumulation)
-    //   [128..511]  accumulate (384 cycles)
-    //   bit 9 high  → done
-    localparam PROTO_BITS = 10;
+    // Protocol: 16-bit counter, bit taps for events (zero comparisons)
+    //   [0..8191]      warmup (LFSR runs, no accumulation)
+    //   [8192..32767]  accumulate (24576 cycles, 64× original protocol)
+    //   bit 15 high    → done (≥32768)
+    localparam PROTO_BITS = 16;
 
     // =========================================================================
     // XOR-fold: 512 bits → 32 bits
@@ -97,11 +97,22 @@ module top_ntsc (
     reg [63:0] captured_seed, captured_seed2;
 
 `ifdef DUT_SPIRIX_BITWISE
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_ADDBIT
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_UNIFIED
+`define DUT_MULTI_COMBO
+`endif
+
+`ifdef DUT_MULTI_COMBO
     // Multi-round: cycle through all 16 width combos (4 frac × 4 exp)
     reg [3:0]  combo = 0;          // sequential counter 0..15
     reg [3:0]  combo_mask = 0;     // random XOR mask (captured at start)
     wire [3:0] combo_actual = combo ^ combo_mask;  // shuffled combo index
     reg [15:0] combo_results = 0;  // pass/fail per combo (indexed by combo_actual)
+    reg [15:0] combo_tested = 0;  // 1 = this combo has been tested
 `endif
 
     // CE generator (registered for clean fanout at high freq)
@@ -802,6 +813,95 @@ module top_ntsc (
     wire dut_advance = fpn_done;
 `define DUT_ITER_ADVANCE
 
+`elsif DUT_SPIRIX_UNIFIED
+    // ----- Spirix ALU unified (2-stage, 13 ops, 64-bit datapath) -----
+    // Mixed exponent proximity: 25% identical, 25% close (±3), 25% moderate
+    // (±127), 25% fully random. Ensures barrel/alignment paths get exercised
+    // at all exp widths (E4+ would otherwise never hit close path).
+
+    wire signed [63:0] un_a_frac = lfsr[63:0];
+    wire signed [63:0] un_a_exp  = lfsr2[63:0];
+    wire signed [63:0] un_b_frac = {lfsr[31:0], lfsr2[31:0]};
+
+    // Exponent perturbation scaled to MSB-aligned exp_one_msb
+    wire [1:0] un_exp_w  = combo_actual[3:2];  // 00=8 01=16 10=32 11=64
+    wire [5:0] un_exp_rsh = (un_exp_w == 2'd0) ? 6'd56 :   // E3: top 8 bits active
+                            (un_exp_w == 2'd1) ? 6'd48 :   // E4: top 16 bits active
+                            (un_exp_w == 2'd2) ? 6'd32 :   // E5: top 32 bits active
+                                                 6'd0;     // E6: all 64 bits active
+
+    // 4 exponent proximity modes (2 LFSR bits select)
+    wire [1:0] exp_mode = lfsr2[37:36];
+    // Small perturbation: ±3 in exponent space (sign-extend 3 bits)
+    wire signed [63:0] exp_pert_close = {{61{lfsr[2]}}, lfsr[2:0]} <<< un_exp_rsh;
+    // Moderate perturbation: ±127 in exponent space (sign-extend 7 bits)
+    wire signed [63:0] exp_pert_mod   = {{57{lfsr[6]}}, lfsr[6:0]} <<< un_exp_rsh;
+
+    wire signed [63:0] un_b_exp =
+        (exp_mode == 2'b00) ? un_a_exp :                              // identical
+        (exp_mode == 2'b01) ? (un_a_exp + exp_pert_close) :           // close ±3
+        (exp_mode == 2'b10) ? (un_a_exp + exp_pert_mod) :             // moderate ±127
+                              {lfsr2[31:0], lfsr[31:0]};              // fully random
+
+    // Map lfsr2 bits to valid op range 0..12 (13 ops)
+    wire [3:0] un_raw_op = lfsr2[35:32];
+    wire [3:0] un_op = (un_raw_op > 4'd12) ? (un_raw_op - 4'd3) : un_raw_op;
+
+    // Frac width from shuffled combo (exp_w already declared above for perturbation)
+    wire [1:0] un_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
+
+    wire signed [63:0] un_r_frac, un_r_exp;
+    wire un_cmp_lt, un_cmp_eq, un_cmp_gt, un_cmp_unord;
+
+    spirix_alu_unified #(.MAX_FRAC(64), .MAX_EXP(64)) dut_un (
+        .clk(sys_clk), .ce(ce),
+        .op(un_op),
+        .frac_width(un_frac_w),
+        .exp_width(un_exp_w),
+        .a_frac(un_a_frac), .a_exp(un_a_exp),
+        .b_frac(un_b_frac), .b_exp(un_b_exp),
+        .result_frac(un_r_frac), .result_exp(un_r_exp),
+        .cmp_lt(un_cmp_lt), .cmp_eq(un_cmp_eq),
+        .cmp_gt(un_cmp_gt), .cmp_unord(un_cmp_unord)
+    );
+
+    wire [31:0] mul_fold = un_r_frac[63:32] ^ un_r_frac[31:0]
+                         ^ un_r_exp[63:32]  ^ un_r_exp[31:0]
+                         ^ {28'b0, un_cmp_lt, un_cmp_eq, un_cmp_gt, un_cmp_unord};
+
+`elsif DUT_SPIRIX_ADDBIT
+    // ----- Spirix ALU addbit (2-stage pipeline, 5 ops, 64-bit datapath) -----
+    // ADD/SUB/AND/OR/XOR with close/far split + shared barrel.
+    // Full 64-bit inputs, random width + op selection from LFSR.
+
+    wire signed [63:0] ab_a_frac = lfsr[63:0];
+    wire signed [63:0] ab_a_exp  = lfsr2[63:0];
+    wire signed [63:0] ab_b_frac = {lfsr[31:0], lfsr2[31:0]};
+    wire signed [63:0] ab_b_exp  = {lfsr2[31:0], lfsr[31:0]};
+
+    // Map lfsr2 bits to valid op range 0..4 (5 ops)
+    wire [2:0] ab_raw_op = lfsr2[34:32];
+    wire [2:0] ab_op = (ab_raw_op > 3'd4) ? (ab_raw_op - 3'd5) : ab_raw_op;
+
+    // Width from shuffled combo: random execution order each run
+    wire [1:0] ab_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
+    wire [1:0] ab_exp_w  = combo_actual[3:2];  // 00=8 01=16 10=32 11=64
+
+    wire signed [63:0] ab_r_frac, ab_r_exp;
+
+    spirix_alu_addbit #(.MAX_FRAC(64), .MAX_EXP(64)) dut_ab (
+        .clk(sys_clk), .ce(ce),
+        .op(ab_op),
+        .frac_width(ab_frac_w),
+        .exp_width(ab_exp_w),
+        .a_frac(ab_a_frac), .a_exp(ab_a_exp),
+        .b_frac(ab_b_frac), .b_exp(ab_b_exp),
+        .result_frac(ab_r_frac), .result_exp(ab_r_exp)
+    );
+
+    wire [31:0] mul_fold = ab_r_frac[63:32] ^ ab_r_frac[31:0]
+                         ^ ab_r_exp[63:32]  ^ ab_r_exp[31:0];
+
 `elsif DUT_SPIRIX_BITWISE
     // ----- Spirix ALU bitwise (single-stage, 11 ops, 64-bit datapath) -----
     // Full 64-bit inputs, random width + op selection from LFSR.
@@ -812,9 +912,9 @@ module top_ntsc (
     wire signed [63:0] bw_b_frac = {lfsr[31:0], lfsr2[31:0]};
     wire signed [63:0] bw_b_exp  = {lfsr2[31:0], lfsr[31:0]};
 
-    // Map lfsr2 bits to valid op range 0..10
+    // Map lfsr2 bits to valid op range 0..9 (10 ops, no FLOOR)
     wire [3:0] bw_raw_op = lfsr2[35:32];
-    wire [3:0] bw_op = (bw_raw_op > 4'd10) ? (bw_raw_op - 4'd5) : bw_raw_op;
+    wire [3:0] bw_op = (bw_raw_op > 4'd9) ? (bw_raw_op - 4'd6) : bw_raw_op;
 
     // Width from shuffled combo: random execution order each run
     wire [1:0] bw_frac_w = combo_actual[1:0];  // 00=8 01=16 10=32 11=64
@@ -880,8 +980,8 @@ module top_ntsc (
     // =========================================================================
 
     reg [PROTO_BITS-1:0] proto_cnt;
-    wire       proto_done = proto_cnt[9];           // bit tap: done at 512
-    wire       accumulating = proto_cnt[7] & ~proto_done;  // bit tap: accum from 128..511
+    wire       proto_done = proto_cnt[15];           // bit tap: done at 32768
+    wire       accumulating = proto_cnt[13] & ~proto_done;  // bit tap: accum from 8192..32767
     reg [31:0] accum;
     reg [31:0] gold_reg = 0, test_reg = 0;
     reg        test_done_sys = 0;
@@ -899,10 +999,11 @@ module top_ntsc (
             gold_reg       <= 0;
             test_reg       <= 0;
             test_done_sys  <= 0;
-`ifdef DUT_SPIRIX_BITWISE
+`ifdef DUT_MULTI_COMBO
             combo          <= 0;
             combo_mask     <= 0;
             combo_results  <= 0;
+            combo_tested   <= 0;
 `endif
         end else if (btn_held_sys) begin
             // Button held: reset to idle, LFSR free-runs for entropy
@@ -912,10 +1013,11 @@ module top_ntsc (
             gold_reg      <= 0;
             test_reg      <= 0;
             test_done_sys <= 0;
-`ifdef DUT_SPIRIX_BITWISE
+`ifdef DUT_MULTI_COMBO
             combo         <= 0;
             combo_mask     <= 0;
             combo_results <= 0;
+            combo_tested  <= 0;
 `endif
             lfsr          <= lfsr_next;
             lfsr2         <= lfsr2_next;
@@ -934,7 +1036,7 @@ module top_ntsc (
                     lfsr2          <= lfsr2 ^ entropy;
                     proto_cnt      <= 0;
                     accum          <= 0;
-`ifdef DUT_SPIRIX_BITWISE
+`ifdef DUT_MULTI_COMBO
                     // Capture shuffle mask on first combo only
                     if (combo == 0)
                         combo_mask <= entropy[3:0];
@@ -963,9 +1065,10 @@ module top_ntsc (
                     end
                 end
                 PH_DONE: begin
-`ifdef DUT_SPIRIX_BITWISE
-                    // Record pass/fail for this width combo, advance to next
+`ifdef DUT_MULTI_COMBO
+                    // Record pass/fail + tested for this width combo, advance to next
                     combo_results <= combo_results | ({15'b0, (gold_reg == test_reg)} << combo_actual);
+                    combo_tested  <= combo_tested  | (16'b1 << combo_actual);
                     if (combo != 4'd15) begin
                         combo         <= combo + 1;
                         test_done_sys <= 0;
@@ -1020,7 +1123,7 @@ module top_ntsc (
     // =========================================================================
     // Status (clk domain)
     // =========================================================================
-`ifdef DUT_SPIRIX_BITWISE
+`ifdef DUT_MULTI_COMBO
     wire pass = &combo_results;  // all 16 combos must pass
 `else
     wire pass = (gold_reg == test_reg);
@@ -1072,16 +1175,12 @@ module top_ntsc (
     // CDC: snapshot sys_clk registers into clk domain (decorative, not critical)
     // 128-bit wide: full LFSR state, DUT output + accumulators, entropy, control
     reg [127:0] oled_r0, oled_r1, oled_r2, oled_r3;
+    reg [15:0] oled_gate;
     always @(posedge clk) begin
-`ifdef DUT_SPIRIX_BITWISE
-        // 4×4 pass/fail matrix: rows=exp_width (8/16/32/64), cols=frac_width (64/32/16/8)
-        // combo = {exp_w[1:0], frac_w[1:0]}
-        // Each cell = 32px wide × 16px tall (1 col/bit, 2 pages/row)
-        //         frac=64    frac=32    frac=16    frac=8
-        // exp=8:  combo[3]   combo[2]   combo[1]   combo[0]   <- row 0
-        // exp=16: combo[7]   combo[6]   combo[5]   combo[4]   <- row 1
-        // exp=32: combo[11]  combo[10]  combo[9]   combo[8]   <- row 2
-        // exp=64: combo[15]  combo[14]  combo[13]  combo[12]  <- row 3
+`ifdef DUT_MULTI_COMBO
+        // Live 4×4 grid: 3 states per cell (blank/fail-text/pass-white).
+        // combo_results = pass/fail, combo_tested = has been tested.
+        oled_gate <= combo_tested;
         oled_r0 <= {{32{combo_results[ 3]}}, {32{combo_results[ 2]}},
                     {32{combo_results[ 1]}}, {32{combo_results[ 0]}}};
         oled_r1 <= {{32{combo_results[ 7]}}, {32{combo_results[ 6]}},
@@ -1091,6 +1190,7 @@ module top_ntsc (
         oled_r3 <= {{32{combo_results[15]}}, {32{combo_results[14]}},
                     {32{combo_results[13]}}, {32{combo_results[12]}}};
 `else
+        oled_gate <= 16'hFFFF;  // no gating for non-combo DUTs
         oled_r0 <= {lfsr, lfsr2};                              // both LFSRs
         oled_r1 <= {mul_fold, accum, gold_reg, test_reg};      // DUT + test state
         oled_r2 <= {entropy, captured_seed};                   // entropy + seed
@@ -1098,7 +1198,7 @@ module top_ntsc (
 `endif
     end
 
-`ifdef DUT_SPIRIX_BITWISE
+`ifdef DUT_MULTI_COMBO
     ssd1306_oled #(.OVERLAY_FILE("build/oled_overlay.mem"), .ENABLE_OVERLAY(1)) oled (
 `else
     ssd1306_oled oled (
@@ -1109,6 +1209,7 @@ module top_ntsc (
         .reg1(oled_r1),
         .reg2(oled_r2),
         .reg3(oled_r3),
+        .overlay_gate(oled_gate),
         .scl(oled_scl),
         .sda(oled_sda)
     );
