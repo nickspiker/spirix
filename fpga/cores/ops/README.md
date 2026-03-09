@@ -15,10 +15,11 @@ Target: ECP5-25F speed-6 (Colorlight 5A-75B v8.0). LUT4 counts with `-nowidelut`
 | `spirix_alu_addbit` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | 6,341 | 0 | ~40 MHz* | 1 |
 | `spirix_alu_addbit_pipe` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | ~6,700 | 0 | 201 MHz | 2 |
 | `spirix_alu_round` | FLOOR, CEIL | 1-bit: 0-1 | 2,894 | 0 | 126 MHz | 1 |
+| `spirix_alu_round_pipe` | FLOOR, CEIL | 1-bit: 0-1 | 2,896 | 0 | 188 MHz | 2 |
 
 \* addbit combinational not silicon-tested (too slow for meaningful Fmax).
 
-**Total: 14 ops across 5 modules, 0 DSP.**
+**Total: 14 ops across 6 modules, 0 DSP.**
 
 ## Interface (all modules)
 
