@@ -877,7 +877,7 @@ where
             exponent: self.exponent,
         };
     }
-    pub(crate) fn scalar_shl_integer(&self, shift: &E) -> Scalar<F, E> {
+    pub fn scalar_shl_integer(&self, shift: &E) -> Scalar<F, E> {
         if !self.is_normal() {
             return *self;
         }
@@ -902,7 +902,7 @@ where
             exponent: new_exp,
         };
     }
-    pub(crate) fn scalar_shr_integer(&self, shift: &E) -> Scalar<F, E> {
+    pub fn scalar_shr_integer(&self, shift: &E) -> Scalar<F, E> {
         if !self.is_normal() {
             return *self;
         }
