@@ -26,8 +26,8 @@ fpga/
 │   ├── spirix_alu_basic.v       # NEG, ABS, SIGN, SHL, SHR (231 MHz)
 │   ├── spirix_alu_minmax.v      # MIN, MAX (208 MHz)
 │   ├── spirix_alu_addbit.v      # ADD, SUB, AND, OR, XOR (108 MHz)
-│   ├── spirix_alu_addbit_pipe.v # ADD, SUB, AND, OR, XOR (201 MHz, 2-stage)
-│   ├── spirix_alu_round.v       # FLOOR, CEIL, ROUND, FRAC (>=500 MHz)
+│   ├── spirix_alu_addbit_pipe.v # ADD, SUB, AND, OR, XOR (188 MHz, 2-stage)
+│   ├── spirix_alu_round.v       # FLOOR, CEIL, ROUND (235 MHz)
 │   ├── spirix_alu_multiply.v    # MUL (~95 MHz, no DSP)
 │   ├── spirix_alu_multiply_pipe.v # MUL (170 MHz, 2-stage, no DSP)
 │   ├── spirix_alu_divmodsqrt.v  # DIV, SQRT, MOD (188 MHz, iterative)
@@ -97,14 +97,14 @@ not static timing estimates. Consistent ~2-2.5x margin over nextpnr estimates.
 | basic | NEG/ABS/SIGN/SHL/SHR | 3,900 | 0 | 231 MHz | 1 clk |
 | minmax | MIN/MAX | 2,127 | 0 | 208 MHz | 1 clk |
 | addbit | ADD/SUB/AND/OR/XOR | 6,341 | 0 | 108 MHz | 1 clk |
-| addbit_pipe | ADD/SUB/AND/OR/XOR | ~6,700 | 0 | 201 MHz | 2 clk |
-| round | FLOOR/CEIL/ROUND/FRAC | 4,076 | 0 | >=500 MHz* | 1 clk |
+| addbit_pipe | ADD/SUB/AND/OR/XOR | 6,687 | 0 | 188 MHz | 2 clk |
+| round | FLOOR/CEIL/ROUND | 2,194 | 0 | 235 MHz | 1 clk |
 | multiply | MUL | ~2,131 | 0 | ~95 MHz | 1 clk |
 | multiply_pipe | MUL | ~2,666 | 0 | 170 MHz | 2 clk |
 | divmodsqrt | DIV/SQRT/MOD | 5,433 | 0 | 188 MHz | ~F+2 clk |
 | random | RANDOM (TRNG) | ~487 | 0 | >=800 MHz | 2 clk |
 
-*Harness-limited (passes at harness ceiling).
+Random is harness-limited (passes at harness ceiling).
 
 ### Spirix Bench (Binary32-Equivalent, Single-Width)
 

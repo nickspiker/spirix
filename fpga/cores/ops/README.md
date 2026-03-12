@@ -12,7 +12,7 @@ Target: ECP5-25F speed-6 (Colorlight 5A-75B v8.0). LUT4 counts with `-nowidelut`
 | `spirix_alu_basic` | NEG, ABS, SIGN, SHL, SHR | 3-bit: 0-4 | 3,900 | 0 | 231 MHz | 1 | 1 clk |
 | `spirix_alu_minmax` | MIN, MAX | 1-bit: 0-1 | 2,127 | 0 | 208 MHz | 1 | 1 clk |
 | `spirix_alu_addbit` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | 6,341 | 0 | 108 MHz | 1 | 1 clk |
-| `spirix_alu_addbit_pipe` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | ~6,700 | 0 | 201 MHz | 2 | 2 clk |
+| `spirix_alu_addbit_pipe` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | 6,687 | 0 | 188 MHz | 2 | 2 clk |
 | `spirix_alu_round` | FLOOR, CEIL, ROUND | 2-bit: 0-2 | 2,194 | 0 | 235 MHz | 1 | 1 clk |
 | `spirix_alu_multiply` | MUL | — | ~2,131 | 0 | ~95 MHz | 1 | 1 clk |
 | `spirix_alu_multiply_pipe` | MUL | — | ~2,666 | 0 | 170 MHz | 2 | 2 clk |
@@ -21,7 +21,7 @@ Target: ECP5-25F speed-6 (Colorlight 5A-75B v8.0). LUT4 counts with `-nowidelut`
 
 **Total: 21 ops across 9 modules, 0 DSP.**
 
-*Harness-limited: passes at test harness ceiling (~500 MHz). True Fmax is higher.
+*Random is harness-limited: passes at test harness ceiling. True Fmax is higher.
 
 ## TRNG (`spirix_alu_random`)
 
@@ -132,7 +132,7 @@ DUT=spirix_basic SEED=4 bash fpga/scripts/build_ntsc.sh 231 --program
 ```
 
 Silicon Fmax found by binary search: highest frequency where all 16 width combos PASS on CRT.
-*Harness-limited: passes at test harness ceiling (~500 MHz). True Fmax is higher.
+*Random is harness-limited: passes at test harness ceiling. True Fmax is higher.
 
 ## Architecture — Register Machine
 

@@ -212,7 +212,7 @@ This table is the reason the CE-gated harness exists. If you compared designs us
 | Variant | Fmax | LUT4 | DSP | vs Combinational |
 |---|---|---|---|---|
 | Adder pipe2 | 147 MHz | 679 | 0 | +55% Fmax (vs 95) |
-| Multiplier pipe2 | 181 MHz | 139 | 4 | +57% Fmax (vs 115) |
+| Multiplier pipe2 | 181 MHz | 227 | 4 | +57% Fmax (vs 115) |
 
 ### IEEE f32 Accuracy
 
