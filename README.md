@@ -600,11 +600,12 @@ Spirix includes a complete hardware implementation in plain Verilog targeting th
 |-----------|--------|------|------|-----|---------|
 | NEG/ABS/SIGN/SHL/SHR | basic | 231 MHz | 3,900 | 0 | 1 clk |
 | MIN/MAX | minmax | 208 MHz | 2,127 | 0 | 1 clk |
-| ADD/SUB/AND/OR/XOR | addbit_pipe | 201 MHz | ~6,700 | 0 | 3 clk |
-| FLOOR/CEIL | round_pipe | 500+ MHz | 2,827 | 0 | 3 clk |
-| MUL | multiply_pipe | 181 MHz | ~2,700 | 4 | 3 clk |
+| ADD/SUB/AND/OR/XOR | addbit_pipe | 188 MHz | 6,687 | 0 | 3 clk |
+| FLOOR/CEIL/ROUND | round | 235 MHz | 2,194 | 0 | 1 clk |
+| FRAC | micro-op | — | 0 | 0 | 1\|3 clk |
+| MUL | multiply_pipe | 170 MHz | ~2,666 | 0 | 3 clk |
 | DIV/SQRT/MOD | divmodsqrt | 188 MHz | 5,433 | 0 | FRAC+2..5 |
-| RNG | random | -- | -- | 0 | 4 clk |
+| RNG | random | 800+ MHz | ~487 | 0 | 4 clk |
 
 Full core standalone: 15,820 LUT4, 16 DSP18, 96 DPR16x4.
 
