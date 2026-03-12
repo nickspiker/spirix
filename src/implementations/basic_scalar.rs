@@ -1577,9 +1577,35 @@ where
             return *self;
         }
 
-        // For normal values, subtract the floor
-        let floored = self.floor();
-        *self - floored
+        if self.exponent < E::ZERO {
+            if self.is_negative() {
+                // Align to exp=0 by sign-extend shift, then fall through to mask
+                let mut result = *self;
+                let shift: isize = (E::ZERO - result.exponent).as_();
+                let shift: usize = shift.max(0) as usize;
+                let max_shift = (F::FRACTION_BITS - 1) as usize;
+                result.fraction = result.fraction >> shift.min(max_shift);
+                result.exponent = E::ZERO;
+                let frac_bits = max_shift;
+                let mask: F = (F::ONE << frac_bits).wrapping_sub(&F::ONE);
+                result.fraction = result.fraction & mask;
+                result.normalize();
+                return result;
+            }
+            return *self;
+        }
+        let width = F::FRACTION_BITS.wrapping_sub(1);
+        if self.exponent >= width.as_() {
+            // Already an integer, no fractional part
+            return Self::ZERO;
+        }
+        let mut result = *self;
+        let e: isize = result.exponent.as_();
+        let frac_bits = width.wrapping_sub(e);
+        let mask: F = (F::ONE << frac_bits).wrapping_sub(&F::ONE);
+        result.fraction = result.fraction & mask;
+        result.normalize();
+        result
     }
     /// Returns the larger of this Scalar and another
     ///

@@ -1,327 +1,171 @@
 # Spirix FPGA Implementation
 
-Hardware implementation of Spirix floating-point format for FPGAs.
+Hardware implementation of Spirix floating-point arithmetic for ECP5 FPGAs.
 
 ## Directory Structure
 
 ```
 fpga/
-├── rtl/              # RTL (Verilog) modules
-│   └── spirix_subtract_f4e4.v    # ScalarF4E4 subtraction (combinational)
-├── testbench/        # Simulation testbenches
-│   └── test_spirix_subtract_f4e4.v
-├── sim/              # Simulation scripts and waveforms
-└── doc/              # Documentation
+├── bench/            # Benchmark modules (single-width, binary32-equivalent)
+│   ├── spirix_addsub.v          # Add/Sub (combinational, 842 LUT4, 95 MHz)
+│   ├── spirix_addsub_pipe2.v    # Add/Sub (2-stage, 147 MHz)
+│   ├── spirix_multiply.v        # Multiply (combinational, 227 LUT4/4 DSP, 115 MHz)
+│   ├── spirix_multiply_pipe2.v  # Multiply (2-stage, 181 MHz)
+│   ├── spirix_fma.v             # FMA (combinational, 1472 LUT4/3 DSP, 63 MHz)
+│   ├── spirix_divide.v          # Divide (combinational, 11 MHz — artifact)
+│   ├── spirix_divide_iter.v     # Divide (iterative, 535 LUT4, 234 MHz)
+│   ├── spirix_divmod_nr.v       # Div/Mod Newton-Raphson (8-stage, 20 DSP, 120 MHz)
+│   ├── spirix_sqrt.v            # Sqrt (combinational)
+│   ├── spirix_sqrt_iter.v       # Sqrt (iterative, 101 LUT4, 400+ MHz)
+│   ├── spirix_nr_divsqrt.v      # Sqrt Newton-Raphson (10-stage, 27 DSP, 125 MHz)
+│   ├── top_ntsc.v               # Self-test harness + NTSC CRT display
+│   ├── top_trng_alu.v           # TRNG OLED demo (button → random scalar)
+│   ├── ssd1306_oled.v           # SH1106 OLED controller (128x64, I2C)
+│   └── ssd1306_i2c.v            # I2C bit-bang driver
+├── cores/ops/        # Multi-width ALU modules (see cores/ops/README.md)
+│   ├── spirix_alu_basic.v       # NEG, ABS, SIGN, SHL, SHR (231 MHz)
+│   ├── spirix_alu_minmax.v      # MIN, MAX (208 MHz)
+│   ├── spirix_alu_addbit.v      # ADD, SUB, AND, OR, XOR (108 MHz)
+│   ├── spirix_alu_addbit_pipe.v # ADD, SUB, AND, OR, XOR (201 MHz, 2-stage)
+│   ├── spirix_alu_round.v       # FLOOR, CEIL, ROUND, FRAC (>=500 MHz)
+│   ├── spirix_alu_multiply.v    # MUL (~95 MHz, no DSP)
+│   ├── spirix_alu_multiply_pipe.v # MUL (170 MHz, 2-stage, no DSP)
+│   ├── spirix_alu_divmodsqrt.v  # DIV, SQRT, MOD (188 MHz, iterative)
+│   ├── spirix_alu_random.v      # RANDOM (>=800 MHz, 72-RO TRNG)
+│   ├── spirix_neg.v             # Negate primitive
+│   ├── spirix_cmp.v             # Compare primitive
+│   ├── spirix_abs.v             # Absolute value primitive
+│   └── spirix_floor.v           # Floor primitive
+├── rtl/              # Legacy single-width modules
+├── constraints/      # Pin constraints (Colorlight 5A-75B v8.0)
+├── scripts/          # Build scripts
+│   └── build_ntsc.sh           # Synthesize + place&route + program
+├── tools/            # Font/bitmap generators
+└── build/            # Build artifacts
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-Install Icarus Verilog (free, open-source):
 ```bash
-# Ubuntu/Debian
-sudo apt-get install iverilog gtkwave
+# ECP5 toolchain (Yosys + nextpnr + prjtrellis)
+sudo dnf install yosys nextpnr trellis   # Fedora
+# or build from source: https://github.com/YosysHQ/oss-cad-suite-build
 
-# macOS
-brew install icarus-verilog gtkwave
-
-# Fedora
-sudo dnf install iverilog gtkwave
+# Simulation
+sudo dnf install iverilog
 ```
 
-### Running the Testbench
+### Build & Flash
 
 ```bash
-cd /mnt/Octopus/Code/spirix/fpga
+# Build at 25 MHz (no PLL) and program
+DUT=spirix_addsub SEED=4 bash fpga/scripts/build_ntsc.sh 25 --program
 
-# Compile and run testbench
-iverilog -o sim/test_subtract \
-    rtl/spirix_subtract_f4e4.v \
-    testbench/test_spirix_subtract_f4e4.v
+# Build at target frequency (PLL) and program
+DUT=spirix_addsub SEED=4 bash fpga/scripts/build_ntsc.sh 95 --program
 
-# Run simulation
-vvp sim/test_subtract
-
-# View waveforms (if you add $dumpfile in testbench)
-gtkwave sim/test_subtract.vcd
+# TRNG OLED demo
+DUT=spirix_random SEED=4 bash fpga/scripts/build_ntsc.sh 25 --program
 ```
 
-## Current Status
+### Available DUTs
 
-### Implemented Modules
+**Bench modules** (single-width, FRAC=25/EXP=8, binary32-equivalent):
+`spirix_addsub`, `spirix_addsub_pipe2`, `spirix_mul`, `spirix_mul_pipe2`,
+`spirix_fma`, `spirix_div_iter`, `spirix_divmod_nr`, `spirix_sqrt_nr`,
+`spirix_sqrt_iter`
 
-- ✅ **spirix_subtract_f4e4.v** - ScalarF4E4 subtraction (combinational)
-  - Direct translation from Rust implementation
-  - Handles exponent alignment
-  - Two's complement subtraction
-  - Automatic normalization
-  - Underflow detection
+**Ops modules** (multi-width, runtime-selectable 8/16/32/64-bit):
+`spirix_basic`, `spirix_minmax`, `spirix_addbit`, `spirix_addbit_pipe`,
+`spirix_round`, `spirix_mul_ops`, `spirix_mul_ops_pipe`, `spirix_divmodsqrt`, `spirix_random`
 
-### TODO
+**Competitors** (IEEE 754 binary32):
+`hf_add`, `hf_mul`, `hf_fma`, `hf_div`, `hf_sqrt` (HardFloat),
+`fpn_add`, `fpn_mul`, `fpn_fma`, `fpn_div`, `fpn_sqrt` (FPnew/cvfpu)
 
-- ⏳ **spirix_add_f4e4.v** - Addition (trivial: subtraction with negated operand)
-- ⏳ **spirix_multiply_f4e4.v** - Multiplication
-- ⏳ **spirix_divide_f4e4.v** - Division (Newton-Raphson with LUT)
-- ⏳ **spirix_sqrt_f4e4.v** - Square root
-- ⏳ Pipelined versions for higher throughput
-- ⏳ Other bit widths (F3E3, F5E5, F6E6, F7E7)
+## Silicon Results (ECP5-25F speed-6, Colorlight 5A-75B v8.0)
 
-## Module: spirix_subtract_f4e4
+All Fmax values are real silicon measurements via CE-gated self-test,
+not static timing estimates. Consistent ~2-2.5x margin over nextpnr estimates.
 
-### Interface
+### Spirix Ops (Multi-Width ALU, 21 ops total)
 
-```verilog
-module spirix_subtract_f4e4 #(
-    parameter ROUNDING_MODE = 0  // 0=floor (free), 1=ceiling, 2=nearest
-) (
-    input  wire signed [15:0] a_frac,      // Operand A fraction
-    input  wire signed [15:0] a_exp,       // Operand A exponent
-    input  wire signed [15:0] b_frac,      // Operand B fraction
-    input  wire signed [15:0] b_exp,       // Operand B exponent
-    output reg  signed [15:0] result_frac, // Result fraction
-    output reg  signed [15:0] result_exp   // Result exponent
-);
-```
+| Module | Ops | LUT4 | DSP | Silicon Fmax | Latency |
+|--------|-----|------|-----|-------------|---------|
+| basic | NEG/ABS/SIGN/SHL/SHR | 3,900 | 0 | 231 MHz | 1 clk |
+| minmax | MIN/MAX | 2,127 | 0 | 208 MHz | 1 clk |
+| addbit | ADD/SUB/AND/OR/XOR | 6,341 | 0 | 108 MHz | 1 clk |
+| addbit_pipe | ADD/SUB/AND/OR/XOR | ~6,700 | 0 | 201 MHz | 2 clk |
+| round | FLOOR/CEIL/ROUND/FRAC | 4,076 | 0 | >=500 MHz* | 1 clk |
+| multiply | MUL | ~2,131 | 0 | ~95 MHz | 1 clk |
+| multiply_pipe | MUL | ~2,666 | 0 | 170 MHz | 2 clk |
+| divmodsqrt | DIV/SQRT/MOD | 5,433 | 0 | 188 MHz | ~F+2 clk |
+| random | RANDOM (TRNG) | ~487 | 0 | >=800 MHz | 2 clk |
 
-### Rounding Modes
+*Harness-limited (passes at harness ceiling).
 
-**ROUNDING_MODE = 0: Floor (toward -∞)** - Default
-- **Cost**: FREE (arithmetic right shift naturally floors)
-- **Behavior**: Always rounds down on the number line
-- **Use case**: Default, fastest, no extra hardware, matches integer behavior on most platforms
+### Spirix Bench (Binary32-Equivalent, Single-Width)
 
-**ROUNDING_MODE = 1: Ceiling (toward +∞)**
-- **Cost**: +1 incrementer (~22 LUTs, 2-3ns)
-- **Behavior**: Always rounds up on the number line
-- **Use case**: Interval arithmetic upper bounds
+| Op | LUT4 | DSP | Silicon Fmax |
+|----------|------|-----|-------------|
+| Add/Sub | 842 | 0 | 95 MHz |
+| Add/Sub 2-stage | — | 0 | 147 MHz |
+| Multiply | 227 | 4 | 115 MHz |
+| Multiply 2-stage | — | 4 | 181 MHz |
+| FMA | 1,472 | 3 | 63 MHz |
+| Divide (iter) | 535 | 0 | 234 MHz |
+| Div NR (8-stage) | — | 20 | 120 MHz |
+| Sqrt (iter) | 101 | 0 | 400+ MHz |
+| Sqrt NR (10-stage) | — | 27 | 125 MHz |
 
-**ROUNDING_MODE = 2: Nearest (ties to even)**
-- **Cost**: +1 incrementer (~22 LUTs, 2-3ns)
-- **Behavior**: Round to nearest
-- **Use case**: Scientific computing, statistics
+### vs HardFloat (IEEE 754, with DSP)
 
-**ROUNDING_MODE = 3: Stochastic (probabilistic, unbiased)**
-- **Cost**: +1 comparator + 16-bit Galois LFSR (~40 LUTs, 16 FFs)
-- **Behavior**: Rounds up with probability equal to fractional remainder
-- **Convergence**: Unbiased - expected value matches true value after many operations
-- **Use case**: Neural network training, gradient descent, low-precision ML
-- **Note**: Requires clock and reset (sequential, not combinational)
+| Op | Spirix LUT4 | Spirix Fmax | HF LUT4 | HF Fmax |
+|----------|-------------|-------------|----------|---------|
+| Add/Sub | 842 | 95 MHz | 1,050 | 88 MHz |
+| Multiply | 227 | 115 MHz | 786 | 65 MHz |
+| FMA | 1,472 | 63 MHz | 2,057 | 47 MHz |
 
-### Features
+### vs FPnew (IEEE 754, no DSP)
 
-- **Modes 0-2: Combinational** (single-cycle, no clock needed)
-- **Mode 3: Sequential** (clocked, requires clk and rst inputs)
-- **17-bit internal arithmetic** (fraction + 1 carry bit)
-- **Automatic normalization** using leading zero count
-- **Underflow detection** and vanished state handling
-- **Optimized shortcuts** for large exponent differences
+| Op | Spirix LUT4 | Spirix Fmax | FPnew LUT4 | FPnew Fmax |
+|----------|-------------|-------------|------------|------------|
+| Add/Sub | 842 | 95 MHz | 825 | 74 MHz |
+| Multiply | 2,131 | 95 MHz | 2,850 | 74 MHz |
+| FMA | 3,004 | 53 MHz | 2,850 | 25 MHz |
 
-### Timing
+## Hardware TRNG (`spirix_alu_random`)
 
-- **Combinational delay**: ~10-15ns on typical FPGA
-- **For pipelined version**: See spirix_subtract_f4e4_pipe.v (TODO)
+True Random Number Generator using ring oscillator jitter. First-class ALU operation
+producing N1-normalized scalars in (-1, 1).
 
-### Resource Usage (Estimated)
+**Architecture:**
+- 72 ring oscillators with frequency diversity (24x A-pin ~1.4 GHz, 24x B-pin ~1.25 GHz, 24x C-pin ~1.1 GHz)
+- Temporal XOR: sample all 72 ROs, XOR against previous sample to extract jitter
+- BLAKE3-inspired rotation mix: `mixed[i] = jitter[i] ^ jitter[(i+9)%72] ^ jitter[(i+31)%72]`
+- Sign-aware CLZ normalize on full 72 bits, truncate to 64-bit output
+- ROs run continuously after first activation; entropy stays fresh between operations
 
-On Xilinx 7-series FPGA:
-- **LUTs**: ~200-300 (floor) / ~220-320 (ceiling/nearest) / ~240-340 (stochastic)
-- **FFs**: 0 (modes 0-2) / 16 (mode 3 - LFSR state)
-- **DSPs**: 0
-- **Block RAM**: 0
+**Timing:** 2-clock latency (warm), 4-clock cold start. ~487 LUT4, 0 DSP. >=800 MHz silicon.
 
-### Instantiation Examples
+## Hardware Self-Test
 
-```verilog
-// Default floor rounding (free, fastest)
-spirix_subtract_f4e4 subtract_floor (
-    .a_frac(a_frac), .a_exp(a_exp),
-    .b_frac(b_frac), .b_exp(b_exp),
-    .result_frac(result_frac), .result_exp(result_exp)
-);
+Single-instance CE-gated test: run DUT twice (gold at CE=1/256, test at full PLL speed),
+compare 32-bit rotate-XOR accumulators. 64-bit Galois LFSR for PRNG inputs.
 
-// Ceiling rounding
-spirix_subtract_f4e4 #(.ROUNDING_MODE(1)) subtract_ceiling (
-    .a_frac(a_frac), .a_exp(a_exp),
-    .b_frac(b_frac), .b_exp(b_exp),
-    .result_frac(result_frac), .result_exp(result_exp)
-);
+Results displayed on NTSC CRT (320x240 @ 1bpp) and LED
+(RUN=50% blink, PASS=7/8 duty, FAIL=1/8 duty).
 
-// Nearest rounding (best accuracy)
-spirix_subtract_f4e4 #(.ROUNDING_MODE(2)) subtract_nearest (
-    .clk(clk), .rst(rst),  // Can connect but ignored in modes 0-2
-    .a_frac(a_frac), .a_exp(a_exp),
-    .b_frac(b_frac), .b_exp(b_exp),
-    .result_frac(result_frac), .result_exp(result_exp)
-);
-
-// Stochastic rounding (unbiased, for ML training)
-spirix_subtract_f4e4 #(
-    .ROUNDING_MODE(3),
-    .LFSR_SEED(16'hACE1)  // Non-zero seed (default is fine)
-) subtract_stochastic (
-    .clk(clk), .rst(rst),  // Required for stochastic mode!
-    .a_frac(a_frac), .a_exp(a_exp),
-    .b_frac(b_frac), .b_exp(b_exp),
-    .result_frac(result_frac), .result_exp(result_exp)
-);
+```bash
+# Find silicon Fmax by binary search
+SEED=4 bash fpga/scripts/build_ntsc.sh 100 --program  # start
+SEED=4 bash fpga/scripts/build_ntsc.sh 200 --program  # binary search up
 ```
 
 ## Design Notes
 
-### Why Only 17 Bits?
-
-Unlike IEEE-754 which needs double-width intermediates (48 bits for float32), Spirix only needs **fraction_width + 1** for carry:
-
-```
-IEEE float32:    24 × 24 = 48-bit intermediate
-Spirix F4E4:     16-bit fraction + 1 carry = 17 bits
-```
-
-This is a **huge hardware advantage**:
-- Smaller adders (17-bit vs 48-bit)
-- Faster critical path
-- Lower power consumption
-- Easier to pipeline
-
-### Two's Complement vs Sign-Magnitude
-
-Spirix uses two's complement fractions, so we need **real subtraction**:
-```verilog
-sub_result = big - small;  // Actual subtraction, not just sign flip
-```
-
-IEEE uses sign-magnitude, so subtraction is just addition with sign flip:
-```verilog
-effSignB = subOp ? !signB : signB;  // Just flip a bit!
-```
-
-Trade-off: Spirix subtraction is more complex, but comparison/zero-check is simpler.
-
-### Rounding Simplicity
-
-Spirix's uniform two's complement number line makes rounding **much simpler than IEEE**:
-
-**Spirix**: Single incrementer for all modes, no sign checks
-```verilog
-needs_increment = (mode == 1) ? |truncated_bits :              // Ceiling
-                  (mode == 2) ? truncated_bits[15] :           // Nearest
-                  (mode == 3) ? (lfsr < truncated_bits) :      // Stochastic
-                  1'b0;                                         // Floor (free)
-result_frac = base_frac + needs_increment;  // One adder, uniform behavior
-```
-
-**IEEE**: Asymmetric with guard/round/sticky bits
-```verilog
-// Different logic for positive vs negative
-// Multiple special cases for denormals
-// Guard, round, and sticky bit tracking
-// Tie-breaking for round-to-even
-// Much more complex!
-```
-
-**Why Spirix is simpler**:
-- ✅ Arithmetic right shift naturally floors (free)
-- ✅ Same increment logic for positive and negative
-- ✅ No guard/round/sticky bit tracking needed
-- ✅ 32-bit headroom prevents overflow during rounding
-- ✅ ~22 LUTs for ceiling/nearest (vs IEEE's 100+ LUTs)
-
-### Stochastic Rounding Convergence
-
-**How stochastic rounding achieves unbiased convergence:**
-
-When we truncate bits, the lower 16 bits (`truncated_bits`) represent the fractional remainder as a value from 0-65535:
-```
-Probability(round up) = truncated_bits / 65536
-```
-
-**Example**: If we truncate 0.7 (truncated_bits ≈ 45875):
-- 70% of operations: round up (+1 ULP error)
-- 30% of operations: round down (0 ULP error)
-- **Expected error**: 0.7 × (+1) + 0.3 × (0) = **+0.7 ULP** ← matches true fractional value!
-
-**Implementation:**
-```verilog
-needs_increment = (lfsr_state < truncated_bits);
-```
-
-Since `lfsr_state` is uniformly distributed [0, 65535], this comparison naturally creates probability proportional to the fractional remainder. **No manual bias needed!**
-
-**Why this matters for ML:**
-- Deterministic rounding (floor/ceiling) accumulates systematic bias over millions of gradient updates
-- Stochastic rounding is unbiased: errors cancel out to zero over many operations
-- Critical for training neural networks in low-precision (F4E4, F7E7) where rounding errors dominate
-- Veritas neural network training benefits significantly from this property
-
-**Galois LFSR properties:**
-- Maximal period: 2^16 - 1 (all non-zero states)
-- Uniform distribution over full cycle
-- Fast: 1 XOR gate in critical path
-- Small: ~20 LUTs for 16-bit version
-- Standard polynomial: x^16 + x^14 + x^13 + x^11 + 1
-
-### Normalization
-
-The leading zero/one counter is the critical path. For better performance:
-1. Use FPGA primitives if available (e.g., Xilinx LUT6)
-2. Pipeline this stage
-3. Or use a tree structure for faster counting
-
-### Comparison to GPU Implementation
-
-This Verilog is a **direct translation** of the GPU HIP kernel:
-- Same algorithm (exponent align → subtract → normalize)
-- Same bit widths (17-bit intermediate)
-- Same special case handling
-
-**Differences**:
-- GPU uses `__clz()` intrinsic, Verilog uses combinational function
-- GPU has explicit thread handling, Verilog is pure dataflow
-- GPU is pipelined by nature, this version is combinational
-
-## Next Steps
-
-### 1. Test the Module (Now)
-
-```bash
-cd /mnt/Octopus/Code/spirix/fpga
-iverilog -o sim/test_subtract rtl/spirix_subtract_f4e4.v testbench/test_spirix_subtract_f4e4.v
-vvp sim/test_subtract
-```
-
-### 2. Add More Test Cases
-
-Expand the testbench with your comprehensive division tests:
-- All 170 test cases from `veritas/examples/comprehensive_division_tests.rs`
-- Generate Verilog testbench from Rust test suite
-
-### 3. Synthesize for Your FPGA
-
-Once you have your FPGA board:
-```bash
-# For Xilinx (Vivado)
-vivado -mode tcl -source synth_spirix.tcl
-
-# For Lattice (open-source)
-yosys -p "synth_ecp5 -top spirix_subtract_f4e4 -json spirix.json" rtl/spirix_subtract_f4e4.v
-nextpnr-ecp5 --json spirix.json --lpf pins.lpf --textcfg spirix.config
-```
-
-### 4. Create Pipelined Version
-
-For high throughput (1 operation per clock):
-- Stage 1: Exponent comparison
-- Stage 2: Fraction alignment
-- Stage 3: Subtraction
-- Stage 4: Normalization
-
-## References
-
-- **Rust Implementation**: `spirix/src/implementations/subtraction/scalar_scalar.rs`
-- **GPU Implementation**: `spirix/gpu/hip/kernels/scalar_ops.hip`
-- **HardFloat**: `HardFloat/source/addRecFN.v` (for reference, but IEEE-specific)
-
-## License
-
-Same as Spirix library (see root LICENSE file)
+- **Two's complement fractions** — real subtraction required, but comparison/zero-check is simpler than IEEE sign-magnitude
+- **Karatsuba multiply** — 3 sub-multiplies vs 4 naive. With DSP: 3 MULT18X18D. No DSP: 2131 LUT4.
+- **Edge cases** — all modules handle zero/infinity/exploded/vanished/undefined per Spirix spec

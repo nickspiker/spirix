@@ -102,6 +102,9 @@ module top_ntsc (
 `ifdef DUT_SPIRIX_ADDBIT
 `define DUT_MULTI_COMBO
 `endif
+`ifdef DUT_SPIRIX_ADDBIT_PIPE
+`define DUT_MULTI_COMBO
+`endif
 `ifdef DUT_SPIRIX_UNIFIED
 `define DUT_MULTI_COMBO
 `endif
@@ -115,6 +118,18 @@ module top_ntsc (
 `define DUT_MULTI_COMBO
 `endif
 `ifdef DUT_SPIRIX_ROUND_PIPE
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_MUL_OPS
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_MUL_OPS_PIPE
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_DIVSQRT
+`define DUT_MULTI_COMBO
+`endif
+`ifdef DUT_SPIRIX_CORE
 `define DUT_MULTI_COMBO
 `endif
 
@@ -841,7 +856,7 @@ module top_ntsc (
     wire signed [63:0] ab_b_frac = {lfsr[31:0], lfsr2[31:0]};
     wire signed [63:0] ab_b_exp  = {lfsr2[31:0], lfsr[31:0]};
 
-    // Map lfsr2 bits to valid op range 0..4 (5 ops)
+    // Map lfsr2 bits to valid op range 0..4 (5 ops: ADD/SUB/AND/OR/XOR)
     wire [2:0] ab_raw_op = lfsr2[34:32];
     wire [2:0] ab_op = (ab_raw_op > 3'd4) ? (ab_raw_op - 3'd5) : ab_raw_op;
 
@@ -863,6 +878,37 @@ module top_ntsc (
 
     wire [31:0] mul_fold = ab_r_frac[63:32] ^ ab_r_frac[31:0]
                          ^ ab_r_exp[63:32]  ^ ab_r_exp[31:0];
+
+`elsif DUT_SPIRIX_ADDBIT_PIPE
+    // ----- Spirix ALU addbit_pipe (2-stage CE-gated, 5 ops, 64-bit datapath) -----
+    // ADD/SUB/AND/OR/XOR with close/far split + shared barrel.
+
+    wire signed [63:0] abp_a_frac = lfsr[63:0];
+    wire signed [63:0] abp_a_exp  = lfsr2[63:0];
+    wire signed [63:0] abp_b_frac = {lfsr[31:0], lfsr2[31:0]};
+    wire signed [63:0] abp_b_exp  = {lfsr2[31:0], lfsr[31:0]};
+
+    // Map lfsr2 bits to valid op range 0..4 (5 ops: ADD/SUB/AND/OR/XOR)
+    wire [2:0] abp_raw_op = lfsr2[34:32];
+    wire [2:0] abp_op = (abp_raw_op > 3'd4) ? (abp_raw_op - 3'd5) : abp_raw_op;
+
+    wire [1:0] abp_frac_w = combo_actual[1:0];
+    wire [1:0] abp_exp_w  = combo_actual[3:2];
+
+    wire signed [63:0] abp_r_frac, abp_r_exp;
+
+    spirix_alu_addbit_pipe #(.MAX_FRAC(64), .MAX_EXP(64)) dut_abp (
+        .clk(sys_clk), .ce(ce),
+        .op(abp_op),
+        .frac_width(abp_frac_w),
+        .exp_width(abp_exp_w),
+        .a_frac(abp_a_frac), .a_exp(abp_a_exp),
+        .b_frac(abp_b_frac), .b_exp(abp_b_exp),
+        .result_frac(abp_r_frac), .result_exp(abp_r_exp)
+    );
+
+    wire [31:0] mul_fold = abp_r_frac[63:32] ^ abp_r_frac[31:0]
+                         ^ abp_r_exp[63:32]  ^ abp_r_exp[31:0];
 
 `elsif DUT_SPIRIX_BASIC
     // ----- Spirix ALU basic (combinational + output reg, 5 ops, 64-bit datapath) -----
@@ -938,14 +984,15 @@ module top_ntsc (
                          ^ mm_r_exp[63:32]  ^ mm_r_exp[31:0];
 
 `elsif DUT_SPIRIX_ROUND
-    // ----- Spirix ALU round (combinational + output reg, 2 ops, 64-bit datapath) -----
-    // FLOOR/CEIL with full edge case handling.
+    // ----- Spirix ALU round (combinational + output reg, 3 ops, 64-bit datapath) -----
+    // FLOOR/CEIL/ROUND (FRAC moved to addbit_pipe).
 
     wire signed [63:0] rd_a_frac = lfsr[63:0];
     wire signed [63:0] rd_a_exp  = lfsr2[63:0];
 
-    // 1-bit op from LFSR: 0=FLOOR, 1=CEIL
-    wire rd_op = lfsr2[32];
+    // 2-bit op from LFSR: 00=FLOOR, 01=CEIL, 10=ROUND (11 wraps to 00)
+    wire [1:0] rd_raw_op = lfsr2[33:32];
+    wire [1:0] rd_op = (rd_raw_op == 2'd3) ? 2'd0 : rd_raw_op;
 
     wire [1:0] rd_frac_w = combo_actual[1:0];
     wire [1:0] rd_exp_w  = combo_actual[3:2];
@@ -970,39 +1017,190 @@ module top_ntsc (
     wire [31:0] mul_fold = rd_r_frac[63:32] ^ rd_r_frac[31:0]
                          ^ rd_r_exp[63:32]  ^ rd_r_exp[31:0];
 
-`elsif DUT_SPIRIX_ROUND_PIPE
-    // ----- Spirix ALU round_pipe (2-stage, 1 internal reg + output reg, 64-bit) -----
-    // FLOOR/CEIL pipelined with shared barrel shift.
+`elsif DUT_SPIRIX_MUL_OPS
+    // ----- Spirix ALU multiply (combinational, multi-width, 64-bit) -----
+    wire signed [63:0] mo_a_frac = lfsr[63:0];
+    wire signed [63:0] mo_a_exp  = lfsr2[63:0];
+    wire signed [63:0] mo_b_frac = {lfsr2[31:0], lfsr[63:32]};
+    wire signed [63:0] mo_b_exp  = {lfsr[31:0], lfsr2[63:32]};
 
-    wire signed [63:0] rp_a_frac = lfsr[63:0];
-    wire signed [63:0] rp_a_exp  = lfsr2[63:0];
+    wire [1:0] mo_frac_w = combo_actual[1:0];
+    wire [1:0] mo_exp_w  = combo_actual[3:2];
 
-    // 1-bit op from LFSR: 0=FLOOR, 1=CEIL
-    wire rp_op = lfsr2[32];
+    wire signed [63:0] mo_r_frac_comb, mo_r_exp_comb;
 
-    wire [1:0] rp_frac_w = combo_actual[1:0];
-    wire [1:0] rp_exp_w  = combo_actual[3:2];
-
-    wire signed [63:0] rp_r_frac_comb, rp_r_exp_comb;
-
-    spirix_alu_round_pipe #(.MAX_FRAC(64), .MAX_EXP(64)) dut_rp (
-        .clk(sys_clk), .ce(ce),
-        .op(rp_op),
-        .frac_width(rp_frac_w),
-        .exp_width(rp_exp_w),
-        .a_frac(rp_a_frac), .a_exp(rp_a_exp),
-        .result_frac(rp_r_frac_comb), .result_exp(rp_r_exp_comb)
+    spirix_alu_multiply #(.MAX_FRAC(64), .MAX_EXP(64)) dut_mo (
+        .frac_width(mo_frac_w), .exp_width(mo_exp_w),
+        .a_frac(mo_a_frac), .a_exp(mo_a_exp),
+        .b_frac(mo_b_frac), .b_exp(mo_b_exp),
+        .result_frac(mo_r_frac_comb), .result_exp(mo_r_exp_comb)
     );
 
-    // Output register (CE-gated) — module has 1 internal reg, this adds the 2nd
-    reg signed [63:0] rp_r_frac, rp_r_exp;
+    // Output register (CE-gated) — combinational DUT, 1 output reg
+    reg signed [63:0] mo_r_frac, mo_r_exp;
     always @(posedge sys_clk) if (ce) begin
-        rp_r_frac <= rp_r_frac_comb;
-        rp_r_exp  <= rp_r_exp_comb;
+        mo_r_frac <= mo_r_frac_comb;
+        mo_r_exp  <= mo_r_exp_comb;
     end
 
-    wire [31:0] mul_fold = rp_r_frac[63:32] ^ rp_r_frac[31:0]
-                         ^ rp_r_exp[63:32]  ^ rp_r_exp[31:0];
+    wire [31:0] mul_fold = mo_r_frac[63:32] ^ mo_r_frac[31:0]
+                         ^ mo_r_exp[63:32]  ^ mo_r_exp[31:0];
+
+`elsif DUT_SPIRIX_MUL_OPS_PIPE
+    // ----- Spirix ALU multiply (2-stage pipe, multi-width, 64-bit) -----
+    wire signed [63:0] mp_a_frac = lfsr[63:0];
+    wire signed [63:0] mp_a_exp  = lfsr2[63:0];
+    wire signed [63:0] mp_b_frac = {lfsr2[31:0], lfsr[63:32]};
+    wire signed [63:0] mp_b_exp  = {lfsr[31:0], lfsr2[63:32]};
+
+    wire [1:0] mp_frac_w = combo_actual[1:0];
+    wire [1:0] mp_exp_w  = combo_actual[3:2];
+
+    wire signed [63:0] mp_r_frac, mp_r_exp;
+
+    spirix_alu_multiply_pipe #(.MAX_FRAC(64), .MAX_EXP(64)) dut_mp (
+        .clk(sys_clk), .ce(ce),
+        .frac_width(mp_frac_w), .exp_width(mp_exp_w),
+        .a_frac(mp_a_frac), .a_exp(mp_a_exp),
+        .b_frac(mp_b_frac), .b_exp(mp_b_exp),
+        .result_frac(mp_r_frac), .result_exp(mp_r_exp)
+    );
+
+    wire [31:0] mul_fold = mp_r_frac[63:32] ^ mp_r_frac[31:0]
+                         ^ mp_r_exp[63:32]  ^ mp_r_exp[31:0];
+
+`elsif DUT_SPIRIX_DIVSQRT
+    // ----- Spirix ALU divsqrt (iterative, multi-width, 64-bit, 0 DSP) -----
+    wire signed [63:0] ds_a_frac = lfsr[63:0];
+    wire signed [63:0] ds_a_exp  = lfsr2[63:0];
+    wire signed [63:0] ds_b_frac = {lfsr2[31:0], lfsr[63:32]};
+    wire signed [63:0] ds_b_exp  = {lfsr[31:0], lfsr2[63:32]};
+
+    wire [1:0] ds_frac_w = combo_actual[1:0];
+    wire [1:0] ds_exp_w  = combo_actual[3:2];
+    wire [1:0] ds_op     = lfsr[1:0];  // 0=DIV, 1=SQRT, 2=MOD (random per vector)
+
+    wire signed [63:0] ds_r_frac, ds_r_exp;
+    wire ds_busy_w, ds_done_w;
+
+    reg ds_iter_busy = 0;
+    reg ds_iter_start = 0;
+    always @(posedge sys_clk) begin
+        ds_iter_start <= 0;
+        if (btn_held_sys || !por_done)
+            ds_iter_busy <= 0;
+        else if (ce && !ds_iter_busy && !ds_busy_w)
+            begin ds_iter_start <= 1; ds_iter_busy <= 1; end
+        else if (ds_done_w)
+            ds_iter_busy <= 0;
+    end
+
+    spirix_alu_divmodsqrt #(.MAX_FRAC(64), .MAX_EXP(64)) dut_ds (
+        .clk(sys_clk), .start(ds_iter_start), .op(ds_op),
+        .frac_width(ds_frac_w), .exp_width(ds_exp_w),
+        .a_frac(ds_a_frac), .a_exp(ds_a_exp),
+        .b_frac(ds_b_frac), .b_exp(ds_b_exp),
+        .result_frac(ds_r_frac), .result_exp(ds_r_exp),
+        .busy(ds_busy_w), .done(ds_done_w)
+    );
+
+    wire [31:0] mul_fold = ds_r_frac[63:32] ^ ds_r_frac[31:0]
+                         ^ ds_r_exp[63:32]  ^ ds_r_exp[31:0];
+    wire dut_advance = ds_done_w;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_SPIRIX_CORE
+    // ----- Spirix Core (register machine, 21 ops, variable latency) -----
+    // Sequencer: load R0+R1 from LFSR → exec random instruction → wait done → read R2
+    //
+    // States: LOAD0 → LOAD1 → EXEC → WAIT → READ → advance LFSR
+    localparam [2:0] CS_IDLE = 3'd0, CS_LOAD0 = 3'd1, CS_LOAD1 = 3'd2,
+                     CS_EXEC = 3'd3, CS_WAIT  = 3'd4, CS_READ  = 3'd5;
+    reg [2:0] core_state = CS_IDLE;
+
+    // Instruction from LFSR: random opcode 0..19 (skip RNG — TRNG is non-deterministic,
+    // gold/test phases would get different random values and never match)
+    wire [4:0] raw_opcode = lfsr2[36:32];
+    wire [4:0] sc_opcode = (raw_opcode >= 5'd20) ? (raw_opcode - 5'd20) : raw_opcode;
+    wire [17:0] sc_instr = {sc_opcode, 3'd0, 3'd1, 3'd2, combo_actual[1:0], combo_actual[3:2]};
+
+    wire signed [63:0] sc_rfrac, sc_rexp;
+    wire sc_busy, sc_done;
+    reg  sc_exec = 0;
+    reg  [2:0]  sc_ext_addr = 0;
+    reg  signed [63:0] sc_ext_wfrac = 0, sc_ext_wexp = 0;
+    reg  sc_ext_we = 0;
+
+    spirix_core #(.MAX_FRAC(64), .MAX_EXP(64)) dut_core (
+        .clk(sys_clk), .rst(btn_held_sys || !por_done),
+        .instr(sc_instr), .exec(sc_exec),
+        .busy(sc_busy), .done(sc_done),
+        .ext_addr(sc_ext_addr),
+        .ext_wfrac(sc_ext_wfrac), .ext_wexp(sc_ext_wexp),
+        .ext_we(sc_ext_we),
+        .ext_rfrac(sc_rfrac), .ext_rexp(sc_rexp)
+    );
+
+    reg sc_iter_done = 0;
+    reg signed [63:0] sc_result_frac = 0, sc_result_exp = 0;
+
+    always @(posedge sys_clk) begin
+        sc_exec   <= 0;
+        sc_ext_we <= 0;
+        sc_iter_done <= 0;
+
+        if (btn_held_sys || !por_done) begin
+            core_state <= CS_IDLE;
+        end else case (core_state)
+            CS_IDLE: begin
+                if (ce && !sc_busy && !sc_iter_done) begin
+                    // Load R0 frac/exp from LFSR (guard: !sc_iter_done prevents
+                    // loading from pre-advance LFSR when dut_advance fires same cycle)
+                    sc_ext_addr  <= 3'd0;
+                    sc_ext_wfrac <= lfsr[63:0];
+                    sc_ext_wexp  <= lfsr2[63:0];
+                    sc_ext_we    <= 1;
+                    core_state   <= CS_LOAD0;
+                end
+            end
+            CS_LOAD0: begin
+                // Load R1 frac/exp from LFSR (swizzled)
+                sc_ext_addr  <= 3'd1;
+                sc_ext_wfrac <= {lfsr2[31:0], lfsr[63:32]};
+                sc_ext_wexp  <= {lfsr[31:0], lfsr2[63:32]};
+                sc_ext_we    <= 1;
+                core_state   <= CS_LOAD1;
+            end
+            CS_LOAD1: begin
+                // Issue instruction (exec pulse)
+                sc_exec    <= 1;
+                core_state <= CS_EXEC;
+            end
+            CS_EXEC: begin
+                // Wait one cycle for exec to be accepted
+                core_state <= CS_WAIT;
+            end
+            CS_WAIT: begin
+                if (sc_done) begin
+                    // Read R2 result
+                    sc_ext_addr <= 3'd2;
+                    core_state  <= CS_READ;
+                end
+            end
+            CS_READ: begin
+                // Capture result (async read valid this cycle)
+                sc_result_frac <= sc_rfrac;
+                sc_result_exp  <= sc_rexp;
+                sc_iter_done   <= 1;
+                core_state     <= CS_IDLE;
+            end
+        endcase
+    end
+
+    wire [31:0] mul_fold = sc_result_frac[63:32] ^ sc_result_frac[31:0]
+                         ^ sc_result_exp[63:32]  ^ sc_result_exp[31:0];
+    wire dut_advance = sc_iter_done;
+`define DUT_ITER_ADVANCE
 
 `else
     // ----- Spirix FMA (default) -----
@@ -1157,7 +1355,6 @@ module top_ntsc (
             if (dut_advance && (phase == PH_GOLD || phase == PH_TEST)) begin
                 lfsr  <= lfsr_next;
                 lfsr2 <= lfsr2_next;
-
                 if (accumulating)
                     accum <= {accum[30:0], accum[31]} ^ mul_fold;
 
@@ -1221,6 +1418,7 @@ module top_ntsc (
     // =========================================================================
     // NTSC display (clk domain = 25 MHz)
     // =========================================================================
+`ifndef NO_NTSC
     wire ntsc_sync_w, ntsc_vid_w;
 
     ntsc_framebuf #(
@@ -1240,6 +1438,12 @@ module top_ntsc (
         ntsc_sync <= ntsc_sync_w;
         ntsc_vid  <= ntsc_vid_w;
     end
+`else
+    always @(posedge clk) begin
+        ntsc_sync <= 0;
+        ntsc_vid  <= 0;
+    end
+`endif
 
     // =========================================================================
     // OLED display (25 MHz clk domain, I2C)

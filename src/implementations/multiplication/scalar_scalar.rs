@@ -154,6 +154,8 @@ where
                     fraction: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
+            } else if self.is_infinite() || other.is_infinite() {
+                return Self::INFINITY;
             } else if self.is_zero() || other.is_zero() {
                 return Self::ZERO;
             } else if self.exploded() && other.vanished() {

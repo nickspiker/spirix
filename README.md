@@ -589,3 +589,72 @@ These differences make Spirix particularly well-suited for:
 - Computations with complex numbers
 - Algorithms needing bit-level floating-point manipulation
 - Systems with custom precision/range requirements
+
+## FPGA Implementation
+
+Spirix includes a complete hardware implementation in plain Verilog targeting the Lattice ECP5-25F. The design is a 21-operation register-machine ALU with an 8x128-bit register file, 18-bit instructions, and runtime-selectable precision (8/16/32/64-bit fraction and exponent).
+
+### Silicon-Verified Performance (Colorlight 5A-75B, ECP5-25F speed-6)
+
+| Operation | Module | Fmax | LUT4 | DSP | Latency |
+|-----------|--------|------|------|-----|---------|
+| NEG/ABS/SIGN/SHL/SHR | basic | 231 MHz | 3,900 | 0 | 1 clk |
+| MIN/MAX | minmax | 208 MHz | 2,127 | 0 | 1 clk |
+| ADD/SUB/AND/OR/XOR | addbit_pipe | 201 MHz | ~6,700 | 0 | 3 clk |
+| FLOOR/CEIL | round_pipe | 500+ MHz | 2,827 | 0 | 3 clk |
+| MUL | multiply_pipe | 181 MHz | ~2,700 | 4 | 3 clk |
+| DIV/SQRT/MOD | divmodsqrt | 188 MHz | 5,433 | 0 | FRAC+2..5 |
+| RNG | random | -- | -- | 0 | 4 clk |
+
+Full core standalone: 15,820 LUT4, 16 DSP18, 96 DPR16x4.
+
+All Fmax numbers are measured on real silicon using a CE-gated self-test protocol, not static timing estimates. Consistent 2-2.5x margin over nextpnr estimates observed across all modules.
+
+### Spirix vs HardFloat vs FPnew (IEEE 754 Binary32)
+
+Single-width IEEE f32 comparison on ECP5 (Yosys synth_ecp5, -nowidelut):
+
+| Op | Spirix LUT4 | Spirix Fmax | HardFloat LUT4 | HardFloat Fmax | FPnew LUT4 | FPnew Fmax |
+|----|-------------|-------------|-----------------|----------------|------------|------------|
+| Add | 842 | 95 MHz | 1,050 | 88 MHz | 825 | 74 MHz |
+| Mul | 227 (4 DSP) | 115 MHz | 786 (4 DSP) | 65 MHz | 574 (0 DSP) | 74 MHz |
+| FMA | 1,472 (3 DSP) | 63 MHz | 2,057 (4 DSP) | 47 MHz | 2,850 (0 DSP) | 25 MHz |
+
+Spirix wins silicon Fmax on every operation.
+
+### Multi-Width Comparison
+
+HardFloat cannot do runtime-selectable width; each IEEE precision requires a separate instantiation. A comparable multi-width HardFloat unit covering binary16/32/64/128 requires 4 parallel instances:
+
+| Op | HardFloat (4 instances) | Spirix (1 datapath) |
+|----|-------------------------|---------------------|
+| Add | 10,106 LUT4 | ~6,700 LUT4 |
+| Mul | 9,243 LUT4 | ~2,666 LUT4 (16 DSP) |
+| Div/Sqrt | 9,240 LUT4 | 5,433 LUT4 |
+| **Total** | **28,589 LUT4** | **~14,799 LUT4** |
+
+Spirix is ~48% smaller with a single datapath handling 16 width combinations (4 frac x 4 exp) vs HardFloat's 4 fixed IEEE widths. Spirix also includes 15 additional operations HardFloat lacks (NEG, ABS, SIGN, SHL, SHR, MIN, MAX, AND, OR, XOR, FLOOR, CEIL, ROUND, FRAC, MOD) and a hardware TRNG.
+
+See [fpga/cores/minimal/README.md](fpga/cores/minimal/README.md) for full architecture details.
+
+## GPU Compute Kernels
+
+Spirix provides production-ready GPU kernels for batch ScalarF4E4 operations via HIP (AMD) with a cross-platform WebGPU port.
+
+### Performance (AMD RX 6800, 60 CUs)
+
+| Operation | Throughput | Instructions | VGPRs | vs f32 |
+|-----------|------------|--------------|-------|--------|
+| Addition | 27.22 GOPS | 56 | 10 | 0.69x |
+| Subtraction | ~27 GOPS | 56 | 10 | 0.69x |
+| Multiplication | 6.96 GOPS | 56 | 10 | 0.18x |
+| Division | **19.51 GOPS** | 93 | 12 | **2.24x faster** |
+| Square Root | 13.25 GOPS | 102 | 16 | 0.33x |
+
+Division outperforms multiply despite more instructions: Newton-Raphson iterations provide instruction-level parallelism that hides memory latency.
+
+### WebGPU Cross-Platform
+
+The HIP kernels port trivially to WGSL because Spirix already uses 32-bit integer arithmetic throughout. Performance: 85-87% of native HIP across all operations. Runs on any GPU (AMD, NVIDIA, Intel, Apple) via browser.
+
+See [gpu/README.md](gpu/README.md) for kernel details, benchmarks, and API usage.

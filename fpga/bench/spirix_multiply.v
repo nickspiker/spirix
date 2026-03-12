@@ -1,57 +1,47 @@
-// spirix_multiply — Combinational multiply for Spirix scalars
+// spirix_multiply — Combinational multiply for Spirix scalars with edge cases
 //
-// Computes a * b (or -(a*b) when negate=1) on N1-normalized signed fractions.
-// Fully parameterized, purely combinational.
+// Floor-only (no rounding), single-path design.
+// Parameterized: FRAC_BITS in {8..256}, EXP_BITS in {2..256}.
 //
-// Algorithm:
-//   0. Edge case detection and shortcutting (matches Rust spec).
-//   1. Signed multiply: product = a_frac * b_frac (2*FRAC_BITS-1 bits).
-//   2. Bounded normalization: 0 or 1 bit left shift (no barrel needed).
-//      N1 * N1 always produces a leading count of 1 or 2.
-//   3. Extract top FRAC_BITS, banker's round (RNE) on guard + sticky.
-//   4. Early rounding-overflow detection (from pre-round signals).
-//   5. Exponent: a_exp + b_exp - norm_shift +/- rovf adjustment.
-//   6. Overflow/underflow clamp to AMBIGUOUS_EXP.
+// Architecture: state detect -> sign-extend -> multiply -> bounded normalize -> extract (floor).
+//   Matches the Rust reference model (scalar_multiply_scalar) exactly.
+//   Edge cases handled: undefined passthrough, Inf*Zero, Zero*anything,
+//   exploded*vanished, and abnormal compute (n_level=-1/-2).
 //
 // Input format: value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
-// Fraction is signed two's complement, N1-normalized (top two bits differ).
-// Exponent is signed two's complement. The minimum exponent value
-// (AMBIGUOUS_EXP = -2^(EXP_BITS-1)) encodes zero/overflow/underflow.
-//
-// Valid parameter range: FRAC_BITS >= 4, EXP_BITS >= 4.
+// Fraction: signed two's complement, N1-normalized (top two bits differ).
+// Exponent: signed two's complement. AMBIGUOUS_EXP = -2^(EXP_BITS-1)
+// encodes zero/exploded/vanished/infinity/undefined.
 
 module spirix_multiply #(
-    parameter FRAC_BITS = 25,
-    parameter EXP_BITS  = 8,
-    parameter USE_KARATSUBA = 0  // 1 = Karatsuba (saves LUT4 no-DSP), 0 = naive (faster with DSP)
+    parameter FRAC_BITS = 32,
+    parameter EXP_BITS  = 8
 )(
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
     input  wire signed [EXP_BITS-1:0]  b_exp,
-    input  wire                        negate,  // 1 = compute -(a*b)
     output wire signed [FRAC_BITS-1:0] result_frac,
     output wire signed [EXP_BITS-1:0]  result_exp
 );
 
-    localparam AMBIGUOUS_EXP = -(1 <<< (EXP_BITS - 1));
-    localparam PROD_BITS = 2 * FRAC_BITS - 1; // signed product width
-    localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
-    localparam signed [FRAC_BITS-1:0] NEG_ONE  = {1'b1, {(FRAC_BITS-1){1'b0}}};
-    localparam signed [EXP_BITS:0] MAX_EXP = (1 <<< (EXP_BITS - 1)) - 1;
-    localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
+    // 2x width intermediate — matches Rust i16/i32/i64 promotion.
+    localparam INT_BITS   = 2 * FRAC_BITS;
+    localparam AMBIG_EXP  = -(1 <<< (EXP_BITS - 1));
+
+    // Exponent calc width (needs room for a_exp + b_exp + 1 - lm1)
+    localparam ECW = EXP_BITS + 2;
 
     // Undefined prefix constants (top 8 bits of fraction, zero-padded)
+    // UPAD avoids negative repeat count for FRAC < 8 (constants wrong but unused at small FRAC)
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
     localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
     localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
 
-    // =========================================================================
-    // Step 0a: Edge case detection (matches Rust scalar_multiply_scalar)
-    // =========================================================================
+    // ========== State detection =================================================
 
-    wire a_is_ambig = (a_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
-    wire b_is_ambig = (b_exp == AMBIGUOUS_EXP[EXP_BITS-1:0]);
+    wire a_is_ambig = (a_exp == AMBIG_EXP[EXP_BITS-1:0]);
+    wire b_is_ambig = (b_exp == AMBIG_EXP[EXP_BITS-1:0]);
 
     wire a_frac_zero = (a_frac == {FRAC_BITS{1'b0}});
     wire a_frac_neg1 = &a_frac;
@@ -69,40 +59,127 @@ module spirix_multiply #(
     wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &
                   (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
 
+    // Note: Rust vanished()/is_undefined() check fraction only (no exp check).
+    // exploded()/is_zero()/is_infinite()/is_transfinite() DO check AMBIG exp.
     wire a_is_zero  = a_is_ambig & a_frac_zero;
     wire a_is_inf   = a_is_ambig & a_frac_neg1;
     wire a_exploded = a_is_ambig & a_n1;
-    wire a_vanished = a_n2;
-    wire a_undef    = ~a_n0 & a_top3;
+    wire a_vanished = a_n2;             // fraction-only check
+    wire a_undef    = ~a_n0 & a_top3;   // fraction-only check
 
     wire b_is_zero  = b_is_ambig & b_frac_zero;
     wire b_is_inf   = b_is_ambig & b_frac_neg1;
     wire b_exploded = b_is_ambig & b_n1;
-    wire b_vanished = b_n2;
-    wire b_undef    = ~b_n0 & b_top3;
+    wire b_vanished = b_n2;             // fraction-only check
+    wire b_undef    = ~b_n0 & b_top3;   // fraction-only check
 
     wire a_is_normal  = ~a_is_ambig & a_n1;
     wire b_is_normal  = ~b_is_ambig & b_n1;
     wire any_non_normal = ~a_is_normal | ~b_is_normal;
 
-    // Edge case priority chain
+    // ========== Edge case priority (matches Rust scalar_multiply_scalar) ========
+    //
+    // 1. a undefined      -> passthrough a
+    // 2. b undefined      -> passthrough b
+    // 3. a=inf & b=zero   -> TRANSFINITE_MULTIPLY_NEGLIGIBLE
+    // 4. a=zero & b=inf   -> NEGLIGIBLE_MULTIPLY_TRANSFINITE
+    // 5. a=zero | b=zero  -> ZERO
+    // 6. a=expl & b=van   -> TRANSFINITE_MULTIPLY_NEGLIGIBLE
+    // 7. a=van  & b=expl  -> NEGLIGIBLE_MULTIPLY_TRANSFINITE
+    // 8. remaining abnorm -> compute with n_level (-1 if exploded, -2 otherwise)
+    // 9. both normal      -> normal multiply
+
     wire sc_a_undef  = a_undef;
     wire sc_b_undef  = ~a_undef & b_undef;
     wire sc_inf_zero = ~a_undef & ~b_undef & ((a_is_inf & b_is_zero) | (a_is_zero & b_is_inf));
-    wire sc_any_zero = ~a_undef & ~b_undef & ~sc_inf_zero & (a_is_zero | b_is_zero);
-    wire sc_exp_van  = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_zero &
+    wire sc_any_inf  = ~a_undef & ~b_undef & ~sc_inf_zero & (a_is_inf | b_is_inf);
+    wire sc_any_zero = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_inf & (a_is_zero | b_is_zero);
+    wire sc_exp_van  = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_inf & ~sc_any_zero &
                        ((a_exploded & b_vanished) | (a_vanished & b_exploded));
-    wire shortcut    = sc_a_undef | sc_b_undef | sc_inf_zero | sc_any_zero | sc_exp_van;
+    wire shortcut    = sc_a_undef | sc_b_undef | sc_inf_zero | sc_any_inf | sc_any_zero | sc_exp_van;
 
-    // Abnormal compute: run multiply normally but force exp to AMBIG
+    // Abnormal compute path (case 8)
     wire abnormal_compute = any_non_normal & ~shortcut;
+    // n_level=-1 when either input is exploded; -2 otherwise
     wire n_level_neg1 = a_exploded | b_exploded;
+
+    // ========== Step 1: Sign-extend and multiply ================================
+
+    wire signed [INT_BITS-1:0] a_ext = $signed(a_frac);
+    wire signed [INT_BITS-1:0] b_ext = $signed(b_frac);
+    wire signed [INT_BITS-1:0] product = a_ext * b_ext;
+
+    wire prod_is_zero = (product == 0);
+
+    // ========== Step 2: Bounded normalize (no CLZ, no barrel) =====================
+    //
+    // Normal (N1×N1): lm1 ∈ {0, 1, 2} — 3-way check on top 3 product bits.
+    // Abnormal (inf shortcutted): lm1 ∈ {0..4} — 5-way check on top 5 product bits.
+    //   exploded×normal or exploded×exploded: lm1 = 0..1
+    //   vanished×normal: lm1 = 2..3
+    //   vanished×vanished: lm1 = 3..4
+    // n_level=-1 (exploded present): shift = lm1
+    // n_level=-2 (vanished only):    shift = lm1 - 1
+
+    // Normal path: 3-way lm1 for exponent calc and normalize
+    wire [1:0] norm_lm1 =
+        (product[INT_BITS-1] != product[INT_BITS-2]) ? 2'd0 :
+        (product[INT_BITS-2] != product[INT_BITS-3]) ? 2'd1 : 2'd2;
+
+    wire signed [FRAC_BITS-1:0] norm_frac =
+        (norm_lm1 == 2'd0) ? product[INT_BITS-1 -: FRAC_BITS] :
+        (norm_lm1 == 2'd1) ? product[INT_BITS-2 -: FRAC_BITS] :
+                              product[INT_BITS-3 -: FRAC_BITS];
+
+    // Abnormal path: 5-way lm1 with n_level adjustment
+    wire [2:0] abn_lm1 =
+        (product[INT_BITS-1] != product[INT_BITS-2]) ? 3'd0 :
+        (product[INT_BITS-2] != product[INT_BITS-3]) ? 3'd1 :
+        (product[INT_BITS-3] != product[INT_BITS-4]) ? 3'd2 :
+        (product[INT_BITS-4] != product[INT_BITS-5]) ? 3'd3 : 3'd4;
+
+    wire abnormal_n2 = abnormal_compute & ~n_level_neg1;
+    wire [2:0] abn_shift = (abnormal_n2 & |abn_lm1) ? abn_lm1 - 3'd1 : abn_lm1;
+
+    wire signed [FRAC_BITS-1:0] abn_frac =
+        (abn_shift == 3'd0) ? product[INT_BITS-1 -: FRAC_BITS] :
+        (abn_shift == 3'd1) ? product[INT_BITS-2 -: FRAC_BITS] :
+        (abn_shift == 3'd2) ? product[INT_BITS-3 -: FRAC_BITS] :
+        (abn_shift == 3'd3) ? product[INT_BITS-4 -: FRAC_BITS] :
+                               product[INT_BITS-5 -: FRAC_BITS];
+
+    // ========== Step 4: Exponent (normal path only) ==============================
+
+    wire signed [ECW-1:0] exp_calc =
+        $signed({{(ECW-EXP_BITS){a_exp[EXP_BITS-1]}}, a_exp})
+        + $signed({{(ECW-EXP_BITS){b_exp[EXP_BITS-1]}}, b_exp})
+        - $signed({{(ECW-2){1'b0}}, norm_lm1})
+        + 1;
+
+    wire signed [EXP_BITS-1:0] out_exp = exp_calc[EXP_BITS-1:0];
+
+    // Overflow: exp_calc > MAX_EXP (= -AMBIG_EXP - 1)
+    // Underflow: exp_calc < MIN_EXP (= AMBIG_EXP + 1)
+    localparam signed [ECW-1:0] MAX_EXP_W = (1 <<< (EXP_BITS - 1)) - 1;
+    localparam signed [ECW-1:0] MIN_EXP_W = -(1 <<< (EXP_BITS - 1)) + 1;
+
+    wire overflow  = (exp_calc > MAX_EXP_W);
+    wire underflow = (exp_calc < MIN_EXP_W);
+
+    // Vanished fraction: duplicate sign bit (>> 1 arithmetic)
+    wire signed [FRAC_BITS-1:0] vanished_frac = {norm_frac[FRAC_BITS-1],
+                                                   norm_frac[FRAC_BITS-1:1]};
+
+    // ========== Step 5: Output mux ==============================================
+    //
+    // Priority: shortcut > abnormal_compute > prod_zero > overflow > underflow > normal
 
     // Shortcut fraction
     wire signed [FRAC_BITS-1:0] sc_frac =
         sc_a_undef  ? a_frac :
         sc_b_undef  ? b_frac :
         sc_inf_zero ? ((a_is_inf | a_exploded) ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF) :
+        sc_any_inf  ? {FRAC_BITS{1'b1}} :
         sc_any_zero ? {FRAC_BITS{1'b0}} :
                       ((a_exploded)             ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF);
 
@@ -110,144 +187,18 @@ module spirix_multiply #(
     wire signed [EXP_BITS-1:0] sc_exp =
         sc_a_undef  ? a_exp :
         sc_b_undef  ? b_exp :
-                      AMBIGUOUS_EXP[EXP_BITS-1:0];
-
-    // =========================================================================
-    // Step 0b: Optional negate — flip sign of a_frac before multiply
-    //
-    // -(a*b) = (-a)*b. Two's complement negation works for all N1 values
-    // except NEG_ONE (10...0), which wraps to itself. Fix: use POS_HALF
-    // (01...0) with exp+1, since -(-1.0 * 2^e) = +0.5 * 2^(e+1).
-    // When negate=0, synthesis optimizes this away completely.
-    // =========================================================================
-    wire a_is_neg_one = negate & (a_frac == NEG_ONE);
-    wire signed [FRAC_BITS-1:0] a_frac_eff = negate ? (a_is_neg_one ? POS_HALF : -a_frac)
-                                                     : a_frac;
-    wire signed [EXP_BITS-1:0]  a_exp_eff  = a_is_neg_one ? (a_exp + {{(EXP_BITS-1){1'b0}}, 1'b1})
-                                                           : a_exp;
-
-    // =========================================================================
-    // Step 1: Signed multiply (2*FRAC_BITS-1 bits)
-    //
-    // USE_KARATSUBA=0: naive a*b, best with DSP (4 MULT18X18D, minimal LUT).
-    // USE_KARATSUBA=1: Karatsuba decomposition, 3 sub-multiplies,
-    //   ~15% LUT4 savings no-DSP but adds reconstruction overhead with DSP.
-    // =========================================================================
-    wire signed [PROD_BITS-1:0] product;
-
-    generate if (USE_KARATSUBA) begin : gen_karatsuba
-        localparam K = (FRAC_BITS + 1) / 2;
-        localparam H = FRAC_BITS - K;
-
-        wire signed [H-1:0] aH = a_frac_eff[FRAC_BITS-1 : K];
-        wire        [K-1:0] aL = a_frac_eff[K-1 : 0];
-        wire signed [H-1:0] bH = b_frac[FRAC_BITS-1 : K];
-        wire        [K-1:0] bL = b_frac[K-1 : 0];
-
-        wire signed [2*H-1:0]  phh = aH * bH;
-        wire        [2*K-1:0]  pll = aL * bL;
-
-        // aM, bM need K+2 bits: aH(H-bit signed) + aL(K-bit unsigned) can reach
-        // H_max + K_max = (2^(H-1)-1) + (2^K-1) which exceeds K+1 signed range.
-        wire signed [K+1:0] aM = $signed({{(K-H+2){aH[H-1]}}, aH}) + $signed({2'b0, aL});
-        wire signed [K+1:0] bM = $signed({{(K-H+2){bH[H-1]}}, bH}) + $signed({2'b0, bL});
-        wire signed [2*K+3:0] pmm = aM * bM;
-
-        wire signed [2*K+3:0] cross = pmm
-                                    - {{(2*K+4-2*H){phh[2*H-1]}}, phh}
-                                    - {{2{1'b0}}, pll};
-
-        wire signed [PROD_BITS:0] product_wide =
-            ($signed({{(PROD_BITS+1-2*H){phh[2*H-1]}}, phh}) <<< (2*K))
-          + ($signed({{(PROD_BITS-2*K-1){cross[2*K+3]}}, cross}) <<< K)
-          + $signed({{(PROD_BITS+1-2*K){1'b0}}, pll});
-
-        assign product = product_wide[PROD_BITS-1:0];
-    end else begin : gen_naive
-        wire signed [PROD_BITS:0] product_wide = a_frac_eff * b_frac;
-        assign product = product_wide[PROD_BITS-1:0];
-    end endgenerate
-
-    // =========================================================================
-    // Step 2: Bounded normalization (0 or 1 bit shift)
-    //
-    // N1 inputs guarantee the product's leading redundant sign bits are 1 or 2.
-    // If top 2 bits differ: already N1 (shift 0).
-    // If top 2 bits same: shift left 1.
-    // =========================================================================
-    wire is_n1 = (product[PROD_BITS-1] != product[PROD_BITS-2]);
-    wire norm_shift = !is_n1;
-    wire signed [PROD_BITS-1:0] normalized = norm_shift ? (product <<< 1) : product;
-
-    // =========================================================================
-    // Step 3: Extract top FRAC_BITS + banker's rounding (RNE)
-    //
-    // Guard bit is the first bit below the fraction. Sticky is the OR of
-    // all remaining bits (combines IEEE round + sticky into one term).
-    // Round up when guard=1 AND (sticky | lsb).
-    // =========================================================================
-    wire signed [FRAC_BITS-1:0] frac_raw = normalized[PROD_BITS-1 -: FRAC_BITS];
-
-    wire guard  = normalized[PROD_BITS - 1 - FRAC_BITS];
-    wire sticky = (PROD_BITS - 2 - FRAC_BITS >= 0) ?
-                  |normalized[PROD_BITS - 2 - FRAC_BITS:0] : 1'b0;
-    wire lsb    = frac_raw[0];
-    wire round_up = guard & (sticky | lsb);
-
-    wire signed [FRAC_BITS-1:0] frac_rounded = frac_raw + {{(FRAC_BITS-1){1'b0}}, round_up};
-
-    // =========================================================================
-    // Step 4: Rounding overflow — early detection from pre-round signals
-    //
-    // rovf_pos: 0_111...1 + round → sign flips. Fix: POS_HALF, exp+1.
-    // rovf_neg: 10_111...1 + round → exits N1. Fix: NEG_ONE, exp-1.
-    // =========================================================================
-    wire rovf_pos = !frac_raw[FRAC_BITS-1]
-                  & (&frac_raw[FRAC_BITS-2:0])
-                  & round_up;
-    wire rovf_neg = frac_raw[FRAC_BITS-1]
-                  & !frac_raw[FRAC_BITS-2]
-                  & (&frac_raw[FRAC_BITS-3:0])
-                  & round_up;
-
-    wire signed [FRAC_BITS-1:0] out_frac = rovf_pos ? POS_HALF :
-                                             rovf_neg ? NEG_ONE  :
-                                             frac_rounded;
-
-    // =========================================================================
-    // Step 5: Exponent
-    // =========================================================================
-    wire signed [EXP_BITS:0] exp_wide = $signed({a_exp_eff[EXP_BITS-1], a_exp_eff})
-                                       + $signed({b_exp[EXP_BITS-1], b_exp})
-                                       - {{EXP_BITS{1'b0}}, norm_shift}
-                                       + {{EXP_BITS{1'b0}}, rovf_pos}
-                                       - {{EXP_BITS{1'b0}}, rovf_neg};
-
-    wire exp_too_big   = (exp_wide > MAX_EXP);
-    wire exp_too_small = (exp_wide < MIN_EXP);
-    wire signed [EXP_BITS-1:0] out_exp = exp_wide[EXP_BITS-1:0];
-
-    // =========================================================================
-    // Step 6: Output with edge cases, overflow/underflow clamping
-    //
-    // Priority: shortcut > abnormal_compute > overflow > underflow > normal.
-    // Abnormal compute: result frac from multiply, exp forced to AMBIG.
-    //   n_level=-2 (neither exploded): right-shift result to N2.
-    // =========================================================================
-    wire abnormal_n2 = abnormal_compute & ~n_level_neg1;
-    wire signed [FRAC_BITS-1:0] abnormal_frac = abnormal_n2
-        ? {out_frac[FRAC_BITS-1], out_frac[FRAC_BITS-1:1]} : out_frac;
+                      AMBIG_EXP[EXP_BITS-1:0];
 
     assign result_frac = shortcut          ? sc_frac :
-                         abnormal_compute  ? abnormal_frac :
-                         exp_too_big       ? out_frac :
-                         exp_too_small     ? {out_frac[FRAC_BITS-1],
-                                              out_frac[FRAC_BITS-1:1]} :
-                                             out_frac;
+                         abnormal_compute  ? abn_frac :
+                         prod_is_zero      ? {FRAC_BITS{1'b0}} :
+                         overflow          ? norm_frac :
+                         underflow         ? vanished_frac :
+                                             norm_frac;
 
-    assign result_exp  = shortcut                           ? sc_exp :
-                         (abnormal_compute |
-                          exp_too_big | exp_too_small)      ? AMBIGUOUS_EXP[EXP_BITS-1:0] :
-                                                              out_exp;
+    assign result_exp  = shortcut                          ? sc_exp :
+                         (abnormal_compute | prod_is_zero) ? AMBIG_EXP[EXP_BITS-1:0] :
+                         (overflow | underflow)            ? AMBIG_EXP[EXP_BITS-1:0] :
+                                                             out_exp;
 
 endmodule

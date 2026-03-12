@@ -21,6 +21,7 @@ module ssd1306_oled #(
     input  wire [127:0] reg1,  // pages 2-3
     input  wire [127:0] reg2,  // pages 4-5
     input  wire [127:0] reg3,  // pages 6-7 (bottom)
+    input  wire [15:0]  overlay_gate, // 1 bit per cell: show overlay only for tested cells
 
     output wire         scl,
     output wire         sda
@@ -138,14 +139,20 @@ module ssd1306_oled #(
     wire [7:0] bar_byte = bit_val ? 8'hFF : 8'h00;
 
     // Optional text overlay ROM (1024 bytes = 8 pages × 128 cols)
-    // XOR'd with bar data: black text on white (pass), white text on black (fail)
+    // Three states per cell (indexed by overlay_gate):
+    //   untested (gate=0): blank (all black)
+    //   fail (gate=1, bar=0): overlay text only (white text on black)
+    //   pass (gate=1, bar=1): white background with XOR'd text (black text on white)
     wire [7:0] px_byte;
     generate if (ENABLE_OVERLAY) begin : g_overlay
         reg [7:0] overlay_rom [0:1023];
         initial $readmemh(OVERLAY_FILE, overlay_rom);
         wire [9:0] overlay_addr = {page, col};
         wire [7:0] overlay_byte = overlay_rom[overlay_addr];
-        assign px_byte = bar_byte ^ overlay_byte;
+        // Cell index: row from page pair, col from 32px groups (MSB=left)
+        wire [3:0] cell_idx = {page[2:1], 2'd3 - col[6:5]};
+        wire cell_tested = overlay_gate[cell_idx];
+        assign px_byte = cell_tested ? (bar_byte ^ overlay_byte) : 8'h00;
     end else begin : g_no_overlay
         assign px_byte = bar_byte;
     end endgenerate

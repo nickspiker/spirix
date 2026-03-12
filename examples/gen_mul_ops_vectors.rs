@@ -1,8 +1,6 @@
-/// Generate test vectors for spirix_alu_round — all 16 frac×exp width combos.
+/// Generate test vectors for spirix_alu_multiply — all 16 frac×exp width combos.
 ///
-/// Ops: 0=FLOOR 1=CEIL 2=ROUND 3=FRAC
-///
-/// Output: hex lines "op fw ew a_frac a_exp r_frac r_exp"
+/// Output: hex lines "fw ew a_frac a_exp b_frac b_exp r_frac r_exp"
 /// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 use spirix::Scalar;
 
@@ -37,23 +35,14 @@ macro_rules! gen_width {
         let ambig: $e = <$e>::MIN;
         let fbits: u32 = <$f>::BITS;
 
-        let emit = |op: u8, a: S, r: S| {
+        let emit = |a: S, b: S, r: S| {
             println!(
-                "{:02x} {} {} {:016x} {:016x} {:016x} {:016x}",
-                op, $fw, $ew,
+                "{} {} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x}",
+                $fw, $ew,
                 msb_frac_64(a.fraction, fbits), lsb_exp_64(a.exponent, ambig),
+                msb_frac_64(b.fraction, fbits), lsb_exp_64(b.exponent, ambig),
                 msb_frac_64(r.fraction, fbits), lsb_exp_64(r.exponent, ambig),
             );
-        };
-
-        let compute = |op: u8, a: S| -> S {
-            match op {
-                0 => a.floor(),
-                1 => a.ceil(),
-                2 => a.round(),
-                3 => a.frac(),
-                _ => unreachable!(),
-            }
         };
 
         // Edge values
@@ -68,68 +57,128 @@ macro_rules! gen_width {
             ((-1 as $f) << (fbits - 4), ambig),                                // undefined-
         ];
 
-        // Sample exponents spanning the full range including boundary values
+        // Sample normal exponents
         let sample_exps: Vec<$e> = {
             let max_e = <$e>::MAX;
             let min_e = <$e>::MIN.wrapping_add(1 as $e);
-            let fb_m1 = (fbits - 1) as $e;
-            let fb_m2 = (fbits - 2) as $e;
             vec![min_e, -2 as $e, -1 as $e, 0 as $e, 1 as $e, 2 as $e,
-                 fb_m2, fb_m1, max_e, max_e >> 1, min_e >> 1]
+                 max_e, max_e >> 1, min_e >> 1]
         };
 
-        // Sample fractions (N1 + special values)
+        // Sample N1 fractions
         let sample_fracs: Vec<$f> = vec![
             (1 as $f) << (fbits - 2),              // POS_HALF
             <$f>::MIN,                              // NEG_ONE
             ((1 as $f) << (fbits - 2)) | 1,        // POS_HALF+1
             <$f>::MAX,                              // max positive N1
             (<$f>::MIN >> 1).wrapping_add(1 as $f), // just past N1 boundary neg
-            // Values that produce interesting fractional parts
-            ((1 as $f) << (fbits - 2)) | ((1 as $f) << (fbits - 4)), // 0.625-ish
-            (<$f>::MIN) | ((1 as $f) << (fbits - 3)),                 // -0.75-ish
         ];
 
-        for op in 0u8..4 {
-            // Edge values
-            for &(af, ae) in &edge_values {
+        // Edge × edge (8×8 = 64 per width)
+        for &(af, ae) in &edge_values {
+            for &(bf, be) in &edge_values {
                 let a = S::new(af, ae);
-                let r = compute(op, a);
-                emit(op, a, r);
+                let b = S::new(bf, be);
+                let r = a * b;
+                emit(a, b, r);
                 *$count += 1;
             }
+        }
 
-            // All sample_frac × sample_exp combos
-            for &af in &sample_fracs {
-                for &ae in &sample_exps {
+        // Edge × normal
+        for &(af, ae) in &edge_values {
+            for &be in &sample_exps {
+                for &bf in &sample_fracs {
                     let a = S::new(af, ae);
-                    let r = compute(op, a);
-                    emit(op, a, r);
+                    let b = S::new(bf, be);
+                    let r = a * b;
+                    emit(a, b, r);
                     *$count += 1;
                 }
             }
+        }
 
-            // PRNG normal values with diverse exponents
-            for _ in 0..500 {
-                let af: $f = loop {
-                    let f = $rng.next() as $f;
-                    if ((f >> (fbits - 1)) & 1) != ((f >> (fbits - 2)) & 1) { break f; }
-                };
-                let ae: $e = loop {
-                    let e = ($rng.next() % ((fbits as u64) * 2)) as $e - (fbits as $e);
+        // Normal × edge
+        for &(bf, be) in &edge_values {
+            for &ae in &sample_exps {
+                for &af in &sample_fracs {
+                    let a = S::new(af, ae);
+                    let b = S::new(bf, be);
+                    let r = a * b;
+                    emit(a, b, r);
+                    *$count += 1;
+                }
+            }
+        }
+
+        // Normal × normal with exponent proximity
+        for _ in 0..800 {
+            let af: $f = loop {
+                let f = $rng.next() as $f;
+                if ((f >> (fbits - 1)) & 1) != ((f >> (fbits - 2)) & 1) { break f; }
+            };
+            let bf: $f = loop {
+                let f = $rng.next() as $f;
+                if ((f >> (fbits - 1)) & 1) != ((f >> (fbits - 2)) & 1) { break f; }
+            };
+            let ae: $e = loop {
+                let e = $rng.next() as $e;
+                if e != ambig { break e; }
+            };
+            let be: $e = match $rng.next() % 4 {
+                0 => ae,
+                1 => {
+                    let d = ($rng.next() % 7) as $e - 3;
+                    let e = ae.wrapping_add(d);
+                    if e == ambig { ae } else { e }
+                }
+                2 => loop {
+                    let e = $rng.next() as $e;
                     if e != ambig { break e; }
-                };
-                let a = S::new(af, ae);
-                let r = compute(op, a);
-                emit(op, a, r);
-                *$count += 1;
+                },
+                _ => {
+                    // Exponents near zero (triggers overflow/underflow)
+                    let e = ($rng.next() % 5) as $e - 2;
+                    if e == ambig { 0 as $e } else { e }
+                }
+            };
+
+            let a = S::new(af, ae);
+            let b = S::new(bf, be);
+            let r = a * b;
+            emit(a, b, r);
+            *$count += 1;
+        }
+
+        // Power-of-two boundary pairs (trigger overflow/underflow)
+        let po2_fracs: Vec<$f> = vec![
+            (1 as $f) << (fbits - 2),              // POS_HALF
+            <$f>::MIN,                              // NEG_ONE
+            <$f>::MAX,                              // max positive
+        ];
+        let po2_exps: Vec<$e> = {
+            let max_e = <$e>::MAX;
+            let min_e = <$e>::MIN.wrapping_add(1 as $e);
+            vec![min_e, -1 as $e, 0 as $e, 1 as $e, max_e, max_e >> 1, min_e >> 1]
+        };
+        for &af in &po2_fracs {
+            for &ae in &po2_exps {
+                for &bf in &po2_fracs {
+                    for &be in &po2_exps {
+                        let a = S::new(af, ae);
+                        let b = S::new(bf, be);
+                        let r = a * b;
+                        emit(a, b, r);
+                        *$count += 1;
+                    }
+                }
             }
         }
     }};
 }
 
 fn main() {
-    let mut rng = Rng(0xF100_CEEE_1000_0001u64);
+    let mut rng = Rng(0xA0E1_0F50_0001u64.wrapping_mul(0xCAFEBABE));
     let mut total = 0u64;
 
     let mut w_count = 0u64;

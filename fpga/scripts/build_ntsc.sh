@@ -164,9 +164,9 @@ case "$DUT" in
         echo "  DUT: Spirix ALU addbit (combinational, 5 ops, 0 DSP)"
         ;;
     spirix_addbit_pipe)
-        DUT_DEFINE="-DDUT_SPIRIX_ADDBIT"
-        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_pipe.v;"
-        echo "  DUT: Spirix ALU addbit (2-stage pipe, 5 ops, 0 DSP)"
+        DUT_DEFINE="-DDUT_SPIRIX_ADDBIT_PIPE"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_addbit_pipe.v;"
+        echo "  DUT: Spirix ALU addbit_pipe (2-stage, 5 ops, 0 DSP)"
         ;;
     spirix_basic)
         DUT_DEFINE="-DDUT_SPIRIX_BASIC"
@@ -183,14 +183,41 @@ case "$DUT" in
     spirix_round)
         DUT_DEFINE="-DDUT_SPIRIX_ROUND"
         HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_round.v;"
-        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_neg.v;"
-        echo "  DUT: Spirix ALU round (FLOOR/CEIL, 0 DSP)"
+        echo "  DUT: Spirix ALU round (FLOOR/CEIL/ROUND, 0 DSP)"
         ;;
     spirix_round_pipe)
-        DUT_DEFINE="-DDUT_SPIRIX_ROUND_PIPE"
-        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_round_pipe.v;"
+        echo "  ERROR: round_pipe removed — use spirix_round (combinational, ≥500 MHz)"
+        exit 1
+        ;;
+    spirix_mul_ops)
+        DUT_DEFINE="-DDUT_SPIRIX_MUL_OPS"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_multiply.v;"
+        echo "  DUT: Spirix ALU multiply (multi-width, 16 DSP18)"
+        ;;
+    spirix_mul_ops_pipe)
+        DUT_DEFINE="-DDUT_SPIRIX_MUL_OPS_PIPE"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_multiply_pipe.v;"
+        echo "  DUT: Spirix ALU multiply (2-stage pipe, multi-width, 16 DSP18)"
+        ;;
+    spirix_divsqrt|spirix_divmodsqrt)
+        DUT_DEFINE="-DDUT_SPIRIX_DIVSQRT"
+        HF_FILES="read_verilog $FPGA_DIR/cores/ops/spirix_alu_divmodsqrt.v;"
+        echo "  DUT: Spirix ALU divmodsqrt (iterative, multi-width, 0 DSP)"
+        ;;
+    spirix_core)
+        DUT_DEFINE="-DDUT_SPIRIX_CORE -DNO_NTSC -DNO_RNG"
+        SKIP_NTSC=1
+        HF_FILES="read_verilog -DNO_RNG $FPGA_DIR/cores/minimal/spirix_core.v;"
         HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_neg.v;"
-        echo "  DUT: Spirix ALU round_pipe (FLOOR/CEIL, 2-stage, 0 DSP)"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_alu_basic.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_alu_minmax.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_cmp.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_alu_round.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_alu_addbit_pipe.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_alu_multiply_pipe.v;"
+        HF_FILES="$HF_FILES read_verilog $FPGA_DIR/cores/ops/spirix_alu_divmodsqrt.v;"
+        # spirix_alu_random.v excluded: ENABLE_RNG=0 in harness (TRNG non-deterministic)
+        echo "  DUT: Spirix Core (20-op register machine, variable latency)"
         ;;
     hf_div)
         DUT_DEFINE="-DDUT_HF_DIV"
@@ -228,11 +255,19 @@ case "$DUT" in
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew sqrt (fpnew_divsqrt_th_32, op=SQRT)"
         ;;
+    trng)
+        TRNG_MODE=1
+        echo "  DUT: TRNG ring oscillator array (128×64, OLED bitmap)"
+        ;;
+    spirix_random)
+        TRNG_ALU_MODE=1
+        echo "  DUT: Spirix ALU random (576 RO TRNG, OLED demo)"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/addbit_pipe/bitwise/unified/basic/minmax/round/round_pipe, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/addbit_pipe/bitwise/unified/basic/minmax/round/mul_ops/mul_ops_pipe/divsqrt/random/trng/core, or empty."
         exit 1
         ;;
 esac
@@ -250,16 +285,61 @@ done
 # -------------------------------------------------------------------------
 echo ""
 echo "--- Synthesize ---"
-yosys -p "
-    $RTL_FILES
-    $HF_FILES
-    read_verilog $RTL/ntsc_framebuf.v
-    read_verilog $RTL/ssd1306_i2c.v
-    read_verilog $RTL/ssd1306_oled.v
-    read_verilog $PLL_DEFINES $DUT_DEFINE $RTL/top_ntsc.v
-    synth_ecp5 ${NODSP:+-nodsp} -top top_ntsc -json $BUILD/ntsc.json
-    stat
-" > "$BUILD/ntsc_yosys.log" 2>&1
+if [ -n "$TRNG_ALU_MODE" ]; then
+    # TRNG ALU: spirix_alu_random + OLED
+    yosys -p "
+        read_verilog $FPGA_DIR/cores/ops/spirix_alu_random.v
+        read_verilog $RTL/ssd1306_i2c.v
+        read_verilog $RTL/ssd1306_oled.v
+        read_verilog $PLL_DEFINES $RTL/top_trng_alu.v
+        synth_ecp5 -nowidelut -top top_trng_alu -json $BUILD/ntsc.json
+        stat
+    " > "$BUILD/ntsc_yosys.log" 2>&1
+elif [ -n "$TRNG_MODE" ]; then
+    # TRNG: minimal file set, separate top module
+    yosys -p "
+        read_verilog $RTL/ssd1306_i2c.v
+        read_verilog $PLL_DEFINES $RTL/top_trng.v
+        synth_ecp5 -nowidelut -top top_trng -json $BUILD/ntsc.json
+        stat
+    " > "$BUILD/ntsc_yosys.log" 2>&1
+elif [ -n "$NODSP" ]; then
+    # Custom flow: run synth_ecp5 in pieces, skipping mul2dsp/dsp_map
+    # (Yosys 0.62 -nodsp flag is broken — mul2dsp runs anyway)
+    yosys -p "
+        $RTL_FILES
+        $HF_FILES
+        read_verilog $RTL/ntsc_framebuf.v
+        read_verilog $RTL/ssd1306_i2c.v
+        read_verilog $RTL/ssd1306_oled.v
+        read_verilog $PLL_DEFINES $DUT_DEFINE $RTL/top_ntsc.v
+        synth_ecp5 -run begin:coarse -top top_ntsc
+        proc; flatten; tribuf -logic; deminout
+        opt_expr; opt_clean; check; opt -nodffe -nosdff
+        fsm; opt; wreduce; peepopt; opt_clean; share
+        techmap -map +/cmp2lut.v -D LUT_WIDTH=4
+        opt_expr; opt_clean
+        alumacc; opt
+        memory -nomap; opt_clean
+        synth_ecp5 ${NOWIDELUT:+-nowidelut} -run map_ram: -json $BUILD/ntsc.json
+        stat
+    " > "$BUILD/ntsc_yosys.log" 2>&1
+else
+    NTSC_FB=""
+    if [ -z "$SKIP_NTSC" ]; then
+        NTSC_FB="read_verilog $RTL/ntsc_framebuf.v"
+    fi
+    yosys -p "
+        $RTL_FILES
+        $HF_FILES
+        $NTSC_FB
+        read_verilog $RTL/ssd1306_i2c.v
+        read_verilog $RTL/ssd1306_oled.v
+        read_verilog $PLL_DEFINES $DUT_DEFINE $RTL/top_ntsc.v
+        synth_ecp5 ${NOWIDELUT:+-nowidelut} -top top_ntsc -json $BUILD/ntsc.json
+        stat
+    " > "$BUILD/ntsc_yosys.log" 2>&1
+fi
 
 grep -E '^\s+[0-9]+ +(LUT4|TRELLIS_FF|MULT18X18D|CCU2C|EHXPLLL|DP16KD)$' "$BUILD/ntsc_yosys.log" || true
 if grep -q 'ERROR' "$BUILD/ntsc_yosys.log"; then
@@ -273,7 +353,12 @@ fi
 echo ""
 echo "--- Place & Route ---"
 SEED="${SEED:-1}"
+PNR_EXTRA=""
+if [ -n "$TRNG_MODE" ] || [ -n "$TRNG_ALU_MODE" ]; then
+    PNR_EXTRA="--ignore-loops --timing-allow-fail"
+fi
 nextpnr-ecp5 --25k --package CABGA256 --speed 6 --seed "$SEED" \
+    $PNR_EXTRA \
     --json "$BUILD/ntsc.json" \
     --lpf "$LPF" \
     --textcfg "$BUILD/ntsc.config" \

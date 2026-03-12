@@ -1,4 +1,4 @@
-// spirix_alu_addbit — 2-stage pipelined add/sub + bitwise ALU
+// spirix_alu_addbit_pipe — 2-stage pipelined add/sub + bitwise ALU
 //
 // Ops: ADD(0), SUB(1), AND(2), OR(3), XOR(4)
 //
@@ -27,7 +27,7 @@
 // Exponents LSB-aligned (plain integer, ±1 arithmetic).
 // Floor-only (no rounding). Full edge case handling.
 
-module spirix_alu_addbit #(
+module spirix_alu_addbit_pipe #(
     parameter MAX_FRAC = 64,
     parameter MAX_EXP  = 64
 )(

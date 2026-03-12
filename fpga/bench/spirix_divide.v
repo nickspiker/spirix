@@ -1,271 +1,288 @@
-// spirix_divide — Combinational divide for Spirix scalars
+// spirix_divide — Minimal iterative divider for Spirix scalars
 //
-// Computes a / b on N1-normalized signed fractions with signed exponents.
-// Fully parameterized, purely combinational.
+// Floor-only (no rounding), restoring binary long division.
+// Parameterized: FRAC_BITS in {2..256}, EXP_BITS in {2..256}.
+//
+// Latency: FRAC_BITS + 2 cycles from start to done.
+//   Cycle 0 (start):       Abs values, first trial subtract.
+//   Cycles 1..FRAC:        Restoring division (shift + subtract).
+//   Cycle FRAC+1:          Finalize (normalize/floor/sign from registers).
+//
+// Interface:
+//   start:  pulse high for 1 cycle to begin. Inputs sampled on this edge.
+//   busy:   high while computing. Do not assert start while busy.
+//   done:   pulses high for 1 cycle when result_frac/result_exp are valid.
 //
 // Algorithm:
-//   1. Extract sign (XOR of input signs). Convert to unsigned magnitudes.
-//      NEG_ONE (the only N1 value whose magnitude overflows FRAC_BITS-1
-//      unsigned bits) is represented as POS_HALF with exponent+1.
-//   2. Unsigned fixed-point division: q = (|a| << FRAC_BITS) / |b|.
-//      For N1 inputs, q in [2^(FRAC-1), 2^(FRAC+1)), giving FRAC+1 bits.
-//   3. Bounded normalization: 0 or 1 bit right shift (no barrel needed).
-//   4. Banker's rounding (RNE). Guard from quotient, sticky from shifted-
-//      out bits and the exact remainder.
-//   5. Apply sign: negate fraction for negative results. POS_HALF maps
-//      to NEG_ONE with exp-1 (since -0.5 is not N1).
-//   6. Exponent: a_exp - b_exp + norm_shift + round_ovf, adjusted for
-//      sign (POS_HALF -> NEG_ONE costs 1 exponent). Overflow/underflow
-//      checked after sign adjustment to catch the edge case.
-//   7. Output with overflow/underflow/div-by-zero clamping.
+//   1. Extract signs, take absolute values (NEG_ONE → POS_HALF with exp+1).
+//   2. Unsigned restoring division: FRAC+1 quotient bits, 1 bit per cycle.
+//   3. Euclidean adjustment: if numerator was negative and remainder != 0,
+//      increment quotient (matches Rust's div_euclid semantics).
+//   4. Bounded normalize (0 or 1 bit shift).
+//   5. Extract FRAC magnitude bits. For negative results with lost precision
+//      (truncated bits or remainder), add 1 to magnitude (floor toward -inf).
+//   6. Apply sign, clamp exponent.
 //
-// Why sign extraction is required: two's complement multiplication has a
-// modular identity that makes it sign-blind (low 2N bits are the same for
-// signed and unsigned). Division has no such identity — the quotient bits
-// depend fundamentally on the sign interpretation.
-//
-// Note: uses Verilog '/' operator — suitable for simulation/verification.
-// For synthesis, use the iterative variant (spirix_divide_iter).
-//
-// Division by zero returns (0, AMBIGUOUS_EXP).
-//
-// Input format: value = (fraction / 2^(FRAC_BITS-1)) * 2^exponent
-// Fraction is signed two's complement, N1-normalized (top two bits differ).
-// Exponent is signed two's complement. The minimum exponent value
-// (AMBIGUOUS_EXP = -2^(EXP_BITS-1)) encodes zero/overflow/underflow.
-//
-// Valid parameter range: FRAC_BITS >= 4, EXP_BITS >= 4.
+// Matches Rust scalar_divide_scalar exactly (Euclidean division, floor).
+// 0 DSP. No barrel shifter.
 
 module spirix_divide #(
-    parameter FRAC_BITS = 25,
+    parameter FRAC_BITS = 32,
     parameter EXP_BITS  = 8
 )(
+    input  wire clk,
+    input  wire start,
     input  wire signed [FRAC_BITS-1:0] a_frac,
     input  wire signed [EXP_BITS-1:0]  a_exp,
     input  wire signed [FRAC_BITS-1:0] b_frac,
     input  wire signed [EXP_BITS-1:0]  b_exp,
-    output wire signed [FRAC_BITS-1:0] result_frac,
-    output wire signed [EXP_BITS-1:0]  result_exp
+    output reg  signed [FRAC_BITS-1:0] result_frac,
+    output reg  signed [EXP_BITS-1:0]  result_exp,
+    output wire busy,
+    output reg  done = 0
 );
 
-    localparam AMBIGUOUS_EXP = -(1 <<< (EXP_BITS - 1));
+    localparam AMBIG_EXP = -(1 <<< (EXP_BITS - 1));
     localparam signed [FRAC_BITS-1:0] POS_HALF = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}};
     localparam signed [FRAC_BITS-1:0] NEG_ONE  = {1'b1, {(FRAC_BITS-1){1'b0}}};
-    localparam signed [EXP_BITS:0] MAX_EXP = (1 <<< (EXP_BITS - 1)) - 1;
-    localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
+    localparam CTR_BITS = $clog2(FRAC_BITS + 1);
+    localparam ECW = (EXP_BITS + 2 > $clog2(FRAC_BITS) + 2)
+                   ? EXP_BITS + 2 : $clog2(FRAC_BITS) + 2;
 
-    // Edge case constants
-    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIGUOUS_EXP[EXP_BITS-1:0];
-    localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};
+    localparam S_IDLE     = 0;
+    localparam S_COMPUTE  = 1;
+    localparam S_FINALIZE = 2;
+    localparam S_SHORTCUT = 3;
+    reg [1:0] state = S_IDLE;
+
+    // Edge case shortcut result
+    reg signed [FRAC_BITS-1:0] sc_frac_r;
+    reg signed [EXP_BITS-1:0]  sc_exp_r;
+
+    // Spirix state constants
+    localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};  // = -1 = infinity frac
+    localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIG_EXP[EXP_BITS-1:0];
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
     localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'hE9, {UPAD{1'b0}}});
     localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'h16, {UPAD{1'b0}}});
     localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL      = $signed({8'hFE, {UPAD{1'b0}}});
 
-    // =========================================================================
-    // Edge case classification
-    // =========================================================================
-    wire ec_a_is_ambig = (a_exp == AMBIG_E);
-    wire ec_b_is_ambig = (b_exp == AMBIG_E);
+    // Input state classification (combinational)
+    wire a_is_ambig = (a_exp == AMBIG_E);
+    wire b_is_ambig = (b_exp == AMBIG_E);
+    wire a_is_zero_st = a_is_ambig && (a_frac == {FRAC_BITS{1'b0}});
+    wire b_is_zero_st = b_is_ambig && (b_frac == {FRAC_BITS{1'b0}});
+    wire a_is_inf = a_is_ambig && (a_frac == ALL_ONES);
+    wire b_is_inf = b_is_ambig && (b_frac == ALL_ONES);
+    wire a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
+    wire b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    wire a_exploded = a_is_ambig && a_n1;
+    wire b_exploded = b_is_ambig && b_n1;
+    wire a_n2 = !a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
+    wire b_n2 = !b_n1 && (b_frac[FRAC_BITS-2] != b_frac[FRAC_BITS-3]);
+    wire a_vanished = a_n2;
+    wire b_vanished = b_n2;
+    wire [7:0] a_pref = a_frac[FRAC_BITS-1 -: 8];
+    wire [7:0] b_pref = b_frac[FRAC_BITS-1 -: 8];
+    wire a_n0 = (a_pref == 8'h00) || (a_pref == 8'hFF);
+    wire b_n0 = (b_pref == 8'h00) || (b_pref == 8'hFF);
+    wire a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
+                  (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
+    wire b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &&
+                  (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
+    wire a_undef = !a_n0 && a_top3;
+    wire b_undef = !b_n0 && b_top3;
+    wire b_frac_zero = (b_frac == {FRAC_BITS{1'b0}});
 
-    wire ec_a_n1 = (a_frac[FRAC_BITS-1] != a_frac[FRAC_BITS-2]);
-    wire ec_b_n1 = (b_frac[FRAC_BITS-1] != b_frac[FRAC_BITS-2]);
+    assign busy = (state != S_IDLE);
 
-    wire [7:0] ec_a_pref = a_frac[FRAC_BITS-1 -: 8];
-    wire [7:0] ec_b_pref = b_frac[FRAC_BITS-1 -: 8];
-    wire ec_a_n0 = (ec_a_pref == 8'h00) || (ec_a_pref == 8'hFF);
-    wire ec_b_n0 = (ec_b_pref == 8'h00) || (ec_b_pref == 8'hFF);
+    // Registered operands
+    reg [FRAC_BITS-2:0]     d_reg;       // divisor magnitude
+    reg [FRAC_BITS-1:0]     r_reg;       // partial remainder
+    reg [FRAC_BITS:0]       q_reg;       // quotient shift register (FRAC+1 bits)
+    reg [CTR_BITS-1:0]      counter;
+    reg                      sign_reg;    // result sign (XOR of input signs)
+    reg                      a_neg_reg;   // numerator was negative (for Euclidean adj)
+    reg signed [EXP_BITS:0] a_exp_adj_r; // adjusted exponents
+    reg signed [EXP_BITS:0] b_exp_adj_r;
+    reg                      b_zero_reg;
 
-    wire ec_a_top3 = (a_frac[FRAC_BITS-1] == a_frac[FRAC_BITS-2]) &&
-                     (a_frac[FRAC_BITS-2] == a_frac[FRAC_BITS-3]);
-    wire ec_b_top3 = (b_frac[FRAC_BITS-1] == b_frac[FRAC_BITS-2]) &&
-                     (b_frac[FRAC_BITS-2] == b_frac[FRAC_BITS-3]);
-
-    wire ec_a_undef = !ec_a_n0 && ec_a_top3;
-    wire ec_b_undef = !ec_b_n0 && ec_b_top3;
-
-    wire ec_a_n2 = !ec_a_n1 && (a_frac[FRAC_BITS-2] != a_frac[FRAC_BITS-3]);
-    wire ec_b_n2 = !ec_b_n1 && (b_frac[FRAC_BITS-2] != b_frac[FRAC_BITS-3]);
-
-    wire ec_a_is_zero_st = ec_a_n0 && !a_frac[FRAC_BITS-1];
-    wire ec_b_is_zero_st = ec_b_n0 && !b_frac[FRAC_BITS-1];
-    wire ec_a_is_inf = ec_a_n0 && a_frac[FRAC_BITS-1];
-    wire ec_b_is_inf = ec_b_n0 && b_frac[FRAC_BITS-1];
-
-    wire ec_a_vanished = ec_a_n2;
-    wire ec_b_vanished = ec_b_n2;
-    wire ec_a_exploded = ec_a_is_ambig && ec_a_n1;
-    wire ec_b_exploded = ec_b_is_ambig && ec_b_n1;
-
-    wire ec_a_is_normal = ec_a_n1 && !ec_a_is_ambig;
-    wire ec_b_is_normal = ec_b_n1 && !ec_b_is_ambig;
-    wire ec_any_non_normal = !ec_a_is_normal || !ec_b_is_normal;
-
-    // Edge case shortcut priority chain
-    reg ec_shortcut;
-    reg signed [FRAC_BITS-1:0] ec_sc_frac;
-    reg signed [EXP_BITS-1:0]  ec_sc_exp;
-
-    always @(*) begin
-        ec_shortcut = 1'b0;
-        ec_sc_frac  = {FRAC_BITS{1'b0}};
-        ec_sc_exp   = AMBIG_E;
-        if (ec_any_non_normal) begin
-            ec_shortcut = 1'b1;
-            if (ec_a_undef) begin
-                ec_sc_frac = a_frac; ec_sc_exp = a_exp;
-            end else if (ec_b_undef) begin
-                ec_sc_frac = b_frac; ec_sc_exp = b_exp;
-            end else if (ec_b_is_zero_st) begin
-                ec_sc_frac = ec_a_is_zero_st ? UNDEF_NEG_DIV_NEG : ALL_ONES;
-            end else if (ec_a_is_inf) begin
-                ec_sc_frac = ec_b_is_inf ? UNDEF_TF_DIV_TF : ALL_ONES;
-            end else if (ec_a_is_zero_st || ec_b_is_inf) begin
-                ec_sc_frac = {FRAC_BITS{1'b0}};
-            end else if (ec_a_exploded && ec_b_exploded) begin
-                ec_sc_frac = UNDEF_TF_DIV_TF;
-            end else if (ec_a_vanished && ec_b_vanished) begin
-                ec_sc_frac = UNDEF_NEG_DIV_NEG;
-            end else if (ec_a_vanished || ec_b_vanished) begin
-                ec_sc_frac = UNDEF_GENERAL;
-            end else begin
-                ec_sc_frac = UNDEF_GENERAL;
-            end
-        end else if (b_frac == 0) begin
-            // Normal b with zero fraction (shouldn't happen for true N1, but defensive)
-            ec_shortcut = 1'b1;
-            ec_sc_frac  = ALL_ONES;
-        end
-    end
-
-    // =========================================================================
-    // Step 1: Sign and absolute values
-    //
-    // Result sign = XOR of input signs. Convert fractions to unsigned
-    // magnitudes. NEG_ONE (10...0) has magnitude 2^(FRAC-1) which needs
-    // FRAC unsigned bits — too wide for our FRAC-1 bit magnitude path.
-    // Represent it as POS_HALF (magnitude 2^(FRAC-2)) with exponent+1:
-    //   -1.0 * 2^E = -0.5 * 2^(E+1).
-    // =========================================================================
-    wire result_sign = a_frac[FRAC_BITS-1] ^ b_frac[FRAC_BITS-1];
-    wire b_is_zero = (b_frac == 0);
+    // == Combinational: absolute values from input ports ========================
 
     wire a_is_neg_one = (a_frac == NEG_ONE);
     wire b_is_neg_one = (b_frac == NEG_ONE);
 
-    wire [FRAC_BITS-2:0] abs_a = a_is_neg_one ? POS_HALF[FRAC_BITS-2:0] :
-                                  (a_frac[FRAC_BITS-1] ? (~a_frac[FRAC_BITS-2:0] + 1'b1) :
-                                                          a_frac[FRAC_BITS-2:0]);
-    wire [FRAC_BITS-2:0] abs_b = b_is_neg_one ? POS_HALF[FRAC_BITS-2:0] :
-                                  (b_frac[FRAC_BITS-1] ? (~b_frac[FRAC_BITS-2:0] + 1'b1) :
-                                                          b_frac[FRAC_BITS-2:0]);
+    wire [FRAC_BITS-2:0] abs_a_comb = a_is_neg_one ? POS_HALF[FRAC_BITS-2:0] :
+                                       (a_frac[FRAC_BITS-1] ? (~a_frac[FRAC_BITS-2:0] + 1'b1) :
+                                                               a_frac[FRAC_BITS-2:0]);
+    wire [FRAC_BITS-2:0] abs_b_comb = b_is_neg_one ? POS_HALF[FRAC_BITS-2:0] :
+                                       (b_frac[FRAC_BITS-1] ? (~b_frac[FRAC_BITS-2:0] + 1'b1) :
+                                                               b_frac[FRAC_BITS-2:0]);
 
-    wire signed [EXP_BITS:0] a_exp_adj = $signed({a_exp[EXP_BITS-1], a_exp})
-                                         + {{EXP_BITS{1'b0}}, a_is_neg_one};
-    wire signed [EXP_BITS:0] b_exp_adj = $signed({b_exp[EXP_BITS-1], b_exp})
-                                         + {{EXP_BITS{1'b0}}, b_is_neg_one};
+    // == Shared trial subtraction ===============================================
 
-    // =========================================================================
-    // Step 2: Unsigned fixed-point division
-    //
-    // Shift numerator left by FRAC_BITS to get FRAC_BITS+1 quotient bits.
-    // For N1 magnitudes in [2^(FRAC-2), 2^(FRAC-1)):
-    //   quotient in [2^(FRAC-1), 2^(FRAC+1))
-    // The remainder provides exact sticky information for rounding.
-    // =========================================================================
-    localparam WIDE = 2 * FRAC_BITS;
-    wire [WIDE-1:0] wide_a = {{(FRAC_BITS+1){1'b0}}, abs_a} << FRAC_BITS;
-    wire [WIDE-1:0] wide_b = {{(FRAC_BITS+1){1'b0}}, abs_b};
-    wire [WIDE-1:0] quotient_full = wide_a / wide_b;
-    wire [WIDE-1:0] remainder     = wide_a - quotient_full * wide_b;
+    wire starting = (state == S_IDLE) & start;
 
-    wire [FRAC_BITS:0] q = quotient_full[FRAC_BITS:0];
+    wire [FRAC_BITS-1:0] r_in = starting ? {1'b0, abs_a_comb} :
+                                            {r_reg[FRAC_BITS-2:0], 1'b0};
+    wire [FRAC_BITS-2:0] d_mux = starting ? abs_b_comb : d_reg;
 
-    // =========================================================================
-    // Step 3: Bounded normalization (0 or 1 bit right shift)
-    //
-    // q[FRAC] set means |a/b| >= 1.0. Shift right 1 to place the leading
-    // 1 at bit FRAC-1 (positive N1 position). The shifted-out bit feeds
-    // into sticky for rounding.
-    // =========================================================================
-    wire norm_shift = q[FRAC_BITS];
-    wire [FRAC_BITS:0] q_norm = norm_shift ? (q >> 1) : q;
+    wire [FRAC_BITS:0] trial = {1'b0, r_in} - {2'b00, d_mux};
+    wire ge = !trial[FRAC_BITS];
+    wire [FRAC_BITS-1:0] r_next = ge ? trial[FRAC_BITS-1:0] : r_in;
 
-    // Extract positive N1 fraction: q_norm[FRAC:1] = 01xxx (FRAC bits)
-    wire [FRAC_BITS-1:0] frac_pos_raw = q_norm[FRAC_BITS:1];
+    // == Finalization (from registered q_reg/r_reg in S_FINALIZE) ===============
 
-    // =========================================================================
-    // Step 4: Banker's rounding (RNE)
-    //
-    // Guard: first bit below the extracted fraction.
-    // Sticky: bit shifted out by normalization OR any nonzero remainder.
-    // Round up when guard=1 AND (sticky | lsb).
-    //
-    // Early rounding overflow detection: frac_pos_raw is always positive
-    // (01xxx), so only positive rovf applies. Max positive N1 (0_111...1)
-    // + round_up overflows to 1_000...0, exiting N1.
-    // =========================================================================
-    wire guard      = q_norm[0];
-    wire norm_sticky = norm_shift & q[0];
-    wire rem_sticky  = |remainder;
-    wire sticky = norm_sticky | rem_sticky;
-    wire lsb    = frac_pos_raw[0];
-    wire round_up = guard & (sticky | lsb);
+    // Euclidean adjustment: when numerator was negative and remainder nonzero,
+    // Rust's div_euclid returns a quotient that's 1 larger in magnitude.
+    wire has_remainder = |r_reg;
+    wire euclid_adj = a_neg_reg & has_remainder;
+    wire [FRAC_BITS:0] q_adj = q_reg + {{FRAC_BITS{1'b0}}, euclid_adj};
 
-    wire [FRAC_BITS-1:0] frac_rounded = frac_pos_raw + {{(FRAC_BITS-1){1'b0}}, round_up};
+    // Bounded normalize: if quotient MSB is set, shift right by 1.
+    wire norm_shift = q_adj[FRAC_BITS];
+    wire [FRAC_BITS:0] q_norm = norm_shift ? (q_adj >> 1) : q_adj;
 
-    wire round_ovf = (&frac_pos_raw[FRAC_BITS-2:0]) & round_up;
-    wire [FRAC_BITS-1:0] pos_frac = round_ovf ? POS_HALF : frac_rounded;
+    // Extract FRAC magnitude bits: q_norm[FRAC:1].
+    // q_norm[0] is truncated during extraction.
+    // With norm_shift, q_adj[0] was also truncated.
+    wire [FRAC_BITS-1:0] frac_pos = q_norm[FRAC_BITS:1];
 
-    // =========================================================================
-    // Step 5: Apply sign
-    //
-    // For negative results, negate the positive fraction. Two's complement
-    // negation of an N1 value always produces an N1 value except for
-    // POS_HALF: -(01_0...0) = 11_0...0 where top two bits match (not N1).
-    // Fix: represent -0.5 as NEG_ONE (-1.0) with exponent-1.
-    // =========================================================================
-    wire neg_is_pos_half = (pos_frac == POS_HALF);
+    // Floor adjustment for negative results:
+    // Unsigned truncation rounds toward zero. For negative results, floor
+    // rounds toward -inf, which means adding 1 to the unsigned magnitude
+    // whenever bits were truncated during extraction.
+    // Note: has_remainder is NOT included — after Euclidean adjustment,
+    // Q' is the exact integer quotient; only the extraction loses bits.
+    wire trunc_bits = q_norm[0] | (norm_shift & q_adj[0]);
+    wire neg_floor_adj = sign_reg & trunc_bits;
+    wire [FRAC_BITS-1:0] frac_adj = frac_pos + {{(FRAC_BITS-1){1'b0}}, neg_floor_adj};
 
-    wire signed [FRAC_BITS-1:0] neg_frac = neg_is_pos_half ? NEG_ONE :
-                                            (~pos_frac + 1'b1);
+    // Floor adjustment overflow: frac_pos was 0111...1, +1 → POS_HALF magnitude.
+    wire floor_ovf = neg_floor_adj & (&frac_pos[FRAC_BITS-2:0]);
 
-    wire signed [FRAC_BITS-1:0] final_frac = result_sign ? neg_frac : $signed(pos_frac);
+    // Apply sign
+    wire mag_is_half = (frac_adj == POS_HALF);
+    wire signed [FRAC_BITS-1:0] neg_frac = mag_is_half ?
+                                            NEG_ONE :
+                                            (~frac_adj + 1'b1);
+    wire signed [FRAC_BITS-1:0] pos_frac_signed = $signed(frac_adj);
+    wire signed [FRAC_BITS-1:0] final_frac = sign_reg ? neg_frac : pos_frac_signed;
 
-    // =========================================================================
-    // Step 6: Exponent with sign adjustment
-    //
-    // Base: a_exp_adj - b_exp_adj + norm_shift + round_ovf.
-    // Sign adjustment: POS_HALF -> NEG_ONE costs 1 exponent.
-    // Overflow/underflow checked on the final (sign-adjusted) exponent
-    // to catch the edge case where the -1 pushes past MIN_EXP.
-    // =========================================================================
-    wire signed [EXP_BITS:0] exp_base = a_exp_adj - b_exp_adj
-                                       + {{EXP_BITS{1'b0}}, norm_shift}
-                                       + {{EXP_BITS{1'b0}}, round_ovf};
+    // Exponent = a_exp - b_exp + norm_shift + floor_ovf - neg_half_adj
+    wire neg_half_adj = sign_reg & mag_is_half;
+    wire signed [ECW-1:0] exp_calc =
+        $signed({{(ECW-EXP_BITS-1){a_exp_adj_r[EXP_BITS]}}, a_exp_adj_r})
+        - $signed({{(ECW-EXP_BITS-1){b_exp_adj_r[EXP_BITS]}}, b_exp_adj_r})
+        + {{(ECW-1){1'b0}}, norm_shift}
+        + {{(ECW-1){1'b0}}, floor_ovf}
+        - {{(ECW-1){1'b0}}, neg_half_adj};
 
-    wire signed [EXP_BITS:0] exp_final = (result_sign & neg_is_pos_half) ?
-                                          (exp_base - 1) : exp_base;
+    localparam signed [ECW-1:0] MAX_EXP_W = (1 <<< (EXP_BITS - 1)) - 1;
+    localparam signed [ECW-1:0] MIN_EXP_W = -(1 <<< (EXP_BITS - 1)) + 1;
 
-    wire exp_too_big   = (exp_final > MAX_EXP);
-    wire exp_too_small = (exp_final < MIN_EXP);
-    wire signed [EXP_BITS-1:0] final_exp = exp_final[EXP_BITS-1:0];
+    wire overflow  = (exp_calc > MAX_EXP_W);
+    wire underflow = (exp_calc < MIN_EXP_W);
+    wire signed [EXP_BITS-1:0] out_exp = exp_calc[EXP_BITS-1:0];
 
-    // =========================================================================
-    // Step 7: Output with overflow/underflow/div-by-zero clamping
-    //
-    // Division by zero: return (0, AMBIGUOUS_EXP).
-    // Overflow: preserve fraction sign, AMBIGUOUS_EXP.
-    // Underflow: truncate fraction (sign + MSBs), AMBIGUOUS_EXP.
-    // =========================================================================
-    assign result_frac = ec_shortcut    ? ec_sc_frac :
-                         exp_too_big   ? final_frac :
-                         exp_too_small ? {final_frac[FRAC_BITS-1],
-                                          final_frac[FRAC_BITS-1:1]} :
-                                         final_frac;
+    wire signed [FRAC_BITS-1:0] vanished_frac = {final_frac[FRAC_BITS-1],
+                                                   final_frac[FRAC_BITS-1:1]};
 
-    assign result_exp  = ec_shortcut   ? ec_sc_exp :
-                         (exp_too_big | exp_too_small) ?
-                          AMBIGUOUS_EXP[EXP_BITS-1:0] : final_exp;
+    wire signed [FRAC_BITS-1:0] out_frac = b_zero_reg  ? {FRAC_BITS{1'b0}} :
+                                            overflow    ? final_frac :
+                                            underflow   ? vanished_frac :
+                                                          final_frac;
+
+    wire signed [EXP_BITS-1:0] out_exp_final =
+        (b_zero_reg | overflow | underflow) ? AMBIG_EXP[EXP_BITS-1:0] : out_exp;
+
+    // == State machine ==========================================================
+
+    always @(posedge clk) begin
+        done <= 1'b0;
+
+        case (state)
+            S_IDLE: begin
+                if (start) begin
+                    // Edge case detection (gated by any non-normal input)
+                    if (!(a_n1 && !a_is_ambig) || !(b_n1 && !b_is_ambig)) begin
+                        state <= S_SHORTCUT;
+                        sc_exp_r <= AMBIG_E;
+                        if (a_undef) begin
+                            sc_frac_r <= a_frac; sc_exp_r <= a_exp;
+                        end else if (b_undef) begin
+                            sc_frac_r <= b_frac; sc_exp_r <= b_exp;
+                        end else if (b_is_zero_st) begin
+                            sc_frac_r <= a_is_zero_st ? UNDEF_NEG_DIV_NEG : ALL_ONES;
+                        end else if (a_is_inf) begin
+                            sc_frac_r <= b_is_inf ? UNDEF_TF_DIV_TF : ALL_ONES;
+                        end else if (a_is_zero_st || b_is_inf) begin
+                            sc_frac_r <= {FRAC_BITS{1'b0}};
+                        end else if (a_exploded && b_exploded) begin
+                            sc_frac_r <= UNDEF_TF_DIV_TF;
+                        end else if (a_vanished && b_vanished) begin
+                            sc_frac_r <= UNDEF_NEG_DIV_NEG;
+                        end else if (a_vanished || b_vanished) begin
+                            sc_frac_r <= UNDEF_GENERAL;
+                        end else if (a_exploded || b_exploded) begin
+                            if ((a_is_ambig && !a_n1) || (b_is_ambig && !b_n1))
+                                sc_frac_r <= UNDEF_GENERAL;
+                            else
+                                sc_frac_r <= UNDEF_GENERAL;  // long div can't fix exp
+                        end else begin
+                            sc_frac_r <= UNDEF_GENERAL;
+                        end
+                    end else if (b_frac_zero) begin
+                        // Normal b with frac=0 (malformed, safety net) → infinity
+                        state <= S_SHORTCUT;
+                        sc_frac_r <= ALL_ONES;
+                        sc_exp_r  <= AMBIG_E;
+                    end else begin
+                        // Normal path: run long division
+                        sign_reg <= a_frac[FRAC_BITS-1] ^ b_frac[FRAC_BITS-1];
+                        a_neg_reg <= a_frac[FRAC_BITS-1];
+                        b_zero_reg <= 1'b0;
+
+                        a_exp_adj_r <= $signed({a_exp[EXP_BITS-1], a_exp})
+                                     + {{EXP_BITS{1'b0}}, a_is_neg_one};
+                        b_exp_adj_r <= $signed({b_exp[EXP_BITS-1], b_exp})
+                                     + {{EXP_BITS{1'b0}}, b_is_neg_one};
+
+                        d_reg <= abs_b_comb;
+                        r_reg <= r_next;
+                        q_reg <= {{FRAC_BITS{1'b0}}, ge};
+
+                        counter <= FRAC_BITS[CTR_BITS-1:0] - 1;
+                        state <= S_COMPUTE;
+                    end
+                end
+            end
+
+            S_COMPUTE: begin
+                r_reg <= r_next;
+                q_reg <= {q_reg[FRAC_BITS-1:0], ge};
+
+                if (counter == 0) begin
+                    state <= S_FINALIZE;
+                end else begin
+                    counter <= counter - 1;
+                end
+            end
+
+            S_FINALIZE: begin
+                result_frac <= out_frac;
+                result_exp  <= out_exp_final;
+                done <= 1'b1;
+                state <= S_IDLE;
+            end
+
+            S_SHORTCUT: begin
+                result_frac <= sc_frac_r;
+                result_exp  <= sc_exp_r;
+                done <= 1'b1;
+                state <= S_IDLE;
+            end
+        endcase
+    end
 
 endmodule

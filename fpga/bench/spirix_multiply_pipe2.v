@@ -87,10 +87,11 @@ module spirix_multiply_pipe2 #(
     wire sc_a_undef  = a_undef;
     wire sc_b_undef  = ~a_undef & b_undef;
     wire sc_inf_zero = ~a_undef & ~b_undef & ((a_is_inf & b_is_zero) | (a_is_zero & b_is_inf));
-    wire sc_any_zero = ~a_undef & ~b_undef & ~sc_inf_zero & (a_is_zero | b_is_zero);
-    wire sc_exp_van  = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_zero &
+    wire sc_any_inf  = ~a_undef & ~b_undef & ~sc_inf_zero & (a_is_inf | b_is_inf);
+    wire sc_any_zero = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_inf & (a_is_zero | b_is_zero);
+    wire sc_exp_van  = ~a_undef & ~b_undef & ~sc_inf_zero & ~sc_any_inf & ~sc_any_zero &
                        ((a_exploded & b_vanished) | (a_vanished & b_exploded));
-    wire shortcut    = sc_a_undef | sc_b_undef | sc_inf_zero | sc_any_zero | sc_exp_van;
+    wire shortcut    = sc_a_undef | sc_b_undef | sc_inf_zero | sc_any_inf | sc_any_zero | sc_exp_van;
 
     wire abnormal_compute = any_non_normal & ~shortcut;
     wire n_level_neg1 = a_exploded | b_exploded;
@@ -99,6 +100,7 @@ module spirix_multiply_pipe2 #(
         sc_a_undef  ? a_frac :
         sc_b_undef  ? b_frac :
         sc_inf_zero ? ((a_is_inf | a_exploded) ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF) :
+        sc_any_inf  ? {FRAC_BITS{1'b1}} :
         sc_any_zero ? {FRAC_BITS{1'b0}} :
                       ((a_exploded)             ? UNDEF_TF_MUL_NEG : UNDEF_NEG_MUL_TF);
 

@@ -7,18 +7,65 @@ Target: ECP5-25F speed-6 (Colorlight 5A-75B v8.0). LUT4 counts with `-nowidelut`
 
 ## ALU Modules
 
-| Module | Ops | Op Encoding | LUT4 | DSP | Silicon Fmax | Stages |
-|--------|-----|-------------|------|-----|-------------|--------|
-| `spirix_alu_basic` | NEG, ABS, SIGN, SHL, SHR | 3-bit: 0-4 | 3,900 | 0 | 231 MHz | 1 |
-| `spirix_alu_minmax` | MIN, MAX | 1-bit: 0-1 | 2,127 | 0 | 208 MHz | 1 |
-| `spirix_alu_addbit` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | 6,341 | 0 | ~40 MHz* | 1 |
-| `spirix_alu_addbit_pipe` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | ~6,700 | 0 | 201 MHz | 2 |
-| `spirix_alu_round` | FLOOR, CEIL | 1-bit: 0-1 | 2,894 | 0 | 126 MHz | 1 |
-| `spirix_alu_round_pipe` | FLOOR, CEIL | 1-bit: 0-1 | 2,896 | 0 | 188 MHz | 2 |
+| Module | Ops | Op Encoding | LUT4 | DSP | Silicon Fmax | Stages | Latency |
+|--------|-----|-------------|------|-----|-------------|--------|---------|
+| `spirix_alu_basic` | NEG, ABS, SIGN, SHL, SHR | 3-bit: 0-4 | 3,900 | 0 | 231 MHz | 1 | 1 clk |
+| `spirix_alu_minmax` | MIN, MAX | 1-bit: 0-1 | 2,127 | 0 | 208 MHz | 1 | 1 clk |
+| `spirix_alu_addbit` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | 6,341 | 0 | 108 MHz | 1 | 1 clk |
+| `spirix_alu_addbit_pipe` | ADD, SUB, AND, OR, XOR | 3-bit: 0-4 | ~6,700 | 0 | 201 MHz | 2 | 2 clk |
+| `spirix_alu_round` | FLOOR, CEIL, ROUND | 2-bit: 0-2 | 2,194 | 0 | 235 MHz | 1 | 1 clk |
+| `spirix_alu_multiply` | MUL | — | ~2,131 | 0 | ~95 MHz | 1 | 1 clk |
+| `spirix_alu_multiply_pipe` | MUL | — | ~2,666 | 0 | 170 MHz | 2 | 2 clk |
+| `spirix_alu_divmodsqrt` | DIV, SQRT, MOD | 2-bit: 0-2 | 5,433 | 0 | 188 MHz | iter | ~F+2 clk |
+| `spirix_alu_random` | RANDOM | — | ~487 | 0 | >=800 MHz | 2 | 2 clk |
 
-\* addbit combinational not silicon-tested (too slow for meaningful Fmax).
+**Total: 21 ops across 9 modules, 0 DSP.**
 
-**Total: 14 ops across 6 modules, 0 DSP.**
+*Harness-limited: passes at test harness ceiling (~500 MHz). True Fmax is higher.
+
+## TRNG (`spirix_alu_random`)
+
+Hardware True Random Number Generator as a first-class ALU operation.
+Outputs N1-normalized scalars in (-1, 1) with proper sign, full CLZ normalize, and random bit fill.
+
+### Architecture
+
+72 ring oscillators with frequency diversity across 3 ECP5 LUT4 feedback paths:
+- 24x A-pin (~1.4 GHz): `INIT=16'h0100`, fastest propagation
+- 24x B-pin (~1.25 GHz): `INIT=16'h3300`, medium propagation
+- 24x C-pin (~1.1 GHz): `INIT=16'h0F00`, slowest propagation
+
+Zero-cost frequency diversity: different LUT4 input pins have different internal delays.
+ROs run continuously after first activation. Gated by `ro_gate` (D-input AND).
+
+### Pipeline
+
+**S1 (capture):** Temporal XOR of all 72 ROs vs previous sample. Captures jitter
+accumulated between consecutive clock edges. `prev_sample` updated every idle clock
+to keep entropy fresh between operations.
+
+**S2 (normalize):** Combinational:
+1. **Rotation mix** (BLAKE3-inspired): `mixed[i] = jitter[i] ^ jitter[(i+9)%72] ^ jitter[(i+31)%72]`.
+   Coprime offsets (9, 31 to 24 and 72) ensure cross-frequency-band mixing. 72 LUT4.
+2. **CLZ + normalize** on full 72 mixed bits. Sign-aware: XOR magnitude with sign bit
+   before CLZ (handles both positive `01...` and negative `10...` N1 forms).
+3. **Truncate** 72 -> 64 bits. Extra 8 bits naturally fill low positions after shift —
+   no synthetic fill needed.
+
+### Timing
+
+- **Cold start** (first-ever): 4 clocks (2 priming + capture + normalize)
+- **Warm** (subsequent): 2 clocks (capture + normalize)
+- **Silicon Fmax**: >=800 MHz (visually verified on OLED, 6.1x over 130 MHz nextpnr estimate)
+
+### Build
+
+```bash
+DUT=spirix_random SEED=4 bash fpga/scripts/build_ntsc.sh 25 --program
+```
+
+Uses `--ignore-loops --timing-allow-fail` for RO combinational feedback paths.
+OLED demo: button press generates random scalar, displays fraction/exponent alongside pi reference.
 
 ## Interface (all modules)
 
@@ -33,14 +80,25 @@ output [63:0] result_frac  // result fraction
 output [63:0] result_exp   // result exponent
 ```
 
-Unary ops (NEG, ABS, SIGN, FLOOR, CEIL): b inputs ignored.
+Unary ops (NEG, ABS, SIGN, FLOOR, CEIL, ROUND, RANDOM): b inputs ignored.
 Shift ops (SHL, SHR): b_exp is the shift amount, b_frac ignored.
+Iterative ops (DIV, SQRT, MOD): start/busy/done handshake.
+
+## Iterative Modules
+
+`spirix_alu_divmodsqrt` uses restoring binary division/sqrt, 1 bit per clock:
+- DIV: ~FRAC+2 cycles latency. Full edge case chain (undef/zero/inf/exploded/vanished).
+- SQRT: ~FRAC+3 cycles latency. Full edge cases including negative -> undefined.
+- MOD: Floored modulo using exact restoring-divider remainder (no multiply).
+  Floored sign correction: differing signs -> abs_b - remainder.
+- 2-stage finalization pipeline. 65-bit exponent arithmetic avoids i64 overflow.
+- 71,392 test vectors: exact match vs Rust gold across all 16 width combos.
 
 ## Primitive Modules (shared dependencies)
 
 | Module | Purpose | Used By |
 |--------|---------|---------|
-| `spirix_neg` | Negate with POS_HALF/NEG_ONE edge cases | basic, round |
+| `spirix_neg` | Negate with POS_HALF/NEG_ONE edge cases | basic |
 | `spirix_cmp` | Compare (lt/eq/gt/unord) | minmax |
 | `spirix_floor` | Floor (standalone, legacy) | — |
 | `spirix_abs` | Absolute value (standalone, legacy) | — |
@@ -54,7 +112,8 @@ Generated by Rust programs in `examples/`:
 | `gen_basic_vectors.rs` | 32,368 | NEG, ABS, SIGN, SHL, SHR |
 | `gen_minmax_vectors.rs` | 35,968 | MIN, MAX |
 | `gen_ops_vectors.rs` | — | ADD, SUB, AND, OR, XOR |
-| `gen_round_vectors.rs` | 18,720 | FLOOR, CEIL |
+| `gen_round_vectors.rs` | 37,440 | FLOOR, CEIL, ROUND, FRAC |
+| `gen_divsqrt_vectors.rs` | 71,392 | DIV, SQRT, MOD |
 
 All vectors test 16 width combos (4 frac x 4 exp). Edge cases + boundary + PRNG normals.
 
@@ -67,10 +126,13 @@ DUT=spirix_basic SEED=4 bash fpga/scripts/build_ntsc.sh 25
 # Build + flash at target frequency
 DUT=spirix_basic SEED=4 bash fpga/scripts/build_ntsc.sh 231 --program
 
-# DUT names: spirix_basic, spirix_minmax, spirix_addbit, spirix_addbit_pipe, spirix_round
+# DUT names: spirix_basic, spirix_minmax, spirix_addbit, spirix_addbit_pipe,
+#            spirix_round, spirix_mul_ops, spirix_mul_ops_pipe,
+#            spirix_divmodsqrt, spirix_random
 ```
 
 Silicon Fmax found by binary search: highest frequency where all 16 width combos PASS on CRT.
+*Harness-limited: passes at test harness ceiling (~500 MHz). True Fmax is higher.
 
 ## Architecture — Register Machine
 
@@ -90,7 +152,7 @@ Instruction: opcode[4:0] ra[2:0] rb[2:0] rd[2:0] frac_w[1:0] exp_w[1:0] = 18 bit
        │  Broadcast   │
        └─┬──┬──┬──┬──┘
          │  │  │  │
-      basic addbit round mul/div
+      basic addbit round mul/div/sqrt/random
          │  │  │  │
        ┌─┴──┴──┴──┴──┐
        │  Result Mux  │
@@ -100,7 +162,7 @@ Instruction: opcode[4:0] ra[2:0] rb[2:0] rd[2:0] frac_w[1:0] exp_w[1:0] = 18 bit
 ```
 
 - All functional units wired in parallel, selected by opcode
-- 1-2 cycle ops (basic, addbit, round, mul): result writes back automatically
-- Iterative ops (div, sqrt): `done` signal, stall until complete
+- 1-2 cycle ops (basic, addbit, round, mul, random): result writes back automatically
+- Iterative ops (div, sqrt, mod): `done` signal, stall until complete
 - Width select shared across all units from instruction word
-- 14 ops currently, 5-bit opcode has room for 32
+- 21 ops currently, 5-bit opcode has room for 32
