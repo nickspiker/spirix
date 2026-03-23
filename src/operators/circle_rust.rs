@@ -232,10 +232,10 @@ impl_circle_op_rust_to_circle!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_op_rust_to_circle!(Add, add, circle_add_scalar, f32, f64);
 
 impl_circle_op_rust_to_circle!(
     Sub,
@@ -252,10 +252,10 @@ impl_circle_op_rust_to_circle!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_op_rust_to_circle!(Sub, sub, circle_subtract_scalar, f32, f64);
 
 impl_circle_op_rust_to_circle!(
     Mul,
@@ -272,10 +272,10 @@ impl_circle_op_rust_to_circle!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_op_rust_to_circle!(Mul, mul, circle_multiply_scalar, f32, f64);
 
 impl_circle_op_rust_to_circle!(
     Div,
@@ -292,10 +292,10 @@ impl_circle_op_rust_to_circle!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_op_rust_to_circle!(Div, div, circle_divide_scalar, f32, f64);
 
 // =====================================================
 // Circle + Rust = Scalar operations (for Rem)
@@ -523,10 +523,10 @@ impl_circle_op_rust_to_scalar!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_op_rust_to_scalar!(Rem, rem, circle_modulus_scalar, f32, f64);
 
 // =====================================================
 // Circle += Rust operations
@@ -617,10 +617,10 @@ impl_circle_assign_op_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_assign_op_rust!(AddAssign, add_assign, circle_add_scalar, f32, f64);
 
 impl_circle_assign_op_rust!(
     SubAssign,
@@ -637,10 +637,10 @@ impl_circle_assign_op_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_assign_op_rust!(SubAssign, sub_assign, circle_subtract_scalar, f32, f64);
 
 impl_circle_assign_op_rust!(
     MulAssign,
@@ -657,10 +657,10 @@ impl_circle_assign_op_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_assign_op_rust!(MulAssign, mul_assign, circle_multiply_scalar, f32, f64);
 
 impl_circle_assign_op_rust!(
     DivAssign,
@@ -677,10 +677,10 @@ impl_circle_assign_op_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_assign_op_rust!(DivAssign, div_assign, circle_divide_scalar, f32, f64);
 
 // =====================================================
 // Circle Shift Operations
@@ -1263,10 +1263,10 @@ impl_circle_exponent_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_exponent_rust!(Modulo, modulo, circle_modulo_scalar, f32, f64);
 impl_circle_exponent_rust!(
     Power,
     pow,
@@ -1282,10 +1282,10 @@ impl_circle_exponent_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_exponent_rust!(Power, pow, circle_power_scalar, f32, f64);
 impl_circle_exponent_rust!(
     Logarithm,
     log,
@@ -1301,10 +1301,10 @@ impl_circle_exponent_rust!(
     u32,
     u64,
     u128,
-    usize,
-    f32,
-    f64
+    usize
 );
+#[cfg(feature = "ieee")]
+impl_circle_exponent_rust!(Logarithm, log, circle_logarithm_scalar, f32, f64);
 
 // =====================================================
 // Circle comparison with Rust primitives
@@ -1577,4 +1577,6 @@ macro_rules! impl_circle_cmp_rust {
     };
 }
 
-impl_circle_cmp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_circle_cmp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+#[cfg(feature = "ieee")]
+impl_circle_cmp_rust!(f32, f64);

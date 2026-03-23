@@ -4,6 +4,7 @@ use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use core::ops::*;
 
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -89,6 +90,7 @@ where
     }
 }
 
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -173,6 +175,7 @@ where
         }
     }
 }
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -235,6 +238,7 @@ where
         (&self).into()
     }
 }
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -512,7 +516,7 @@ macro_rules! impl_into_uint {
     i64: AsPrimitive<E>,
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
-    I256: From<E>, Scalar<F, E>: Into<f64>,
+    I256: From<E>,
 {
                 fn into(self) -> $u {
                     (&self).into()
@@ -574,7 +578,7 @@ macro_rules! impl_into_uint {
     i64: AsPrimitive<E>,
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
-    I256: From<E>, Scalar<F, E>: Into<f64>,
+    I256: From<E>,
 {
     fn into(self) -> $u {
         if self.fraction.is_negative() {
@@ -1690,6 +1694,7 @@ mod tests_scalar_ieee {
     // both the inherent to_f32()/to_f64() methods and the generic Into trait
     // produce consistent results (within 2 ULP, allowing for different rounding).
 
+    #[cfg(feature = "ieee")]
     #[test]
     fn into_f32_agrees_with_to_f32() {
         for &v in &[1.0_f32, -1.0, 0.5, 100.0, -100.0, 0.25] {
@@ -1705,6 +1710,7 @@ mod tests_scalar_ieee {
         }
     }
 
+    #[cfg(feature = "ieee")]
     #[test]
     fn into_f64_agrees_with_to_f64() {
         for &v in &[1.0_f32, -1.0, 0.5, 100.0, -100.0, 0.25] {
@@ -1719,6 +1725,7 @@ mod tests_scalar_ieee {
         }
     }
 
+    #[cfg(feature = "ieee")]
     #[test]
     fn into_f32_nan_and_inf() {
         // Use runtime From<f32> for special values.

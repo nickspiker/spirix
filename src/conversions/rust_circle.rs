@@ -1,8 +1,12 @@
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::FullInt;
+#[cfg(feature = "ieee")]
+use crate::core::integer::IntConvert;
+#[cfg(feature = "ieee")]
 use crate::core::undefined::*;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
+#[cfg(feature = "ieee")]
 use num_complex::Complex;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use core::ops::*;
@@ -166,6 +170,7 @@ where
 ///
 /// This conversion handles IEEE-754 special values like NaN by converting them
 /// to appropriate undefined states in the Spirix number system.
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt
@@ -271,6 +276,7 @@ where
 ///
 /// Similar to the f64 implementation, this handles IEEE-754 special values
 /// appropriately when converting to the Spirix number system.
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt
@@ -477,6 +483,7 @@ where
 ///
 /// This provides a convenient way to convert a reference to a `Complex<f64>`
 /// without taking ownership.
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt
@@ -567,6 +574,7 @@ where
 ///
 /// This provides a convenient way to convert a reference to a `Complex<f32>`
 /// without taking ownership.
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt

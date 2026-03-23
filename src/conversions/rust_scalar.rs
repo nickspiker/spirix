@@ -4,6 +4,7 @@ use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -78,6 +79,7 @@ where
     }
 }
 
+#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -151,6 +153,7 @@ where
         Self::from(*binary64)
     }
 }
+#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<&f64>
     for Scalar<F, E>
 where
@@ -233,6 +236,7 @@ where
     }
 }
 
+#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f32>
     for Scalar<F, E>
 where
@@ -293,6 +297,7 @@ where
     }
 }
 
+#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt>
     From<&mut f32> for Scalar<F, E>
 where
@@ -353,6 +358,7 @@ where
     }
 }
 
+#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<&f32>
     for Scalar<F, E>
 where

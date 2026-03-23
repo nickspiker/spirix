@@ -212,100 +212,35 @@ macro_rules! impl_rust_op_scalar {
 
 // Implement for all primitive types and operations
 impl_rust_op_scalar!(
-    Add,
-    add,
-    scalar_add_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    Add, add, scalar_add_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_rust_op_scalar!(Add, add, scalar_add_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Sub,
-    sub,
-    scalar_subtract_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    Sub, sub, scalar_subtract_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_rust_op_scalar!(Sub, sub, scalar_subtract_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Mul,
-    mul,
-    scalar_multiply_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    Mul, mul, scalar_multiply_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_rust_op_scalar!(Mul, mul, scalar_multiply_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Div,
-    div,
-    scalar_divide_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    Div, div, scalar_divide_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_rust_op_scalar!(Div, div, scalar_divide_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Rem,
-    rem,
-    scalar_modulus_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    Rem, rem, scalar_modulus_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_rust_op_scalar!(Rem, rem, scalar_modulus_scalar, f32, f64);
 
 // Implement power operations for primitives
 macro_rules! impl_rust_power_scalar {
@@ -712,7 +647,9 @@ macro_rules! impl_rust_power_scalar {
 }
 
 // Implement for all primitive types
-impl_rust_power_scalar!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_rust_power_scalar!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+#[cfg(feature = "ieee")]
+impl_rust_power_scalar!(f32, f64);
 // Comparison operations between Scalars and primitives should work? not sure why it doesn't
 macro_rules! impl_scalar_cmp_rust {
     ($($t:ty),*) => {
@@ -1111,7 +1048,9 @@ macro_rules! impl_scalar_cmp_rust {
 }
 
 // Implement for all primitive types
-impl_scalar_cmp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_scalar_cmp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+#[cfg(feature = "ieee")]
+impl_scalar_cmp_rust!(f32, f64);
 
 // Bitwise operations with primitives (primitive OP Scalar)
 impl_rust_op_scalar!(

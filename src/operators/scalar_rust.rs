@@ -210,97 +210,42 @@ impl_scalar_op_rust!(
     Add,
     add,
     scalar_add_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_op_rust!(Add, add, scalar_add_scalar, f32, f64);
 impl_scalar_op_rust!(
     Sub,
     sub,
     scalar_subtract_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_op_rust!(Sub, sub, scalar_subtract_scalar, f32, f64);
 impl_scalar_op_rust!(
     Mul,
     mul,
     scalar_multiply_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_op_rust!(Mul, mul, scalar_multiply_scalar, f32, f64);
 impl_scalar_op_rust!(
     Div,
     div,
     scalar_divide_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_op_rust!(Div, div, scalar_divide_scalar, f32, f64);
 impl_scalar_op_rust!(
     Rem,
     rem,
     scalar_modulus_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_op_rust!(Rem, rem, scalar_modulus_scalar, f32, f64);
 
 // Add AssignOp implementations for primitive types
 macro_rules! impl_scalar_assign_op_rust {
@@ -374,100 +319,35 @@ macro_rules! impl_scalar_assign_op_rust {
 
 // Implement assignment operations
 impl_scalar_assign_op_rust!(
-    AddAssign,
-    add_assign,
-    scalar_add_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    AddAssign, add_assign, scalar_add_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_assign_op_rust!(AddAssign, add_assign, scalar_add_scalar, f32, f64);
 impl_scalar_assign_op_rust!(
-    SubAssign,
-    sub_assign,
-    scalar_subtract_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    SubAssign, sub_assign, scalar_subtract_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_assign_op_rust!(SubAssign, sub_assign, scalar_subtract_scalar, f32, f64);
 impl_scalar_assign_op_rust!(
-    MulAssign,
-    mul_assign,
-    scalar_multiply_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    MulAssign, mul_assign, scalar_multiply_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_assign_op_rust!(MulAssign, mul_assign, scalar_multiply_scalar, f32, f64);
 impl_scalar_assign_op_rust!(
-    DivAssign,
-    div_assign,
-    scalar_divide_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    DivAssign, div_assign, scalar_divide_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_assign_op_rust!(DivAssign, div_assign, scalar_divide_scalar, f32, f64);
 impl_scalar_assign_op_rust!(
-    RemAssign,
-    rem_assign,
-    scalar_modulus_scalar,
-    i8,
-    i16,
-    i32,
-    i64,
-    i128,
-    isize,
-    u8,
-    u16,
-    u32,
-    u64,
-    u128,
-    usize,
-    f32,
-    f64
+    RemAssign, rem_assign, scalar_modulus_scalar,
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+#[cfg(feature = "ieee")]
+impl_scalar_assign_op_rust!(RemAssign, rem_assign, scalar_modulus_scalar, f32, f64);
 // Power and Exp implementations for Scalar with primitive types
 macro_rules! impl_scalar_power_rust {
     ($($t:ty),*) => {
@@ -864,7 +744,9 @@ macro_rules! impl_scalar_power_rust {
 }
 
 // Implement power and exp for all primitive types
-impl_scalar_power_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+impl_scalar_power_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+#[cfg(feature = "ieee")]
+impl_scalar_power_rust!(f32, f64);
 
 // Min, Max and Clamp implementations for Scalar with primitive types
 macro_rules! impl_scalar_comparison_rust {
@@ -1078,9 +960,13 @@ macro_rules! impl_scalar_clamp_rust {
 
 // Implement min/max/clamp for all primitive types
 impl_scalar_comparison_rust!(
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
-impl_scalar_clamp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+#[cfg(feature = "ieee")]
+impl_scalar_comparison_rust!(f32, f64);
+impl_scalar_clamp_rust!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+#[cfg(feature = "ieee")]
+impl_scalar_clamp_rust!(f32, f64);
 // Integer bit-shift implementations (self*2^integer) for Scalar with primitive types
 macro_rules! impl_scalar_shift_rust {
     ($($t:ty),*) => {

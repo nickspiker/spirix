@@ -259,7 +259,8 @@ where
             return Self::NEG_HALF_PI;
         }
 
-        if self.magnitude() < 0.75 {
+        let three_quarters = Self::HALF + Self::HALF * Self::HALF;
+        if self.magnitude() < three_quarters {
             let x_squared = self.square();
             let mut sum = self.clone();
             let mut term = self.clone();
@@ -410,7 +411,7 @@ where
         let is_negative = x.is_negative();
         let sign = self.sign();
 
-        if magnitude < 0.5 {
+        if magnitude < Self::HALF {
             return x.atan_small();
         } else if magnitude > 2 {
             return sign * Self::HALF_PI - x.reciprocal().atan_small();
