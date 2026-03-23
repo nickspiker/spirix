@@ -65,10 +65,10 @@ where
     fn into(self) -> f64 {
         if self.is_normal() {
             let i64: i64 = self.fraction.sa();
-            let base = i64 as f64 / 2f64.powi(64 - 1);
+            let base = i64 as f64 / f64::from_bits((1023u64 + 63) << 52);
             let exponent: i32 = self.exponent.saturate();
 
-            base * 2f64.powi(exponent)
+            base * f64::from_bits(((1023i64 + exponent as i64) as u64) << 52)
         } else {
             if self.is_undefined() {
                 return f64::NAN;
@@ -150,10 +150,10 @@ where
     fn into(self) -> f32 {
         if self.is_normal() {
             let i32: i32 = self.fraction.sa();
-            let base = i32 as f32 / 2f32.powi(32 - 1);
+            let base = i32 as f32 / f32::from_bits((127u32 + 31) << 23);
             let exponent: i32 = self.exponent.saturate();
 
-            base * 2f32.powi(exponent)
+            base * f32::from_bits(((127i32 + exponent) as u32) << 23)
         } else {
             if self.is_undefined() {
                 return f32::NAN;

@@ -119,12 +119,13 @@ where
         let mut base_imag: f64 = self.imaginary.as_();
 
         // Adjust for normal value normalization
-        base_real = base_real / 2f64.powi(F::FRACTION_BITS as i32 - 1);
-        base_imag = base_imag / 2f64.powi(F::FRACTION_BITS as i32 - 1);
+        let frac_scale = f64::from_bits(((1023i64 + F::FRACTION_BITS as i64 - 1) as u64) << 52);
+        base_real = base_real / frac_scale;
+        base_imag = base_imag / frac_scale;
 
         // Apply exponent scaling
         let exponent: i32 = self.exponent.saturate();
-        let scale = 2f64.powi(exponent);
+        let scale = f64::from_bits(((1023i64 + exponent as i64) as u64) << 52);
 
         Complex::new(base_real * scale, base_imag * scale)
     }
@@ -242,12 +243,13 @@ where
         let mut base_imag: f32 = self.imaginary.as_();
 
         // Adjust for fraction normalization
-        base_real = base_real / 2f32.powi(F::FRACTION_BITS as i32 - 1);
-        base_imag = base_imag / 2f32.powi(F::FRACTION_BITS as i32 - 1);
+        let frac_scale = f32::from_bits(((127i32 + F::FRACTION_BITS as i32 - 1) as u32) << 23);
+        base_real = base_real / frac_scale;
+        base_imag = base_imag / frac_scale;
 
         // Apply exponent scaling
         let exponent: i32 = self.exponent.saturate();
-        let scale = 2f32.powi(exponent);
+        let scale = f32::from_bits(((127i32 + exponent) as u32) << 23);
 
         Complex::new(base_real * scale, base_imag * scale)
     }
