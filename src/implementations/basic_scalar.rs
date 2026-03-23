@@ -1971,6 +1971,7 @@ where
     }
 
     /// Determines if this Scalar represents a prime number
+    #[cfg(feature = "prime")]
     ///
     /// # Description
     ///
