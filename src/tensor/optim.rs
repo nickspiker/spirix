@@ -4,7 +4,7 @@
 
 use super::ops::scale;
 use super::tensor::Tensor;
-use std::ops::{Mul, Sub};
+use core::ops::{Mul, Sub};
 
 /// Stochastic Gradient Descent optimizer
 ///

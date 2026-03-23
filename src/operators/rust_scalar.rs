@@ -3,7 +3,7 @@ use crate::core::integer::FullInt;
 use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 
 // Rust primitive + Scalar (all reference combinations)
 macro_rules! impl_rust_op_scalar {
@@ -777,7 +777,7 @@ macro_rules! impl_scalar_cmp_rust {
             {
                 fn eq(&self, other: &$t) -> bool {
                     let scalar_other = Scalar::<F, E>::from(*other);
-                    matches!(self.compare(&scalar_other), Some(std::cmp::Ordering::Equal))
+                    matches!(self.compare(&scalar_other), Some(core::cmp::Ordering::Equal))
                 }
             }
 
@@ -842,7 +842,7 @@ macro_rules! impl_scalar_cmp_rust {
             {
                 fn eq(&self, other: &$t) -> bool {
                     let scalar_other = Scalar::<F, E>::from(*other);
-                    matches!((*self).compare(&scalar_other), Some(std::cmp::Ordering::Equal))
+                    matches!((*self).compare(&scalar_other), Some(core::cmp::Ordering::Equal))
                 }
             }
 
@@ -907,7 +907,7 @@ macro_rules! impl_scalar_cmp_rust {
             {
                 fn eq(&self, other: &$t) -> bool {
                     let scalar_other = Scalar::<F, E>::from(*other);
-                    matches!((*self).compare(&scalar_other), Some(std::cmp::Ordering::Equal))
+                    matches!((*self).compare(&scalar_other), Some(core::cmp::Ordering::Equal))
                 }
             }
 
@@ -969,7 +969,7 @@ macro_rules! impl_scalar_cmp_rust {
                 isize: AsPrimitive<E>,
                 I256: From<E>,
             {
-                fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+                fn partial_cmp(&self, other: &$t) -> Option<core::cmp::Ordering> {
                     let scalar_other = Scalar::<F, E>::from(*other);
                     self.compare(&scalar_other)
                 }
@@ -1035,7 +1035,7 @@ macro_rules! impl_scalar_cmp_rust {
                 isize: AsPrimitive<E>,
                 I256: From<E>,
             {
-                fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+                fn partial_cmp(&self, other: &$t) -> Option<core::cmp::Ordering> {
                     let scalar_other = Scalar::<F, E>::from(*other);
                     (*self).compare(&scalar_other)
                 }
@@ -1101,7 +1101,7 @@ macro_rules! impl_scalar_cmp_rust {
                 isize: AsPrimitive<E>,
                 I256: From<E>,
             {
-                fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+                fn partial_cmp(&self, other: &$t) -> Option<core::cmp::Ordering> {
                     let scalar_other = Scalar::<F, E>::from(*other);
                     (*self).compare(&scalar_other)
                 }

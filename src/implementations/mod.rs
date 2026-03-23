@@ -9,6 +9,7 @@ pub mod basic_scalar;
 pub mod bitwise;
 pub mod comparison;
 pub mod exponents;
+#[cfg(feature = "alloc")]
 pub mod formatting;
 pub mod statistics;
 pub mod trigonometry;

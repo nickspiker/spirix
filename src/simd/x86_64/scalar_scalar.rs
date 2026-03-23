@@ -1,7 +1,7 @@
 use crate::ScalarF4E4;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use core::arch::x86_64::*;
 
 /// Pack 15× i16 values into 17-bit slots (255 bits total)
 ///
@@ -40,7 +40,7 @@ unsafe fn pack_15_i16_to_17bit(values: &[i16; 15]) -> __m256i {
 #[inline]
 unsafe fn unpack_17bit_to_15_i16(packed: __m256i) -> [i16; 15] {
     let mut unpacked = [0i16; 15];
-    let bytes: [u32; 8] = std::mem::transmute(packed);
+    let bytes: [u32; 8] = core::mem::transmute(packed);
 
     // Extract val0: bits 0-16
     unpacked[0] = (bytes[0] & 0x1FFFF) as i16;

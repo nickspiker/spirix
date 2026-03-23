@@ -4,7 +4,7 @@ use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 
 impl<
         FS: Integer

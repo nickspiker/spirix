@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use core::mem::size_of;
 pub trait FractionConstants {
     const FRACTION_BITS: isize;
     const POS_ONE_FRACTION: Self;

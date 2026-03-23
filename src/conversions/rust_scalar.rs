@@ -526,7 +526,7 @@ macro_rules! impl_from_int {
                         return Self::ZERO;
                     }
                     let mut shift = value.leading_ones().max(value.leading_zeros()) as isize;
-                    shift = (std::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(shift);
+                    shift = (core::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(shift);
                     let exponent:E = shift.as_();
                     shift = (F::FRACTION_BITS as isize).wrapping_sub(shift).wrapping_sub(1);
                     let fraction: F = if shift < 0 {
@@ -730,7 +730,7 @@ macro_rules! impl_from_uint {
                         return Self::ZERO;
                     }
                     let mut shift = value.leading_zeros() as isize;
-                    shift = (std::mem::size_of::<$u>() as isize).wrapping_mul(8).wrapping_sub(shift);
+                    shift = (core::mem::size_of::<$u>() as isize).wrapping_mul(8).wrapping_sub(shift);
                     let exponent:E = shift.as_();
                     shift = (F::FRACTION_BITS as isize).wrapping_sub(shift).wrapping_sub(1);
                     let fraction: F = if shift < 0 {

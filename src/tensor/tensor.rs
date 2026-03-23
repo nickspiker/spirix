@@ -3,7 +3,8 @@
 //! Generic over Spirix scalar types (ScalarF4E4, ScalarF6E5, etc.)
 //! No IEEE-754, no special cases, just clean math.
 
-use std::ops::{Add, Mul, Sub};
+use alloc::vec::Vec;
+use core::ops::{Add, Mul, Sub};
 
 /// A multi-dimensional array of Spirix scalars
 ///

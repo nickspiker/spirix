@@ -5,7 +5,7 @@ use crate::{
 };
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::{Shl, Shr};
+use core::ops::{Shl, Shr};
 macro_rules! impl_circle_new {
     ($($f:ty, $e:ty);*) => {
         $(

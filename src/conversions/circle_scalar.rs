@@ -62,24 +62,24 @@ impl<F: Integer, E: Integer> IntoScalars<F, E> for Circle<F, E>
 where
     F: FractionConstants
         + FullInt
-        + std::ops::Shl<isize, Output = F>
-        + std::ops::Shr<isize, Output = F>
-        + std::ops::Shl<F, Output = F>
-        + std::ops::Shr<F, Output = F>
-        + std::ops::Shl<E, Output = F>
-        + std::ops::Shr<E, Output = F>
+        + core::ops::Shl<isize, Output = F>
+        + core::ops::Shr<isize, Output = F>
+        + core::ops::Shl<F, Output = F>
+        + core::ops::Shr<F, Output = F>
+        + core::ops::Shl<E, Output = F>
+        + core::ops::Shr<E, Output = F>
         + WrappingNeg
         + WrappingAdd
         + WrappingMul
         + WrappingSub,
     E: ExponentConstants
         + FullInt
-        + std::ops::Shl<isize, Output = E>
-        + std::ops::Shr<isize, Output = E>
-        + std::ops::Shl<E, Output = E>
-        + std::ops::Shr<E, Output = E>
-        + std::ops::Shl<F, Output = E>
-        + std::ops::Shr<F, Output = E>
+        + core::ops::Shl<isize, Output = E>
+        + core::ops::Shr<isize, Output = E>
+        + core::ops::Shl<E, Output = E>
+        + core::ops::Shr<E, Output = E>
+        + core::ops::Shl<F, Output = E>
+        + core::ops::Shr<F, Output = E>
         + WrappingNeg
         + WrappingAdd
         + WrappingMul
@@ -145,24 +145,24 @@ impl<F: Integer, E: Integer> IntoScalars<F, E> for &mut Circle<F, E>
 where
     F: FractionConstants
         + FullInt
-        + std::ops::Shl<isize, Output = F>
-        + std::ops::Shr<isize, Output = F>
-        + std::ops::Shl<F, Output = F>
-        + std::ops::Shr<F, Output = F>
-        + std::ops::Shl<E, Output = F>
-        + std::ops::Shr<E, Output = F>
+        + core::ops::Shl<isize, Output = F>
+        + core::ops::Shr<isize, Output = F>
+        + core::ops::Shl<F, Output = F>
+        + core::ops::Shr<F, Output = F>
+        + core::ops::Shl<E, Output = F>
+        + core::ops::Shr<E, Output = F>
         + WrappingNeg
         + WrappingAdd
         + WrappingMul
         + WrappingSub,
     E: ExponentConstants
         + FullInt
-        + std::ops::Shl<isize, Output = E>
-        + std::ops::Shr<isize, Output = E>
-        + std::ops::Shl<E, Output = E>
-        + std::ops::Shr<E, Output = E>
-        + std::ops::Shl<F, Output = E>
-        + std::ops::Shr<F, Output = E>
+        + core::ops::Shl<isize, Output = E>
+        + core::ops::Shr<isize, Output = E>
+        + core::ops::Shl<E, Output = E>
+        + core::ops::Shr<E, Output = E>
+        + core::ops::Shl<F, Output = E>
+        + core::ops::Shr<F, Output = E>
         + WrappingNeg
         + WrappingAdd
         + WrappingMul
@@ -228,24 +228,24 @@ impl<F: Integer, E: Integer> IntoScalars<F, E> for &Circle<F, E>
 where
     F: FractionConstants
         + FullInt
-        + std::ops::Shl<isize, Output = F>
-        + std::ops::Shr<isize, Output = F>
-        + std::ops::Shl<F, Output = F>
-        + std::ops::Shr<F, Output = F>
-        + std::ops::Shl<E, Output = F>
-        + std::ops::Shr<E, Output = F>
+        + core::ops::Shl<isize, Output = F>
+        + core::ops::Shr<isize, Output = F>
+        + core::ops::Shl<F, Output = F>
+        + core::ops::Shr<F, Output = F>
+        + core::ops::Shl<E, Output = F>
+        + core::ops::Shr<E, Output = F>
         + WrappingNeg
         + WrappingAdd
         + WrappingMul
         + WrappingSub,
     E: ExponentConstants
         + FullInt
-        + std::ops::Shl<isize, Output = E>
-        + std::ops::Shr<isize, Output = E>
-        + std::ops::Shl<E, Output = E>
-        + std::ops::Shr<E, Output = E>
-        + std::ops::Shl<F, Output = E>
-        + std::ops::Shr<F, Output = E>
+        + core::ops::Shl<isize, Output = E>
+        + core::ops::Shr<isize, Output = E>
+        + core::ops::Shl<E, Output = E>
+        + core::ops::Shr<E, Output = E>
+        + core::ops::Shl<F, Output = E>
+        + core::ops::Shr<F, Output = E>
         + WrappingNeg
         + WrappingAdd
         + WrappingMul

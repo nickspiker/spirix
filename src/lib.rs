@@ -1,3 +1,5 @@
+#![no_std]
+
 // src/
 // │
 // ├── core/                    Core types and traits
@@ -580,6 +582,10 @@
 //! assert!(normalized < ScalarF5E3::PI * 2);
 //! ```
 
+#[cfg(feature = "alloc")]
+#[macro_use]
+extern crate alloc;
+
 pub mod constants;
 pub mod conversions;
 pub mod core;
@@ -631,8 +637,10 @@ macro_rules! sd {
     };
 }
 
+#[cfg(feature = "alloc")]
 pub mod tensor;
 
+#[cfg(feature = "alloc")]
 pub use tensor::{
     linear_backward, matmul, mse_loss, mse_loss_grad, relu, relu_backward, scale, transpose,
     Linear, LinearGradients, SimpleNet, Tensor, SGD,

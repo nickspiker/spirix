@@ -43,8 +43,11 @@ use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
 use crate::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::fmt::{self};
-use std::ops::*;
+use alloc::borrow::ToOwned;
+use alloc::string::String;
+use alloc::vec::Vec;
+use ::core::fmt;
+use ::core::ops::*;
 
 impl<
         F: Integer

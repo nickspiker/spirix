@@ -5,7 +5,7 @@ use crate::{core::undefined::*, ExponentConstants};
 use crate::{Circle, Integer, Scalar};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 /// # Scalar to Circle Conversions
 ///
 /// This module provides implementations for creating Circle complex number values

@@ -3,7 +3,7 @@ use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub, Zero};
-use std::ops::*;
+use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -143,7 +143,7 @@ where
                 return *big;
             }
 
-            if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+            if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
                 if exp_diff >= F::FRACTION_BITS.as_() {
                     return *big;
                 }
@@ -359,7 +359,7 @@ where
                 return *big;
             }
 
-            if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+            if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
                 if exp_diff >= F::FRACTION_BITS.as_() {
                     return *big;
                 }
@@ -611,7 +611,7 @@ where
                 return *big;
             }
 
-            if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+            if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
                 if exp_diff >= F::FRACTION_BITS.as_() {
                     return *big;
                 }

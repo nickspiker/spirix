@@ -8,7 +8,7 @@ use num_traits::WrappingAdd;
 use num_traits::WrappingMul;
 use num_traits::WrappingNeg;
 use num_traits::WrappingSub;
-use std::ops::*;
+use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -170,7 +170,7 @@ where
             }
         }
 
-        if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+        if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
             if exp_diff >= F::FRACTION_BITS.as_() {
                 if small.fraction.is_negative() {
                     return *big;
@@ -436,7 +436,7 @@ where
             }
         }
 
-        if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+        if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
             if exp_diff >= F::FRACTION_BITS.as_() {
                 if small.fraction.is_negative() {
                     return *small;
@@ -704,7 +704,7 @@ where
             }
         }
 
-        if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+        if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
             if exp_diff >= F::FRACTION_BITS.as_() {
                 if small.fraction.is_negative() {
                     return !big;

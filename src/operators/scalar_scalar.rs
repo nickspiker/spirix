@@ -2,8 +2,8 @@ use crate::core::integer::{FullInt, Integer};
 use crate::{operators::*, ExponentConstants, FractionConstants, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::cmp::Ordering;
-use std::ops::*;
+use core::cmp::Ordering;
+use core::ops::*;
 macro_rules! impl_scalar_op {
     ($trait:ident, $method:ident, $scalar_method:ident) => {
         // &Scalar op Scalar
@@ -2465,7 +2465,7 @@ where
     I256: From<E>,
 {
     fn eq(&self, other: &&mut Self) -> bool {
-        matches!(self.compare(*other), Some(std::cmp::Ordering::Equal))
+        matches!(self.compare(*other), Some(core::cmp::Ordering::Equal))
     }
 }
 
@@ -2528,7 +2528,7 @@ where
     I256: From<E>,
 {
     fn eq(&self, other: &Scalar<F, E>) -> bool {
-        matches!((*self).compare(other), Some(std::cmp::Ordering::Equal))
+        matches!((*self).compare(other), Some(core::cmp::Ordering::Equal))
     }
 }
 // Value vs reference
@@ -2589,7 +2589,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    fn partial_cmp(&self, other: &&Scalar<F, E>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &&Scalar<F, E>) -> Option<core::cmp::Ordering> {
         self.compare(*other)
     }
 }
@@ -2652,7 +2652,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    fn partial_cmp(&self, other: &Scalar<F, E>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Scalar<F, E>) -> Option<core::cmp::Ordering> {
         (*self).compare(other)
     }
 }
@@ -2715,7 +2715,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    fn partial_cmp(&self, other: &&mut Scalar<F, E>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &&mut Scalar<F, E>) -> Option<core::cmp::Ordering> {
         self.compare(*other)
     }
 }
@@ -2777,7 +2777,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    fn partial_cmp(&self, other: &Scalar<F, E>) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Scalar<F, E>) -> Option<core::cmp::Ordering> {
         (*self).compare(other)
     }
 }

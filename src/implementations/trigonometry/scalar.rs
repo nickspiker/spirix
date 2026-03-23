@@ -3,7 +3,7 @@ use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::{borrow::Borrow, ops::*};
+use core::{borrow::Borrow, ops::*};
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -216,7 +216,7 @@ where
             }
             return *self;
         }
-        if E::EXPONENT_BITS >= (std::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+        if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
             if self.exponent > F::FRACTION_BITS.as_() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
@@ -678,9 +678,13 @@ where
     // }
 }
 
-fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
+#[cfg(feature = "alloc")]
+use alloc::string::String;
+#[cfg(feature = "alloc")]
+#[allow(dead_code)]
+fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = std::mem::size_of::<T>() * 8;
+    let bits = core::mem::size_of::<T>() * 8;
     let mut result = String::new();
 
     for b in 0..bits {

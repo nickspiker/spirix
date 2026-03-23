@@ -6,8 +6,8 @@ use crate::{
     Scalar, ScalarConstants,
 };
 
-use std::cmp::Ordering;
-use std::ops::*;
+use core::cmp::Ordering;
+use core::ops::*;
 
 #[allow(private_bounds)]
 impl<
@@ -252,7 +252,7 @@ where
     ///
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
-    /// use std::cmp::Ordering;
+    /// use core::cmp::Ordering;
     ///
     /// let a = ScalarF5E3::from(42);
     /// let b = ScalarF5E3::from(-17);

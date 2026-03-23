@@ -43,22 +43,19 @@ pub fn scalar_subtract_batch(a: &[ScalarF4E4], b: &[ScalarF4E4], result: &mut [S
     assert_eq!(a.len(), b.len());
     assert_eq!(a.len(), result.len());
 
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
     {
-        // Runtime feature detection - prefer AVX2, fallback to SSE4.2
-        if is_x86_feature_detected!("avx2") {
-            return unsafe { x86_64::scalar_subtract_batch_avx2(a, b, result) };
-        }
-        if is_x86_feature_detected!("sse4.2") {
-            return unsafe { x86_64::scalar_subtract_batch_sse42(a, b, result) };
-        }
+        return unsafe { x86_64::scalar_subtract_batch_avx2(a, b, result) };
     }
 
-    #[cfg(target_arch = "aarch64")]
+    #[cfg(all(target_arch = "x86_64", not(target_feature = "avx2"), target_feature = "sse4.2"))]
     {
-        if std::arch::is_aarch64_feature_detected!("neon") {
-            return unsafe { aarch64::scalar_subtract_batch_neon(a, b, result) };
-        }
+        return unsafe { x86_64::scalar_subtract_batch_sse42(a, b, result) };
+    }
+
+    #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
+    {
+        return unsafe { aarch64::scalar_subtract_batch_neon(a, b, result) };
     }
 
     // Fallback to scalar implementation

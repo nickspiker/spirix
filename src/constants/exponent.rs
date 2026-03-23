@@ -1,4 +1,4 @@
-use std::mem::size_of;
+use core::mem::size_of;
 pub trait ExponentConstants {
     const EXPONENT_BITS: isize;
     const MAX_EXPONENT: Self;

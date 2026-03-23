@@ -1,5 +1,5 @@
 use num_traits::{AsPrimitive, NumCast, PrimInt, Signed};
-use std::fmt::{Debug, Display};
+use core::fmt::{Debug, Display};
 
 /// # Integer Trait
 ///
@@ -129,8 +129,8 @@ macro_rules! impl_int_convert {
                 where
                     $t: AsPrimitive<I>,
                 {
-                    let src_bits = std::mem::size_of::<$t>().wrapping_mul(8);
-                    let dst_bits = std::mem::size_of::<I>().wrapping_mul(8);
+                    let src_bits = core::mem::size_of::<$t>().wrapping_mul(8);
+                    let dst_bits = core::mem::size_of::<I>().wrapping_mul(8);
                     if src_bits < dst_bits {
                         (self.as_() << dst_bits.wrapping_sub(src_bits))
                     } else if src_bits > dst_bits {

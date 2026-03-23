@@ -5,7 +5,7 @@ use crate::lut::SQRT_LUT;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 
 #[allow(private_bounds)]
 impl<

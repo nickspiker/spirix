@@ -5,7 +5,7 @@
 
 use super::ops::{matmul, relu};
 use super::tensor::Tensor;
-use std::ops::{Add, Mul};
+use core::ops::{Add, Mul};
 
 /// Linear (fully connected) layer
 ///

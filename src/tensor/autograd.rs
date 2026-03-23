@@ -4,9 +4,10 @@
 //! For production, we'd build a full computation graph,
 //! but for now, manual gradients are clean and explicit.
 
+use alloc::vec::Vec;
 use super::ops::{matmul, transpose};
 use super::tensor::Tensor;
-use std::ops::{Add, Mul, Sub};
+use core::ops::{Add, Mul, Sub};
 
 /// Compute gradient of loss with respect to weights
 ///

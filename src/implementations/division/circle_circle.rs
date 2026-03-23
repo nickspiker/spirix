@@ -5,7 +5,7 @@ use crate::{
 };
 use i256::{I256, U256};
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -660,9 +660,13 @@ where
         }
     }
 }
-fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
+#[cfg(feature = "alloc")]
+use alloc::string::String;
+#[cfg(feature = "alloc")]
+#[allow(dead_code)]
+fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = std::mem::size_of::<T>() * 8;
+    let bits = core::mem::size_of::<T>() * 8;
     let mut result = String::new();
 
     for b in 0..bits {

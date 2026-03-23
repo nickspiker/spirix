@@ -2,7 +2,7 @@ use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 
 impl<
         F: Integer
@@ -439,14 +439,14 @@ fn into(self) -> $i {
     }
 
     let shift: usize = (self.exponent).saturate();
-    if shift >= std::mem::size_of::<$i>().wrapping_mul(8) {
+    if shift >= core::mem::size_of::<$i>().wrapping_mul(8) {
         if self.fraction.is_negative() {
             return <$i>::MIN;
         }
         return <$i>::MAX;
     }
     let mut value = self.fraction.sa();
-    value = value >> (std::mem::size_of::<$i>().wrapping_mul(8).wrapping_sub(1).wrapping_sub(shift));
+    value = value >> (core::mem::size_of::<$i>().wrapping_mul(8).wrapping_sub(1).wrapping_sub(shift));
     value
 }
 }
@@ -588,11 +588,11 @@ macro_rules! impl_into_uint {
         }
 
         let shift: usize = (self.exponent).saturate();
-        if shift > std::mem::size_of::<$u>().wrapping_mul(8) {
+        if shift > core::mem::size_of::<$u>().wrapping_mul(8) {
             return <$u>::MAX;
         }
         let mut value = (self.fraction<<1isize).sa();
-        value = value >> (std::mem::size_of::<$u>().wrapping_mul(8).wrapping_sub(shift));
+        value = value >> (core::mem::size_of::<$u>().wrapping_mul(8).wrapping_sub(shift));
         value
     }
 }
@@ -893,7 +893,7 @@ where
         }
 
         let shift: usize = (self.exponent).saturate();
-        if shift >= std::mem::size_of::<isize>().wrapping_mul(8) {
+        if shift >= core::mem::size_of::<isize>().wrapping_mul(8) {
             if self.fraction.is_negative() {
                 return isize::MIN;
             }
@@ -901,7 +901,7 @@ where
         }
         let mut value = self.fraction.sa();
         value = value
-            >> (std::mem::size_of::<isize>()
+            >> (core::mem::size_of::<isize>()
                 .wrapping_mul(8)
                 .wrapping_sub(1)
                 .wrapping_sub(shift));
@@ -1091,12 +1091,12 @@ where
         }
 
         let shift: usize = (self.exponent).saturate();
-        if shift >= std::mem::size_of::<usize>().wrapping_mul(8) {
+        if shift >= core::mem::size_of::<usize>().wrapping_mul(8) {
             return usize::MAX;
         }
         let mut value = (self.fraction << 1isize).sa();
         value = value
-            >> (std::mem::size_of::<usize>()
+            >> (core::mem::size_of::<usize>()
                 .wrapping_mul(8)
                 .wrapping_sub(shift));
         value
@@ -1732,9 +1732,13 @@ mod tests_scalar_ieee {
     }
 }
 
-fn _printey<T: std::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
+#[cfg(feature = "alloc")]
+use alloc::string::String;
+#[cfg(feature = "alloc")]
+#[allow(dead_code)]
+fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = std::mem::size_of::<T>().wrapping_mul(8);
+    let bits = core::mem::size_of::<T>().wrapping_mul(8);
     let mut result = String::new();
 
     for b in 0..bits {

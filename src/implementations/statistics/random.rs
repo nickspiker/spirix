@@ -4,7 +4,7 @@ use crate::{
 };
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use std::ops::*;
+use core::ops::*;
 
 trait RandomFraction {
     fn random() -> Self;
