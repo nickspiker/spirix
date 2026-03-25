@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dozenal Calculator Layout</title>
+<style>
+  body { font-family: sans-serif; padding: 2rem; background: #1a1a1a; }
+  table { border-collapse: collapse; width: 360px; }
+  td {
+    border: 1px solid #444;
+    text-align: center;
+    vertical-align: middle;
+    padding: 0;
+    background: #2a2a2a;
+  }
+  .key {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    min-height: 72px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .key { position: relative; }
+  .key:hover { background: rgba(255,255,255,0.08); }
+  .key:active { background: rgba(255,255,255,0.15); }
+  .key[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    color: #ccc;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: pre;
+    pointer-events: none;
+    z-index: 10;
+    border: 1px solid #555;
+  }
+  .key img { width: 36px; height: 36px; filter: invert(1); }
+  .key .sym { font-size: 22px; color: #ddd; line-height: 1; }
+  .key .alt { font-size: 11px; color: #777; line-height: 1; margin-top: 4px; }
+  .key .alt-img { width: 18px; height: 18px; filter: invert(0.5); margin-top: 4px; }
+</style>
+</head>
+<body>
+<table>
+  <colgroup>
+    <col style="width:25%">
+    <col style="width:25%">
+    <col style="width:25%">
+    <col style="width:25%">
+  </colgroup>
+  <tr>
+    <td><div class="key" data-tip="Stelor
+△ Sine"><img src="stelor.svg"><img src="sine.svg" class="alt-img"></div></td>
+    <td><div class="key" data-tip="Stela
+△ Cosine"><img src="stela.svg"><img src="cosine.svg" class="alt-img"></div></td>
+    <td><div class="key" data-tip="Stel
+△ Tangent"><img src="stel.svg"><img src="tangent.svg" class="alt-img"></div></td>
+    <td><div class="key" data-tip="Multiply
+△ Power"><span class="sym">*</span><span class="alt">^</span></div></td>
+  </tr>
+  <tr>
+    <td><div class="key" data-tip="Lunor
+△ Arcsine"><img src="lunor.svg"><img src="arcsin.svg" class="alt-img"></div></td>
+    <td><div class="key" data-tip="Luna
+△ Arccosine"><img src="luna.svg"><img src="arccos.svg" class="alt-img"></div></td>
+    <td><div class="key" data-tip="Lun
+△ Arctangent"><img src="lun.svg"><img src="arctan.svg" class="alt-img"></div></td>
+    <td rowspan="2"><div class="key" data-tip="Add
+△ Subtract"><span class="sym">+</span><span class="alt">−</span></div></td>
+  </tr>
+  <tr>
+    <td><div class="key" data-tip="Teror
+△ ln (natural log)"><img src="teror.svg"><img src="ln.svg" class="alt-img"></div></td>
+    <td><div class="key" data-tip="Tera
+△ Gamma"><img src="tera.svg"><span class="alt">Γ</span></div></td>
+    <td><div class="key" data-tip="Ter
+△ Swap"><img src="ter.svg"><span class="alt">⇄</span></div></td>
+  </tr>
+  <tr>
+    <td><div class="key" data-tip="Zilor
+△ π"><img src="zilor.svg"><span class="alt">π</span></div></td>
+    <td><div class="key" data-tip="Zila
+△ e"><img src="zila.svg"><span class="alt">e</span></div></td>
+    <td><div class="key" data-tip="Zil
+△ Random"><img src="zil.svg"><span class="alt"><img src="wild.svg" style="width:14px;height:14px;filter:invert(0.5)"></span></div></td>
+    <td rowspan="2"><div class="key" data-tip="Enter
+△ Clear"><span class="sym">↑</span><span class="alt">◯</span></div></td>
+  </tr>
+  <tr>
+    <td><div class="key" data-tip="Divide
+△ Modulo"><span class="sym">÷</span><span class="alt">%</span></div></td>
+    <td><div class="key" data-tip="Decimal
+△ Shift"><span class="sym">·</span><span class="alt">△</span></div></td>
+    <td><div class="key" data-tip="Negate
+△ Square root"><span class="sym">Ƨ</span><span class="alt">√</span></div></td>
+  </tr>
+</table>
+</body>
+</html>
