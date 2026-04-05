@@ -89,21 +89,21 @@ fn main() {
     );
 
     // Compare results
-    let lut_result = input.sqrt();
-    let bitwise_result = input.sqrt_bb();
+    let sqrt_result = input.sqrt();
+    let newton_result = input.sqrt_newton();
 
     println!("Results:");
     println!(
-        "  LUT:     fraction=0x{:04x}, exponent={}",
-        lut_result.fraction, lut_result.exponent
+        "  sqrt:        fraction=0x{:04x}, exponent={}",
+        sqrt_result.fraction, sqrt_result.exponent
     );
     println!(
-        "  Bitwise: fraction=0x{:04x}, exponent={}",
-        bitwise_result.fraction, bitwise_result.exponent
+        "  sqrt_newton: fraction=0x{:04x}, exponent={}",
+        newton_result.fraction, newton_result.exponent
     );
     println!(
         "  Match: {}",
-        lut_result.fraction == bitwise_result.fraction
-            && lut_result.exponent == bitwise_result.exponent
+        sqrt_result.fraction == newton_result.fraction
+            && sqrt_result.exponent == newton_result.exponent
     );
 }

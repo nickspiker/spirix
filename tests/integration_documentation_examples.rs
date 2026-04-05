@@ -26,10 +26,10 @@ fn test_readme_undefined_tracking_example() {
     let a = ScalarF5E3::from(42);
 
     // Track undefined states while preserving first cause
-    let zero_div_zero = (a - 42) / 0;
+    let zero_div_zero = (a - 42i32) / 0i32;
     assert!(zero_div_zero.is_undefined());
 
-    let b = ScalarF5E3::from(-1) / 12;
+    let b = ScalarF5E3::from(-1) / 12i32;
     let still_undefined_zero_div_zero = (zero_div_zero + b).pow(-5.71).ln();
     assert!(still_undefined_zero_div_zero.is_undefined());
 
@@ -40,11 +40,11 @@ fn test_readme_undefined_tracking_example() {
 #[test]
 fn test_readme_escaped_values_example() {
     // Example from README: Escaped values preserve phase
-    let exploded = ScalarF5E3::MAX * 2;
+    let exploded = ScalarF5E3::MAX * 2i32;
     assert!(exploded.exploded() && exploded.is_positive());
 
     // Vanished values preserve phase too!
-    let vanished = ScalarF5E3::MAX_NEG / 3;
+    let vanished = ScalarF5E3::MAX_NEG / 3i32;
     assert!(vanished.vanished() && vanished.is_negative());
 
     // Absolute operations can be applied to escaped values
@@ -65,18 +65,18 @@ fn test_scalar_documentation_examples() {
     assert!(b.is_normal());
 
     // Track undefined states while preserving first cause
-    let zero_div_zero = (a - 42) / 0;
+    let zero_div_zero = (a - 42i32) / 0i32;
     assert!(zero_div_zero.is_undefined());
 
     let still_undefined_zero_div_zero = (zero_div_zero + b).pow(-5.71).ln();
     assert!(still_undefined_zero_div_zero.is_undefined());
 
     // Escaped values preserve phase
-    let exploded = ScalarF5E3::MAX * 2;
+    let exploded = ScalarF5E3::MAX * 2i32;
     assert!(exploded.exploded() && exploded.is_positive());
 
     // Vanished values preserve phase too!
-    let vanished = ScalarF5E3::MAX_NEG / 3;
+    let vanished = ScalarF5E3::MAX_NEG / 3i32;
     assert!(vanished.vanished() && vanished.is_negative());
 
     // Absolute operations can be applied to escaped values
@@ -88,11 +88,11 @@ fn test_circle_documentation_examples() {
     // Examples from circle.rs documentation
 
     // Create a Circle with 32-bit fractions and 8-bit exponent
-    let c = Circle::<i32, i8>::new(Scalar::<i32, i8>::from(3), Scalar::<i32, i8>::from(4));
+    let c = CircleF5E3::from((3, 4));
     assert!(c.is_normal());
 
     // Using type alias for convenience
-    let circle = CircleF5E3::new(ScalarF5E3::from(3.0), ScalarF5E3::from(4.0));
+    let circle = CircleF5E3::from((3.0, 4.0));
     assert!(circle.is_normal());
 
     // Test magnitude calculation (should be 5.0 for 3+4i)
@@ -106,8 +106,8 @@ fn test_circle_documentation_examples() {
     let doubled = circle * ScalarF5E3::from(2.0);
     assert!(doubled.is_normal());
 
-    let doubled_real: f32 = doubled.real().into();
-    let doubled_imag: f32 = doubled.imaginary().into();
+    let doubled_real: f32 = doubled.r().into();
+    let doubled_imag: f32 = doubled.i().into();
     assert_relative_eq!(doubled_real, 6.0, epsilon = 1e-6);
     assert_relative_eq!(doubled_imag, 8.0, epsilon = 1e-6);
 }
@@ -146,27 +146,21 @@ fn test_state_classification_examples() {
 
     assert!(zero.is_zero());
     assert!(infinity.is_infinite());
-    assert_eq!(zero.normalization_level(), 0);
-    assert_eq!(infinity.normalization_level(), 0);
 
     // N-1 level: Normal and Exploded
     let normal = ScalarF5E3::from(42.0);
     let exploded = ScalarF5E3::MAX * ScalarF5E3::from(2.0);
 
     assert!(normal.is_normal());
-    assert!(exploded.is_exploded());
-    assert_eq!(normal.normalization_level(), 1);
-    assert_eq!(exploded.normalization_level(), 1);
+    assert!(exploded.exploded());
 
     // N-2 level: Vanished
-    let vanished = ScalarF5E3::MIN_POSITIVE / ScalarF5E3::from(2.0);
-    assert!(vanished.is_vanished());
-    assert_eq!(vanished.normalization_level(), 2);
+    let vanished = ScalarF5E3::MIN_POS / ScalarF5E3::from(2.0);
+    assert!(vanished.vanished());
 
     // N-3+ level: Undefined
     let undefined = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
     assert!(undefined.is_undefined());
-    assert!(undefined.normalization_level() >= 3);
 }
 
 #[test]
@@ -179,7 +173,7 @@ fn test_mathematical_constants_examples() {
     assert!(ScalarF5E3::PI.is_normal());
     assert!(ScalarF5E3::E.is_normal());
     assert!(ScalarF5E3::INFINITY.is_infinite());
-    assert!(ScalarF5E3::EPSILON.is_normal());
+    assert!(ScalarF5E3::POS_NORMAL_EPSILON.is_normal());
 
     // Verify approximate values
     let pi: f32 = ScalarF5E3::PI.into();
@@ -192,16 +186,14 @@ fn test_mathematical_constants_examples() {
 
     // Circle constants
     assert!(CircleF5E3::ZERO.is_zero());
-    assert!(CircleF5E3::ONE.is_real());
-    assert!(CircleF5E3::I.is_imaginary());
 
-    // Verify that I is the imaginary unit
-    let i = CircleF5E3::I;
+    // Verify that POS_I is the imaginary unit
+    let i = CircleF5E3::POS_I;
     let i_squared = i * i;
 
     // i² should equal -1
-    let real_part: f32 = i_squared.real().into();
-    let imag_part: f32 = i_squared.imaginary().into();
+    let real_part: f32 = i_squared.r().into();
+    let imag_part: f32 = i_squared.i().into();
 
     assert_relative_eq!(real_part, -1.0, epsilon = 1e-6);
     assert_relative_eq!(imag_part, 0.0, epsilon = 1e-6);
@@ -240,9 +232,8 @@ fn test_conversion_examples() {
     let scalar = ScalarF5E3::from(5.0);
     let circle: CircleF5E3 = scalar.into();
 
-    assert!(circle.is_real());
-    let circle_real: f32 = circle.real().into();
-    let circle_imag: f32 = circle.imaginary().into();
+    let circle_real: f32 = circle.r().into();
+    let circle_imag: f32 = circle.i().into();
 
     assert_relative_eq!(circle_real, 5.0, epsilon = 1e-6);
     assert_relative_eq!(circle_imag, 0.0, epsilon = 1e-6);
@@ -303,29 +294,29 @@ fn test_operation_examples() {
 fn test_complex_operation_examples() {
     // Test complex number operation examples
 
-    let z1 = CircleF5E3::new(ScalarF5E3::from(1.0), ScalarF5E3::from(2.0)); // 1 + 2i
-    let z2 = CircleF5E3::new(ScalarF5E3::from(3.0), ScalarF5E3::from(4.0)); // 3 + 4i
+    let z1 = CircleF5E3::from((1.0, 2.0)); // 1 + 2i
+    let z2 = CircleF5E3::from((3.0, 4.0)); // 3 + 4i
 
     // Complex addition: (1+2i) + (3+4i) = 4+6i
     let sum = z1 + z2;
-    let sum_real: f32 = sum.real().into();
-    let sum_imag: f32 = sum.imaginary().into();
+    let sum_real: f32 = sum.r().into();
+    let sum_imag: f32 = sum.i().into();
 
     assert_relative_eq!(sum_real, 4.0, epsilon = 1e-6);
     assert_relative_eq!(sum_imag, 6.0, epsilon = 1e-6);
 
     // Complex multiplication: (1+2i) * (3+4i) = (3-8) + (4+6)i = -5+10i
     let product = z1 * z2;
-    let prod_real: f32 = product.real().into();
-    let prod_imag: f32 = product.imaginary().into();
+    let prod_real: f32 = product.r().into();
+    let prod_imag: f32 = product.i().into();
 
     assert_relative_eq!(prod_real, -5.0, epsilon = 1e-6);
     assert_relative_eq!(prod_imag, 10.0, epsilon = 1e-6);
 
     // Complex conjugate
     let z1_conj = z1.conjugate(); // 1 - 2i
-    let conj_real: f32 = z1_conj.real().into();
-    let conj_imag: f32 = z1_conj.imaginary().into();
+    let conj_real: f32 = z1_conj.r().into();
+    let conj_imag: f32 = z1_conj.i().into();
 
     assert_relative_eq!(conj_real, 1.0, epsilon = 1e-6);
     assert_relative_eq!(conj_imag, -2.0, epsilon = 1e-6);

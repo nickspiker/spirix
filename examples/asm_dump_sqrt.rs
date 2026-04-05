@@ -7,16 +7,16 @@ pub fn sqrt_newton(input: ScalarF4E4) -> ScalarF4E4 {
 }
 
 #[inline(never)]
-pub fn sqrt_bitwise(input: ScalarF4E4) -> ScalarF4E4 {
-    black_box(input).sqrt_bb()
+pub fn sqrt_newton_method(input: ScalarF4E4) -> ScalarF4E4 {
+    black_box(input).sqrt_newton()
 }
 
 fn main() {
     let input = ScalarF4E4::from(100u8);
 
     let result1 = sqrt_newton(input);
-    let result2 = sqrt_bitwise(input);
+    let result2 = sqrt_newton_method(input);
 
-    println!("Newton: {:#?}", result1);
-    println!("Bitwise: {:#?}", result2);
+    println!("sqrt:        {:#?}", result1);
+    println!("sqrt_newton: {:#?}", result2);
 }

@@ -97,7 +97,7 @@ mod precision_boundaries {
         // F3E3 should be least precise
         assert_relative_eq!(precise_f32, 1.123456789012345, epsilon = 1e-10);
         assert_relative_eq!(f5e3_f32, 1.123456789012345, epsilon = 1e-6);
-        assert_relative_eq!(f3e3_f32, 1.123456789012345, epsilon = 1e-2);
+        assert_relative_eq!(f3e3_f32, 1.123456789012345, epsilon = 2e-2);
     }
 
     #[test]

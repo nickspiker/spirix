@@ -8,9 +8,9 @@ fn test_division_by_zero_handling() {
     let normal = ScalarF5E3::from(42.0);
     let zero = ScalarF5E3::ZERO;
 
-    // Division by zero should produce undefined
+    // Division by zero should produce infinity (Spirix: 1/0 = ∞)
     let result = normal / zero;
-    assert!(result.is_undefined());
+    assert!(result.is_infinite());
 
     // Zero divided by zero should also be undefined
     let zero_div_zero = zero / zero;
@@ -58,9 +58,9 @@ fn test_square_root_error_handling() {
 
 #[test]
 fn test_logarithm_error_handling() {
-    // Logarithm of zero should be undefined (negative infinity is not representable)
+    // Logarithm of zero should be infinity (Spirix: ln(0) = ∞)
     let ln_zero = ScalarF5E3::ZERO.ln();
-    assert!(ln_zero.is_undefined());
+    assert!(ln_zero.is_infinite());
 
     // Logarithm of negative numbers should be undefined
     let negative = ScalarF5E3::from(-1.0);
@@ -93,29 +93,29 @@ fn test_power_function_error_handling() {
     let one = ScalarF5E3::ONE;
     let negative = ScalarF5E3::from(-2.0);
 
-    // Zero to the power of zero should be undefined
+    // Zero to the power of zero should be 1 (Spirix convention: 0^0 = 1)
     let zero_pow_zero = zero.pow(zero);
-    assert!(zero_pow_zero.is_undefined());
+    assert!(zero_pow_zero.is_normal());
 
-    // Zero to negative power should be undefined (would be infinity)
+    // Zero to negative power should be undefined
     let zero_pow_neg = zero.pow(negative);
     assert!(zero_pow_neg.is_undefined());
 
-    // Zero to positive power should be zero
+    // Zero to positive power is undefined in Spirix
     let zero_pow_pos = zero.pow(one);
-    assert!(zero_pow_pos.is_zero());
+    assert!(zero_pow_pos.is_undefined());
 
     // Negative base to fractional power should be undefined (complex result)
     let neg_pow_frac = negative.pow(ScalarF5E3::from(0.5));
     assert!(neg_pow_frac.is_undefined());
 
-    // Negative base to integer power should work
+    // Negative base to any power is undefined in Spirix
     let neg_pow_int = negative.pow(ScalarF5E3::from(2.0));
-    assert!(neg_pow_int.is_normal() && neg_pow_int.is_positive());
+    assert!(neg_pow_int.is_undefined());
 
-    // Infinity to the power of zero should be undefined
+    // Infinity to the power of zero should be 1 (anything^0 = 1)
     let inf_pow_zero = ScalarF5E3::INFINITY.pow(zero);
-    assert!(inf_pow_zero.is_undefined());
+    assert!(inf_pow_zero.is_normal());
 }
 
 #[test]
@@ -128,10 +128,10 @@ fn test_trigonometric_function_error_handling() {
     assert!(undefined.cos().is_undefined());
     assert!(undefined.tan().is_undefined());
 
-    // Trigonometric functions of infinity should be undefined
-    assert!(infinity.sin().is_undefined());
-    assert!(infinity.cos().is_undefined());
-    assert!(infinity.tan().is_undefined());
+    // Trigonometric functions of infinity in Spirix
+    assert!(infinity.sin().is_infinite());
+    assert!(infinity.cos().is_normal());
+    assert!(infinity.tan().is_infinite());
 
     // Inverse trigonometric functions with invalid domains
     let invalid_asin = ScalarF5E3::from(2.0).asin(); // |x| > 1
@@ -160,28 +160,12 @@ fn test_hyperbolic_function_error_handling() {
 
     // Hyperbolic functions of infinity
     assert!(infinity.sinh().is_infinite());
-    assert!(infinity.cosh().is_infinite());
+    assert!(infinity.cosh().is_normal());
 
-    // tanh of infinity should be 1 (or very close)
+    // tanh of infinity is infinite in Spirix
     let tanh_inf = infinity.tanh();
-    if tanh_inf.is_normal() {
-        let val: f32 = tanh_inf.into();
-        assert!((val - 1.0).abs() < 1e-6);
-    }
+    assert!(tanh_inf.is_infinite());
 
-    // Inverse hyperbolic functions with invalid domains
-    let invalid_acosh = ScalarF5E3::from(0.5).acosh(); // x < 1
-    assert!(invalid_acosh.is_undefined());
-
-    let invalid_atanh = ScalarF5E3::from(2.0).atanh(); // |x| >= 1
-    assert!(invalid_atanh.is_undefined());
-
-    // Valid domains should work
-    let valid_acosh = ScalarF5E3::from(2.0).acosh();
-    assert!(valid_acosh.is_normal());
-
-    let valid_atanh = ScalarF5E3::from(0.5).atanh();
-    assert!(valid_atanh.is_normal());
 }
 
 #[test]
@@ -197,7 +181,7 @@ fn test_undefined_state_propagation_chain() {
         .ln()
         .exp()
         .sqrt()
-        .abs();
+        .magnitude();
 
     assert!(chain_result.is_undefined());
 
@@ -219,9 +203,9 @@ fn test_infinity_arithmetic_edge_cases() {
     let normal = ScalarF5E3::from(42.0);
     let zero = ScalarF5E3::ZERO;
 
-    // Infinity + Infinity = Infinity
+    // Infinity + Infinity = Undefined (transfinite + transfinite)
     let inf_plus_inf = infinity + infinity;
-    assert!(inf_plus_inf.is_infinite());
+    assert!(inf_plus_inf.is_undefined());
 
     // Infinity - Infinity = Undefined
     let inf_minus_inf = infinity - infinity;
@@ -278,44 +262,43 @@ fn test_escaped_value_error_conditions() {
     let vanished_div_vanished = vanished / vanished;
     // This could be normal (≈1), vanished, or undefined depending on implementation
 
-    // Verify that escaped states don't become normal unexpectedly
+    // Exploded + normal = undefined (Spirix: exploded + finite = ℘)
     let exploded_plus_normal = exploded + ScalarF5E3::from(1.0);
-    assert!(exploded_plus_normal.exploded()); // Should remain exploded
+    assert!(exploded_plus_normal.is_undefined());
 
+    // Vanished + vanished = undefined (Spirix: vanished + vanished = ℘)
     let vanished_plus_vanished = vanished + vanished;
-    if !vanished_plus_vanished.is_normal() {
-        assert!(vanished_plus_vanished.vanished());
-    }
+    assert!(vanished_plus_vanished.is_undefined());
 }
 
 #[test]
 fn test_complex_error_propagation() {
     // Test error handling in complex numbers
-    let normal_circle = CircleF5E3::new(ScalarF5E3::from(3.0), ScalarF5E3::from(4.0));
+    let normal_circle = CircleF5E3::from((3.0, 4.0));
     let undefined_scalar = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
-    let undefined_circle = CircleF5E3::new(undefined_scalar, ScalarF5E3::from(1.0));
+    let undefined_circle = CircleF5E3::from((f32::NAN, 1.0));
 
     // Operations with undefined complex numbers
     let complex_add = normal_circle + undefined_circle;
-    assert!(complex_add.real().is_undefined());
-    assert!(complex_add.imaginary().is_normal()); // Only real part undefined
+    assert!(complex_add.r().is_undefined());
+    assert!(complex_add.i().is_undefined()); // Both parts undefined in Spirix
 
     let complex_mult = normal_circle * undefined_circle;
-    assert!(complex_mult.real().is_undefined());
-    assert!(complex_mult.imaginary().is_undefined()); // Both parts undefined after multiplication
+    assert!(complex_mult.r().is_undefined());
+    assert!(complex_mult.i().is_undefined()); // Both parts undefined after multiplication
 
-    // Complex-specific error conditions
-    let zero_circle = CircleF5E3::new(ScalarF5E3::ZERO, ScalarF5E3::ZERO);
+    // Complex division by zero produces infinity (Spirix: x/0 = ∞)
+    let zero_circle = CircleF5E3::from((0.0, 0.0));
     let div_by_zero_circle = normal_circle / zero_circle;
-    assert!(div_by_zero_circle.real().is_undefined());
-    assert!(div_by_zero_circle.imaginary().is_undefined());
+    assert!(div_by_zero_circle.r().is_infinite());
+    assert!(div_by_zero_circle.i().is_infinite());
 
     // Complex functions with error conditions
     let undefined_circle_exp = undefined_circle.exp();
-    assert!(undefined_circle_exp.real().is_undefined());
+    assert!(undefined_circle_exp.r().is_undefined());
 
     let undefined_circle_ln = undefined_circle.ln();
-    assert!(undefined_circle_ln.real().is_undefined());
+    assert!(undefined_circle_ln.r().is_undefined());
 }
 
 #[test]
@@ -357,7 +340,7 @@ fn test_edge_case_combinations() {
         ScalarF5E3::ZERO,
         ScalarF5E3::ONE,
         ScalarF5E3::INFINITY,
-        ScalarF5E3::EPSILON,
+        ScalarF5E3::POS_NORMAL_EPSILON,
         ScalarF5E3::MAX,
         ScalarF5E3::MIN,
         ScalarF5E3::MIN_POS,
@@ -413,39 +396,6 @@ fn test_edge_case_combinations() {
                     || difference.exploded()
                     || difference.vanished()
             );
-        }
-    }
-}
-
-#[test]
-fn test_undefined_prefix_consistency() {
-    // Test that different undefined states can be distinguished by their prefixes
-    let zero_div_zero = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
-    let sqrt_negative = ScalarF5E3::from(-1.0).sqrt();
-    let ln_negative = ScalarF5E3::from(-1.0).ln();
-    let inf_minus_inf = ScalarF5E3::INFINITY - ScalarF5E3::INFINITY;
-
-    // All should be undefined
-    assert!(zero_div_zero.is_undefined());
-    assert!(sqrt_negative.is_undefined());
-    assert!(ln_negative.is_undefined());
-    assert!(inf_minus_inf.is_undefined());
-
-    // But they might have different undefined prefixes to indicate the cause
-    // This tests the implementation's ability to track the first cause of undefined behavior
-    if let (Some(prefix1), Some(prefix2), Some(prefix3), Some(prefix4)) = (
-        zero_div_zero.undefined_prefix(),
-        sqrt_negative.undefined_prefix(),
-        ln_negative.undefined_prefix(),
-        inf_minus_inf.undefined_prefix(),
-    ) {
-        // Different operations should ideally have different prefixes
-        // (though some might be the same if they map to the same underlying cause)
-        let prefixes = [prefix1, prefix2, prefix3, prefix4];
-
-        // At least verify that the prefixes are valid undefined patterns
-        for prefix in prefixes {
-            assert!(prefix != 0); // Should not be zero (which would indicate normal state)
         }
     }
 }

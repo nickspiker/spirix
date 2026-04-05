@@ -1,4 +1,4 @@
-/// Tests comparing Newton-Raphson sqrt() vs non-restoring sqrt_bb()
+/// Tests comparing bitwise sqrt() vs Newton-Raphson sqrt_newton()
 /// Ensures both algorithms produce bit-identical results
 use spirix::{ScalarF3E3, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7};
 
@@ -11,7 +11,7 @@ fn test_sqrt_8bit_methods_match() {
         }
 
         let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let bitwise = input.sqrt_newton();
 
         assert_eq!(
             newton.fraction, bitwise.fraction,
@@ -35,7 +35,7 @@ fn test_sqrt_16bit_methods_match() {
         }
 
         let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let bitwise = input.sqrt_newton();
 
         assert_eq!(
             newton.fraction, bitwise.fraction,
@@ -60,7 +60,7 @@ fn test_sqrt_32bit_methods_match() {
         }
 
         let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let bitwise = input.sqrt_newton();
 
         assert_eq!(
             newton.fraction, bitwise.fraction,
@@ -85,7 +85,7 @@ fn test_sqrt_64bit_methods_match() {
         }
 
         let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let bitwise = input.sqrt_newton();
 
         assert_eq!(
             newton.fraction, bitwise.fraction,
@@ -111,7 +111,7 @@ fn test_sqrt_128bit_methods_match() {
         }
 
         let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let bitwise = input.sqrt_newton();
 
         assert_eq!(
             newton.fraction, bitwise.fraction,

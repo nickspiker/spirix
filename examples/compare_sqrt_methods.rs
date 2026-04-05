@@ -1,7 +1,7 @@
 use spirix::ScalarF4E4;
 
 fn main() {
-    println!("Testing sqrt() vs sqrt_bb() for equality\n");
+    println!("Testing sqrt() vs sqrt_newton() for equality\n");
 
     let mut mismatches = 0;
     let mut total_tests = 0;
@@ -15,27 +15,27 @@ fn main() {
             continue;
         }
 
-        let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let a = input.sqrt();
+        let b = input.sqrt_newton();
 
         total_tests += 1;
 
-        if newton.fraction != bitwise.fraction || newton.exponent != bitwise.exponent {
+        if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
             println!("MISMATCH for input {}:", val);
-            println!("  Input:    {:#?}", input);
-            println!("  Newton:   {:#?}", newton);
-            println!("  Bitwise:  {:#?}", bitwise);
+            println!("  Input:        {:#?}", input);
+            println!("  sqrt:         {:#?}", a);
+            println!("  sqrt_newton:  {:#?}", b);
 
             // Show bit differences
-            let frac_diff = (newton.fraction as i32 - bitwise.fraction as i32).abs();
-            let exp_diff = (newton.exponent as i32 - bitwise.exponent as i32).abs();
+            let frac_diff = (a.fraction as i32 - b.fraction as i32).unsigned_abs();
+            let exp_diff = (a.exponent as i32 - b.exponent as i32).unsigned_abs();
             println!("  Frac diff: {}", frac_diff);
             println!("  Exp diff:  {}\n", exp_diff);
         }
     }
 
-    println!("═══════════════════════════════════════");
+    println!("=======================================");
     println!("Total tests: {}", total_tests);
     println!("Mismatches: {}", mismatches);
     println!(
@@ -44,6 +44,6 @@ fn main() {
     );
 
     if mismatches == 0 {
-        println!("\n✓ Perfect match! All results identical.");
+        println!("\nPerfect match! All results identical.");
     }
 }

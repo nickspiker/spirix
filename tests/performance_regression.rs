@@ -56,12 +56,7 @@ fn test_scalar_arithmetic_performance() {
 #[test]
 fn test_circle_arithmetic_performance() {
     let circles: Vec<CircleF5E3> = (0..1000)
-        .map(|i| {
-            CircleF5E3::new(
-                ScalarF5E3::from(i as f32 * 0.1),
-                ScalarF5E3::from(i as f32 * 0.2),
-            )
-        })
+        .map(|i| CircleF5E3::from((i as f32 * 0.1, i as f32 * 0.2)))
         .collect();
 
     // Test complex addition performance
@@ -177,7 +172,7 @@ fn test_state_checking_performance() {
         ScalarF5E3::ZERO,
         ScalarF5E3::INFINITY,
         ScalarF5E3::MAX * ScalarF5E3::from(2.0), // exploded
-        ScalarF5E3::MIN_POSITIVE / ScalarF5E3::from(2.0), // vanished
+        ScalarF5E3::MIN_POS / ScalarF5E3::from(2.0), // vanished
         ScalarF5E3::ZERO / ScalarF5E3::ZERO,     // undefined
     ];
 
@@ -211,20 +206,6 @@ fn test_state_checking_performance() {
         zero_check_time.as_nanos() / (PERFORMANCE_ITERATIONS as u128 * values.len() as u128)
     );
 
-    // Test normalization_level performance
-    let start = Instant::now();
-    for _ in 0..PERFORMANCE_ITERATIONS {
-        for value in &values {
-            let result = value.normalization_level();
-            std::hint::black_box(result);
-        }
-    }
-    let level_check_time = start.elapsed();
-    assert!(
-        level_check_time.as_nanos() / ((PERFORMANCE_ITERATIONS * values.len()) as u128) < 1000,
-        "normalization_level too slow: {} ns per operation",
-        level_check_time.as_nanos() / (PERFORMANCE_ITERATIONS as u128 * values.len() as u128)
-    );
 }
 
 #[test]

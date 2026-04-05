@@ -1108,141 +1108,128 @@ where
 
 }
 
-/// Pure-integer IEEE conversions for `Scalar<i16, i16>` (= `ScalarF4E4`).
+/// Pure-integer IEEE conversions for all Scalar types.
 ///
 /// These avoid `2f32.powi` / `2f64.powi` — all operations are integer bit
 /// manipulation + `f32::from_bits` / `f64::from_bits` (reinterpret casts only).
+/// to_f32: left-align fraction into i32 (top 32 bits), then extract 23-bit mantissa.
+/// For frac_bits <= 32, left-shift. For frac_bits > 32, right-shift (truncate low bits).
+macro_rules! impl_to_f32 {
+    ($frac:ty, $exp:ty, $frac_bits:expr) => {
+        impl Scalar<$frac, $exp> {
+            #[inline]
+            pub fn to_f32(&self) -> f32 {
+                if !self.is_normal() {
+                    if self.is_undefined() {
+                        return f32::NAN;
+                    }
+                    if self.is_negligible() {
+                        return if self.fraction.is_negative() { -0. } else { 0. };
+                    }
+                    if self.is_infinite() {
+                        return f32::INFINITY;
+                    }
+                    return if self.fraction.is_negative() { f32::NEG_INFINITY } else { f32::INFINITY };
+                }
+                let frac_i32 = if $frac_bits <= 32 {
+                    (self.fraction as i32) << (32 - $frac_bits)
+                } else {
+                    (self.fraction >> ($frac_bits - 32)) as i32
+                };
+                let sign_bit = if frac_i32 < 0 { 1u32 } else { 0u32 };
+                let abs_frac = frac_i32.unsigned_abs();
+                let (abs_frac_n, exp_adj) = if abs_frac >= 0x8000_0000 {
+                    (abs_frac >> 1, 1i32)
+                } else {
+                    (abs_frac, 0i32)
+                };
+                let mantissa = (abs_frac_n >> 7) & 0x7F_FFFF;
+                let raw_exp_i = (self.exponent as i32) + 126 + exp_adj;
+                if raw_exp_i >= 255 {
+                    return if sign_bit != 0 { f32::NEG_INFINITY } else { f32::INFINITY };
+                }
+                if raw_exp_i <= 0 {
+                    let shift = 1 - raw_exp_i;
+                    if shift >= 24 {
+                        return f32::from_bits(sign_bit << 31);
+                    }
+                    let full_mantissa = (abs_frac_n >> 7) | 0x80_0000;
+                    let subnormal_mantissa = full_mantissa >> shift;
+                    return f32::from_bits((sign_bit << 31) | subnormal_mantissa);
+                }
+                f32::from_bits((sign_bit << 31) | ((raw_exp_i as u32) << 23) | mantissa)
+            }
+        }
+    };
+}
+
+/// to_f64: left-align fraction into i64 (top 64 bits), then extract 52-bit mantissa.
+/// For frac_bits <= 64, left-shift. For frac_bits > 64, right-shift (truncate low bits).
+macro_rules! impl_to_f64 {
+    ($frac:ty, $exp:ty, $frac_bits:expr) => {
+        impl Scalar<$frac, $exp> {
+            #[inline]
+            pub fn to_f64(&self) -> f64 {
+                if !self.is_normal() {
+                    if self.is_undefined() {
+                        return f64::NAN;
+                    }
+                    if self.is_negligible() {
+                        return if self.fraction.is_negative() { -0. } else { 0. };
+                    }
+                    if self.is_infinite() {
+                        return f64::INFINITY;
+                    }
+                    return if self.fraction.is_negative() { f64::NEG_INFINITY } else { f64::INFINITY };
+                }
+                let frac_i64 = if $frac_bits <= 64 {
+                    (self.fraction as i64) << (64 - $frac_bits)
+                } else {
+                    (self.fraction >> ($frac_bits - 64)) as i64
+                };
+                let sign_bit = if frac_i64 < 0 { 1u64 } else { 0u64 };
+                let abs_frac = frac_i64.unsigned_abs();
+                let (abs_frac_n, exp_adj) = if abs_frac >= 0x8000_0000_0000_0000 {
+                    (abs_frac >> 1, 1i64)
+                } else {
+                    (abs_frac, 0i64)
+                };
+                let mantissa = (abs_frac_n >> 10) & 0x000F_FFFF_FFFF_FFFF;
+                let raw_exp_i = (self.exponent as i64) + 1022 + exp_adj;
+                if raw_exp_i >= 2047 {
+                    return if sign_bit != 0 { f64::NEG_INFINITY } else { f64::INFINITY };
+                }
+                if raw_exp_i <= 0 {
+                    let shift = 1 - raw_exp_i;
+                    if shift >= 53 {
+                        return f64::from_bits(sign_bit << 63);
+                    }
+                    let full_mantissa = (abs_frac_n >> 10) | 0x0010_0000_0000_0000;
+                    let subnormal_mantissa = full_mantissa >> shift;
+                    return f64::from_bits((sign_bit << 63) | subnormal_mantissa);
+                }
+                f64::from_bits((sign_bit << 63) | ((raw_exp_i as u64) << 52) | mantissa)
+            }
+        }
+    };
+}
+
+macro_rules! impl_to_ieee_all {
+    ($frac:ty, $frac_bits:expr, $($exp:ty),+) => {
+        $(
+            impl_to_f32!($frac, $exp, $frac_bits);
+            impl_to_f64!($frac, $exp, $frac_bits);
+        )+
+    };
+}
+
+impl_to_ieee_all!(i8,    8,  i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i16,  16,  i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i32,  32,  i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i64,  64,  i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i128, 128, i8, i16, i32, i64, i128);
+
 impl Scalar<i16, i16> {
-    /// Converts this Scalar to an f32 value using pure integer bit construction.
-    ///
-    /// Handles special cases:
-    /// - Undefined returns NaN
-    /// - Vanished negative returns -0.0, positive returns 0.0
-    /// - Exploded negative returns -∞, positive returns ∞
-    /// - Normal values: builds IEEE 754 binary32 bit pattern via integer ops only
-    #[inline]
-    pub fn to_f32(&self) -> f32 {
-        if !self.is_normal() {
-            if self.is_undefined() {
-                return f32::NAN;
-            }
-            if self.is_negligible() {
-                return if self.fraction.is_negative() { -0. } else { 0. };
-            }
-            if self.is_infinite() {
-                // INFINITY sentinel: fraction = ALL_ONES (-1), sign is indeterminate.
-                // Match the generic Into<f64> which returns positive infinity for this case.
-                return f32::INFINITY;
-            }
-            // Exploded: sign carried in fraction.
-            return if self.fraction.is_negative() { f32::NEG_INFINITY } else { f32::INFINITY };
-        }
-        // Left-align fraction into i32 (N1 normalised: bit 30 = implicit leading 1)
-        let frac_i32 = (self.fraction as i32) << 16;
-        let sign_bit = if frac_i32 < 0 { 1u32 } else { 0u32 };
-        let abs_frac = frac_i32.unsigned_abs(); // u32, bit 30 = 1
-        // Normalise abs_frac so the implicit 1 is always at bit 30.
-        // For positive fractions: bit 30 is already the leading 1 (normal case).
-        // For fraction = i16::MIN (= -32768): abs(i32::MIN) = 0x8000_0000, leading 1 at bit 31.
-        //   Shift right by 1 and add 1 to exponent to normalise.
-        let (abs_frac_n, exp_adj) = if abs_frac >= 0x8000_0000 {
-            (abs_frac >> 1, 1i32)
-        } else {
-            (abs_frac, 0i32)
-        };
-        // Extract 23-bit IEEE mantissa (strip implicit 1 at bit 30).
-        // Shift right by 7 (= 30 - 23) so implicit 1 moves to bit 23, then mask lower 23 bits.
-        // Verified: 1.0 → abs_n=0x4000_0000 → >>7=0x0080_0000 → &0x7FFFFF=0 ✓ (raw_exp=127)
-        //          -1.0 → frac=i16::MIN, abs=0x8000_0000 → norm: abs_n=0x4000_0000, adj=1
-        //               → mantissa=0, raw_exp=0+126+1=127 → 0xBF800000 = -1.0 ✓
-        //           1.5 → abs_n=0x6000_0000 → >>7=0x00C0_0000 → &0x7FFFFF=0x40_0000 ✓
-        let mantissa = (abs_frac_n >> 7) & 0x7F_FFFF;
-        // IEEE raw_exp = Spirix exponent + 126 + normalisation_adjustment.
-        // Verified: 1.0 → {exp:1} → raw_exp = 1+126=127 ✓
-        //           0.5 → {exp:0} → raw_exp = 0+126=126 ✓
-        //           0.25→ {exp:-1}→ raw_exp = -1+126=125 ✓
-        let raw_exp_i = (self.exponent as i32) + 126 + exp_adj;
-        if raw_exp_i >= 255 {
-            // Overflow → infinity
-            return if sign_bit != 0 { f32::NEG_INFINITY } else { f32::INFINITY };
-        }
-        if raw_exp_i <= 0 {
-            // Subnormal or underflow
-            let shift = 1 - raw_exp_i; // how many extra right-shifts needed
-            if shift >= 24 {
-                // Complete underflow → ±0
-                return f32::from_bits(sign_bit << 31);
-            }
-            // Produce subnormal: bits [22:0] with implicit 1 at bit 23, shifted right
-            let full_mantissa = (abs_frac_n >> 7) | 0x80_0000; // implicit 1 at bit 23
-            let subnormal_mantissa = full_mantissa >> shift;
-            return f32::from_bits((sign_bit << 31) | subnormal_mantissa);
-        }
-        f32::from_bits((sign_bit << 31) | ((raw_exp_i as u32) << 23) | mantissa)
-    }
-
-    /// Converts this Scalar to an f64 value using pure integer bit construction.
-    ///
-    /// Handles special cases:
-    /// - Undefined returns NaN
-    /// - Vanished negative returns -0.0, positive returns 0.0
-    /// - Exploded negative returns -∞, positive returns ∞
-    /// - Normal values: builds IEEE 754 binary64 bit pattern via integer ops only
-    #[inline]
-    pub fn to_f64(&self) -> f64 {
-        if !self.is_normal() {
-            if self.is_undefined() {
-                return f64::NAN;
-            }
-            if self.is_negligible() {
-                return if self.fraction.is_negative() { -0. } else { 0. };
-            }
-            if self.is_infinite() {
-                // INFINITY sentinel: fraction = ALL_ONES (-1), sign is indeterminate.
-                // Match the generic Into<f64> which returns positive infinity for this case.
-                return f64::INFINITY;
-            }
-            // Exploded: sign carried in fraction.
-            return if self.fraction.is_negative() { f64::NEG_INFINITY } else { f64::INFINITY };
-        }
-        // Left-align fraction into i64 (N1 normalised: bit 62 = implicit leading 1)
-        let frac_i64 = (self.fraction as i64) << 48;
-        let sign_bit = if frac_i64 < 0 { 1u64 } else { 0u64 };
-        let abs_frac = frac_i64.unsigned_abs(); // u64, bit 62 = 1
-        // Normalise abs_frac so the implicit 1 is always at bit 62.
-        // For positive fractions: bit 62 is the leading 1 (normal case).
-        // For fraction = i16::MIN (= -32768): abs(i64::MIN) = 0x8000_0000_0000_0000, leading 1 at bit 63.
-        //   Shift right by 1 and add 1 to exponent.
-        let (abs_frac_n, exp_adj) = if abs_frac >= 0x8000_0000_0000_0000 {
-            (abs_frac >> 1, 1i64)
-        } else {
-            (abs_frac, 0i64)
-        };
-        // Extract 52-bit IEEE mantissa (strip implicit 1 at bit 62).
-        // Shift right by 10 (= 62 - 52) so implicit 1 moves to bit 52, then mask lower 52 bits.
-        // Verified: 1.0 → abs_n=0x4000_0000_0000_0000 → >>10=0x0010_0000_0000_0000 → &mask=0 ✓
-        //          -1.0 → norm: abs_n=0x4000_0000_0000_0000, adj=1 → raw_exp=0+1022+1=1023 ✓
-        let mantissa = (abs_frac_n >> 10) & 0x000F_FFFF_FFFF_FFFF;
-        // IEEE raw_exp = Spirix exponent + 1022 + normalisation_adjustment
-        // Verified: 1.0 → {exp:1} → raw_exp = 1+1022=1023 ✓
-        //           0.5 → {exp:0} → raw_exp = 0+1022=1022 ✓
-        //           0.25→ {exp:-1}→ raw_exp = -1+1022=1021 ✓
-        let raw_exp_i = (self.exponent as i64) + 1022 + exp_adj;
-        if raw_exp_i >= 2047 {
-            return if sign_bit != 0 { f64::NEG_INFINITY } else { f64::INFINITY };
-        }
-        if raw_exp_i <= 0 {
-            let shift = 1 - raw_exp_i;
-            if shift >= 53 {
-                return f64::from_bits(sign_bit << 63);
-            }
-            let full_mantissa = (abs_frac_n >> 10) | 0x0010_0000_0000_0000; // implicit 1 at bit 52
-            let subnormal_mantissa = full_mantissa >> shift;
-            return f64::from_bits((sign_bit << 63) | subnormal_mantissa);
-        }
-        f64::from_bits((sign_bit << 63) | ((raw_exp_i as u64) << 52) | mantissa)
-    }
-
     /// Convert a normal (finite, non-zero, non-NaN) f64 literal to `Scalar<i16,i16>` at
     /// compile time. Panics at compile time if called with NaN, infinity, or zero.
     ///

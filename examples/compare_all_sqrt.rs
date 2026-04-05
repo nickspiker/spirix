@@ -1,7 +1,7 @@
 use spirix::{ScalarF3E3, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7};
 
 fn test_8bit() {
-    println!("═══ Testing 8-bit (ScalarF3E3) ═══");
+    println!("=== Testing 8-bit (ScalarF3E3) ===");
     let mut mismatches = 0;
     let mut total = 0;
 
@@ -11,15 +11,15 @@ fn test_8bit() {
             continue;
         }
 
-        let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let a = input.sqrt();
+        let b = input.sqrt_newton();
         total += 1;
 
-        if newton.fraction != bitwise.fraction || newton.exponent != bitwise.exponent {
+        if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
             println!(
-                "  MISMATCH val={}: newton={:#?} bitwise={:#?}",
-                val, newton, bitwise
+                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
+                val, a, b
             );
         }
     }
@@ -33,7 +33,7 @@ fn test_8bit() {
 }
 
 fn test_16bit() {
-    println!("═══ Testing 16-bit (ScalarF4E4) ═══");
+    println!("=== Testing 16-bit (ScalarF4E4) ===");
     let mut mismatches = 0;
     let mut total = 0;
 
@@ -43,15 +43,15 @@ fn test_16bit() {
             continue;
         }
 
-        let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let a = input.sqrt();
+        let b = input.sqrt_newton();
         total += 1;
 
-        if newton.fraction != bitwise.fraction || newton.exponent != bitwise.exponent {
+        if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
             println!(
-                "  MISMATCH val={}: newton={:#?} bitwise={:#?}",
-                val, newton, bitwise
+                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
+                val, a, b
             );
         }
     }
@@ -65,7 +65,7 @@ fn test_16bit() {
 }
 
 fn test_32bit() {
-    println!("═══ Testing 32-bit (ScalarF5E5) ═══");
+    println!("=== Testing 32-bit (ScalarF5E5) ===");
     let mut mismatches = 0;
     let mut total = 0;
 
@@ -76,15 +76,15 @@ fn test_32bit() {
             continue;
         }
 
-        let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let a = input.sqrt();
+        let b = input.sqrt_newton();
         total += 1;
 
-        if newton.fraction != bitwise.fraction || newton.exponent != bitwise.exponent {
+        if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
             println!(
-                "  MISMATCH val={}: newton={:#?} bitwise={:#?}",
-                val, newton, bitwise
+                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
+                val, a, b
             );
         }
     }
@@ -98,7 +98,7 @@ fn test_32bit() {
 }
 
 fn test_64bit() {
-    println!("═══ Testing 64-bit (ScalarF6E6) ═══");
+    println!("=== Testing 64-bit (ScalarF6E6) ===");
     let mut mismatches = 0;
     let mut total = 0;
 
@@ -109,15 +109,15 @@ fn test_64bit() {
             continue;
         }
 
-        let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let a = input.sqrt();
+        let b = input.sqrt_newton();
         total += 1;
 
-        if newton.fraction != bitwise.fraction || newton.exponent != bitwise.exponent {
+        if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
             println!(
-                "  MISMATCH val={}: newton={:#?} bitwise={:#?}",
-                val, newton, bitwise
+                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
+                val, a, b
             );
         }
     }
@@ -131,7 +131,7 @@ fn test_64bit() {
 }
 
 fn test_128bit() {
-    println!("═══ Testing 128-bit (ScalarF7E7) ═══");
+    println!("=== Testing 128-bit (ScalarF7E7) ===");
     let mut mismatches = 0;
     let mut total = 0;
 
@@ -142,15 +142,15 @@ fn test_128bit() {
             continue;
         }
 
-        let newton = input.sqrt();
-        let bitwise = input.sqrt_bb();
+        let a = input.sqrt();
+        let b = input.sqrt_newton();
         total += 1;
 
-        if newton.fraction != bitwise.fraction || newton.exponent != bitwise.exponent {
+        if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
             println!(
-                "  MISMATCH val={}: newton={:#?} bitwise={:#?}",
-                val, newton, bitwise
+                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
+                val, a, b
             );
         }
     }
@@ -161,11 +161,10 @@ fn test_128bit() {
         mismatches,
         100.0 * (total - mismatches) as f64 / total as f64
     );
-    println!("  Note: 128-bit still uses multiplication (no U512 type available)");
 }
 
 fn main() {
-    println!("Comparing sqrt() (Newton-Raphson) vs sqrt_bb() (bit-by-bit non-restoring)\n");
+    println!("Comparing sqrt() vs sqrt_newton()\n");
 
     test_8bit();
     test_16bit();
@@ -173,6 +172,6 @@ fn main() {
     test_64bit();
     test_128bit();
 
-    println!("═══════════════════════════════════════");
+    println!("=======================================");
     println!("All tests complete!");
 }

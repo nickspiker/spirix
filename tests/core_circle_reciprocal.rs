@@ -33,6 +33,6 @@ fn test_reciprocal_identity() {
     let recip_z = z.reciprocal();
     let product = z * recip_z;
     // Should be very close to 1
-    assert!((product.r() - 1.0).magnitude() < 0.01);
-    assert!(product.i().magnitude() < 0.01);
+    assert!((product.r() - 1f32).magnitude() < 0.01);
+    assert!(product.i().magnitude() < 0.01f32);
 }

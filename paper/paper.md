@@ -18,7 +18,9 @@ $$v = \frac{f}{2^{n-1}} \times 2^{e}$$
 
 where *f* is an *n*-bit signed fraction and *e* is an *m*-bit signed exponent. No sign bit, no implicit leading one, no exponent bias, no positive/negative zero distinction.
 
-**N-1 normalization**: the two MSBs of a normal fraction always differ (`01...` positive, `10...` negative) -- the sign can be determined by checking `N0`. A single reserved exponent $e_{\min} = -2^{m-1}$ (the "ambiguous exponent") encodes all non-normal states: zero, infinity, overflow ("exploded"), underflow ("vanished"), and undefined results. This replaces IEEE 754's five special categories with one sentinel.
+**N-1 normalization**: for any value with a known magnitude (exponent $\neq e_{\min}$), the two MSBs of the fraction always differ (`01...` positive, `10...` negative). The sign is simply the MSB. A single reserved exponent $e_{\min} = -2^{m-1}$ (the "ambiguous exponent") encodes all non-normal states: zero, infinity, overflow ("exploded"), underflow ("vanished"), and undefined results. The fraction bits then distinguish which non-normal state. This replaces IEEE 754's five special categories with one sentinel.
+
+Note that the differing-MSBs constraint means one fraction bit is redundant for normal values -- in principle, one could store only the sign bit and reconstruct the other as its complement (one NOT gate), analogous to IEEE 754's implicit leading one. However, this would require additional reserved exponents to encode non-normal states (whose fraction bits carry semantic meaning), trading the format's single-sentinel simplicity for IEEE-style magic-constant decoding. The explicit representation is a deliberate choice: one bit of storage buys a uniform encoding with no special-case suppression logic.
 
 Properties preserved:
 - **Multiplicative identity**: $a \times b = 0 \iff a = 0 \lor b = 0$
@@ -30,7 +32,7 @@ For these comparisons I used $n = 25$, $m = 8$ (binary32-equivalent) thruout.
 
 ### Contributions
 
-1. Open-source Verilog implementations of two's complement FP add, multiply, and FMA
+1. Source-available Verilog implementations of two's complement FP add, multiply, and FMA
 2. A CE-gated self-test harness that measures true silicon Fmax, consistently 2--3.7x higher than static timing
 3. Head-to-head comparison against HardFloat and FPnew on identical silicon -- wins on every op
 4. IEEE f32 accuracy: 99.97% exact, 0.03% off by 1 ULP, 0% off by >1 ULP (10M random trials)
@@ -81,6 +83,8 @@ These are early implementations. Division and square root in IEEE libraries have
 Two's complement FP enables first-class bitwise operations on floating-point values -- something IEEE 754 does not define and numerical libraries do not provide. Operands are aligned by exponent (shifting the smaller to match), then standard bitwise logic (AND, OR, XOR, NOT) is applied to the aligned fractions.
 
 Bit shifts map directly to exponent adjustment: left shift increments the exponent, right shift decrements it. This means `x >> 1` is a divide-by-2 and `x << 1` is a multiply-by-2 -- a single exponent add, no multiplier needed. In IEEE 754, `2.0 * x` requires invoking the multiply unit (or a special-case optimization that the hardware may or may not implement). In Spirix, it's one wire.
+
+The primary use cases are signal processing and embedded systems: bit masking for quantization, power-of-two scaling in DSP pipelines without consuming a multiplier, and any context where bit manipulation on floating-point values would otherwise require round-tripping thru integer representation. Bitwise AND can extract or zero specific fraction bits (useful for truncation and fixed-point interop), while XOR enables fast sign manipulation and differencing.
 
 Checked transitions to exploded/vanished states handle the case where a shift would exceed the representable exponent range, maintaining the same overflow/underflow semantics as arithmetic operations.
 
@@ -170,7 +174,7 @@ Div/sqrt is not apples-to-apples: the implementations use fundamentally differen
 
 \*Harness ceiling is ~500 MHz (LFSR-only bypass). sqrt_iter passed at 400 MHz; true Fmax is between 400--500 MHz but cannot be isolated from the harness at these frequencies.
 
-The Spirix iterative units achieve the highest per-cycle Fmax (234/>400 MHz vs HardFloat's 182/200 MHz) and are dramatically smaller (535/101 LUT4 vs 2047/2000). HardFloat and FPnew extract more bits per cycle (radix-4 gets 2 bits/cycle, reducing latency), but at much higher area cost. The Spirix NR pipelined units offer full throughput (one result per clock) but consume 20--27 DSP18 each -- impractical on smaller FPGAs. Room for optimization here.
+The Spirix iterative units achieve the highest per-cycle Fmax (234/>400 MHz vs HardFloat's 182/200 MHz) and are dramatically smaller (535/101 LUT4 vs 2047/2000). HardFloat and FPnew extract more bits per cycle (radix-4 gets 2 bits/cycle, reducing latency), but at much higher area cost. The Spirix NR pipelined units offer full thruput (one result per clock) but consume 20--27 DSP18 each -- impractical on smaller FPGAs. Room for optimization here.
 
 ### Spirix vs FPnew (ASIC, no DSP)
 
@@ -227,9 +231,9 @@ The 1-ULP cases are valid rounding choices at the boundary between the two syste
 
 ## 5. Related Work
 
-**TMS320C3x** (TI, ~1988) is the closest precedent: two's complement mantissa, unbiased two's complement exponent, N-1 normalization -- the same core representation. It was a proprietary DSP with no published comparisons against IEEE hardware. TI abandoned the format in later generations under IEEE ecosystem pressure (Intel 8087, software portability), not because of hardware deficiency -- their own docs note the units were "simpler to build and validate."
+**TMS320C3x** (TI, ~1988) is often cited as two's complement floating-point, but the format is more precisely sign-magnitude with two's complement interpretation: it stores a separate sign bit and unsigned fraction field, then reconstructs a two's complement mantissa by prepending an implicit normalization bit derived from the sign ($s=0 \rightarrow$ `01.f`, $s=1 \rightarrow$ `10.f`). Negation is a sign-bit flip, not two's complement negation. The C3x does use an unbiased two's complement exponent and N-1-equivalent normalization, making it the closest precedent in spirit, but it is not end-to-end two's complement arithmetic. It was a proprietary DSP with no published comparisons against IEEE hardware. TI abandoned the format in later generations under IEEE ecosystem pressure (Intel 8087, software portability), not because of hardware deficiency -- their own docs note the units were "simpler to build and validate."
 
-**Boldo and Daumas** (2003) formally verified properties of two's complement FP using Coq, referencing the TMS320C3x. Theoretical contribution, no hardware.
+**Boldo and Daumas** (2003) formally verified properties of two's complement FP using Coq, referencing the TMS320C3x. Their formalization treats the interpreted two's complement mantissa without distinguishing it from a true signless representation. Theoretical contribution, no hardware.
 
 **LOCOFloat** (Sanchez et al., 2020) uses two's complement significand and exponent for FPGA HIL simulation, with "soft normalization" (relaxed constraints). Different design point -- area reduction via reduced precision, no FMA, no comparison against IEEE libraries.
 
@@ -243,27 +247,49 @@ To my knowledge, no prior work presents a silicon-verified area and frequency co
 
 ## 6. Conclusion
 
+**Add/Sub**
+
 | Module | Silicon Fmax | LUT4 | DSP | Latency |
 |---|---|---|---|---|
-| Spirix sqrt_iter | >400 MHz\* | 101 | 0 | 27 cyc |
-| Spirix divide_iter | 234 | 535 | 0 | 28 cyc |
-| HardFloat sqrt | 200 | 2000 | 0 | 24--25 cyc |
-| HardFloat div | 182 | 2047 | 0 | 26 cyc |
-| Spirix multiply pipe2 | 181 | 227 | 4 | 2 cyc |
-| FPnew div | 168 | 1863 | 0 | ~14 cyc |
-| Spirix addsub pipe2 | 147 | 679 | 0 | 2 cyc |
-| Spirix sqrt_nr | 125 | 863 | 27 | 10 cyc (pipe) |
-| Spirix divmod_nr | 120 | 560 | 20 | 8 cyc (pipe) |
-| FPnew sqrt | 116 | 1903 | 0 | ~14 cyc |
-| Spirix multiply | 115 | 227 | 4 | 1 cyc |
-| Spirix add/sub | 95 | 842 | 0 | 1 cyc |
+| Spirix addsub pipe2 | **147** | 679 | 0 | 2 cyc |
+| Spirix add/sub | **95** | 842 | 0 | 1 cyc |
 | HardFloat add | 88 | 1050 | 0 | 1 cyc |
-| FPnew add | 74 | 825 | 0 | 1 cyc |
+| FPnew add | 74 | **825** | 0 | 1 cyc |
+
+**Multiply**
+
+| Module | Silicon Fmax | LUT4 | DSP | Latency |
+|---|---|---|---|---|
+| Spirix multiply pipe2 | **181** | **227** | 4 | 2 cyc |
+| Spirix multiply | **115** | **227** | 4 | 1 cyc |
 | FPnew mul | 74 | 2850 | 0 | 1 cyc |
 | HardFloat multiply | 65 | 786 | 4 | 1 cyc |
-| Spirix FMA | 63 | 1472 | 3 | 1 cyc |
+
+**FMA**
+
+| Module | Silicon Fmax | LUT4 | DSP | Latency |
+|---|---|---|---|---|
+| Spirix FMA | **63** | **1472** | **3** | 1 cyc |
 | HardFloat FMA | 47 | 2057 | 4 | 1 cyc |
 | FPnew FMA | 25 | 2850 | 0 | 1 cyc |
+
+**Division**
+
+| Module | Silicon Fmax | LUT4 | DSP | Latency |
+|---|---|---|---|---|
+| Spirix divide_iter | **234** | **535** | 0 | 28 cyc |
+| HardFloat div | 182 | 2047 | 0 | 26 cyc |
+| FPnew div | 168 | 1863 | 0 | ~14 cyc |
+| Spirix divmod_nr | 120 | 560 | 20 | 8 cyc (pipe) |
+
+**Square Root**
+
+| Module | Silicon Fmax | LUT4 | DSP | Latency |
+|---|---|---|---|---|
+| Spirix sqrt_iter | **>400**\* | **101** | 0 | 27 cyc |
+| HardFloat sqrt | 200 | 2000 | 0 | 24--25 cyc |
+| Spirix sqrt_nr | 125 | 863 | 27 | 10 cyc (pipe) |
+| FPnew sqrt | 116 | 1903 | 0 | ~14 cyc |
 
 \*Harness ceiling ~500 MHz; Spirix sqrt_iter true Fmax is likely between 400 - 500 MHz.
 
@@ -273,7 +299,7 @@ Beyond arithmetic, the format enables first-class bitwise operations on floating
 
 The CE-gated self-test methodology provides ground truth for FPGA frequency characterization where static timing is unreliable. I recommend it for any serious FPGA benchmarking effort.
 
-All source, scripts, and harness configurations are open-source and reproducible on a ~$15 Colorlight 5A-75B board with the open-source Yosys/nextpnr toolchain:
+All source, scripts, and harness configurations are source-available and reproducible on a ~$15 Colorlight 5A-75B board with the open-source Yosys/nextpnr toolchain:
 
 ```
 SEED=4 bash fpga/scripts/build_ntsc.sh <freq_mhz> --program
