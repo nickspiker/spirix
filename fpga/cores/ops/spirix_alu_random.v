@@ -19,6 +19,7 @@ module spirix_alu_random #(
     parameter MAX_EXP  = 64
 )(
     input  wire                      clk,
+    input  wire                      ce,
     input  wire                      start,
     input  wire [1:0]                frac_width,
     input  wire [1:0]                exp_width,
@@ -150,7 +151,7 @@ module spirix_alu_random #(
     reg [2:0] state = S_IDLE;
     reg ro_warm = 0;  // set after first priming, stays 1 forever
 
-    always @(posedge clk) begin
+    always @(posedge clk) if (ce) begin
         done <= 0;
 
         // Keep prev_sample fresh while idle (ROs still running)

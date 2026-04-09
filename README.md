@@ -23,6 +23,8 @@ Current status:
 
 Use at your own risk and always validate results independently for important maths.
 
+> **Note:** Version 0.0.12 is the last release using the current representation format. The next major version will introduce an implicit sign bit for normal numbers, gaining one bit of precision at every width. This is a breaking change to the binary representation — existing stored values will not be compatible.
+
 ## Overview
 
 Spirix is a high-performance numeric library that implements a fundamentally new approach to floating-point arithmetic by utilizing two's complement representation thruout the entire calculation pipeline. Unlike traditional floating-point implementations that use separate sign bit and magnitude representation, Spirix employs a continuous numeric representation with left-aligned normalized fractions and unbiased exponents.
@@ -63,7 +65,7 @@ This representation allows for:
 
 Spirix introduces a novel normalization level system that encodes the normal/ambiguous state thru patterns in the most significant bits:
 
-| LSB/N-level | Bit Pattern | Description | Symbol |
+| MSB/N-level | Bit Pattern | Description | Symbol |
 |-------|------------|-------------|--------|
 | N-0  | □□□□□□□□ | Zero | [0] |
 | N-0  | ■■■■■■■■ | General undefined | [℘] |
