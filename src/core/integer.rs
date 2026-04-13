@@ -1,5 +1,5 @@
-use num_traits::{AsPrimitive, NumCast, PrimInt, Signed};
 use core::fmt::{Debug, Display};
+use num_traits::{AsPrimitive, NumCast, PrimInt, Signed};
 
 /// # Integer Trait
 ///
@@ -91,6 +91,9 @@ pub(crate) trait IntConvert {
     /// ```
     fn saturate<I: FullInt>(self) -> I;
 
+    /// Compare as unsigned (zero-cost: same bits, unsigned flags)
+    fn cmp_unsigned(&self, other: &Self) -> core::cmp::Ordering;
+
     /// Left aligned cast (as backwards)
     fn sa<I: FullInt>(self) -> I
     where
@@ -110,7 +113,7 @@ pub(crate) trait IntConvert {
 }
 
 macro_rules! impl_int_convert {
-    ($($t:ty),*) => {
+    ($($t:ty => $u:ty),*) => {
         $(
             impl IntConvert for $t {
                 #[inline]
@@ -122,6 +125,11 @@ macro_rules! impl_int_convert {
                     } else {
                         I::min_value()
                     }
+                }
+
+                #[inline]
+                fn cmp_unsigned(&self, other: &Self) -> core::cmp::Ordering {
+                    (*self as $u).cmp(&(*other as $u))
                 }
 
                 #[inline]
@@ -138,14 +146,16 @@ macro_rules! impl_int_convert {
                     } else {
                         self.as_()
                     }
-                    // (self as $u).reverse_bits().as_().reverse_bits() // apparently the compiler isn't smart enough to figure out this is a simple left handed cast so it turns into 38 lines of asm when it could be one op and now I have to write a massive macro, oh wait x-86 just completely forgot
                 }
             }
         )*
     }
 }
 
-impl_int_convert!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+impl_int_convert!(
+    i8 => u8, i16 => u16, i32 => u32, i64 => u64, i128 => u128, isize => usize,
+    u8 => u8, u16 => u16, u32 => u32, u64 => u64, u128 => u128, usize => usize
+);
 
 impl FullInt for i8 {}
 impl FullInt for i16 {}
@@ -202,7 +212,7 @@ impl Inflate for i128 {
     #[inline]
     fn inflate(self) -> i256::I256 {
         let wide: i256::I256 = self.into(); // sign-extend i128 to I256
-        let mask: i256::I256 = ((-1i128).into()); // all 1s in low 128, sign-extended to 256
+        let mask: i256::I256 = (-1i128).into(); // all 1s in low 128, sign-extended to 256
         wide ^ !mask // XOR the upper 128 bits
     }
 }
@@ -213,10 +223,8 @@ impl Deflate<i128> for i256::I256 {
         // Take low 128 bits via le bytes
         let bytes = self.to_le_bytes();
         i128::from_le_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5], bytes[6], bytes[7],
-            bytes[8], bytes[9], bytes[10], bytes[11],
-            bytes[12], bytes[13], bytes[14], bytes[15],
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
         ])
     }
 }

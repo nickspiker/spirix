@@ -175,22 +175,42 @@ where
     fn into(self) -> f32 {
         if self.is_normal() {
             let effective_i32: i32 = match F::FRACTION_BITS {
-                8 => { let s: i8 = self.fraction.saturate(); (s as i16 ^ ((-1i16) << 8)) as i32 }
-                16 => { let s: i16 = self.fraction.saturate(); (s as i32 ^ ((-1i32) << 16)) }
-                32 => { let s: i32 = self.fraction.saturate(); s ^ i32::MIN }
-                _ => { let s: i64 = self.fraction.saturate(); ((s ^ i64::MIN) >> 32) as i32 }
+                8 => {
+                    let s: i8 = self.fraction.saturate();
+                    (s as i16 ^ ((-1i16) << 8)) as i32
+                }
+                16 => {
+                    let s: i16 = self.fraction.saturate();
+                    s as i32 ^ ((-1i32) << 16)
+                }
+                32 => {
+                    let s: i32 = self.fraction.saturate();
+                    s ^ i32::MIN
+                }
+                _ => {
+                    let s: i64 = self.fraction.saturate();
+                    ((s ^ i64::MIN) >> 32) as i32
+                }
             };
             let base = effective_i32 as f32;
             let exponent: i32 = self.exponent.saturate();
             let scale_exp = exponent as i64 - F::FRACTION_BITS as i64;
             base * f32::from_bits(((127i64 + scale_exp) as u32) << 23)
         } else {
-            if self.is_undefined() { return f32::NAN; }
+            if self.is_undefined() {
+                return f32::NAN;
+            }
             if self.is_negligible() {
                 return if self.is_negative() { -0. } else { 0. };
             }
-            if self.is_infinite() { return f32::INFINITY; }
-            return if self.is_negative() { f32::NEG_INFINITY } else { f32::INFINITY };
+            if self.is_infinite() {
+                return f32::INFINITY;
+            }
+            return if self.is_negative() {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            };
         }
     }
 }

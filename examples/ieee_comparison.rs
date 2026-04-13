@@ -20,8 +20,12 @@ const N: usize = 100_000;
 fn f32_from_bits_finite(bits: u32, range: f32) -> f32 {
     // Use bits to get a value in [0,1), scale, shift to avoid zero
     let unit = (bits as f64 / u32::MAX as f64) as f32; // [0, 1)
-    let v = (unit * 2.0 - 1.0) * range;                // (-range, range)
-    if v.abs() < 1e-6 { 1e-6 } else { v }
+    let v = (unit * 2.0 - 1.0) * range; // (-range, range)
+    if v.abs() < 1e-6 {
+        1e-6
+    } else {
+        v
+    }
 }
 
 fn to_f64(s: ScalarF4E4) -> f64 {
@@ -30,10 +34,10 @@ fn to_f64(s: ScalarF4E4) -> f64 {
 
 struct Stats {
     mean_abs_err: f64,
-    max_abs_err:  f64,
+    max_abs_err: f64,
     mean_rel_err: f64,
-    max_rel_err:  f64,
-    nan_count:    usize,
+    max_rel_err: f64,
+    nan_count: usize,
 }
 
 fn stats(errors: &[(f64, f64)]) -> Stats {
@@ -58,10 +62,10 @@ fn stats(errors: &[(f64, f64)]) -> Stats {
 
     Stats {
         mean_abs_err: sum_abs / n,
-        max_abs_err:  max_abs,
+        max_abs_err: max_abs,
         mean_rel_err: sum_rel / n,
-        max_rel_err:  max_rel,
-        nan_count:    nans,
+        max_rel_err: max_rel,
+        nan_count: nans,
     }
 }
 
@@ -81,7 +85,10 @@ fn print_stats(name: &str, s: &Stats) {
 struct Lcg(u64);
 impl Lcg {
     fn next(&mut self) -> u32 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 33) as u32
     }
 }
@@ -105,7 +112,11 @@ fn main() {
             let spirix = to_f64(sa + sb);
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -124,7 +135,11 @@ fn main() {
             let spirix = to_f64(sa - sb);
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -143,7 +158,11 @@ fn main() {
             let spirix = to_f64(sa * sb);
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -162,7 +181,11 @@ fn main() {
             let spirix = to_f64(sa / sb);
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -182,7 +205,11 @@ fn main() {
             let spirix = to_f64(sa % sb);
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -199,7 +226,11 @@ fn main() {
             let spirix = to_f64(sa.sqrt());
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -223,7 +254,11 @@ fn main() {
             let spirix = to_f64(sa.pow(sb));
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }
@@ -243,7 +278,11 @@ fn main() {
             let spirix = to_f64(sa.log(sb));
             if ieee.is_finite() && spirix.is_finite() {
                 let abs = (ieee - spirix).abs();
-                let rel = if ieee.abs() > 1e-10 { abs / ieee.abs() } else { abs };
+                let rel = if ieee.abs() > 1e-10 {
+                    abs / ieee.abs()
+                } else {
+                    abs
+                };
                 errs.push((abs, rel));
             }
         }

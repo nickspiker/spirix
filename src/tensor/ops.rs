@@ -3,8 +3,8 @@
 //! Matrix multiply, transpose, activations, etc.
 //! All operations are clean - no IEEE-754 edge cases.
 
-use alloc::vec::Vec;
 use super::tensor::Tensor;
+use alloc::vec::Vec;
 use core::ops::{Add, Mul};
 
 /// Matrix multiplication (A × B)

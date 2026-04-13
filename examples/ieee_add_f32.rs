@@ -10,7 +10,7 @@
 const FRAC: i32 = 25;
 const EXP: i32 = 8;
 const INT_BITS: i32 = FRAC + 3; // 28
-const AMB_EXP: i8 = i8::MIN;   // -128
+const AMB_EXP: i8 = i8::MIN; // -128
 
 // ── f32 ↔ Spirix conversion (lossless for normal f32) ──────────────────────
 
@@ -55,7 +55,7 @@ fn spirix_to_f32(frac: i32, exp: i8) -> f32 {
     // mag should be N1: bit 23 set, bits 24+ clear (for FRAC=25)
     // Find leading bit position
     let lz = mag.leading_zeros(); // e.g. 8 means bit 23 is MSB
-    let shift = lz as i32 - 8;    // how many bits to shift to get bit 23 as MSB
+    let shift = lz as i32 - 8; // how many bits to shift to get bit 23 as MSB
 
     let normalized_mag = if shift > 0 {
         mag << shift
@@ -71,7 +71,11 @@ fn spirix_to_f32(frac: i32, exp: i8) -> f32 {
     if biased_exp == 0 || biased_exp >= 255 {
         // overflow/underflow
         if biased_exp >= 255 {
-            return if sign { f32::NEG_INFINITY } else { f32::INFINITY };
+            return if sign {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            };
         }
         return 0.0; // subnormal → flush to zero
     }
@@ -116,7 +120,11 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
     // Sign-extend a value to i64 from INT_BITS bits
     let sext = |v: i64| -> i64 {
         let v = v & mask;
-        if v & sign_bit != 0 { v | !mask } else { v }
+        if v & sign_bit != 0 {
+            v | !mask
+        } else {
+            v
+        }
     };
 
     let big_ext = sext(big_ext);
@@ -171,10 +179,8 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         let round_up = guard && (round_bit || sticky || lsb);
 
         // Rounding overflow detection (early, from pre-round signals)
-        let pos_all_ones = (out_frac_raw & ((1 << (FRAC - 1)) - 1))
-            == ((1 << (FRAC - 1)) - 1);
-        let rovf_pos =
-            (out_frac_raw >> (FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
+        let pos_all_ones = (out_frac_raw & ((1 << (FRAC - 1)) - 1)) == ((1 << (FRAC - 1)) - 1);
+        let rovf_pos = (out_frac_raw >> (FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
 
         // rovf_neg: frac = 10111...1 and round_up
         let rovf_neg = ((out_frac_raw >> (FRAC - 1)) & 1 == 1)
@@ -194,8 +200,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         };
 
         // Exponent
-        let exp_wide = (big_exp as i16) + 2 - (leading as i16)
-            + if rovf_pos { 1 } else { 0 }
+        let exp_wide = (big_exp as i16) + 2 - (leading as i16) + if rovf_pos { 1 } else { 0 }
             - if rovf_neg { 1 } else { 0 };
         let out_exp = exp_wide as i8;
 
@@ -204,8 +209,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         let underflow = big_exp < 0 && offset >= 0;
         if underflow {
             let uf_frac = ((close_normalized >> (INT_BITS - 1)) << (FRAC - 1))
-                | (((close_normalized >> (INT_BITS - FRAC)) & ((1 << (FRAC - 1)) - 1))
-                    as i64);
+                | (((close_normalized >> (INT_BITS - FRAC)) & ((1 << (FRAC - 1)) - 1)) as i64);
             return (uf_frac as i32, AMB_EXP);
         }
 
@@ -245,7 +249,13 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         let bit_n3 = (far_sum >> (INT_BITS - 3)) & 1;
         let far_d0 = bit_n1 != bit_n2;
         let far_d1 = bit_n2 != bit_n3;
-        let far_norm_shift: i32 = if far_d0 { 0 } else if far_d1 { 1 } else { 2 };
+        let far_norm_shift: i32 = if far_d0 {
+            0
+        } else if far_d1 {
+            1
+        } else {
+            2
+        };
         let far_leading = far_norm_shift + 1;
 
         let far_normalized = sext(far_sum << far_norm_shift);
@@ -271,10 +281,8 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         let round_up = guard && (round_bit || sticky || lsb);
 
         // Rovf detection
-        let pos_all_ones = (out_frac_raw & ((1 << (FRAC - 1)) - 1))
-            == ((1 << (FRAC - 1)) - 1);
-        let rovf_pos =
-            (out_frac_raw >> (FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
+        let pos_all_ones = (out_frac_raw & ((1 << (FRAC - 1)) - 1)) == ((1 << (FRAC - 1)) - 1);
+        let rovf_pos = (out_frac_raw >> (FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
 
         let rovf_neg = ((out_frac_raw >> (FRAC - 1)) & 1 == 1)
             && ((out_frac_raw >> (FRAC - 2)) & 1 == 0)
@@ -294,8 +302,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
 
         // Exponent: big_exp + 2 - leading + rovf adjustments
         // Far path uses big_exp (not sExpB)
-        let exp_wide = (big_exp as i16) + 2 - (leading as i16)
-            + if rovf_pos { 1 } else { 0 }
+        let exp_wide = (big_exp as i16) + 2 - (leading as i16) + if rovf_pos { 1 } else { 0 }
             - if rovf_neg { 1 } else { 0 };
         let out_exp = exp_wide as i8;
 
@@ -304,8 +311,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         let underflow = big_exp < 0 && offset >= 0;
         if underflow {
             let sign_bit_val = (normalized >> (INT_BITS - 1)) & 1;
-            let next_bits =
-                (normalized >> (INT_BITS - FRAC)) & ((1 << (FRAC - 1)) - 1);
+            let next_bits = (normalized >> (INT_BITS - FRAC)) & ((1 << (FRAC - 1)) - 1);
             let uf_frac = (sign_bit_val << (FRAC - 1)) | next_bits;
             return (uf_frac as i32, AMB_EXP);
         }
@@ -421,13 +427,21 @@ fn main() {
         }
     }
 
-    let total = exact + off_by_1 + off_by_more
-        + spirix_zero_ieee_not + ieee_zero_spirix_not;
+    let total = exact + off_by_1 + off_by_more + spirix_zero_ieee_not + ieee_zero_spirix_not;
 
     println!("Results:");
-    println!("  Exact match:    {exact:>10} ({:.4}%)", exact as f64 / N as f64 * 100.0);
-    println!("  Off by 1 ULP:   {off_by_1:>10} ({:.4}%)", off_by_1 as f64 / N as f64 * 100.0);
-    println!("  Off by >1 ULP:  {off_by_more:>10} ({:.4}%)", off_by_more as f64 / N as f64 * 100.0);
+    println!(
+        "  Exact match:    {exact:>10} ({:.4}%)",
+        exact as f64 / N as f64 * 100.0
+    );
+    println!(
+        "  Off by 1 ULP:   {off_by_1:>10} ({:.4}%)",
+        off_by_1 as f64 / N as f64 * 100.0
+    );
+    println!(
+        "  Off by >1 ULP:  {off_by_more:>10} ({:.4}%)",
+        off_by_more as f64 / N as f64 * 100.0
+    );
     if spirix_zero_ieee_not > 0 {
         println!("  Spirix→0, IEEE≠0: {spirix_zero_ieee_not}");
     }
@@ -441,7 +455,10 @@ fn main() {
         let (bf, be) = f32_to_spirix(worst_b);
         let (rf, re) = spirix_add(af, ae, bf, be);
         let ieee = worst_a + worst_b;
-        println!("    Spirix: frac={rf}, exp={re} → {}", spirix_to_f32(rf, re));
+        println!(
+            "    Spirix: frac={rf}, exp={re} → {}",
+            spirix_to_f32(rf, re)
+        );
         println!("    IEEE:   {ieee}");
     }
     println!("  Total tested:   {total}");

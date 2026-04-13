@@ -2,7 +2,7 @@ use crate::constants::ScalarConstants;
 use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
-use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
+use num_traits::AsPrimitive;
 
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f64>
     for Scalar<F, E>
@@ -159,12 +159,20 @@ where
         if E::EXPONENT_BITS == 8 {
             if spirix_exp > E::MAX_EXPONENT.as_() {
                 return Self {
-                    fraction: if sign != 0 { F::NEG_ONE_EXPLODED_FRACTION } else { F::POS_ONE_EXPLODED_FRACTION },
+                    fraction: if sign != 0 {
+                        F::NEG_ONE_EXPLODED_FRACTION
+                    } else {
+                        F::POS_ONE_EXPLODED_FRACTION
+                    },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             } else if spirix_exp < E::MIN_EXPONENT.as_() {
                 return Self {
-                    fraction: if sign != 0 { F::NEG_ONE_VANISHED_FRACTION } else { F::POS_ONE_VANISHED_FRACTION },
+                    fraction: if sign != 0 {
+                        F::NEG_ONE_VANISHED_FRACTION
+                    } else {
+                        F::POS_ONE_VANISHED_FRACTION
+                    },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
@@ -325,12 +333,20 @@ where
         if E::EXPONENT_BITS == 8 {
             if spirix_exp > E::MAX_EXPONENT.as_() {
                 return Self {
-                    fraction: if sign != 0 { F::NEG_ONE_EXPLODED_FRACTION } else { F::POS_ONE_EXPLODED_FRACTION },
+                    fraction: if sign != 0 {
+                        F::NEG_ONE_EXPLODED_FRACTION
+                    } else {
+                        F::POS_ONE_EXPLODED_FRACTION
+                    },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             } else if spirix_exp < E::MIN_EXPONENT.as_() {
                 return Self {
-                    fraction: if sign != 0 { F::NEG_ONE_VANISHED_FRACTION } else { F::POS_ONE_VANISHED_FRACTION },
+                    fraction: if sign != 0 {
+                        F::NEG_ONE_VANISHED_FRACTION
+                    } else {
+                        F::POS_ONE_VANISHED_FRACTION
+                    },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }

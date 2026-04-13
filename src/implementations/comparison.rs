@@ -2,8 +2,9 @@ use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 use crate::{
-    core::integer::FullInt, Circle, CircleConstants, ExponentConstants, FractionConstants, Integer,
-    Scalar, ScalarConstants,
+    core::integer::{FullInt, IntConvert},
+    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
+    ScalarConstants,
 };
 
 use core::cmp::Ordering;
@@ -280,22 +281,15 @@ where
     /// ```
     pub(crate) fn compare(&self, other: &Scalar<F, E>) -> Option<Ordering> {
         if self.is_normal() && other.is_normal() {
-            if self.fraction.is_negative() == other.fraction.is_negative() {
-                if self.exponent != other.exponent {
-                    return if self.fraction.is_negative() {
-                        Some(other.exponent.cmp(&self.exponent))
-                    } else {
-                        Some(self.exponent.cmp(&other.exponent))
-                    };
-                }
-                return Some(self.fraction.cmp(&other.fraction));
-            } else {
-                if self.fraction.is_negative() {
-                    return Some(Ordering::Less);
+            if self.exponent != other.exponent {
+                let cmp = self.exponent.cmp(&other.exponent);
+                return Some(if self.is_negative() {
+                    cmp.reverse()
                 } else {
-                    return Some(Ordering::Greater);
-                }
+                    cmp
+                });
             }
+            return Some(self.fraction.cmp_unsigned(&other.fraction));
         }
         if self.is_undefined() || self.is_infinite() || other.is_undefined() || other.is_infinite()
         {
@@ -305,52 +299,42 @@ where
             return Some(Ordering::Equal);
         }
         if self.is_zero() {
-            if other.fraction.is_negative() {
-                return Some(Ordering::Greater);
+            return Some(if other.is_positive() {
+                Ordering::Less
             } else {
-                return Some(Ordering::Less);
-            }
+                Ordering::Greater
+            });
         }
         if other.is_zero() {
-            if self.fraction.is_negative() {
-                return Some(Ordering::Less);
+            return Some(if self.is_positive() {
+                Ordering::Greater
             } else {
-                return Some(Ordering::Greater);
-            }
+                Ordering::Less
+            });
         }
         if (self.exploded() && other.exploded()) || (self.vanished() && other.vanished()) {
-            if self.fraction.is_negative() == other.fraction.is_negative() {
+            if self.is_negative() == other.is_negative() {
                 return None;
             }
-            if self.fraction.is_negative() {
-                return Some(Ordering::Less);
-            }
         }
-        if self.vanished() {
-            if other.fraction.is_negative() {
-                return Some(Ordering::Greater);
+        if self.is_positive() != other.is_positive() {
+            return Some(if self.is_positive() {
+                Ordering::Greater
             } else {
-                return Some(Ordering::Less);
-            }
+                Ordering::Less
+            });
         }
-        if other.vanished() {
-            if self.fraction.is_negative() {
-                return Some(Ordering::Less);
+        if self.exploded() || other.vanished() {
+            return Some(if self.is_positive() {
+                Ordering::Greater
             } else {
-                return Some(Ordering::Greater);
-            }
+                Ordering::Less
+            });
         }
-        if self.exploded() {
-            if self.is_negative() {
-                return Some(Ordering::Less);
-            } else {
-                return Some(Ordering::Greater);
-            }
-        }
-        if other.is_negative() {
-            return Some(Ordering::Greater);
+        Some(if self.is_positive() {
+            Ordering::Less
         } else {
-            return Some(Ordering::Less);
-        }
+            Ordering::Greater
+        })
     }
 }

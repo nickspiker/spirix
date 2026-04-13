@@ -165,7 +165,6 @@ fn test_hyperbolic_function_error_handling() {
     // tanh of infinity is infinite in Spirix
     let tanh_inf = infinity.tanh();
     assert!(tanh_inf.is_infinite());
-
 }
 
 #[test]

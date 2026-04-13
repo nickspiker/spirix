@@ -2,9 +2,9 @@
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::FullInt;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 // Rust primitive + Circle operations
 macro_rules! impl_rust_add_circle {

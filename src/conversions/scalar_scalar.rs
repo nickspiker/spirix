@@ -2,9 +2,9 @@
 use crate::constants::ScalarConstants;
 use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 impl<
         FS: Integer

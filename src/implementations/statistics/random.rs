@@ -2,9 +2,9 @@ use crate::core::integer::FullInt;
 use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 trait RandomFraction {
     fn random() -> Self;

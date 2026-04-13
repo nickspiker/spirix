@@ -4,13 +4,13 @@ use crate::core::undefined::*;
 use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
+use core::ops::*;
 use i256::I256;
 use num_traits::AsPrimitive;
 use num_traits::WrappingAdd;
 use num_traits::WrappingMul;
 use num_traits::WrappingNeg;
 use num_traits::WrappingSub;
-use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer

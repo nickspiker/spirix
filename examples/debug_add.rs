@@ -8,5 +8,8 @@ fn main() {
     let exact = a + b;
     let closefar = a.scalar_add_scalar_closefar(&b);
     println!("\nExact:    frac={} exp={}", exact.fraction, exact.exponent);
-    println!("CloseFar: frac={} exp={}", closefar.fraction, closefar.exponent);
+    println!(
+        "CloseFar: frac={} exp={}",
+        closefar.fraction, closefar.exponent
+    );
 }

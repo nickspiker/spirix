@@ -19,8 +19,7 @@ fn unit_interval_scalar() -> impl Strategy<Value = ScalarF5E3> {
 }
 
 fn small_circle() -> impl Strategy<Value = CircleF5E3> {
-    ((-100.0f32..100.0f32), (-100.0f32..100.0f32))
-        .prop_map(|(r, i)| CircleF5E3::from((r, i)))
+    ((-100.0f32..100.0f32), (-100.0f32..100.0f32)).prop_map(|(r, i)| CircleF5E3::from((r, i)))
 }
 
 proptest! {

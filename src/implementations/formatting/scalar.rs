@@ -47,13 +47,13 @@ use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
     ScalarConstants, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7,
 };
-use i256::I256;
-use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
+use ::core::fmt;
+use ::core::ops::*;
 use alloc::borrow::ToOwned;
 use alloc::string::String;
 use alloc::vec::Vec;
-use ::core::fmt;
-use ::core::ops::*;
+use i256::I256;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 impl<
         F: Integer
             + FractionConstants

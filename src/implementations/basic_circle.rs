@@ -3,9 +3,9 @@ use crate::core::undefined::*;
 use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
 };
+use core::ops::{Shl, Shr};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::{Shl, Shr};
 macro_rules! impl_circle_new {
     ($($f:ty, $e:ty);*) => {
         $(

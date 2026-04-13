@@ -20,18 +20,30 @@ fn inflate_deflate_i8_exhaustive() {
         let effective: i16 = ((nine_bit << 7) as i16) >> 7; // sign-extend from bit 8
 
         // Round-trip: deflate(effective) should give back stored
-        assert_eq!(effective as i8, stored, "round-trip failed for stored={stored}");
+        assert_eq!(
+            effective as i8, stored,
+            "round-trip failed for stored={stored}"
+        );
 
         // N-1 property: top two effective bits always differ
         let bit8 = (effective >> 8) & 1;
         let bit7 = (effective >> 7) & 1;
-        assert_ne!(bit8, bit7, "N-1 violated for stored={stored}: effective={effective}");
+        assert_ne!(
+            bit8, bit7,
+            "N-1 violated for stored={stored}: effective={effective}"
+        );
 
         // Sign convention: negative stored => positive effective, and vice versa
         if stored < 0 {
-            assert!(effective > 0, "stored={stored} is negative but effective={effective} not positive");
+            assert!(
+                effective > 0,
+                "stored={stored} is negative but effective={effective} not positive"
+            );
         } else if stored > 0 {
-            assert!(effective < 0, "stored={stored} is positive but effective={effective} not negative");
+            assert!(
+                effective < 0,
+                "stored={stored} is positive but effective={effective} not negative"
+            );
         }
         // stored == 0: effective is most negative value (-256), which is negative. That's correct.
     }
@@ -84,8 +96,10 @@ fn negation_via_wrapping_neg_i8() {
 
         // Verify the negated value inflates to the negation of the original
         let neg_eff_check = inflate_i8(neg_stored);
-        assert_eq!(neg_eff_check, -effective,
-            "inflate(neg_stored) != -effective for stored={stored}");
+        assert_eq!(
+            neg_eff_check, -effective,
+            "inflate(neg_stored) != -effective for stored={stored}"
+        );
     }
 }
 
@@ -113,12 +127,12 @@ fn fraction_constants_i8() {
     assert_eq!(eff, -256);
 
     // Escaped class: exploded (N-1 stored, sign direct)
-    assert_eq!(i8::POS_ONE_EXPLODED_FRACTION, 64);  // 01000000
+    assert_eq!(i8::POS_ONE_EXPLODED_FRACTION, 64); // 01000000
     assert_eq!(i8::NEG_ONE_EXPLODED_FRACTION, -128); // 10000000
 
     // Escaped class: vanished (N-2 stored, sign direct)
-    assert_eq!(i8::POS_ONE_VANISHED_FRACTION, 32);  // 00100000
-    assert_eq!(i8::NEG_ONE_VANISHED_FRACTION, -64);  // 11000000
+    assert_eq!(i8::POS_ONE_VANISHED_FRACTION, 32); // 00100000
+    assert_eq!(i8::NEG_ONE_VANISHED_FRACTION, -64); // 11000000
 }
 
 #[test]
@@ -133,7 +147,10 @@ fn is_integer_new_format() {
     // 42.5: stored 10101010 (-86), exponent 6
     // effective = 170, value = 170/256 * 2^6 = 42.5
     let forty_two_point_five = Scalar::<i8, i8>::new(-86, 6);
-    assert!(!forty_two_point_five.is_integer(), "42.5 should not be integer");
+    assert!(
+        !forty_two_point_five.is_integer(),
+        "42.5 should not be integer"
+    );
 
     // 1.0: stored = MIN (-128), exponent = 1
     let one = Scalar::<i8, i8>::ONE;
@@ -217,7 +234,10 @@ fn from_f64_basic() {
     type S = Scalar<i32, i8>;
 
     let one = S::from(1.0f64);
-    assert!(one.fraction == S::ONE.fraction && one.exponent == S::ONE.exponent, "from(1.0) should be ONE");
+    assert!(
+        one.fraction == S::ONE.fraction && one.exponent == S::ONE.exponent,
+        "from(1.0) should be ONE"
+    );
 
     let neg_one = S::from(-1.0f64);
     assert!(neg_one == S::NEG_ONE, "from(-1.0) should be NEG_ONE");
@@ -241,10 +261,16 @@ fn from_f32_basic() {
     type S = Scalar<i32, i8>;
 
     let one = S::from(1.0f32);
-    assert!(one.fraction == S::ONE.fraction && one.exponent == S::ONE.exponent, "from(1.0f32) should be ONE");
+    assert!(
+        one.fraction == S::ONE.fraction && one.exponent == S::ONE.exponent,
+        "from(1.0f32) should be ONE"
+    );
 
     let two = S::from(2.0f32);
-    assert!(two.fraction == S::TWO.fraction && two.exponent == S::TWO.exponent, "from(2.0f32) should be TWO");
+    assert!(
+        two.fraction == S::TWO.fraction && two.exponent == S::TWO.exponent,
+        "from(2.0f32) should be TWO"
+    );
 
     let zero = S::from(0.0f32);
     assert!(zero == S::ZERO, "from(0.0f32) should be ZERO");
@@ -257,15 +283,101 @@ fn from_f32_basic() {
 }
 
 #[test]
+fn comparison_new_format() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    let one = S::ONE;
+    let two = S::TWO;
+    let neg_one = S::NEG_ONE;
+    let half = S::HALF;
+    let zero = S::ZERO;
+
+    assert!(two > one);
+    assert!(one > half);
+    assert!(one > zero);
+    assert!(one > neg_one);
+    assert!(neg_one < zero);
+    assert!(neg_one < half);
+    assert!(half > zero);
+    assert!(zero == zero);
+    assert!(one == one);
+
+    // Cross-sign
+    let neg_two = -two;
+    assert!(neg_two < neg_one);
+    assert!(neg_two < zero);
+    assert!(two > neg_two);
+
+    // Small values from f64
+    let small_pos = S::from(0.001);
+    let small_neg = S::from(-0.001);
+    assert!(small_pos > zero);
+    assert!(small_neg < zero);
+    assert!(small_pos > small_neg);
+
+    // Escaped values
+    let pos_exploded = S::EXPLODED_POS;
+    let neg_exploded = S::EXPLODED_NEG;
+    let pos_vanished = S::VANISHED_POS;
+    let neg_vanished = S::VANISHED_NEG;
+
+    // Exploded: further from zero than normals
+    assert!(pos_exploded > one);
+    assert!(pos_exploded > two);
+    assert!(neg_exploded < neg_one);
+    assert!(neg_exploded < neg_two);
+
+    // Vanished: closer to zero than normals
+    assert!(pos_vanished < half);
+    assert!(pos_vanished > zero);
+    assert!(neg_vanished > neg_one);
+    assert!(neg_vanished < zero);
+
+    // Cross-class escaped
+    assert!(pos_exploded > neg_exploded);
+    assert!(pos_vanished > neg_vanished);
+    assert!(pos_exploded > pos_vanished);
+    assert!(neg_exploded < neg_vanished);
+    assert!(pos_exploded > neg_vanished);
+    assert!(neg_exploded < pos_vanished);
+
+    // Same-type same-sign: unordered (PartialOrd returns None → not less, not greater, not equal)
+    let pos_exploded2 = S::EXPLODED_POS;
+    assert!(!(pos_exploded < pos_exploded2));
+    assert!(!(pos_exploded > pos_exploded2));
+    assert!(!(pos_exploded == pos_exploded2));
+
+    // Undefined: unordered with everything
+    let undef = S::from(0.0) / S::from(0.0);
+    assert!(!(undef == one));
+    assert!(!(undef < one));
+    assert!(!(undef > one));
+    assert!(!(undef == undef));
+
+    // Infinity: unordered with everything
+    let inf = S::INFINITY;
+    assert!(!(inf == one));
+    assert!(!(inf < one));
+    assert!(!(inf > one));
+    assert!(!(inf == inf));
+}
+
+#[test]
 fn roundtrip_f64() {
     use spirix::Scalar;
     type S = Scalar<i32, i8>;
 
-    for &val in &[1.0, -1.0, 2.0, 0.5, -0.5, 3.14159, -42.0, 0.001, 1000.0, 0.125] {
+    for &val in &[
+        1.0, -1.0, 2.0, 0.5, -0.5, 3.14159, -42.0, 0.001, 1000.0, 0.125,
+    ] {
         let s = S::from(val);
         let back: f64 = (&s).into();
         let err = (back - val).abs() / val.abs().max(1e-300);
-        assert!(err < 1e-6, "roundtrip failed for {val}: got {back}, err={err}");
+        assert!(
+            err < 1e-6,
+            "roundtrip failed for {val}: got {back}, err={err}"
+        );
     }
 }
 

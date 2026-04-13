@@ -41,13 +41,13 @@ use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
 use crate::*;
-use i256::I256;
-use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
+use ::core::fmt;
+use ::core::ops::*;
 use alloc::borrow::ToOwned;
 use alloc::string::String;
 use alloc::vec::Vec;
-use ::core::fmt;
-use ::core::ops::*;
+use i256::I256;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 impl<
         F: Integer
@@ -521,7 +521,9 @@ where
                     while !real_integer.is_zero() && digit_count < digits {
                         let scaled = real_integer / base_scalar;
                         real_integer = scaled.floor();
-                        let digit = ((scaled - scaled.floor()) * base_scalar + Scalar::<F, E>::HALF).to_u8();
+                        let digit = ((scaled - scaled.floor()) * base_scalar
+                            + Scalar::<F, E>::HALF)
+                            .to_u8();
                         int_digits.push(digit);
 
                         // Only count non-leading digits
@@ -588,7 +590,9 @@ where
                     while !imaginary_integer.is_zero() && digit_count < digits {
                         let scaled = imaginary_integer / base_scalar;
                         imaginary_integer = scaled.floor();
-                        let digit = ((scaled - scaled.floor()) * base_scalar + Scalar::<F, E>::HALF).to_u8();
+                        let digit = ((scaled - scaled.floor()) * base_scalar
+                            + Scalar::<F, E>::HALF)
+                            .to_u8();
                         int_digits.push(digit);
 
                         // Only count non-leading digits

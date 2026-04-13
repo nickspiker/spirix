@@ -1,9 +1,9 @@
 use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -475,9 +475,9 @@ where
     }
 }
 
-use num_traits::PrimInt;
 #[cfg(feature = "alloc")]
 use alloc::string::String;
+use num_traits::PrimInt;
 #[cfg(feature = "alloc")]
 #[allow(dead_code)]
 fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {

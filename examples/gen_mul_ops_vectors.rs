@@ -17,7 +17,11 @@ impl Rng {
 
 fn msb_frac_64<F: Copy + Into<i64>>(v: F, bits: u32) -> u64 {
     let raw = v.into() as u64;
-    let mask = if bits == 64 { u64::MAX } else { (1u64 << bits) - 1 };
+    let mask = if bits == 64 {
+        u64::MAX
+    } else {
+        (1u64 << bits) - 1
+    };
     (raw & mask) << (64 - bits)
 }
 
@@ -182,22 +186,69 @@ fn main() {
     let mut total = 0u64;
 
     let mut w_count = 0u64;
-    gen_width!(i8,  i8,  0, 0, &mut rng, &mut w_count); let c00 = w_count; total += w_count; w_count = 0;
-    gen_width!(i16, i8,  1, 0, &mut rng, &mut w_count); let c10 = w_count; total += w_count; w_count = 0;
-    gen_width!(i32, i8,  2, 0, &mut rng, &mut w_count); let c20 = w_count; total += w_count; w_count = 0;
-    gen_width!(i64, i8,  3, 0, &mut rng, &mut w_count); let c30 = w_count; total += w_count; w_count = 0;
-    gen_width!(i8,  i16, 0, 1, &mut rng, &mut w_count); let c01 = w_count; total += w_count; w_count = 0;
-    gen_width!(i16, i16, 1, 1, &mut rng, &mut w_count); let c11 = w_count; total += w_count; w_count = 0;
-    gen_width!(i32, i16, 2, 1, &mut rng, &mut w_count); let c21 = w_count; total += w_count; w_count = 0;
-    gen_width!(i64, i16, 3, 1, &mut rng, &mut w_count); let c31 = w_count; total += w_count; w_count = 0;
-    gen_width!(i8,  i32, 0, 2, &mut rng, &mut w_count); let c02 = w_count; total += w_count; w_count = 0;
-    gen_width!(i16, i32, 1, 2, &mut rng, &mut w_count); let c12 = w_count; total += w_count; w_count = 0;
-    gen_width!(i32, i32, 2, 2, &mut rng, &mut w_count); let c22 = w_count; total += w_count; w_count = 0;
-    gen_width!(i64, i32, 3, 2, &mut rng, &mut w_count); let c32 = w_count; total += w_count; w_count = 0;
-    gen_width!(i8,  i64, 0, 3, &mut rng, &mut w_count); let c03 = w_count; total += w_count; w_count = 0;
-    gen_width!(i16, i64, 1, 3, &mut rng, &mut w_count); let c13 = w_count; total += w_count; w_count = 0;
-    gen_width!(i32, i64, 2, 3, &mut rng, &mut w_count); let c23 = w_count; total += w_count; w_count = 0;
-    gen_width!(i64, i64, 3, 3, &mut rng, &mut w_count); let c33 = w_count; total += w_count;
+    gen_width!(i8, i8, 0, 0, &mut rng, &mut w_count);
+    let c00 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i16, i8, 1, 0, &mut rng, &mut w_count);
+    let c10 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i32, i8, 2, 0, &mut rng, &mut w_count);
+    let c20 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i64, i8, 3, 0, &mut rng, &mut w_count);
+    let c30 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i8, i16, 0, 1, &mut rng, &mut w_count);
+    let c01 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i16, i16, 1, 1, &mut rng, &mut w_count);
+    let c11 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i32, i16, 2, 1, &mut rng, &mut w_count);
+    let c21 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i64, i16, 3, 1, &mut rng, &mut w_count);
+    let c31 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i8, i32, 0, 2, &mut rng, &mut w_count);
+    let c02 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i16, i32, 1, 2, &mut rng, &mut w_count);
+    let c12 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i32, i32, 2, 2, &mut rng, &mut w_count);
+    let c22 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i64, i32, 3, 2, &mut rng, &mut w_count);
+    let c32 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i8, i64, 0, 3, &mut rng, &mut w_count);
+    let c03 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i16, i64, 1, 3, &mut rng, &mut w_count);
+    let c13 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i32, i64, 2, 3, &mut rng, &mut w_count);
+    let c23 = w_count;
+    total += w_count;
+    w_count = 0;
+    gen_width!(i64, i64, 3, 3, &mut rng, &mut w_count);
+    let c33 = w_count;
+    total += w_count;
 
     eprintln!("Generated {} total vectors across 16 width combos", total);
     eprintln!("  F3E3={} F4E3={} F5E3={} F6E3={}", c00, c10, c20, c30);

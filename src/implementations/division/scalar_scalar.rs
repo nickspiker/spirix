@@ -1,9 +1,9 @@
 use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 /// Reciprocal lookup table for 16-bit normalized fractions
 /// Index = bits[13:6] of denominator fraction (8 bits, 256 entries)

@@ -1,9 +1,9 @@
 use crate::core::integer::{FullInt, Integer};
 use crate::{operators::*, ExponentConstants, FractionConstants, Scalar, ScalarConstants};
-use i256::I256;
-use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use core::cmp::Ordering;
 use core::ops::*;
+use i256::I256;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 macro_rules! impl_scalar_op {
     ($trait:ident, $method:ident, $scalar_method:ident) => {
         // &Scalar op Scalar

@@ -1,9 +1,9 @@
 // operators/rust_scalar.rs
 use crate::core::integer::FullInt;
 use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 // Rust primitive + Scalar (all reference combinations)
 macro_rules! impl_rust_op_scalar {
@@ -212,28 +212,93 @@ macro_rules! impl_rust_op_scalar {
 
 // Implement for all primitive types and operations
 impl_rust_op_scalar!(
-    Add, add, scalar_add_scalar,
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+    Add,
+    add,
+    scalar_add_scalar,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
 );
 impl_rust_op_scalar!(Add, add, scalar_add_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Sub, sub, scalar_subtract_scalar,
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+    Sub,
+    sub,
+    scalar_subtract_scalar,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
 );
 impl_rust_op_scalar!(Sub, sub, scalar_subtract_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Mul, mul, scalar_multiply_scalar,
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+    Mul,
+    mul,
+    scalar_multiply_scalar,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
 );
 impl_rust_op_scalar!(Mul, mul, scalar_multiply_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Div, div, scalar_divide_scalar,
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+    Div,
+    div,
+    scalar_divide_scalar,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
 );
 impl_rust_op_scalar!(Div, div, scalar_divide_scalar, f32, f64);
 impl_rust_op_scalar!(
-    Rem, rem, scalar_modulus_scalar,
-    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+    Rem,
+    rem,
+    scalar_modulus_scalar,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize
 );
 impl_rust_op_scalar!(Rem, rem, scalar_modulus_scalar, f32, f64);
 

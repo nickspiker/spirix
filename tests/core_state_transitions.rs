@@ -141,7 +141,6 @@ fn test_first_cause_preservation() {
         .ln();
 
     assert!(chained_result.is_undefined());
-
 }
 
 #[test]

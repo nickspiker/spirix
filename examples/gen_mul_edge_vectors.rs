@@ -15,8 +15,7 @@ fn main() {
             let r = a * b;
             println!(
                 "{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-                af as u8, ambig as u8, bf as u8, ambig as u8,
-                r.fraction as u8, r.exponent as u8
+                af as u8, ambig as u8, bf as u8, ambig as u8, r.fraction as u8, r.exponent as u8
             );
             count += 1;
         }
@@ -32,8 +31,7 @@ fn main() {
                     let r = a * b;
                     println!(
                         "{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-                        af as u8, ae as u8, bf as u8, be as u8,
-                        r.fraction as u8, r.exponent as u8
+                        af as u8, ae as u8, bf as u8, be as u8, r.fraction as u8, r.exponent as u8
                     );
                     count += 1;
                 }
@@ -51,8 +49,7 @@ fn main() {
                     let r = a * b;
                     println!(
                         "{:02x} {:02x} {:02x} {:02x} {:02x} {:02x}",
-                        af as u8, ae as u8, bf as u8, be as u8,
-                        r.fraction as u8, r.exponent as u8
+                        af as u8, ae as u8, bf as u8, be as u8, r.fraction as u8, r.exponent as u8
                     );
                     count += 1;
                 }

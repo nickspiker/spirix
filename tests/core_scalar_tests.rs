@@ -1114,9 +1114,13 @@ mod random_testing {
                     let new_sum = sum + sample;
                     let new_abs = abs_sum + sample.magnitude();
                     // Stop accumulating if we hit non-normal (overflow to exploded/undefined)
-                    if !new_sum.is_normal() && !new_sum.is_zero() { break; }
+                    if !new_sum.is_normal() && !new_sum.is_zero() {
+                        break;
+                    }
                     sum = new_sum;
-                    if new_abs.is_normal() { abs_sum = new_abs; }
+                    if new_abs.is_normal() {
+                        abs_sum = new_abs;
+                    }
                 }
 
                 // Mean should be close to zero for uniform [-1,1] distribution

@@ -2,9 +2,9 @@ use crate::core::integer::{FullInt, Integer};
 use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Scalar, ScalarConstants,
 };
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 impl<
         F: Integer

@@ -33,10 +33,7 @@ fn main() {
 
         println!(
             "{:04x} {:02x} {:04x} {:02x}",
-            a_frac as u16,
-            a_exp as u8,
-            result.fraction as u16,
-            result.exponent as u8,
+            a_frac as u16, a_exp as u8, result.fraction as u16, result.exponent as u8,
         );
         count += 1;
     }

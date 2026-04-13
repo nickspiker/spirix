@@ -43,7 +43,11 @@ macro_rules! impl_test_width {
         impl TestWidth for Scalar<$f, $e> {
             fn msb_frac_64(self) -> u64 {
                 let raw = self.fraction as u64;
-                let mask = if <$f>::BITS == 64 { u64::MAX } else { (1u64 << <$f>::BITS) - 1 };
+                let mask = if <$f>::BITS == 64 {
+                    u64::MAX
+                } else {
+                    (1u64 << <$f>::BITS) - 1
+                };
                 (raw & mask) << $fshift
             }
             fn lsb_exp_64(self) -> u64 {
@@ -53,10 +57,18 @@ macro_rules! impl_test_width {
                     self.exponent as i64 as u64 // sign-extend
                 }
             }
-            fn frac_bits() -> u32 { <$f>::BITS }
-            fn exp_bits() -> u32 { <$e>::BITS }
-            fn fw() -> u8 { $fw }
-            fn ew() -> u8 { $ew }
+            fn frac_bits() -> u32 {
+                <$f>::BITS
+            }
+            fn exp_bits() -> u32 {
+                <$e>::BITS
+            }
+            fn fw() -> u8 {
+                $fw
+            }
+            fn ew() -> u8 {
+                $ew
+            }
         }
     };
 }
@@ -88,9 +100,13 @@ fn emit_cmp<S: TestWidth>(a: S, b: S, ord: Option<Ordering>) {
     };
     println!(
         "{:02x} {} {} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x}",
-        OP_CMP, S::fw(), S::ew(),
-        a.msb_frac_64(), a.lsb_exp_64(),
-        b.msb_frac_64(), b.lsb_exp_64(),
+        OP_CMP,
+        S::fw(),
+        S::ew(),
+        a.msb_frac_64(),
+        a.lsb_exp_64(),
+        b.msb_frac_64(),
+        b.lsb_exp_64(),
         flags << 56, // flags in MSB position for consistent format
         0u64,
     );
@@ -99,10 +115,15 @@ fn emit_cmp<S: TestWidth>(a: S, b: S, ord: Option<Ordering>) {
 fn emit_unary<S: TestWidth>(op: u8, a: S, r: S) {
     println!(
         "{:02x} {} {} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x}",
-        op, S::fw(), S::ew(),
-        a.msb_frac_64(), a.lsb_exp_64(),
-        0u64, 0u64,
-        r.msb_frac_64(), r.lsb_exp_64(),
+        op,
+        S::fw(),
+        S::ew(),
+        a.msb_frac_64(),
+        a.lsb_exp_64(),
+        0u64,
+        0u64,
+        r.msb_frac_64(),
+        r.lsb_exp_64(),
     );
 }
 
@@ -227,19 +248,19 @@ fn main() {
     let mut count = 0u64;
 
     // Generate for all 16 width combos
-    gen_for_width!(i8,  i8,  &mut rng, &mut count);
-    gen_for_width!(i16, i8,  &mut rng, &mut count);
-    gen_for_width!(i32, i8,  &mut rng, &mut count);
-    gen_for_width!(i64, i8,  &mut rng, &mut count);
-    gen_for_width!(i8,  i16, &mut rng, &mut count);
+    gen_for_width!(i8, i8, &mut rng, &mut count);
+    gen_for_width!(i16, i8, &mut rng, &mut count);
+    gen_for_width!(i32, i8, &mut rng, &mut count);
+    gen_for_width!(i64, i8, &mut rng, &mut count);
+    gen_for_width!(i8, i16, &mut rng, &mut count);
     gen_for_width!(i16, i16, &mut rng, &mut count);
     gen_for_width!(i32, i16, &mut rng, &mut count);
     gen_for_width!(i64, i16, &mut rng, &mut count);
-    gen_for_width!(i8,  i32, &mut rng, &mut count);
+    gen_for_width!(i8, i32, &mut rng, &mut count);
     gen_for_width!(i16, i32, &mut rng, &mut count);
     gen_for_width!(i32, i32, &mut rng, &mut count);
     gen_for_width!(i64, i32, &mut rng, &mut count);
-    gen_for_width!(i8,  i64, &mut rng, &mut count);
+    gen_for_width!(i8, i64, &mut rng, &mut count);
     gen_for_width!(i16, i64, &mut rng, &mut count);
     gen_for_width!(i32, i64, &mut rng, &mut count);
     gen_for_width!(i64, i64, &mut rng, &mut count);

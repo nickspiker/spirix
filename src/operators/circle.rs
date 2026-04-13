@@ -3,9 +3,9 @@ use crate::{
     operators::*, Circle, CircleConstants, ExponentConstants, FractionConstants, Scalar,
     ScalarConstants,
 };
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer

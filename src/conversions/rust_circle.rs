@@ -3,10 +3,10 @@ use crate::core::integer::FullInt;
 use crate::core::integer::IntConvert;
 use crate::core::undefined::*;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_complex::Complex;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 /// # Convert Values to Complex Numbers
 ///
@@ -255,7 +255,11 @@ where
         let imag_scalar = Scalar::<F, E>::from(complex.im);
         if real_scalar.is_undefined() || imag_scalar.is_undefined() {
             let prefix: F = GENERAL.prefix.sa();
-            return Self { real: prefix, imaginary: prefix, exponent: E::AMBIGUOUS_EXPONENT };
+            return Self {
+                real: prefix,
+                imaginary: prefix,
+                exponent: E::AMBIGUOUS_EXPONENT,
+            };
         }
         Self::from_ri(real_scalar, imag_scalar)
     }
@@ -353,7 +357,11 @@ where
         let imag_scalar = Scalar::<F, E>::from(complex.im);
         if real_scalar.is_undefined() || imag_scalar.is_undefined() {
             let prefix: F = GENERAL.prefix.sa();
-            return Self { real: prefix, imaginary: prefix, exponent: E::AMBIGUOUS_EXPONENT };
+            return Self {
+                real: prefix,
+                imaginary: prefix,
+                exponent: E::AMBIGUOUS_EXPONENT,
+            };
         }
         Self::from_ri(real_scalar, imag_scalar)
     }

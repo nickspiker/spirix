@@ -111,7 +111,11 @@ fn test_u16_boundary() {
     let s = ScalarF4E4::from(65535);
     let result: u16 = s.into();
     // Accept the nearest representable value (65534) due to F4E4 precision limits
-    assert!(result >= 65530, "65535 should convert close to 65535, got {}", result);
+    assert!(
+        result >= 65530,
+        "65535 should convert close to 65535, got {}",
+        result
+    );
 }
 
 #[test]
@@ -126,7 +130,11 @@ fn test_u32_boundary() {
     let s = ScalarF4E4::from(4294967295u32);
     let result: u32 = s.into();
     // Accept value close to 2^32-1 (within F4E4 precision limits)
-    assert!(result >= 4294000000, "2^32-1 should convert close to 4294967295, got {}", result);
+    assert!(
+        result >= 4294000000,
+        "2^32-1 should convert close to 4294967295, got {}",
+        result
+    );
 }
 
 #[test]

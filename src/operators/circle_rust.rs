@@ -2,9 +2,9 @@
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::{FullInt, IntConvert};
 use crate::{operators::*, Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 // =====================================================
 // Circle + Rust = Circle operations

@@ -1,9 +1,9 @@
 use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use core::{borrow::Borrow, ops::*};
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::{borrow::Borrow, ops::*};
 #[allow(private_bounds)]
 impl<
         F: Integer

@@ -17,10 +17,7 @@ fn test_8bit() {
 
         if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
-            println!(
-                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
-                val, a, b
-            );
+            println!("  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}", val, a, b);
         }
     }
 
@@ -49,10 +46,7 @@ fn test_16bit() {
 
         if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
-            println!(
-                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
-                val, a, b
-            );
+            println!("  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}", val, a, b);
         }
     }
 
@@ -82,10 +76,7 @@ fn test_32bit() {
 
         if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
-            println!(
-                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
-                val, a, b
-            );
+            println!("  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}", val, a, b);
         }
     }
 
@@ -115,10 +106,7 @@ fn test_64bit() {
 
         if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
-            println!(
-                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
-                val, a, b
-            );
+            println!("  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}", val, a, b);
         }
     }
 
@@ -148,10 +136,7 @@ fn test_128bit() {
 
         if a.fraction != b.fraction || a.exponent != b.exponent {
             mismatches += 1;
-            println!(
-                "  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}",
-                val, a, b
-            );
+            println!("  MISMATCH val={}: sqrt={:#?} sqrt_newton={:#?}", val, a, b);
         }
     }
 

@@ -1,5 +1,4 @@
 #![no_std]
-
 // src/
 // │
 // ├── core/                    Core types and traits

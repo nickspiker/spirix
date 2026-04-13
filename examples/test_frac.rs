@@ -13,7 +13,10 @@ fn main() {
             pass += 1;
         } else {
             if fail < 20 {
-                println!("MISMATCH: a={a}  frac_new={frac_new}  frac_old={frac_old}  floor={}", a.floor());
+                println!(
+                    "MISMATCH: a={a}  frac_new={frac_new}  frac_old={frac_old}  floor={}",
+                    a.floor()
+                );
             }
             fail += 1;
         }

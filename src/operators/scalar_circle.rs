@@ -3,9 +3,9 @@ use crate::{
     operators::*, Circle, CircleConstants, ExponentConstants, FractionConstants, Scalar,
     ScalarConstants,
 };
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 macro_rules! impl_scalar_op_circle {
     ($trait:ident, $method:ident, $scalar_method:ident) => {

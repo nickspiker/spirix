@@ -5,8 +5,8 @@
 
 const FRAC: i32 = 25;
 const PROD_BITS: i32 = 2 * FRAC - 1; // 49
-const INT_BITS: i32 = PROD_BITS + 3;  // 52
-const AMB_EXP: i8 = i8::MIN;          // -128
+const INT_BITS: i32 = PROD_BITS + 3; // 52
+const AMB_EXP: i8 = i8::MIN; // -128
 
 // ── f32 ↔ Spirix conversion ────────────────────────────────────────────────
 
@@ -49,7 +49,11 @@ fn spirix_to_f32(frac: i32, exp: i8) -> f32 {
 
     if biased_exp == 0 || biased_exp >= 255 {
         if biased_exp >= 255 {
-            return if sign { f32::NEG_INFINITY } else { f32::INFINITY };
+            return if sign {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            };
         }
         return 0.0;
     }
@@ -61,9 +65,12 @@ fn spirix_to_f32(frac: i32, exp: i8) -> f32 {
 // ── Bit-accurate port of spirix_fma.v ──────────────────────────────────────
 
 fn spirix_fma(
-    a_frac: i32, a_exp: i8,
-    b_frac: i32, b_exp: i8,
-    c_frac: i32, c_exp: i8,
+    a_frac: i32,
+    a_exp: i8,
+    b_frac: i32,
+    b_exp: i8,
+    c_frac: i32,
+    c_exp: i8,
     sub: bool,
 ) -> (i32, i8) {
     // Use i128 for wide intermediates (INT_BITS=52 fits comfortably)
@@ -71,7 +78,11 @@ fn spirix_fma(
     let sign_bit = 1i128 << (INT_BITS - 1);
     let sext = |v: i128| -> i128 {
         let v = v & mask;
-        if v & sign_bit != 0 { v | !mask } else { v }
+        if v & sign_bit != 0 {
+            v | !mask
+        } else {
+            v
+        }
     };
 
     // Step 1: DSP multiply
@@ -80,7 +91,11 @@ fn spirix_fma(
     // Bounded normalize (0-1 bit)
     let prod_is_n1 = ((product >> (PROD_BITS - 1)) & 1) != ((product >> (PROD_BITS - 2)) & 1);
     let norm_shift: i32 = if prod_is_n1 { 0 } else { 1 };
-    let prod_normalized = if norm_shift != 0 { product << 1 } else { product };
+    let prod_normalized = if norm_shift != 0 {
+        product << 1
+    } else {
+        product
+    };
 
     // Zero product when either input is ambiguous
     let prod_is_zero = a_exp == AMB_EXP || b_exp == AMB_EXP;
@@ -89,7 +104,11 @@ fn spirix_fma(
     // Product exponent (parallel with DSP)
     let prod_exp_raw = (a_exp as i16) + (b_exp as i16);
     let prod_exp = prod_exp_raw - (norm_shift as i16);
-    let prod_exp_safe: i16 = if prod_is_zero { i8::MIN as i16 } else { prod_exp };
+    let prod_exp_safe: i16 = if prod_is_zero {
+        i8::MIN as i16
+    } else {
+        prod_exp
+    };
 
     // Widen c to PROD_BITS: c_frac in upper bits, zeros below
     let c_wide = (c_frac as i64) << (FRAC - 1);
@@ -156,11 +175,23 @@ fn spirix_fma(
         let close_norm_shift = leading - 1;
         let close_normalized = sext(close_sum << close_norm_shift);
 
-        return round_and_output(close_normalized, leading, false, close_align_sticky, big_exp, sext, mask);
+        return round_and_output(
+            close_normalized,
+            leading,
+            false,
+            close_align_sticky,
+            big_exp,
+            sext,
+            mask,
+        );
     }
 
     // Far path
-    let far_shift = if exp_diff >= INT_BITS { INT_BITS - 1 } else { exp_diff };
+    let far_shift = if exp_diff >= INT_BITS {
+        INT_BITS - 1
+    } else {
+        exp_diff
+    };
 
     // Barrel shift with sticky
     let mut shifted = small_ext;
@@ -187,11 +218,25 @@ fn spirix_fma(
     let bit_n3 = (far_sum >> (INT_BITS - 3)) & 1;
     let far_d0 = bit_n1 != bit_n2;
     let far_d1 = bit_n2 != bit_n3;
-    let far_norm_shift: i32 = if far_d0 { 0 } else if far_d1 { 1 } else { 2 };
+    let far_norm_shift: i32 = if far_d0 {
+        0
+    } else if far_d1 {
+        1
+    } else {
+        2
+    };
     let far_leading = far_norm_shift + 1;
     let far_normalized = sext(far_sum << far_norm_shift);
 
-    round_and_output(far_normalized, far_leading, barrel_sticky, false, big_exp, sext, mask)
+    round_and_output(
+        far_normalized,
+        far_leading,
+        barrel_sticky,
+        false,
+        big_exp,
+        sext,
+        mask,
+    )
 }
 
 fn round_and_output(
@@ -222,10 +267,8 @@ fn round_and_output(
     let round_up = guard && (round_bit || sticky || lsb);
 
     // Rovf detection
-    let pos_all_ones =
-        (out_frac_raw & ((1 << (FRAC - 1)) - 1)) == ((1 << (FRAC - 1)) - 1);
-    let rovf_pos =
-        (out_frac_raw >> (FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
+    let pos_all_ones = (out_frac_raw & ((1 << (FRAC - 1)) - 1)) == ((1 << (FRAC - 1)) - 1);
+    let rovf_pos = (out_frac_raw >> (FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
     let rovf_neg = ((out_frac_raw >> (FRAC - 1)) & 1 == 1)
         && ((out_frac_raw >> (FRAC - 2)) & 1 == 0)
         && ((out_frac_raw & ((1 << (FRAC - 2)) - 1)) == (1 << (FRAC - 2)) - 1)
@@ -245,8 +288,7 @@ fn round_and_output(
     // Exponent: big_exp + 2 - leading + rovf
     // The +2 comes from the <<< 2 extension, same as addsub.
     // Width of INT_BITS doesn't matter — we always extract top FRAC_BITS.
-    let exp_wide = (big_exp as i32) + 2 - (leading as i32)
-        + if rovf_pos { 1 } else { 0 }
+    let exp_wide = (big_exp as i32) + 2 - (leading as i32) + if rovf_pos { 1 } else { 0 }
         - if rovf_neg { 1 } else { 0 };
     let out_exp = exp_wide as i8;
 
@@ -255,8 +297,7 @@ fn round_and_output(
     let underflow = (big_exp as i8) < 0 && offset >= 0;
     if underflow {
         let sign_bit_val = ((normalized >> (INT_BITS - 1)) & 1) as i32;
-        let next_bits =
-            ((normalized >> (INT_BITS - FRAC)) & ((1 << (FRAC - 1)) - 1)) as i32;
+        let next_bits = ((normalized >> (INT_BITS - FRAC)) & ((1 << (FRAC - 1)) - 1)) as i32;
         let uf_frac = (sign_bit_val << (FRAC - 1)) | next_bits;
         return (uf_frac, AMB_EXP);
     }
@@ -269,7 +310,10 @@ fn round_and_output(
 struct Lcg(u64);
 impl Lcg {
     fn next(&mut self) -> u32 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 33) as u32
     }
     fn next_normal_f32(&mut self) -> f32 {
@@ -329,7 +373,11 @@ fn main() {
             continue;
         }
         if ref_f32.is_infinite() || spirix_result.is_infinite() {
-            if ref_f32 == spirix_result { exact += 1; } else { inf_mismatches += 1; }
+            if ref_f32 == spirix_result {
+                exact += 1;
+            } else {
+                inf_mismatches += 1;
+            }
             continue;
         }
 
@@ -372,9 +420,18 @@ fn main() {
 
     let total = exact + off_by_1 + off_by_more + zero_mismatches;
     println!("Results:");
-    println!("  Exact match:    {exact:>10} ({:.4}%)", exact as f64 / N as f64 * 100.0);
-    println!("  Off by 1 ULP:   {off_by_1:>10} ({:.4}%)", off_by_1 as f64 / N as f64 * 100.0);
-    println!("  Off by >1 ULP:  {off_by_more:>10} ({:.4}%)", off_by_more as f64 / N as f64 * 100.0);
+    println!(
+        "  Exact match:    {exact:>10} ({:.4}%)",
+        exact as f64 / N as f64 * 100.0
+    );
+    println!(
+        "  Off by 1 ULP:   {off_by_1:>10} ({:.4}%)",
+        off_by_1 as f64 / N as f64 * 100.0
+    );
+    println!(
+        "  Off by >1 ULP:  {off_by_more:>10} ({:.4}%)",
+        off_by_more as f64 / N as f64 * 100.0
+    );
     if zero_mismatches > 0 {
         println!("  Zero mismatches: {zero_mismatches}");
     }

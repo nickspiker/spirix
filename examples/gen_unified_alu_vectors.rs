@@ -21,37 +21,36 @@ fn main() {
     // Each entry: (name, frac, exp)
     let categories: Vec<(&str, i8, i8)> = vec![
         // Special states (exp = AMBIG)
-        ("zero",        0,    AMBIG),
-        ("infinity",   -128,  AMBIG),  // NEG_ONE = -128 for i8
-        ("exploded+",   64,   AMBIG),  // POS_HALF = 0x40, N1 positive
-        ("exploded-",  -65,   AMBIG),  // N1 negative (0xBF)
-        ("vanished+",   32,   0),      // POS_SMALL = 0x20, N2 positive
-        ("vanished-",  -33,   0),      // N2 negative (0xDF)
-        ("undefined+",  1,    0),      // top3 same (000..001), not N0
-        ("undefined-", -2,    0),      // top3 same (111..110), not N0
-
+        ("zero", 0, AMBIG),
+        ("infinity", -128, AMBIG), // NEG_ONE = -128 for i8
+        ("exploded+", 64, AMBIG),  // POS_HALF = 0x40, N1 positive
+        ("exploded-", -65, AMBIG), // N1 negative (0xBF)
+        ("vanished+", 32, 0),      // POS_SMALL = 0x20, N2 positive
+        ("vanished-", -33, 0),     // N2 negative (0xDF)
+        ("undefined+", 1, 0),      // top3 same (000..001), not N0
+        ("undefined-", -2, 0),     // top3 same (111..110), not N0
         // Normal values at various exponents
-        ("pos_half",    64,   0),      // +0.5 * 2^0
-        ("neg_one",    -128,  1),      // -1.0 * 2^1 (note: NEG_ONE frac at normal exp)
-        ("pos_small",   32,   0),      // smallest N1... wait, 32=0x20 is N2
+        ("pos_half", 64, 0),  // +0.5 * 2^0
+        ("neg_one", -128, 1), // -1.0 * 2^1 (note: NEG_ONE frac at normal exp)
+        ("pos_small", 32, 0), // smallest N1... wait, 32=0x20 is N2
         // Actually for i8: POS_HALF=0x40=64, N1 means bit[7]!=bit[6]
         // 64 = 0b01000000 → bit7=0, bit6=1 → N1 ✓
         // -65 = 0b10111111 → bit7=1, bit6=0 → N1 ✓
         // -128 = 0b10000000 → bit7=1, bit6=0 → N1 ✓ (but this is NEG_ONE)
 
         // More normal values
-        ("norm+_1",     64,   1),      // +0.5 * 2^1
-        ("norm+_2",     64,  -1),      // +0.5 * 2^-1
-        ("norm+_3",     65,   0),      // slightly > +0.5
-        ("norm+_4",     96,   5),      // +0.75 * 2^5
-        ("norm+_max",   64,   127),    // +0.5 * 2^127
-        ("norm+_min",   64,  -127),    // +0.5 * 2^-127
-        ("norm-_1",    -65,   1),      // ≈ -0.5 * 2^1
-        ("norm-_2",    -65,  -1),      // ≈ -0.5 * 2^-1
-        ("norm-_3",    -128,  0),      // -1.0 * 2^0
-        ("norm-_4",    -96,   5),      // -0.75 * 2^5
-        ("norm-_max",  -65,   127),    // negative large
-        ("norm-_min",  -65,  -127),    // negative tiny
+        ("norm+_1", 64, 1),       // +0.5 * 2^1
+        ("norm+_2", 64, -1),      // +0.5 * 2^-1
+        ("norm+_3", 65, 0),       // slightly > +0.5
+        ("norm+_4", 96, 5),       // +0.75 * 2^5
+        ("norm+_max", 64, 127),   // +0.5 * 2^127
+        ("norm+_min", 64, -127),  // +0.5 * 2^-127
+        ("norm-_1", -65, 1),      // ≈ -0.5 * 2^1
+        ("norm-_2", -65, -1),     // ≈ -0.5 * 2^-1
+        ("norm-_3", -128, 0),     // -1.0 * 2^0
+        ("norm-_4", -96, 5),      // -0.75 * 2^5
+        ("norm-_max", -65, 127),  // negative large
+        ("norm-_min", -65, -127), // negative tiny
     ];
 
     let mut count = 0u64;
@@ -84,10 +83,16 @@ fn main() {
                 println!(
                     "{:02x} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x} {} {} {} {}",
                     op,
-                    af_msb << 56, ae_msb << 56,
-                    bf_msb << 56, be_msb << 56,
-                    rf_msb << 56, re_msb << 56,
-                    0, 0, 0, 0,
+                    af_msb << 56,
+                    ae_msb << 56,
+                    bf_msb << 56,
+                    be_msb << 56,
+                    rf_msb << 56,
+                    re_msb << 56,
+                    0,
+                    0,
+                    0,
+                    0,
                 );
                 count += 1;
             }
@@ -100,7 +105,7 @@ fn main() {
             let a = S::new(*af, *ae);
 
             let r = match op {
-                6  => !a,
+                6 => !a,
                 10 => -a,
                 11 => a.magnitude(),
                 12 => a.sign(),
@@ -116,10 +121,16 @@ fn main() {
             println!(
                 "{:02x} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x} {} {} {} {}",
                 op,
-                af_msb << 56, ae_msb << 56,
-                0u64, 0u64,
-                rf_msb << 56, re_msb << 56,
-                0, 0, 0, 0,
+                af_msb << 56,
+                ae_msb << 56,
+                0u64,
+                0u64,
+                rf_msb << 56,
+                re_msb << 56,
+                0,
+                0,
+                0,
+                0,
             );
             count += 1;
         }
@@ -148,10 +159,16 @@ fn main() {
                 println!(
                     "{:02x} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x} {} {} {} {}",
                     op,
-                    af_msb << 56, ae_msb << 56,
-                    0u64, shift_msb << 56,
-                    rf_msb << 56, re_msb << 56,
-                    0, 0, 0, 0,
+                    af_msb << 56,
+                    ae_msb << 56,
+                    0u64,
+                    shift_msb << 56,
+                    rf_msb << 56,
+                    re_msb << 56,
+                    0,
+                    0,
+                    0,
+                    0,
                 );
                 count += 1;
             }
@@ -181,10 +198,16 @@ fn main() {
             println!(
                 "{:02x} {:016x} {:016x} {:016x} {:016x} {:016x} {:016x} {} {} {} {}",
                 9u8,
-                af_msb << 56, ae_msb << 56,
-                bf_msb << 56, be_msb << 56,
-                0u64, (0x80u64) << 56,  // result = zero (frac=0, exp=AMBIG)
-                lt, eq, gt, unord,
+                af_msb << 56,
+                ae_msb << 56,
+                bf_msb << 56,
+                be_msb << 56,
+                0u64,
+                (0x80u64) << 56, // result = zero (frac=0, exp=AMBIG)
+                lt,
+                eq,
+                gt,
+                unord,
             );
             count += 1;
         }

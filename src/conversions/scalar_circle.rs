@@ -3,9 +3,9 @@ use crate::core::integer::{FullInt, IntConvert};
 use crate::FractionConstants;
 use crate::{core::undefined::*, ExponentConstants};
 use crate::{Circle, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 /// # Scalar to Circle Conversions
 ///
 /// This module provides implementations for creating Circle complex number values

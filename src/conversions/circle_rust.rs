@@ -1,10 +1,10 @@
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::FullInt;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_complex::Complex;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 /// # Circle to `Complex<f64>` Conversion
 ///

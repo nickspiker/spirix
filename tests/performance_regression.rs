@@ -205,7 +205,6 @@ fn test_state_checking_performance() {
         "is_zero too slow: {} ns per operation",
         zero_check_time.as_nanos() / (PERFORMANCE_ITERATIONS as u128 * values.len() as u128)
     );
-
 }
 
 #[test]

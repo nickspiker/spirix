@@ -18,7 +18,7 @@ fn main() {
         ("neg_three", -S::from(3u8)),
         ("neg_twelve", -S::from(12u8)),
     ];
-    
+
     println!("// Spirix F5E4 test vectors (Scalar<i32, i16>)");
     println!("// Format: frac_hex exp_decimal label");
     for (label, val) in &values {

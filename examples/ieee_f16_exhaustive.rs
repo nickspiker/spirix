@@ -254,12 +254,27 @@ impl OpStats {
     fn print(&self, name: &str) {
         let pct = |n: u64| n as f64 / self.total as f64 * 100.0;
         println!("  {name}  ({} pairs)", self.total);
-        println!("    Exact match:      {:>12} ({:.4}%)", self.exact, pct(self.exact));
-        println!("    Off by 1 ULP:     {:>12} ({:.6}%)", self.off_by_1, pct(self.off_by_1));
+        println!(
+            "    Exact match:      {:>12} ({:.4}%)",
+            self.exact,
+            pct(self.exact)
+        );
+        println!(
+            "    Off by 1 ULP:     {:>12} ({:.6}%)",
+            self.off_by_1,
+            pct(self.off_by_1)
+        );
         if self.off_by_gt1 > 0 {
-            println!("    Off by >1 ULP:    {:>12} ({:.6}%)  *** CHECK ***", self.off_by_gt1, pct(self.off_by_gt1));
+            println!(
+                "    Off by >1 ULP:    {:>12} ({:.6}%)  *** CHECK ***",
+                self.off_by_gt1,
+                pct(self.off_by_gt1)
+            );
             println!("      Max ULP error:  {}", self.max_ulp);
-            println!("      Worst pair:     a=0x{:04X}, b=0x{:04X}", self.worst_a, self.worst_b);
+            println!(
+                "      Worst pair:     a=0x{:04X}, b=0x{:04X}",
+                self.worst_a, self.worst_b
+            );
             let a = f16_to_f32(self.worst_a);
             let b = f16_to_f32(self.worst_b);
             println!("                      a={a}, b={b}");
@@ -269,19 +284,28 @@ impl OpStats {
             println!("    -0 vs +0:         {:>12}", self.neg_zero_vs_zero);
         }
         if self.neg_inf_vs_pos_inf > 0 {
-            println!("    -inf vs +inf:     {:>12} (Spirix singular infinity)", self.neg_inf_vs_pos_inf);
+            println!(
+                "    -inf vs +inf:     {:>12} (Spirix singular infinity)",
+                self.neg_inf_vs_pos_inf
+            );
         }
         if self.nan_vs_nan_payload > 0 {
             println!("    NaN payloads:     {:>12}", self.nan_vs_nan_payload);
         }
         if self.spirix_undefined > 0 {
-            println!("    Spirix undefined: {:>12} (0/0, inf/inf, sqrt(-), etc.)", self.spirix_undefined);
+            println!(
+                "    Spirix undefined: {:>12} (0/0, inf/inf, sqrt(-), etc.)",
+                self.spirix_undefined
+            );
         }
         if self.ieee_nan_only > 0 {
             println!("    IEEE NaN only:    {:>12}", self.ieee_nan_only);
         }
         if self.other_disagree > 0 {
-            println!("    Other disagree:   {:>12}  *** CHECK ***", self.other_disagree);
+            println!(
+                "    Other disagree:   {:>12}  *** CHECK ***",
+                self.other_disagree
+            );
         }
     }
 }
@@ -321,21 +345,28 @@ fn test_binary_op(
     eprintln!("\r  {name}: done     ");
     stats.print(name);
     let agree = stats.exact + stats.off_by_1;
-    let expected = stats.neg_zero_vs_zero + stats.neg_inf_vs_pos_inf
-        + stats.nan_vs_nan_payload + stats.spirix_undefined + stats.ieee_nan_only;
+    let expected = stats.neg_zero_vs_zero
+        + stats.neg_inf_vs_pos_inf
+        + stats.nan_vs_nan_payload
+        + stats.spirix_undefined
+        + stats.ieee_nan_only;
     println!("    ─────────────────");
-    println!("    Agree (exact+1ULP): {:>12} ({:.4}%)", agree, agree as f64 / total as f64 * 100.0);
-    println!("    Expected disagree:  {:>12} ({:.4}%)", expected, expected as f64 / total as f64 * 100.0);
+    println!(
+        "    Agree (exact+1ULP): {:>12} ({:.4}%)",
+        agree,
+        agree as f64 / total as f64 * 100.0
+    );
+    println!(
+        "    Expected disagree:  {:>12} ({:.4}%)",
+        expected,
+        expected as f64 / total as f64 * 100.0
+    );
     println!();
 }
 
 // ── Unary op test (sqrt) ───────────────────────────────────────────────────
 
-fn test_unary_op(
-    name: &str,
-    ieee_op: fn(f32) -> f32,
-    spirix_op: fn(&ScalarF4E4) -> ScalarF4E4,
-) {
+fn test_unary_op(name: &str, ieee_op: fn(f32) -> f32, spirix_op: fn(&ScalarF4E4) -> ScalarF4E4) {
     let mut stats = OpStats::default();
     let total = 65536u64;
 
@@ -354,11 +385,22 @@ fn test_unary_op(
     }
     stats.print(name);
     let agree = stats.exact + stats.off_by_1;
-    let expected = stats.neg_zero_vs_zero + stats.neg_inf_vs_pos_inf
-        + stats.nan_vs_nan_payload + stats.spirix_undefined + stats.ieee_nan_only;
+    let expected = stats.neg_zero_vs_zero
+        + stats.neg_inf_vs_pos_inf
+        + stats.nan_vs_nan_payload
+        + stats.spirix_undefined
+        + stats.ieee_nan_only;
     println!("    ─────────────────");
-    println!("    Agree (exact+1ULP): {:>12} ({:.4}%)", agree, agree as f64 / total as f64 * 100.0);
-    println!("    Expected disagree:  {:>12} ({:.4}%)", expected, expected as f64 / total as f64 * 100.0);
+    println!(
+        "    Agree (exact+1ULP): {:>12} ({:.4}%)",
+        agree,
+        agree as f64 / total as f64 * 100.0
+    );
+    println!(
+        "    Expected disagree:  {:>12} ({:.4}%)",
+        expected,
+        expected as f64 / total as f64 * 100.0
+    );
     println!();
 }
 

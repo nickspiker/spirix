@@ -1,9 +1,9 @@
 //! Statistical functions for Scalar types
 use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 #[allow(private_bounds)]
 impl<
