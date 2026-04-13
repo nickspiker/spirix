@@ -67,7 +67,7 @@ where
 {
     pub fn square(&self) -> Self {
         if !self.is_normal() {
-            if self.is_undefined() || self.is_n0() {
+            if self.is_undefined() || self.is_uniform() {
                 // Undefined, Zeros and Infinities stay the same
                 return *self;
             }
@@ -362,7 +362,7 @@ where
     }
     pub fn sqrt(&self) -> Self {
         if !self.is_normal() {
-            if self.is_undefined() || self.is_n0() {
+            if self.is_undefined() || self.is_uniform() {
                 return *self;
             }
 
@@ -523,7 +523,7 @@ where
     }
     pub fn sqrt_newton(&self) -> Self {
         if !self.is_normal() {
-            if self.is_undefined() || self.is_n0() {
+            if self.is_undefined() || self.is_uniform() {
                 return *self;
             }
 

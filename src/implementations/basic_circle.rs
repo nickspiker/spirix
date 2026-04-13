@@ -801,34 +801,17 @@ where
         prefix_r == -1 && prefix_i == -1
     }
 
-    /// Negates this Circle in place
-    ///
-    /// # Description
-    ///
-    /// Computes the negation by inverting both the real and imaginary components.
-    /// For a complex number a + b*i, the negation is -a - b*i.
-    ///
-    /// For escaped values, this preserves the escape state while inverting the orientation. Undefined states are preserved.
-    ///
-    /// This is a low-level internal method. Users should use the `-` operator instead.
-    ///
-    /// # Effects
-    ///
-    /// - For normal values: Their negation with the same magnitude
-    /// - For escaped values: The negation with the same escape state
-    /// - For Zero: Zero (unchanged)
-    /// - For Infinity: Infinity (unchanged)
-    /// - For undefined states: The same undefined state
+    /// Negates both real and imaginary components in place (a+bi → -a-bi). Escaped values preserve their escape state; zero, infinity, and undefined are unchanged.
     pub(crate) fn circle_negate(&mut self) {
         if self.exponent != E::AMBIGUOUS_EXPONENT {
             let one: E = 1u8.as_();
-            if self.real == F::NEG_ONE_FRACTION {
-                self.real = F::POS_ONE_FRACTION;
+            if self.real == F::NEG_ONE_NORMAL_FRACTION {
+                self.real = F::POS_ONE_NORMAL_FRACTION;
                 self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
                 self.exponent = self.exponent.wrapping_add(&one);
                 return;
-            } else if self.imaginary == F::NEG_ONE_FRACTION {
-                self.imaginary = F::POS_ONE_FRACTION;
+            } else if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
+                self.imaginary = F::POS_ONE_NORMAL_FRACTION;
                 self.real = (self.real >> 1isize).wrapping_neg();
                 self.exponent = self.exponent.wrapping_add(&one);
                 return;
@@ -857,11 +840,11 @@ where
                 self.imaginary = self.imaginary.wrapping_neg();
                 self.normalize_vanished();
             } else {
-                if self.real == F::NEG_ONE_FRACTION {
-                    self.real = F::POS_ONE_FRACTION;
+                if self.real == F::NEG_ONE_NORMAL_FRACTION {
+                    self.real = F::POS_ONE_NORMAL_FRACTION;
                     self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
-                } else if self.imaginary == F::NEG_ONE_FRACTION {
-                    self.imaginary = F::POS_ONE_FRACTION;
+                } else if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
+                    self.imaginary = F::POS_ONE_NORMAL_FRACTION;
                     self.real = (self.real >> 1isize).wrapping_neg();
                 } else {
                     self.real = self.real.wrapping_neg();
@@ -925,10 +908,10 @@ where
     /// ```
     pub fn conjugate(&self) -> Circle<F, E> {
         if self.is_normal() {
-            if self.imaginary == F::NEG_ONE_FRACTION {
+            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
                 return Circle {
                     real: self.real >> 1isize,
-                    imaginary: F::POS_ONE_FRACTION,
+                    imaginary: F::POS_ONE_NORMAL_FRACTION,
                     exponent: self.exponent.wrapping_add(&E::ONE),
                 };
             }
@@ -948,10 +931,10 @@ where
             conjugate.normalize_vanished();
             conjugate
         } else if self.exploded() {
-            if self.imaginary == F::NEG_ONE_FRACTION {
+            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
                 return Circle {
                     real: (self.real >> 1isize).wrapping_neg(),
-                    imaginary: F::POS_ONE_FRACTION,
+                    imaginary: F::POS_ONE_NORMAL_FRACTION,
                     exponent: self.exponent,
                 };
             } else {
@@ -1029,9 +1012,9 @@ where
     /// ```
     pub fn conjugate_mut(&mut self) {
         if self.is_normal() {
-            if self.imaginary == F::NEG_ONE_FRACTION {
+            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
                 self.real = self.real >> 1isize;
-                self.imaginary = F::POS_ONE_FRACTION;
+                self.imaginary = F::POS_ONE_NORMAL_FRACTION;
                 self.exponent = self.exponent.wrapping_add(&E::ONE);
                 return;
             }
@@ -1041,8 +1024,8 @@ where
             self.imaginary = self.imaginary.wrapping_neg();
             self.normalize_vanished();
         } else if self.exploded() {
-            if self.imaginary == F::NEG_ONE_FRACTION {
-                self.imaginary = F::POS_ONE_FRACTION;
+            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
+                self.imaginary = F::POS_ONE_NORMAL_FRACTION;
                 self.real = (self.real >> 1isize).wrapping_neg();
             } else {
                 self.imaginary = self.imaginary.wrapping_neg();

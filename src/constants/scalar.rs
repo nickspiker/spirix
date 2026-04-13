@@ -15,20 +15,14 @@ pub trait ScalarConstants {
     /// Granularity between -1 and -2
     const NEG_NORMAL_EPSILON: Self;
     /// The maximum value that maintains integer contiguity with its neighboring values.
-    /// This is one less than MAX_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a+1!=a).
+    /// This is one less than MAX_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a+1!=a).
     const MAX_CONTIGUOUS: Self;
     /// The minimum value that maintains integer contiguity with its neighboring values.
-    /// This is one more than MIN_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a-1!=a).
+    /// This is one more than MIN_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a-1!=a).
     const MIN_CONTIGUOUS: Self;
     /// Actual Zero, the real deal. Exploded * 0 = 0
     const ZERO: Self;
-    /// Mathematical infinity - the result of division by Zero (1/0).
-    /// Unlike IEEE-754's signed infinities, this represents a singular infinity
-    /// where the sign is indeterminate. Represented by all fraction bits set (11111111)
-    /// with an ambiguous exponent, creating symmetry with ZERO (00000000).
-    /// Used for results where magnitude is infinite and direction is ambiguous.
+    /// Singular infinity — signless, no positive or negative variant. Encoded as all-ones fraction at `AMBIGUOUS_EXPONENT`. A uniform all-ones pattern has no bit transition, so no direction can be derived — the natural encoding for a directionless singularity. Reads as unsigned MAX or signed -1 depending on interpretation; neither is the value, this is a state encoding. The two singularities sit adjacent on the two's complement circle (all-ones + 1 = all-zeros), mirroring their reciprocal relationship: 1/∞ = 0 and 1/0 = ∞.
     const INFINITY: Self;
     /// Exactly one.
     const ONE: Self;
@@ -39,13 +33,13 @@ pub trait ScalarConstants {
     /// Effectively negative one (the closest value to -1 with magnitude less than 1).
     const EFFECTIVELY_NEG_ONE: Self;
     /// A generic positive exploded Scalar
-    const ESCAPED_POS_BIG: Self;
+    const EXPLODED_POS: Self;
     /// A generic negative exploded Scalar
-    const ESCAPED_NEG_BIG: Self;
+    const EXPLODED_NEG: Self;
     /// A generic positive vanished Scalar
-    const ESCAPED_POS_SMALL: Self;
+    const VANISHED_POS: Self;
     /// A generic negative vanished Scalar
-    const ESCAPED_NEG_SMALL: Self;
+    const VANISHED_NEG: Self;
     /// Exactly two.
     const TWO: Self;
     /// Exactly 1/2.
@@ -111,256 +105,74 @@ macro_rules! impl_scalar_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Scalar<$f, $e> {
-    /// Maximum finite value that can be represented by this type of Scalar.
-    pub const MAX: Self = Self {
-        fraction: <$f>::MAX_FRACTION,
-        exponent: <$e>::MAX_EXPONENT,
-    };
-    /// Minimum finite value that can be represented by this type of Scalar. Note: Negating this scalar will result in an exploded positive scalar.
-    pub const MIN: Self = Self {
-        fraction: <$f>::MIN_FRACTION,
-        exponent: <$e>::MAX_EXPONENT,
-    };
-    /// The smallest positive value that can be represented by this type of Scalar. Note: Negating this scalar will result in a vanished negative scalar.
-    pub const MIN_POS: Self = Self {
-        fraction: <$f>::POS_ONE_FRACTION,
-        exponent: <$e>::MIN_EXPONENT,
-    };
-    /// Smallest magnitude negative value that can be represented by this type of Scalar.
-    pub const MAX_NEG: Self = Self {
-        fraction: !<$f>::POS_ONE_FRACTION,
-        exponent: <$e>::MIN_EXPONENT,
-    };
-    /// Granularity between 1 and 2
-    pub const POS_NORMAL_EPSILON: Self = Self {
-        fraction: <$f>::POS_ONE_FRACTION,
-        exponent: (1isize.wrapping_sub(<$f>::FRACTION_BITS as isize)) as $e,
-    };
-    /// Granularity between -1 and -2
-    pub const NEG_NORMAL_EPSILON: Self = Self {
-        fraction: <$f>::NEG_ONE_FRACTION,
-        exponent: (-(<$f>::FRACTION_BITS as isize)) as $e,
-    };
-    /// The maximum value that maintains integer contiguity with its neighboring values.
-    /// This is one less than MAX_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a+1!=a).
-    pub const MAX_CONTIGUOUS: Self = Self {
-        fraction: <$f>::MAX_FRACTION,
-        exponent: (<$f>::FRACTION_BITS.wrapping_sub(1)) as $e,
-    };
-    /// The minimum value that maintains integer contiguity with its neighboring values.
-    /// This is one more than MIN_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a-1!=a).
-    pub const MIN_CONTIGUOUS: Self = Self {
-        fraction: <$f>::MIN_FRACTION + 1,
-        exponent: (<$f>::FRACTION_BITS.wrapping_sub(1)) as $e,
-    };
-    /// Actual Zero, the real deal. Exploded * 0 = 0
-    pub const ZERO: Self = Self {
-        fraction: 0,
-        exponent: <$e>::AMBIGUOUS_EXPONENT,
-    };
-    /// Mathematical infinity - the result of division by Zero (1/0).
-    /// Unlike IEEE-754's signed infinities, this represents a singular infinity
-    /// where the sign is indeterminate. Represented by all fraction bits set (11111111)
-    /// with an ambiguous exponent, creating symmetry with ZERO (00000000).
-    /// Used for results where magnitude is infinite and direction is ambiguous.
-    pub const INFINITY: Self = Self {
-        fraction: -1,
-        exponent: <$e>::AMBIGUOUS_EXPONENT,
-    };
-    /// Exactly one.
-    pub const ONE: Self = Self {
-        fraction: <$f>::POS_ONE_FRACTION,
-        exponent: 1,
-    };
-    /// Exactly Negative one.
-    pub const NEG_ONE: Self = Self {
-        fraction: <$f>::MIN_FRACTION,
-        exponent: 0,
-    };
-    /// Effectively one (the largest value smaller than one).
-    pub const EFFECTIVELY_POS_ONE: Self = Self {
-        fraction: <$f>::MAX_FRACTION,
-        exponent: 0,
-    };
-    /// Effectively negative one (the closest value to -1 with magnitude less than 1).
-    pub const EFFECTIVELY_NEG_ONE: Self = Self {
-        fraction: <$f>::MIN_FRACTION + 1,
-        exponent: 0,
-    };
-    /// Exactly Two.
-    pub const TWO: Self = Self {
-        fraction: <$f>::POS_ONE_FRACTION,
-        exponent: 2,
-    };
-    /// Exacly 1/2.
-    pub const HALF: Self = Self {
-        fraction: <$f>::POS_ONE_FRACTION,
-        exponent: 0,
-    };
-    /// A generic positive exploded Scalar
-    pub const ESCAPED_POS_BIG: Self = Self {
-        fraction: <$f>::POS_ONE_FRACTION,
-        exponent: <$e>::AMBIGUOUS_EXPONENT,
-    };
+    pub const MAX: Self = Self { fraction: <$f>::MAX_FRACTION, exponent: <$e>::MAX_EXPONENT };
+    pub const MIN: Self = Self { fraction: <$f>::MIN_FRACTION, exponent: <$e>::MAX_EXPONENT };
+    pub const MIN_POS: Self = Self { fraction: <$f>::POS_ONE_NORMAL_FRACTION, exponent: <$e>::MIN_EXPONENT };
+    pub const MAX_NEG: Self = Self { fraction: !<$f>::POS_ONE_NORMAL_FRACTION, exponent: <$e>::MIN_EXPONENT };
+    pub const POS_NORMAL_EPSILON: Self = Self { fraction: <$f>::POS_ONE_NORMAL_FRACTION, exponent: (1isize.wrapping_sub(<$f>::FRACTION_BITS as isize)) as $e };
+    pub const NEG_NORMAL_EPSILON: Self = Self { fraction: <$f>::NEG_ONE_NORMAL_FRACTION, exponent: (-(<$f>::FRACTION_BITS as isize)) as $e };
+    pub const MAX_CONTIGUOUS: Self = Self { fraction: <$f>::MAX_FRACTION, exponent: <$f>::FRACTION_BITS as $e };
+    pub const MIN_CONTIGUOUS: Self = Self { fraction: <$f>::MIN_FRACTION + 1, exponent: <$f>::FRACTION_BITS as $e };
+    pub const ZERO: Self = Self { fraction: 0, exponent: <$e>::AMBIGUOUS_EXPONENT };
+    pub const INFINITY: Self = Self { fraction: -1, exponent: <$e>::AMBIGUOUS_EXPONENT };
+    pub const ONE: Self = Self { fraction: <$f>::POS_ONE_NORMAL_FRACTION, exponent: 1 };
+    pub const NEG_ONE: Self = Self { fraction: <$f>::NEG_ONE_NORMAL_FRACTION, exponent: 0 };
+    pub const EFFECTIVELY_POS_ONE: Self = Self { fraction: <$f>::MAX_FRACTION, exponent: 0 };
+    pub const EFFECTIVELY_NEG_ONE: Self = Self { fraction: <$f>::MIN_FRACTION + 1, exponent: 0 };
+    pub const TWO: Self = Self { fraction: <$f>::POS_ONE_NORMAL_FRACTION, exponent: 2 };
+    pub const HALF: Self = Self { fraction: <$f>::POS_ONE_NORMAL_FRACTION, exponent: 0 };
+    pub const EXPLODED_POS: Self = Self { fraction: <$f>::POS_ONE_EXPLODED_FRACTION, exponent: <$e>::AMBIGUOUS_EXPONENT };
+    pub const EXPLODED_NEG: Self = Self { fraction: <$f>::NEG_ONE_EXPLODED_FRACTION, exponent: <$e>::AMBIGUOUS_EXPONENT };
+    pub const VANISHED_POS: Self = Self { fraction: <$f>::POS_ONE_VANISHED_FRACTION, exponent: <$e>::AMBIGUOUS_EXPONENT };
+    pub const VANISHED_NEG: Self = Self { fraction: <$f>::NEG_ONE_VANISHED_FRACTION, exponent: <$e>::AMBIGUOUS_EXPONENT };
 
-    /// A generic negative exploded Scalar
-    pub const ESCAPED_NEG_BIG: Self = Self {
-        fraction: <$f>::NEG_ONE_FRACTION,
-        exponent: <$e>::AMBIGUOUS_EXPONENT,
-    };
+    // All hex constants below are stored fractions derived from basecalc (MPFR), floored to 128 bits.
+    // The shift >> (128 - FRACTION_BITS) truncates to the target fraction width. (SA cast)
+    // Negative variants use wrapping_neg on the stored fraction.
 
-    /// A generic positive vanished Scalar
-    pub const ESCAPED_POS_SMALL: Self = Self {
-        fraction: <$f>::POS_SMALL_FRACTION,
-        exponent: <$e>::AMBIGUOUS_EXPONENT,
-    };
-
-    /// A generic negative vanished Scalar
-    pub const ESCAPED_NEG_SMALL: Self = Self {
-        fraction: <$f>::NEG_SMALL_FRACTION,
-        exponent: <$e>::AMBIGUOUS_EXPONENT,
-    };
-    /// Approximately Pi (π ≈ 3.14159265358979323846...)
-    pub const PI: Self = Self {
-        fraction: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 2,
-    };
-    /// Approximately negative Pi (-π ≈ -3.14159265358979323846...)
-    pub const NEG_PI: Self = Self {
-        fraction: (-0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 2,
-    };
-    /// Approximately Tau (2π ≈ 6.28318530717958647693...)
-    pub const TAU: Self = Self {
-        fraction: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 3,
-    };
-    /// Approximately negative Tau (-2π ≈ -6.28318530717958647693...)
-    pub const NEG_TAU: Self = Self {
-        fraction: (-0x6487ED5110B4611A62633145C06E0E68i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 3,
-    };
-    /// Alternative name for TAU (2π)
+    // --- Pi family (π/4 fraction shared across power-of-2 multiples) ---
+    pub const PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 2 };
+    pub const NEG_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 2 };
+    pub const TAU: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 3 };
+    pub const NEG_TAU: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 3 };
     pub const TWO_PI: Self = Self::TAU;
-    /// Pi divided by two (π/2 ≈ 1.57079632679489661923...)
-    pub const HALF_PI: Self = Self {
-        fraction: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// Negative Pi divided by two (-π/2 ≈ -1.57079632679489661923...)
-    pub const NEG_HALF_PI: Self = Self {
-        fraction: (-0x6487ED5110B4611A62633145C06E0E68i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// Pi divided by three (π/3 ≈ 1.04719755119659774615...)
-    pub const THIRD_PI: Self = Self {
-        fraction: (0x430548E0B5CD961196ECCB83D59EB446i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// Pi divided by four (π/4 ≈ 0.78539816339744830962...)
-    pub const FOURTH_PI: Self = Self {
-        fraction: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Negative pi divided by four (-π/4 ≈ 0.78539816339744830962...)
-    pub const NEG_FOURTH_PI: Self = Self {
-        fraction: (-0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Pi divided by six (π/6 ≈ 0.52359877559829887308...)
-    pub const SIXTH_PI: Self = Self {
-        fraction: (0x430548E0B5CD961196ECCB83D59EB446i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Pi divided by eight (π/8 ≈ 0.39269908169872415481...)
-    pub const EIGHTH_PI: Self = Self {
-        fraction: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: -1,
-    };
-    pub const SQRT_PI: Self = Self {
-        fraction: (0x716FE246D3BDAA9E70EC1483576E4E0Fi128>>(128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// One divided by pi (1/π ≈ 0.31830988618379067154...)
-    pub const ONE_OVER_PI: Self = Self {
-        fraction: (0x517CC1B727220A94FE13ABE8FA9A6EE0i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: -1,
-    };
-    /// Two divided by pi (2/π ≈ 0.63661977236758134308...)
-    pub const TWO_OVER_PI: Self = Self {
-        fraction: (0x517CC1B727220A94FE13ABE8FA9A6EE0i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// One divided by square root of pi (1/√π ≈ 0.56418958354775628695...)
-    pub const ONE_OVER_SQRT_PI: Self = Self {
-        fraction: (0x48375D410A6DB446B8EA453FB5FF61A2i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Two divided by square root of pi (2/√π ≈ 1.12837916709551257390...)
-    pub const TWO_OVER_SQRT_PI: Self = Self {
-        fraction: (0x48375D410A6DB446B8EA453FB5FF61A2i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// One divided by square root of two pi (1/√(2π) ≈ 0.39894228040143267794...)
-    pub const ONE_OVER_SQRT_TAU: Self = Self {
-        fraction: (0x662114CF50D942343F2CF1402EAE38BFi128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: -1,
-    };
-    // --- Euler's Number Related Constants ---
-    /// Approximately Euler's number (e ≈ 2.71828182845904523536...)
-    pub const E: Self = Self {
-        fraction: (0x56FC2A2C515DA54D57EE2B10139E9E79i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 2,
-    };
-    /// Approximately natural logarithm of two (ln(2) ≈ 0.69314718055994530942...)
-    pub const LN_TWO: Self = Self {
-        fraction: (0x58B90BFBE8E7BCD5E4F1D9CC01F97B57i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Binary logarithm of e (log₂(e) ≈ 1.44269504088896340736...)
-    pub const LB_E: Self = Self {
-        fraction: (0x5C551D94AE0BF85DDF43FF68348E9F44i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    // --- Square Root Related Constants ---
-    /// Approximately square root of two (√2 ≈ 1.41421356237309504880...)
-    pub const SQRT_TWO: Self = Self {
-        fraction: (0x5A827999FCEF32422CBEC4D9BAA55F4Fi128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// One divided by square root of two (1/√2 ≈ 0.70710678118654752440...)
-    pub const ONE_OVER_SQRT_TWO: Self = Self {
-        fraction: (0x5A827999FCEF32422CBEC4D9BAA55F4Fi128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Square root of three (√3 ≈ 1.73205080756887729353...)
-    pub const SQRT_THREE: Self = Self {
-        fraction: (0x6ED9EBA16132A9CEC95D0B5C1E2E0EE2i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// One divided by square root of three (1/√3 ≈ 0.57735026918962576451...)
-    pub const ONE_OVER_SQRT_THREE: Self = Self {
-        fraction: (0x49E69D1640CC7134863E0792BEC95F41i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    // --- Other Mathematical Constants ---
-    /// Approximately Euler-Mascheroni constant (γ ≈ 0.57721566490153286061...)
-    pub const EULER_GAMMA: Self = Self {
-        fraction: (0x49E233F1BED863D268DF1FC080A965ABi128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
-    /// Approximately golden ratio (φ ≈ 1.61803398874989484820...)
-    pub const PHI: Self = Self {
-        fraction: (0x678DDE6E5FD29F057CE73018173B720Di128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 1,
-    };
-    /// Catalan's constant (G ≈ 0.915965...)
-    pub const CATALAN: Self = Self {
-        fraction: (0x753E5C4FA04D742290AC1171BE996863i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        exponent: 0,
-    };
+    pub const HALF_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const NEG_HALF_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const FOURTH_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+    pub const NEG_FOURTH_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+    pub const EIGHTH_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: -1 };
+
+    // --- Pi/3 family ---
+    pub const THIRD_PI: Self = Self { fraction: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const SIXTH_PI: Self = Self { fraction: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+
+    // --- 1/π family ---
+    pub const ONE_OVER_PI: Self = Self { fraction: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: -1 };
+    pub const TWO_OVER_PI: Self = Self { fraction: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+
+    // --- √π family ---
+    pub const SQRT_PI: Self = Self { fraction: (0xE2DFC48DA77B553CE1D82906AEDC9C1Fu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const ONE_OVER_SQRT_PI: Self = Self { fraction: (0x906EBA8214DB688D71D48A7F6BFEC344u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+    pub const TWO_OVER_SQRT_PI: Self = Self { fraction: (0x906EBA8214DB688D71D48A7F6BFEC344u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const ONE_OVER_SQRT_TAU: Self = Self { fraction: (0xCC42299EA1B284687E59E2805D5C717Fu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: -1 };
+
+    // --- e family ---
+    pub const E: Self = Self { fraction: (0xADF85458A2BB4A9AAFDC5620273D3CF1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 2 };
+    pub const LN_TWO: Self = Self { fraction: (0xB17217F7D1CF79ABC9E3B39803F2F6AFu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+    pub const LB_E: Self = Self { fraction: (0xB8AA3B295C17F0BBBE87FED0691D3E88u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+
+    // --- √2 family ---
+    pub const SQRT_TWO: Self = Self { fraction: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const ONE_OVER_SQRT_TWO: Self = Self { fraction: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+
+    // --- √3 family ---
+    pub const SQRT_THREE: Self = Self { fraction: (0xDDB3D742C265539D92BA16B83C5C1DC4u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const ONE_OVER_SQRT_THREE: Self = Self { fraction: (0x93CD3A2C8198E2690C7C0F257D92BE83u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+
+    // --- Other constants ---
+    pub const EULER_GAMMA: Self = Self { fraction: (0x93C467E37DB0C7A4D1BE3F810152CB56u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
+    pub const PHI: Self = Self { fraction: (0xCF1BBCDCBFA53E0AF9CE60302E76E41Au128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 1 };
+    pub const CATALAN: Self = Self { fraction: (0xEA7CB89F409AE845215822E37D32D0C6u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, exponent: 0 };
 }
 
         impl ScalarConstants for Scalar<$f, $e> {
@@ -380,10 +192,10 @@ macro_rules! impl_scalar_constants {
             const EFFECTIVELY_NEG_ONE: Self = Self::EFFECTIVELY_NEG_ONE;
             const TWO: Self = Self::TWO;
             const HALF: Self = Self::HALF;
-            const ESCAPED_POS_BIG: Self = Self::ESCAPED_POS_BIG;
-            const ESCAPED_NEG_BIG: Self = Self::ESCAPED_NEG_BIG;
-            const ESCAPED_POS_SMALL: Self = Self::ESCAPED_POS_SMALL;
-            const ESCAPED_NEG_SMALL: Self = Self::ESCAPED_NEG_SMALL;
+            const EXPLODED_POS: Self = Self::EXPLODED_POS;
+            const EXPLODED_NEG: Self = Self::EXPLODED_NEG;
+            const VANISHED_POS: Self = Self::VANISHED_POS;
+            const VANISHED_NEG: Self = Self::VANISHED_NEG;
             const PI: Self = Self::PI;
             const NEG_PI: Self = Self::NEG_PI;
             const TAU: Self = Self::TAU;

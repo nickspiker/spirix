@@ -2,9 +2,9 @@ use crate::constants::ScalarConstants;
 use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
 macro_rules! impl_scalar_new {
     ($($f:ty, $e:ty);*) => {
@@ -260,7 +260,7 @@ where
     #[inline]
     pub fn is_undefined(&self) -> bool {
         // Zero and Infinity are defined
-        if self.is_n0() {
+        if self.is_uniform() {
             return false;
         }
 
@@ -273,12 +273,12 @@ where
         top_three == top_three.rotate_right(1)
     }
 
-    pub fn is_n0(&self) -> bool {
+    pub fn is_uniform(&self) -> bool {
         // Check for uniform patterns by shifting and equality
         self.prefix() == self.prefix().rotate_right(1)
     }
 
-    pub fn is_n1(&self) -> bool {
+    pub fn is_exploded(&self) -> bool {
         let prefix = self.prefix();
         // Check for N1 patterns by shifting:
         // □■xxxxxx -6-> □□□□□□□■
@@ -287,7 +287,7 @@ where
         top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8
     }
 
-    pub fn is_n2(&self) -> bool {
+    pub fn is_vanished(&self) -> bool {
         let prefix = self.prefix();
         // Check for N2 patterns by shifting:
         // □□■xxxxx -5-> □□□□□□□■
@@ -362,7 +362,7 @@ where
             return true;
         }
 
-        self.is_n2()
+        self.is_vanished()
     }
 
     /// Returns true if this Scalar is an infinitesimal value `[↓]`
@@ -422,7 +422,7 @@ where
     /// ```
     #[inline]
     pub fn vanished(&self) -> bool {
-        self.is_n2()
+        self.is_vanished()
     }
 
     /// Returns true if this Scalar is ridiculously large `[↑]` but not ∞
@@ -487,7 +487,7 @@ where
     /// ```
     #[inline]
     pub fn exploded(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT && self.is_n1()
+        self.exponent == E::AMBIGUOUS_EXPONENT && self.is_exploded()
     }
 
     /// Returns true if this Scalar is beyond normal magnitude `[↑]` or `[∞]`
@@ -558,7 +558,8 @@ where
     /// assert!(still_infinity.is_transfinite());
     /// ```
     pub fn is_transfinite(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT && (self.is_n1() || self.fraction == F::NEG_ONE)
+        self.exponent == E::AMBIGUOUS_EXPONENT
+            && (self.is_exploded() || self.fraction == F::NEG_ONE)
     }
 
     /// Returns true if this Scalar represents a finite number `[0]`, `[#]`
@@ -803,26 +804,17 @@ where
     /// ```
     #[inline]
     pub fn is_positive(&self) -> bool {
-        // Extract high byte and cast to signed to use arithmetic shifts
-        let prefix = self.prefix();
-
-        // Check for actual Zero or undefined by shifting:
-        // □□□□□□□□ -5-> □□□□□□□□ - Zero               0 - False
-        // ■■■■■■■■ -5-> ■■■■■■■■ - Infinity           ∞ - False
-        // □■xxxxxx -5-> □□□□□□■x - Normal numbers    +1 - False
-        // ■□xxxxxx -5-> ■■■■■■□x - Negative numbers  -1 - True
-        // □■xxxxxx -5-> □□□□□□■x - Positive exploded +↑ - False
-        // ■□xxxxxx -5-> ■■■■■■□x - Negative exploded -↑ - True
-        // □□■xxxxx -5-> □□□□□□□■ - Positive vanished +↓ - False
-        // ■■□xxxxx -5-> ■■■■■■■□ - Negative vanished -↓ - True
-        // □□□■xxxx -5-> □□□□□□□□ - Undefined         ℘ - False
-        // ■■■□xxxx -5-> ■■■■■■■■ - Undefined         ℘ - False
-        let top_three = prefix >> 5;
-        if top_three == top_three.rotate_right(1) {
-            return false;
+        // For normal values: sign is ~stored[MSB], so positive when stored MSB=1 (negative stored)
+        if self.is_normal() {
+            return self.fraction.is_negative();
         }
 
-        // Check sign bit without zero equality
+        // For ambiguous states: sign is stored directly in the bit pattern
+        let prefix = self.prefix();
+        let top_three = prefix >> 5;
+        if top_three == top_three.rotate_right(1) {
+            return false; // Zero, Infinity, or undefined
+        }
         !top_three.is_negative()
     }
 
@@ -879,26 +871,17 @@ where
     /// ```
     #[inline]
     pub fn is_negative(&self) -> bool {
-        // Extract high byte and cast to signed to use arithmetic shifts
-        let prefix = self.prefix();
-
-        // Check for Zero or undefined by shifting:
-        // □□□□□□□□ -5-> □□□□□□□□ - Zero               0 - False
-        // ■■■■■■■■ -5-> ■■■■■■■■ - Infinity           ∞ - False
-        // □■xxxxxx -5-> □□□□□□■x - Normal numbers    +1 - False
-        // ■□xxxxxx -5-> ■■■■■■□x - Negative numbers  -1 - True
-        // □■xxxxxx -5-> □□□□□□■x - Positive exploded +↑ - False
-        // ■□xxxxxx -5-> ■■■■■■□x - Negative exploded -↑ - True
-        // □□■xxxxx -5-> □□□□□□□■ - Positive vanished +↓ - False
-        // ■■□xxxxx -5-> ■■■■■■■□ - Negative vanished -↓ - True
-        // □□□■xxxx -5-> □□□□□□□□ - Undefined         ℘ - False
-        // ■■■□xxxx -5-> ■■■■■■■■ - Undefined         ℘ - False
-        let top_three = prefix >> 5;
-        if top_three == top_three.rotate_right(1) {
-            return false;
+        // For normal values: sign is ~stored[MSB], so negative when stored MSB=0 (non-negative stored)
+        if self.is_normal() {
+            return !self.fraction.is_negative();
         }
 
-        // Check sign bit
+        // For ambiguous states: sign is stored directly in the bit pattern
+        let prefix = self.prefix();
+        let top_three = prefix >> 5;
+        if top_three == top_three.rotate_right(1) {
+            return false; // Zero, Infinity, or undefined
+        }
         top_three.is_negative()
     }
 
@@ -957,54 +940,26 @@ where
     /// ```
     #[inline]
     pub fn is_integer(&self) -> bool {
-        // Case 0: Exponent is >= FRACTION_BITS, which means the value is entirely in the integer portion, I think? do check for -'s :)
-        if self.exponent >= (F::FRACTION_BITS.wrapping_sub(1)).as_() {
+        if self.exponent >= F::FRACTION_BITS.as_() {
             return true;
         }
-        // Case 1: Negative exponent means we have a fraction only, undefined, Infinity, Zero or escaped
         if self.exponent.is_negative() {
             if self.exponent == E::AMBIGUOUS_EXPONENT {
-                let prefix = self.prefix();
-                if prefix == 0 {
-                    //Zero is an integer
+                if self.fraction == F::ZERO {
                     return true;
-                }
-
-                // Check for N-1 exploded patterns by shifting:
-                // □■xxxxxx -6-> □□□□□□□■
-                // ■□xxxxxx -6-> ■■■■■■■□
-                let top_two = prefix >> 6;
-                return top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8;
+                } // Zero
+                return self.is_exploded(); // Exploded values are integers
             }
             return false;
         }
-        // Case 2: Check fractional bits in left-aligned format
-        let exponent_usize: isize = self.exponent.as_();
-        let frac_bits = F::FRACTION_BITS.wrapping_sub(exponent_usize);
-
-        // If no fractional bits, it's definitely an integer
-        if frac_bits <= 0 {
+        let shift: isize = self.exponent.as_();
+        if shift >= F::FRACTION_BITS {
             return true;
         }
-
-        // For left-aligned format with unbiased exponents:
-        // Check if fraction << (exponent + 1) == 0
-        // This shifts out the integer part, leaving only fractional bits
-        let exp_isize: isize = self.exponent.as_();
-        let shift_amount = exp_isize.wrapping_add(1);
-
-        if shift_amount >= F::FRACTION_BITS {
-            // Large exponent means no fractional bits possible
-            return true;
-        }
-
-        if shift_amount <= 0 {
-            // Small/negative exponent, handle via earlier cases
+        if shift < 0 {
             return false;
         }
-
-        // Shift left by (exponent + 1) and check if result is zero
-        (self.fraction << shift_amount) == F::ZERO
+        (self.fraction << shift) == F::ZERO
     }
 
     /// Returns true if this value is a valid integer within the contiguous integer range
@@ -1068,9 +1023,8 @@ where
         if self.is_normal() && !self.exponent.is_negative() {
             let exp_isize: isize = self.exponent.saturate();
 
-            // If exponent is >= FRACTION_BITS - 1, the number is too large to fit
-            // in the contiguous integer range (since we need some bits for the fractional part)
-            if exp_isize >= F::FRACTION_BITS.wrapping_sub(1).as_() {
+            // If exponent is >= FRACTION_BITS, all stored bits are integer part — beyond contiguous range
+            if exp_isize >= F::FRACTION_BITS.as_() {
                 return false;
             }
 
@@ -1092,38 +1046,35 @@ where
         false
     }
 
+    /// Negates this Scalar in place.
+    ///
+    /// Three classes of values, three behaviors:
+    ///
+    /// Signless (zero, infinity, undefined): no-op, these have no sign to flip.
+    ///
+    /// Escaped (exploded, vanished): sign is in the bit pattern directly. Bitwise NOT flips the MSB (and thus the sign) while preserving the N-level because NOT turns 01.. into 10.. (N-1) and 001.. into 110.. (N-2).
+    ///
+    /// Normal: wrapping_neg on the stored fraction. This works because deflate(-inflate(x)) == wrapping_neg(x) for all stored values except two:
+    /// - stored = 0 (most negative value at this exponent): wrapping_neg(0) = 0, so we halve the magnitude and bump exponent by 1.
+    /// - stored = MIN (positive power-of-two): wrapping_neg(MIN) = MIN, so we double the magnitude and drop exponent by 1.
     pub(crate) fn scalar_negate(&mut self) {
         if !self.is_normal() {
-            // Check if top 3 bits are equal by pushing 5 bits off
-            // ↓↓↓                ↓↓↓
-            // □□□xxxxx -5-> □□□□□□□□ - Undefined (℘), Zero (0), infinity (∞)
             let top_three = self.prefix() >> 5;
-            // Then rotate and compare.  If uniform, they will be the same
             if top_three == top_three.rotate_right(1) {
-                return;
+                return; // signless: zero, infinity, undefined
             }
-            if self.fraction == F::POS_ONE_FRACTION {
-                self.fraction = F::NEG_ONE_FRACTION;
-            } else if self.fraction == F::NEG_ONE_FRACTION {
-                self.fraction = F::POS_ONE_FRACTION;
-            } else if self.fraction == F::POS_SMALL_FRACTION {
-                self.fraction = F::NEG_SMALL_FRACTION;
-            } else if self.fraction == F::NEG_SMALL_FRACTION {
-                self.fraction = F::POS_SMALL_FRACTION;
-            } else {
-                self.fraction = self.fraction.wrapping_neg();
-            }
+            self.fraction = !self.fraction; // escaped: flip sign via NOT
             return;
         }
-        if self.fraction == F::POS_ONE_FRACTION {
+        if self.fraction == F::POS_ONE_NORMAL_FRACTION {
             self.exponent = self.exponent.wrapping_sub(&E::ONE);
             if self.exponent == E::AMBIGUOUS_EXPONENT {
-                self.fraction = F::NEG_SMALL_FRACTION;
+                self.fraction = F::NEG_ONE_VANISHED_FRACTION;
             } else {
-                self.fraction = F::NEG_ONE_FRACTION;
+                self.fraction = F::NEG_ONE_NORMAL_FRACTION;
             }
-        } else if self.fraction == F::NEG_ONE_FRACTION {
-            self.fraction = F::POS_ONE_FRACTION;
+        } else if self.fraction == F::NEG_ONE_NORMAL_FRACTION {
+            self.fraction = F::POS_ONE_NORMAL_FRACTION;
             self.exponent = self.exponent.wrapping_add(&E::ONE);
         } else {
             self.fraction = self.fraction.wrapping_neg();
@@ -1180,7 +1131,7 @@ where
     /// assert!(undefined.magnitude().is_undefined());
     /// ```
     pub fn magnitude(&self) -> Self {
-        if !self.fraction.is_negative() {
+        if self.is_positive() || self.is_zero() || self.is_infinite() || self.is_undefined() {
             return *self;
         }
         -self
@@ -1234,7 +1185,7 @@ where
         if self.is_undefined() {
             return *self;
         }
-        if self.is_n0() {
+        if self.is_uniform() {
             return Self {
                 fraction: SIGN_INDETERMINATE.prefix.sa(),
                 exponent: E::AMBIGUOUS_EXPONENT,
@@ -1326,12 +1277,11 @@ where
             return result;
         }
         let mut result = *self;
-        let width = F::FRACTION_BITS.wrapping_sub(1);
-        if result.exponent >= width.as_() {
+        if result.exponent >= F::FRACTION_BITS.as_() {
             return result;
         }
         let e: isize = result.exponent.as_();
-        let frac_bits = width.wrapping_sub(e);
+        let frac_bits = F::FRACTION_BITS.wrapping_sub(e);
         let mask: F = !((F::ONE << frac_bits).wrapping_sub(&F::ONE));
         result.fraction = result.fraction & mask;
         result
@@ -1394,7 +1344,12 @@ where
     /// assert!(undefined.ceil().is_undefined());
     /// ```
     pub fn ceil(&self) -> Self {
-        -(-*self).floor()
+        let f = self.floor();
+        if f.fraction == self.fraction {
+            f
+        } else {
+            f + Self::ONE
+        }
     }
 
     /// Returns the nearest integer Scalar
@@ -1459,43 +1414,37 @@ where
     /// assert!(undefined.round().fraction == undefined.fraction && undefined.round().exponent == undefined.exponent);
     /// ```
     pub fn round(&self) -> Self {
-        // Handle non-normal values first
         if !self.is_normal() {
             if self.vanished() {
                 return Self::ZERO;
             }
             return *self;
         }
-
-        // Use math approach for banker's rounding (will optimize to bits later)
-        let floored = self.floor();
-        let frac = *self - floored;
-
-        // Check if fractional part is exactly 0.5
-        if (frac - Self::HALF).is_zero() {
-            // Banker's rounding: round to even integer
-            // For banker's rounding, we need to check which of the two nearest integers is even
-            let lower = floored;
-            let upper = floored + Self::ONE;
-
-            let lower_is_even = (lower % Self::TWO).is_zero();
-            let upper_is_even = (upper % Self::TWO).is_zero();
-
-            if lower_is_even {
-                return lower;
-            } else if upper_is_even {
-                return upper;
-            } else {
-                // This happens if we were out of the contiguous range, thus indicating all numbers are now even
-                return floored;
-            }
-        } else if frac > Self::HALF {
-            // Round up (away from zero)
-            return floored + Self::ONE;
-        } else {
-            // Round down (toward zero)
-            return floored;
+        let f = self.floor();
+        if f.fraction == self.fraction {
+            return f;
+        } // already integer
+        let e: isize = self.exponent.as_();
+        if e >= F::FRACTION_BITS {
+            return f;
         }
+        let guard_pos = F::FRACTION_BITS.wrapping_sub(e).wrapping_sub(1);
+        let guard = (self.fraction >> guard_pos) & F::ONE;
+        if guard == F::ZERO {
+            return f;
+        } // < 0.5, floor
+        let sticky_mask: F = (F::ONE << guard_pos).wrapping_sub(&F::ONE);
+        let sticky = self.fraction & sticky_mask;
+        if sticky != F::ZERO {
+            return f + Self::ONE;
+        } // > 0.5, ceil
+          // Exactly 0.5: banker's — round to even. Check integer LSB.
+        let int_lsb = (self.fraction >> (guard_pos + 1)) & F::ONE;
+        if int_lsb != F::ZERO {
+            f + Self::ONE
+        } else {
+            f
+        } // odd rounds up, even stays
     }
 
     /// Returns the fractional part of this Scalar
@@ -1560,9 +1509,7 @@ where
     /// ```
     pub fn frac(&self) -> Self {
         if !self.is_normal() {
-            // Handle vanished values
             if self.vanished() && self.is_negative() {
-                // Negative vanished - almost one
                 return Self::EFFECTIVELY_POS_ONE;
             }
             if self.exploded() {
@@ -1576,36 +1523,7 @@ where
             }
             return *self;
         }
-
-        if self.exponent < E::ZERO {
-            if self.is_negative() {
-                // Align to exp=0 by sign-extend shift, then fall through to mask
-                let mut result = *self;
-                let shift: isize = (E::ZERO - result.exponent).as_();
-                let shift: usize = shift.max(0) as usize;
-                let max_shift = (F::FRACTION_BITS - 1) as usize;
-                result.fraction = result.fraction >> shift.min(max_shift);
-                result.exponent = E::ZERO;
-                let frac_bits = max_shift;
-                let mask: F = (F::ONE << frac_bits).wrapping_sub(&F::ONE);
-                result.fraction = result.fraction & mask;
-                result.normalize();
-                return result;
-            }
-            return *self;
-        }
-        let width = F::FRACTION_BITS.wrapping_sub(1);
-        if self.exponent >= width.as_() {
-            // Already an integer, no fractional part
-            return Self::ZERO;
-        }
-        let mut result = *self;
-        let e: isize = result.exponent.as_();
-        let frac_bits = width.wrapping_sub(e);
-        let mask: F = (F::ONE << frac_bits).wrapping_sub(&F::ONE);
-        result.fraction = result.fraction & mask;
-        result.normalize();
-        result
+        *self - self.floor()
     }
     /// Returns the larger of this Scalar and another
     ///
@@ -2014,11 +1932,11 @@ where
     /// ```
     #[inline]
     pub fn is_prime(&self) -> bool {
-        if self.exponent < 2.as_() || self.exponent >= (F::FRACTION_BITS - 1).as_() {
+        if self.exponent < 2.as_() || self.exponent >= F::FRACTION_BITS.as_() {
             return false;
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return false;
         }
 
@@ -2051,43 +1969,38 @@ where
         }
     }
 
-    /// Normalizes this Scalar by shifting the fraction left until the most significant bit is in the N-1 position, adjusting the exponent accordingly.  
-    /// Sign is placed in N-0.  
-    ///  
-    /// If shifting would cause a small number to vanish, marks the number as ambiguous and normalizes it to N-2.  
-    ///  
-    /// 01234567...  
-    ///  
-    /// □■xxxxxx... - Normal positive numbers  
-    ///  
-    /// ■□xxxxxx... - Normal negative numbers  
-    ///  
-    /// - Normalizes all scalars!
+    /// Normalizes this Scalar by restoring the sign, shifting out leading redundancy, then stripping the sign back off. Adjusts the exponent accordingly. If shifting would cause the exponent to underflow, the value becomes vanished.
     #[inline]
     pub fn normalize(&mut self) {
+        // Restore the sign to count leading same bits in the full value
         let shift = self
             .fraction
             .leading_ones()
             .max(self.fraction.leading_zeros());
-        if shift > 1 {
+        if shift > 0 {
             let shift = shift as isize;
             let new_exponent;
             if shift == F::FRACTION_BITS {
+                // All bits identical — either zero (all 0s) or all 1s
                 if !self.fraction.is_negative() {
+                    // All zeros in stored = most negative effective, but with max leading same bits
+                    // This is effectively zero
                     self.exponent = E::AMBIGUOUS_EXPONENT;
                     return;
                 }
-                new_exponent = self.exponent.wrapping_sub(&(shift.wrapping_add(1)).as_());
+                // All ones in stored — also a uniform pattern
+                new_exponent = self.exponent.wrapping_sub(&shift.as_());
             } else {
                 new_exponent = self.exponent.wrapping_sub(&shift.as_());
             }
 
             if self.exponent.is_negative() && !new_exponent.is_negative() {
+                // Exponent underflowed -> vanished
                 self.exponent = E::AMBIGUOUS_EXPONENT;
-                self.fraction = self.fraction << (shift.wrapping_sub(2));
-            } else {
-                self.exponent = new_exponent.wrapping_add(&E::ONE);
                 self.fraction = self.fraction << (shift.wrapping_sub(1));
+            } else {
+                self.exponent = new_exponent;
+                self.fraction = self.fraction << shift;
             }
         }
     }

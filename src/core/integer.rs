@@ -159,3 +159,64 @@ impl FullInt for u32 {}
 impl FullInt for u64 {}
 impl FullInt for u128 {}
 impl FullInt for usize {}
+
+/// Restore the implicit sign bits (~stored[MSB]) into a wider type for arithmetic. All FRAC stored bits carry precision; the sign is just the infinite leading bits we chose not to store.
+pub(crate) trait Inflate {
+    type Wide;
+    fn inflate(self) -> Self::Wide;
+}
+
+/// Strip the sign bit back off after arithmetic, keeping the FRAC precision bits.
+pub(crate) trait Deflate<Stored> {
+    fn deflate(self) -> Stored;
+}
+
+macro_rules! impl_inflate_deflate {
+    ($stored:ty, $wide:ty, $frac:expr) => {
+        impl Inflate for $stored {
+            type Wide = $wide;
+
+            #[inline]
+            fn inflate(self) -> $wide {
+                (self as $wide) ^ ((-1 as $wide) << $frac)
+            }
+        }
+
+        impl Deflate<$stored> for $wide {
+            #[inline]
+            fn deflate(self) -> $stored {
+                self as $stored
+            }
+        }
+    };
+}
+
+impl_inflate_deflate!(i8, i16, 8);
+impl_inflate_deflate!(i16, i32, 16);
+impl_inflate_deflate!(i32, i64, 32);
+impl_inflate_deflate!(i64, i128, 64);
+
+impl Inflate for i128 {
+    type Wide = i256::I256;
+
+    #[inline]
+    fn inflate(self) -> i256::I256 {
+        let wide: i256::I256 = self.into(); // sign-extend i128 to I256
+        let mask: i256::I256 = ((-1i128).into()); // all 1s in low 128, sign-extended to 256
+        wide ^ !mask // XOR the upper 128 bits
+    }
+}
+
+impl Deflate<i128> for i256::I256 {
+    #[inline]
+    fn deflate(self) -> i128 {
+        // Take low 128 bits via le bytes
+        let bytes = self.to_le_bytes();
+        i128::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15],
+        ])
+    }
+}

@@ -113,23 +113,20 @@ where
                 .max(result.fraction.leading_zeros())
                 .as_();
 
-            if leading > E::ONE {
+            if leading > E::ZERO {
                 let new_exponent = result.exponent.wrapping_sub(&leading);
                 let shift: isize = leading.as_();
 
                 if new_exponent.is_negative() {
-                    result.exponent = new_exponent.wrapping_add(&E::ONE);
-                    result.fraction = result.fraction << shift.wrapping_sub(1);
+                    result.exponent = new_exponent;
+                    result.fraction = result.fraction << shift;
 
-                    let mask: F = (F::ONE << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
-
-                    let random_fill: F = F::random() & mask;
-
-                    result.fraction = result.fraction | random_fill;
+                    let mask: F = (F::ONE << shift).wrapping_sub(&F::ONE);
+                    result.fraction = result.fraction | (F::random() & mask);
                 } else {
+                    // Exponent underflowed → vanished
                     result.exponent = E::AMBIGUOUS_EXPONENT;
                     result.fraction = F::random();
-
                     let mut leading: E = result
                         .fraction
                         .leading_ones()
@@ -279,7 +276,7 @@ where
 
                     // Fill lower bits with random values
                     let mask: F =
-                        (F::POS_ONE_FRACTION << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
+                        (F::POS_ONE_NORMAL_FRACTION << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
                     let random_fill_r: F = F::random() & mask;
                     let random_fill_i: F = F::random() & mask;
                     result.real = result.real | random_fill_r;

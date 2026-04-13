@@ -196,7 +196,7 @@ where
         if binary64 == &0. {
             return if binary64.is_sign_negative() {
                 Self {
-                    fraction: F::NEG_SMALL_FRACTION,
+                    fraction: F::NEG_ONE_VANISHED_FRACTION,
                     exponent: E::AMBIGUOUS_EXPONENT,
                 }
             } else {
@@ -427,7 +427,7 @@ where
         if binary32 == &0. {
             return if binary32.is_sign_negative() {
                 Self {
-                    fraction: F::NEG_SMALL_FRACTION,
+                    fraction: F::NEG_ONE_VANISHED_FRACTION,
                     exponent: E::AMBIGUOUS_EXPONENT,
                 }
             } else {
@@ -531,10 +531,11 @@ macro_rules! impl_from_int {
                     if value == 0 {
                         return Self::ZERO;
                     }
-                    let mut shift = value.leading_ones().max(value.leading_zeros()) as isize;
-                    shift = (core::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(shift);
-                    let exponent:E = shift.as_();
-                    shift = (F::FRACTION_BITS as isize).wrapping_sub(shift).wrapping_sub(1);
+                    let leading = value.leading_ones().max(value.leading_zeros()) as isize;
+                    let significant_bits = (core::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(leading);
+                    let exponent: E = significant_bits.as_();
+                    // Shift to fill FRAC bits of stored precision (sign bit is implicit, not stored)
+                    let shift = (F::FRACTION_BITS as isize).wrapping_sub(significant_bits);
                     let fraction: F = if shift < 0 {
                         (value >> shift.wrapping_neg()).as_()
                     } else {

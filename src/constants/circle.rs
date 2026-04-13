@@ -99,25 +99,25 @@ macro_rules! impl_circle_constants {
     };
     /// The smallest positive value that can be represented by this type of Circle.
     pub const MIN_POS: Self = Self {
-        real: <$f>::POS_ONE_FRACTION,
+        real: <$f>::POS_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: <$e>::MIN_EXPONENT,
     };
     /// Smallest magnitude negative value that can be represented by this type of Circle.
     pub const MAX_NEG: Self = Self {
-        real: <$f>::NEG_ONE_FRACTION,
+        real: <$f>::NEG_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: <$e>::MIN_EXPONENT,
     };
     /// Granularity between 1/2 and 1
     pub const POS_NORMAL_EPSILON: Self = Self {
-        real: <$f>::POS_ONE_FRACTION,
+        real: <$f>::POS_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: (2isize.wrapping_sub(<$f>::FRACTION_BITS as isize)) as $e,
     };
     /// Granularity between -1 and -1/2
     pub const NEG_NORMAL_EPSILON: Self = Self {
-        real: <$f>::NEG_ONE_FRACTION,
+        real: <$f>::NEG_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: (1isize.wrapping_sub(<$f>::FRACTION_BITS as isize)) as $e,
     };
@@ -155,7 +155,7 @@ macro_rules! impl_circle_constants {
     };
     /// Exactly one.
     pub const ONE: Self = Self {
-        real: <$f>::POS_ONE_FRACTION,
+        real: <$f>::POS_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: 1,
     };
@@ -179,20 +179,20 @@ macro_rules! impl_circle_constants {
     };
     /// Exactly two.
     pub const TWO: Self = Self {
-        real: <$f>::POS_ONE_FRACTION,
+        real: <$f>::POS_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: 2,
     };
     /// Exactly 1/2.
     pub const HALF: Self = Self {
-        real: <$f>::POS_ONE_FRACTION,
+        real: <$f>::POS_ONE_NORMAL_FRACTION,
         imaginary: 0,
         exponent: 0,
     };
     /// Imaginary unit (i).
     pub const POS_I: Self = Self {
         real: 0,
-        imaginary: <$f>::POS_ONE_FRACTION,
+        imaginary: <$f>::POS_ONE_NORMAL_FRACTION,
         exponent: 1,
     };
     /// Negative imaginary unit (-i).
@@ -201,104 +201,23 @@ macro_rules! impl_circle_constants {
         imaginary: <$f>::MIN_FRACTION,
         exponent: 0,
     };
-    /// Approximately Pi (π ≈ 3.14159265358979323846...)
-    pub const PI: Self = Self {
-        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 2,
-    };
-    /// Approximately negative Pi (-π ≈ -3.14159265358979323846...)
-    pub const NEG_PI: Self = Self {
-        real: (-0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 2,
-    };
-    /// Approximately Tau (2π ≈ 6.28318530717958647693...)
-    pub const TAU: Self = Self {
-        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 3,
-    };
-    /// Approximately negative Tau (-2π ≈ -6.28318530717958647693...)
-    pub const NEG_TAU: Self = Self {
-        real: (-0x6487ED5110B4611A62633145C06E0E68i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 3,
-    };
-    /// Alternative name for TAU (2π)
+    pub const PI: Self = Self { real: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 2 };
+    pub const NEG_PI: Self = Self { real: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 2 };
+    pub const TAU: Self = Self { real: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 3 };
+    pub const NEG_TAU: Self = Self { real: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 3 };
     pub const TWO_PI: Self = Self::TAU;
-    /// Pi divided by two (π/2 ≈ 1.57079632679489661923...)
-    pub const PI_OVER_TWO: Self = Self {
-        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 1,
-    };
-    /// Negative Pi divided by two (-π/2 ≈ -1.57079632679489661923...)
-    pub const NEG_PI_OVER_TWO: Self = Self {
-        real: (-0x6487ED5110B4611A62633145C06E0E68i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 1,
-    };
-    /// Pi divided by three (π/3 ≈ 1.04719755119659774615...)
-    pub const PI_OVER_THREE: Self = Self {
-        real: (0x430548E0B5CD961196ECCB83D59EB446i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 1,
-    };
-    /// Pi divided by four (π/4 ≈ 0.78539816339744830962...)
-    pub const PI_OVER_FOUR: Self = Self {
-        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 0,
-    };
-    /// Pi divided by six (π/6 ≈ 0.52359877559829887308...)
-    pub const PI_OVER_SIX: Self = Self {
-        real: (0x430548E0B5CD961196ECCB83D59EB446i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 0,
-    };
-    /// Pi divided by eight (π/8 ≈ 0.39269908169872415481...)
-    pub const PI_OVER_EIGHT: Self = Self {
-        real: (0x6487ED5110B4611A62633145C06E0E69i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: -1,
-    };
-    /// One divided by pi (1/π ≈ 0.31830988618379067154...)
-    pub const ONE_OVER_PI: Self = Self {
-        real: (0x517CC1B727220A94FE13ABE8FA9A6EE0i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: -1,
-    };
-    /// Two divided by pi (2/π ≈ 0.63661977236758134308...)
-    pub const TWO_OVER_PI: Self = Self {
-        real: (0x517CC1B727220A94FE13ABE8FA9A6EE0i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 0,
-    };
-    /// Approximately Euler's number (e ≈ 2.71828182845904523536...)
-    pub const E: Self = Self {
-        real: (0x56FC2A2C515DA54D57EE2B10139E9E79i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 2,
-    };
-    /// Approximately natural logarithm of two (ln(2) ≈ 0.69314718055994530942...)
-    pub const LN_TWO: Self = Self {
-        real: (0x58B90BFBE8E7BCD5E4F1D9CC01F97B57i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 0,
-    };
-    /// Binary logarithm of e (log₂(e) ≈ 1.44269504088896340736...)
-    pub const LB_E: Self = Self {
-        real: (0x5C551D94AE0BF85DDF43FF68348E9F44i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 1,
-    };
-    /// Approximately square root of two (√2 ≈ 1.41421356237309504880...)
-    pub const SQRT_TWO: Self = Self {
-        real: (0x5A827999FCEF32422CBEC4D9BAA55F4Fi128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f,
-        imaginary: 0,
-        exponent: 1,
-    };
+    pub const PI_OVER_TWO: Self = Self { real: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 1 };
+    pub const NEG_PI_OVER_TWO: Self = Self { real: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 1 };
+    pub const PI_OVER_THREE: Self = Self { real: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 1 };
+    pub const PI_OVER_FOUR: Self = Self { real: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 0 };
+    pub const PI_OVER_SIX: Self = Self { real: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 0 };
+    pub const PI_OVER_EIGHT: Self = Self { real: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: -1 };
+    pub const ONE_OVER_PI: Self = Self { real: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: -1 };
+    pub const TWO_OVER_PI: Self = Self { real: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 0 };
+    pub const E: Self = Self { real: (0xADF85458A2BB4A9AAFDC5620273D3CF1u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 2 };
+    pub const LN_TWO: Self = Self { real: (0xB17217F7D1CF79ABC9E3B39803F2F6AFu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 0 };
+    pub const LB_E: Self = Self { real: (0xB8AA3B295C17F0BBBE87FED0691D3E88u128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 1 };
+    pub const SQRT_TWO: Self = Self { real: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(<$f>::FRACTION_BITS))) as $f, imaginary: 0, exponent: 1 };
 }
 
         impl CircleConstants for Circle<$f, $e> {

@@ -65,7 +65,6 @@ where
 {
     /// Sigmoid (logistic) function: σ(x) = 1 / (1 + e^(-x))
     pub fn sigmoid(&self) -> Self {
-        let neg_x = Self::ZERO - self;
-        Self::ONE / (Self::ONE + neg_x.exp())
+        Self::ONE / (Self::ONE + (-self).exp())
     }
 }
