@@ -1,5 +1,5 @@
 use crate::constants::ScalarConstants;
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Inflate, FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use core::ops::*;

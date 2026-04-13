@@ -1,6 +1,6 @@
 // src/conversions/scalar_scalar.rs
 use crate::constants::ScalarConstants;
-use crate::core::integer::FullInt;
+use crate::core::integer::{FullInt, Inflate};
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use core::ops::*;
 use i256::I256;

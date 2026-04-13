@@ -1,4 +1,4 @@
-use crate::core::integer::{FullInt, Integer};
+use crate::core::integer::{Inflate, FullInt, Integer};
 use crate::{
     operators::*, Circle, CircleConstants, ExponentConstants, FractionConstants, Scalar,
     ScalarConstants,

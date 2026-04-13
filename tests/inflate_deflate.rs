@@ -381,6 +381,113 @@ fn roundtrip_f64() {
     }
 }
 
+#[test]
+fn addition_basic() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    // Normal arithmetic
+    let one = S::ONE;
+    let two = S::TWO;
+    let neg_one = S::NEG_ONE;
+    let half = S::HALF;
+    let zero = S::ZERO;
+
+    let result = one + one;
+    assert!(result == two, "1 + 1 should be 2");
+
+    let result = one + neg_one;
+    assert!(result == zero, "1 + (-1) should be 0");
+
+    let result = half + half;
+    assert!(result == one, "0.5 + 0.5 should be 1");
+
+    let result = two + neg_one;
+    assert!(result == one, "2 + (-1) should be 1");
+
+    let result = neg_one + neg_one;
+    assert!(result == -two, "(-1) + (-1) should be -2");
+
+    // f64 roundtrip through addition
+    for &(a, b, expected) in &[
+        (3.0, 5.0, 8.0),
+        (1.0, -1.0, 0.0),
+        (-42.0, 42.0, 0.0),
+        (0.125, 0.875, 1.0),
+        (100.0, 0.5, 100.5),
+        (-3.14, 3.14, 0.0),
+    ] {
+        let sa = S::from(a);
+        let sb = S::from(b);
+        let result = sa + sb;
+        let back: f64 = (&result).into();
+        let err = (back - expected).abs();
+        assert!(err < 0.01, "{a} + {b}: expected {expected}, got {back}, err={err}");
+    }
+
+    // --- Full truth table coverage ---
+    let pos_exploded = S::EXPLODED_POS;
+    let neg_exploded = S::EXPLODED_NEG;
+    let pos_vanished = S::VANISHED_POS;
+    let neg_vanished = S::VANISHED_NEG;
+    let inf = S::INFINITY;
+    let undef = S::from(0.0) / S::from(0.0);
+
+    // [0] row
+    assert!((zero + zero) == zero, "[0]+[0]=[0]");
+    assert!((zero + pos_vanished).vanished(), "[0]+[+↓]=[↓]");
+    assert!((zero + one) == one, "[0]+[#]=[#]");
+    assert!((zero + pos_exploded).is_undefined(), "[0]+[+↑]=[℘]");
+    assert!((zero + inf).is_undefined(), "[0]+[∞]=[℘]");
+    assert!((zero + undef).is_undefined(), "[0]+[℘]=[℘]");
+
+    // [↓] row
+    assert!((pos_vanished + zero).vanished(), "[+↓]+[0]=[↓]");
+    assert!((pos_vanished + pos_vanished).is_undefined(), "[+↓]+[+↓]=[℘↓+↓]");
+    assert!((pos_vanished + one) == one, "[+↓]+[#]=[#]");
+    assert!((pos_vanished + pos_exploded).is_undefined(), "[+↓]+[+↑]=[℘]");
+    assert!((pos_vanished + inf).is_undefined(), "[+↓]+[∞]=[℘]");
+    assert!((pos_vanished + undef).is_undefined(), "[+↓]+[℘]=[℘]");
+
+    // [#] row (normal + special)
+    assert!((one + zero) == one, "[#]+[0]=[#]");
+    assert!((one + pos_vanished) == one, "[#]+[+↓]=[#]");
+    assert!((one + pos_exploded).is_undefined(), "[#]+[+↑]=[℘]");
+    assert!((one + inf).is_undefined(), "[#]+[∞]=[℘]");
+    assert!((one + undef).is_undefined(), "[#]+[℘]=[℘]");
+
+    // [↑] row
+    assert!((pos_exploded + zero).is_undefined(), "[+↑]+[0]=[℘]");
+    assert!((pos_exploded + pos_vanished).is_undefined(), "[+↑]+[+↓]=[℘]");
+    assert!((pos_exploded + one).is_undefined(), "[+↑]+[#]=[℘]");
+    assert!((pos_exploded + pos_exploded).is_undefined(), "[+↑]+[+↑]=[℘]");
+    assert!((pos_exploded + inf).is_undefined(), "[+↑]+[∞]=[℘]");
+    assert!((pos_exploded + undef).is_undefined(), "[+↑]+[℘]=[℘]");
+
+    // [∞] row
+    assert!((inf + zero).is_undefined(), "[∞]+[0]=[℘]");
+    assert!((inf + one).is_undefined(), "[∞]+[#]=[℘]");
+    assert!((inf + inf).is_undefined(), "[∞]+[∞]=[℘]");
+    assert!((inf + undef).is_undefined(), "[∞]+[℘]=[℘]");
+
+    // [℘] row
+    assert!((undef + zero).is_undefined(), "[℘]+[0]=[℘]");
+    assert!((undef + one).is_undefined(), "[℘]+[#]=[℘]");
+    assert!((undef + undef).is_undefined(), "[℘]+[℘]=[℘]");
+
+    // Sign preservation for escaped values
+    assert!((zero + pos_vanished).is_positive(), "[0]+[+↓] should be positive");
+    assert!((zero + neg_vanished).is_negative(), "[0]+[-↓] should be negative");
+    assert!((pos_vanished + zero).is_positive(), "[+↓]+[0] should be positive");
+    assert!((neg_vanished + zero).is_negative(), "[-↓]+[0] should be negative");
+
+    // Negative escaped interactions
+    assert!((neg_exploded + zero).is_undefined(), "[-↑]+[0]=[℘]");
+    assert!((neg_exploded + one).is_undefined(), "[-↑]+[#]=[℘]");
+    assert!((neg_exploded + neg_exploded).is_undefined(), "[-↑]+[-↑]=[℘]");
+    assert!((pos_exploded + neg_exploded).is_undefined(), "[+↑]+[-↑]=[℘]");
+}
+
 // Local helper matching the inflate algorithm (since the trait is pub(crate))
 fn inflate_i8(stored: i8) -> i16 {
     let low = stored as i16;

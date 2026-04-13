@@ -12,7 +12,7 @@ use num_traits::{AsPrimitive, NumCast, PrimInt, Signed};
 /// - Mathematical comparisons and Rust implementation compatibility
 ///
 /// Only Rust's built-in signed integer types satisfy this requirement, as IEEE floating-point types would clearly break Spirix.
-pub trait Integer: Copy + Ord + PrimInt + Debug + Display + NumCast + Signed {}
+pub trait Integer: Copy + Ord + PrimInt + Debug + Display + NumCast + Signed + Inflate {}
 
 // Implementation for standard Rust signed integers only
 impl Integer for i8 {}
@@ -170,19 +170,32 @@ impl FullInt for u64 {}
 impl FullInt for u128 {}
 impl FullInt for usize {}
 
-/// Restore the implicit sign bits (~stored[MSB]) into a wider type for arithmetic. All FRAC stored bits carry precision; the sign is just the infinite leading bits we chose not to store.
-pub(crate) trait Inflate {
-    type Wide;
+/// Wide arithmetic operations for inflate/operate/deflate pipeline.
+/// Implemented per stored/wide pair: i8/i16, i16/i32, i32/i64, i64/i128, i128/I256.
+pub trait WideOps: Sized + Copy {
+    fn w_is_zero(&self) -> bool;
+    fn leading_same(&self) -> isize;
+    fn wide_shl(self, n: isize) -> Self;
+    fn wide_shr(self, n: isize) -> Self;
+    fn wide_shl_assign(&mut self, n: isize);
+    fn w_add(self, other: Self) -> Self;
+    fn w_sub(self, other: Self) -> Self;
+    fn w_mul(self, other: Self) -> Self;
+}
+
+/// Restore the implicit sign bits into a wider type for arithmetic.
+pub trait Inflate: Sized + Copy {
+    type Wide: WideOps + Deflate<Self>;
     fn inflate(self) -> Self::Wide;
 }
 
-/// Strip the sign bit back off after arithmetic, keeping the FRAC precision bits.
-pub(crate) trait Deflate<Stored> {
+/// Extract stored fraction from wide result (take low FRAC bits).
+pub trait Deflate<Stored>: Sized {
     fn deflate(self) -> Stored;
 }
 
-macro_rules! impl_inflate_deflate {
-    ($stored:ty, $wide:ty, $frac:expr) => {
+macro_rules! impl_wide_ops {
+    ($wide:ty, $stored:ty, $frac:expr) => {
         impl Inflate for $stored {
             type Wide = $wide;
 
@@ -198,33 +211,55 @@ macro_rules! impl_inflate_deflate {
                 self as $stored
             }
         }
+
+        impl WideOps for $wide {
+            #[inline] fn w_is_zero(&self) -> bool { *self == 0 }
+            #[inline] fn leading_same(&self) -> isize { self.leading_ones().max(self.leading_zeros()) as isize }
+            #[inline] fn wide_shl(self, n: isize) -> Self { self << n }
+            #[inline] fn wide_shr(self, n: isize) -> Self { self >> n }
+            #[inline] fn wide_shl_assign(&mut self, n: isize) { *self <<= n; }
+            #[inline] fn w_add(self, other: Self) -> Self { <$wide>::wrapping_add(self, other) }
+            #[inline] fn w_sub(self, other: Self) -> Self { <$wide>::wrapping_sub(self, other) }
+            #[inline] fn w_mul(self, other: Self) -> Self { <$wide>::wrapping_mul(self, other) }
+        }
     };
 }
 
-impl_inflate_deflate!(i8, i16, 8);
-impl_inflate_deflate!(i16, i32, 16);
-impl_inflate_deflate!(i32, i64, 32);
-impl_inflate_deflate!(i64, i128, 64);
+impl_wide_ops!(i16, i8, 8);
+impl_wide_ops!(i32, i16, 16);
+impl_wide_ops!(i64, i32, 32);
+impl_wide_ops!(i128, i64, 64);
 
+// I256 special case: same interface, different method names
 impl Inflate for i128 {
     type Wide = i256::I256;
 
     #[inline]
     fn inflate(self) -> i256::I256 {
-        let wide: i256::I256 = self.into(); // sign-extend i128 to I256
-        let mask: i256::I256 = (-1i128).into(); // all 1s in low 128, sign-extended to 256
-        wide ^ !mask // XOR the upper 128 bits
+        let wide: i256::I256 = self.into();
+        let mask: i256::I256 = (-1i128).into();
+        wide ^ !mask
     }
 }
 
 impl Deflate<i128> for i256::I256 {
     #[inline]
     fn deflate(self) -> i128 {
-        // Take low 128 bits via le bytes
         let bytes = self.to_le_bytes();
         i128::from_le_bytes([
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
             bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
         ])
     }
+}
+
+impl WideOps for i256::I256 {
+    #[inline] fn w_is_zero(&self) -> bool { *self == i256::I256::from(0i128) }
+    #[inline] fn leading_same(&self) -> isize { self.leading_ones().max(self.leading_zeros()) as isize }
+    #[inline] fn wide_shl(self, n: isize) -> Self { self << n }
+    #[inline] fn wide_shr(self, n: isize) -> Self { self >> n }
+    #[inline] fn wide_shl_assign(&mut self, n: isize) { *self <<= n; }
+    #[inline] fn w_add(self, other: Self) -> Self { i256::I256::wrapping_add(self, other) }
+    #[inline] fn w_sub(self, other: Self) -> Self { i256::I256::wrapping_sub(self, other) }
+    #[inline] fn w_mul(self, other: Self) -> Self { i256::I256::wrapping_mul(self, other) }
 }

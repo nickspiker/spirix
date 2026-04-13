@@ -1,5 +1,5 @@
 // src/implementation/exponents/scalar.rs
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Inflate, FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::lut::SQRT_LUT;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};

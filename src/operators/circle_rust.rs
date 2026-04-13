@@ -1,6 +1,6 @@
 // operators/circle_rust.rs
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Inflate, FullInt, IntConvert};
 use crate::{operators::*, Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use core::ops::*;
 use i256::I256;

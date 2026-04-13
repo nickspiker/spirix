@@ -1,6 +1,6 @@
 // Add this to the implementations/powers/circle_circle.rs file
 
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Inflate, FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{
     Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,

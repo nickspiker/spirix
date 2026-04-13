@@ -1,5 +1,5 @@
 // src/operators/scalar_rust.rs
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Inflate, FullInt, IntConvert};
 use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
