@@ -211,6 +211,64 @@ fn floor_new_format() {
     assert!(S::TWO.floor() == S::TWO);
 }
 
+#[test]
+fn from_f64_basic() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    let one = S::from(1.0f64);
+    assert!(one.fraction == S::ONE.fraction && one.exponent == S::ONE.exponent, "from(1.0) should be ONE");
+
+    let neg_one = S::from(-1.0f64);
+    assert!(neg_one == S::NEG_ONE, "from(-1.0) should be NEG_ONE");
+
+    let two = S::from(2.0f64);
+    assert!(two == S::TWO, "from(2.0) should be TWO");
+
+    let zero = S::from(0.0f64);
+    assert!(zero == S::ZERO, "from(0.0) should be ZERO");
+
+    let inf = S::from(f64::INFINITY);
+    assert!(inf.is_infinite(), "from(INFINITY) should be infinite");
+
+    let nan = S::from(f64::NAN);
+    assert!(nan.is_undefined(), "from(NAN) should be undefined");
+}
+
+#[test]
+fn from_f32_basic() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    let one = S::from(1.0f32);
+    assert!(one.fraction == S::ONE.fraction && one.exponent == S::ONE.exponent, "from(1.0f32) should be ONE");
+
+    let two = S::from(2.0f32);
+    assert!(two.fraction == S::TWO.fraction && two.exponent == S::TWO.exponent, "from(2.0f32) should be TWO");
+
+    let zero = S::from(0.0f32);
+    assert!(zero == S::ZERO, "from(0.0f32) should be ZERO");
+
+    let inf = S::from(f32::INFINITY);
+    assert!(inf.is_infinite(), "from(f32::INFINITY) should be infinite");
+
+    let nan = S::from(f32::NAN);
+    assert!(nan.is_undefined(), "from(f32::NAN) should be undefined");
+}
+
+#[test]
+fn roundtrip_f64() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    for &val in &[1.0, -1.0, 2.0, 0.5, -0.5, 3.14159, -42.0, 0.001, 1000.0, 0.125] {
+        let s = S::from(val);
+        let back: f64 = (&s).into();
+        let err = (back - val).abs() / val.abs().max(1e-300);
+        assert!(err < 1e-6, "roundtrip failed for {val}: got {back}, err={err}");
+    }
+}
+
 // Local helper matching the inflate algorithm (since the trait is pub(crate))
 fn inflate_i8(stored: i8) -> i16 {
     let low = stored as i16;

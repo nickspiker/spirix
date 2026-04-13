@@ -699,17 +699,12 @@ impl<
 
 // Implement for all primitive types
 impl_rust_add_circle!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
-#[cfg(feature = "ieee")]
 impl_rust_add_circle!(f32, f64);
 impl_rust_sub_circle!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
-#[cfg(feature = "ieee")]
 impl_rust_sub_circle!(f32, f64);
 impl_rust_mul_circle!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
-#[cfg(feature = "ieee")]
 impl_rust_mul_circle!(f32, f64);
 impl_rust_div_circle!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
-#[cfg(feature = "ieee")]
 impl_rust_div_circle!(f32, f64);
 impl_rust_rem_circle!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
-#[cfg(feature = "ieee")]
 impl_rust_rem_circle!(f32, f64);

@@ -1,12 +1,9 @@
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::FullInt;
-#[cfg(feature = "ieee")]
 use crate::core::integer::IntConvert;
-#[cfg(feature = "ieee")]
 use crate::core::undefined::*;
 use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
 use i256::I256;
-#[cfg(feature = "ieee")]
 use num_complex::Complex;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 use core::ops::*;
@@ -170,7 +167,6 @@ where
 ///
 /// This conversion handles IEEE-754 special values like NaN by converting them
 /// to appropriate undefined states in the Spirix number system.
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt
@@ -255,19 +251,12 @@ where
     /// - Infinities are coerced to singular infinity
     /// - Zero components are preserved as exact zeros
     fn from(complex: Complex<f64>) -> Self {
-        // Handle NaN values by converting to undefined states
-        if complex.re.is_nan() || complex.im.is_nan() {
-            let prefix: F = GENERAL.prefix.sa();
-            return Self {
-                real: prefix,
-                imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
-        }
-
         let real_scalar = Scalar::<F, E>::from(complex.re);
         let imag_scalar = Scalar::<F, E>::from(complex.im);
-
+        if real_scalar.is_undefined() || imag_scalar.is_undefined() {
+            let prefix: F = GENERAL.prefix.sa();
+            return Self { real: prefix, imaginary: prefix, exponent: E::AMBIGUOUS_EXPONENT };
+        }
         Self::from_ri(real_scalar, imag_scalar)
     }
 }
@@ -276,7 +265,6 @@ where
 ///
 /// Similar to the f64 implementation, this handles IEEE-754 special values
 /// appropriately when converting to the Spirix number system.
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt
@@ -361,19 +349,12 @@ where
     /// - Infinities are coerced to infinity
     /// - Subnormal f32 values are properly scaled during conversion
     fn from(complex: Complex<f32>) -> Self {
-        // Handle NaN values by converting to undefined states
-        if complex.re.is_nan() || complex.im.is_nan() {
-            let prefix: F = GENERAL.prefix.sa();
-            return Self {
-                real: prefix,
-                imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
-        }
-
         let real_scalar = Scalar::<F, E>::from(complex.re);
         let imag_scalar = Scalar::<F, E>::from(complex.im);
-
+        if real_scalar.is_undefined() || imag_scalar.is_undefined() {
+            let prefix: F = GENERAL.prefix.sa();
+            return Self { real: prefix, imaginary: prefix, exponent: E::AMBIGUOUS_EXPONENT };
+        }
         Self::from_ri(real_scalar, imag_scalar)
     }
 }
@@ -483,7 +464,6 @@ where
 ///
 /// This provides a convenient way to convert a reference to a `Complex<f64>`
 /// without taking ownership.
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt
@@ -574,7 +554,6 @@ where
 ///
 /// This provides a convenient way to convert a reference to a `Complex<f32>`
 /// without taking ownership.
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FullInt

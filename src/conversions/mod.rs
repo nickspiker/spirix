@@ -1,5 +1,4 @@
 pub mod circle_circle;
-#[cfg(feature = "ieee")]
 pub mod circle_rust;
 pub mod circle_scalar;
 pub mod rust_circle;

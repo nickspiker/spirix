@@ -4,23 +4,8 @@ use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
-#[cfg(feature = "ieee")]
-impl<
-        F: Integer
-            + FractionConstants
-            + FullInt
-            + WrappingNeg
-            + WrappingAdd
-            + WrappingMul
-            + WrappingSub,
-        E: Integer
-            + ExponentConstants
-            + FullInt
-            + WrappingNeg
-            + WrappingAdd
-            + WrappingMul
-            + WrappingSub,
-    > From<f64> for Scalar<F, E>
+impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f64>
+    for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -48,54 +33,13 @@ where
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
 {
-    /// # Convert a Binary64 value to a Scalar
-    ///
-    /// Creates a Scalar from an f64 value, properly handling IEEE-754 special values.
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use spirix::{Scalar, ScalarF5E3};
-    ///
-    /// // Normal conversion
-    /// let s1 = ScalarF5E3::from(3.25);
-    /// assert!(s1, 3.25);
-    ///
-    /// // Special values
-    /// let infinity = ScalarF5E3::from(f64::INFINITY);
-    /// assert!(infinity.is_infinite());
-    ///
-    /// let nan = ScalarF5E3::from(f64::NAN);
-    /// assert!(nan.is_undefined());
-    /// ```
-    ///
-    /// ## Special Cases
-    ///
-    /// - NaN is converted to a general undefined state
-    /// - Infinities are coerced to infinity
-    /// - Subnormal f64 values are properly scaled
     fn from(binary64: f64) -> Self {
         Self::from(&binary64)
     }
 }
 
-#[cfg(feature = "ieee")]
-impl<
-        F: Integer
-            + FractionConstants
-            + FullInt
-            + WrappingNeg
-            + WrappingAdd
-            + WrappingMul
-            + WrappingSub,
-        E: Integer
-            + ExponentConstants
-            + FullInt
-            + WrappingNeg
-            + WrappingAdd
-            + WrappingMul
-            + WrappingSub,
-    > From<&mut f64> for Scalar<F, E>
+impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt>
+    From<&mut f64> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -123,37 +67,11 @@ where
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
 {
-    /// # Convert a Binary64 value to a Scalar
-    ///
-    /// Creates a Scalar from an f64 value, properly handling IEEE-754 special values.
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use spirix::{Scalar, ScalarF5E3};
-    ///
-    /// // Normal conversion
-    /// let s1 = ScalarF5E3::from(3.25);
-    /// assert!(s1, 3.25);
-    ///
-    /// // Special values
-    /// let infinity = ScalarF5E3::from(f64::INFINITY);
-    /// assert!(infinity.is_infinite());
-    ///
-    /// let nan = ScalarF5E3::from(f64::NAN);
-    /// assert!(nan.is_undefined());
-    /// ```
-    ///
-    /// ## Special Cases
-    ///
-    /// - NaN is converted to a general undefined state
-    /// - Infinities are coerced to infinity
-    /// - Subnormal f64 values are properly scaled
     fn from(binary64: &mut f64) -> Self {
         Self::from(*binary64)
     }
 }
-#[cfg(feature = "ieee")]
+
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<&f64>
     for Scalar<F, E>
 where
@@ -184,17 +102,23 @@ where
     isize: AsPrimitive<E>,
 {
     fn from(binary64: &f64) -> Self {
-        if binary64.is_nan() {
-            return Scalar {
-                fraction: GENERAL.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+        let bits = binary64.to_bits();
+        let sign = bits >> 63;
+        let raw_exp = ((bits >> 52) & 0x7FF) as i16;
+        let mantissa = bits & 0xFFFFFFFFFFFFF;
+
+        if raw_exp == 0x7FF {
+            return if mantissa != 0 {
+                Scalar {
+                    fraction: GENERAL.prefix.sa(),
+                    exponent: E::AMBIGUOUS_EXPONENT,
+                }
+            } else {
+                Self::INFINITY
             };
         }
-        if binary64.is_infinite() {
-            return Self::INFINITY;
-        }
-        if binary64 == &0. {
-            return if binary64.is_sign_negative() {
+        if raw_exp == 0 && mantissa == 0 {
+            return if sign != 0 {
                 Self {
                     fraction: F::NEG_ONE_VANISHED_FRACTION,
                     exponent: E::AMBIGUOUS_EXPONENT,
@@ -203,40 +127,55 @@ where
                 Self::ZERO
             };
         }
-        let bits = binary64.to_bits();
-        let raw_exp = ((bits >> 52) & ((1 << 11).wrapping_sub(&1))) as i16;
 
-        let mut fraction = if raw_exp == 0 {
-            (bits & ((1 << 52).wrapping_sub(&1))) as i64
+        // Build two's complement i64 from IEEE mantissa + sign
+        let mut tc_frac: i64 = if raw_exp == 0 {
+            mantissa as i64
         } else {
-            (bits & ((1 << 52).wrapping_sub(&1)) | (1 << 52)) as i64
+            (mantissa | (1 << 52)) as i64
         };
-        if binary64.is_sign_negative() {
-            fraction = fraction.wrapping_neg();
+        if sign != 0 {
+            tc_frac = tc_frac.wrapping_neg();
         }
-        let mut intermediary = Scalar::<i64, i16>::new(fraction, raw_exp.wrapping_sub(1012));
-        intermediary.normalize();
-        let fraction = intermediary.fraction.sa();
+
+        // Same logic as From<integer>: count leading same bits, shift to fill FRAC stored bits
+        let leading = tc_frac.leading_ones().max(tc_frac.leading_zeros()) as isize;
+        let significant = 64isize.wrapping_sub(leading);
+        // spirix_exp = ieee_scale + significant_bits
+        // ieee_scale = raw_exp - 1023 - 52 (the power of 2 that scales the mantissa integer)
+        let spirix_exp: i16 = (raw_exp)
+            .wrapping_sub(1075)
+            .wrapping_add(significant as i16);
+
+        // Shift tc_frac so its significant bits fill the top FRAC bits of the target type.
+        // This is identical to the From<integer> path.
+        let shift = F::FRACTION_BITS.wrapping_sub(significant);
+        let fraction: F = if shift < 0 {
+            (tc_frac >> shift.wrapping_neg()).as_()
+        } else {
+            (tc_frac << shift).as_()
+        };
+
         if E::EXPONENT_BITS == 8 {
-            if intermediary.exponent > E::MAX_EXPONENT.as_() {
+            if spirix_exp > E::MAX_EXPONENT.as_() {
                 return Self {
-                    fraction,
+                    fraction: if sign != 0 { F::NEG_ONE_EXPLODED_FRACTION } else { F::POS_ONE_EXPLODED_FRACTION },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
-            } else if intermediary.exponent < E::MIN_EXPONENT.as_() {
-                let fraction = fraction >> 1usize;
+            } else if spirix_exp < E::MIN_EXPONENT.as_() {
                 return Self {
-                    fraction,
+                    fraction: if sign != 0 { F::NEG_ONE_VANISHED_FRACTION } else { F::POS_ONE_VANISHED_FRACTION },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
         }
-        let exponent = intermediary.exponent.as_();
-        Self { fraction, exponent }
+        Self {
+            fraction,
+            exponent: spirix_exp.as_(),
+        }
     }
 }
 
-#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f32>
     for Scalar<F, E>
 where
@@ -266,38 +205,11 @@ where
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
 {
-    /// # Convert a Binary32 value to a Scalar
-    ///
-    /// Creates a Scalar from an f32 value, properly handling IEEE-754 special values.
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use spirix::{Scalar, ScalarF5E3};
-    ///
-    /// // Normal conversion
-    /// let s1 = ScalarF5E3::from(3.25f32);
-    /// assert!(s1, 3.25);
-    ///
-    /// // Special values
-    /// let infinity = ScalarF5E3::from(f32::INFINITY);
-    /// assert!(infinity.is_infinite());
-    ///
-    /// let nan = ScalarF5E3::from(f32::NAN);
-    /// assert!(nan.is_undefined());
-    /// ```
-    ///
-    /// ## Special Cases
-    ///
-    /// - NaN is converted to a general undefined state
-    /// - Infinities are coerced to infinity
-    /// - Subnormal f32 values are properly scaled
     fn from(binary32: f32) -> Self {
         Self::from(&binary32)
     }
 }
 
-#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt>
     From<&mut f32> for Scalar<F, E>
 where
@@ -327,38 +239,11 @@ where
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
 {
-    /// # Convert a Binary32 value to a Scalar
-    ///
-    /// Creates a Scalar from an f32 value, properly handling IEEE-754 special values.
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use spirix::{Scalar, ScalarF5E3};
-    ///
-    /// // Normal conversion
-    /// let s1 = ScalarF5E3::from(3.25f32);
-    /// assert!(s1, 3.25);
-    ///
-    /// // Special values
-    /// let infinity = ScalarF5E3::from(f32::INFINITY);
-    /// assert!(infinity.is_infinite());
-    ///
-    /// let nan = ScalarF5E3::from(f32::NAN);
-    /// assert!(nan.is_undefined());
-    /// ```
-    ///
-    /// ## Special Cases
-    ///
-    /// - NaN is converted to a general undefined state
-    /// - Infinities are coerced to infinity
-    /// - Subnormal f32 values are properly scaled
     fn from(binary32: &mut f32) -> Self {
         Self::from(*binary32)
     }
 }
 
-#[cfg(feature = "ieee")]
 impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<&f32>
     for Scalar<F, E>
 where
@@ -388,44 +273,24 @@ where
     i128: AsPrimitive<E>,
     isize: AsPrimitive<E>,
 {
-    /// # Convert a Binary32 value to a Scalar
-    ///
-    /// Creates a Scalar from an f32 value, properly handling IEEE-754 special values.
-    ///
-    /// ## Examples
-    ///
-    /// ```rust
-    /// use spirix::{Scalar, ScalarF5E3};
-    ///
-    /// // Normal conversion
-    /// let s1 = ScalarF5E3::from(3.25f32);
-    /// assert!(s1, 3.25);
-    ///
-    /// // Special values
-    /// let infinity = ScalarF5E3::from(f32::INFINITY);
-    /// assert!(infinity.is_infinite());
-    ///
-    /// let nan = ScalarF5E3::from(f32::NAN);
-    /// assert!(nan.is_undefined());
-    /// ```
-    ///
-    /// ## Special Cases
-    ///
-    /// - NaN is converted to a general undefined state
-    /// - Infinities are coerced to infinity
-    /// - Subnormal f32 values are properly scaled
     fn from(binary32: &f32) -> Self {
-        if binary32.is_nan() {
-            return Scalar {
-                fraction: GENERAL.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+        let bits = binary32.to_bits();
+        let sign = bits >> 31;
+        let raw_exp = ((bits >> 23) & 0xFF) as i16;
+        let mantissa = bits & 0x7FFFFF;
+
+        if raw_exp == 0xFF {
+            return if mantissa != 0 {
+                Scalar {
+                    fraction: GENERAL.prefix.sa(),
+                    exponent: E::AMBIGUOUS_EXPONENT,
+                }
+            } else {
+                Self::INFINITY
             };
         }
-        if binary32.is_infinite() {
-            return Self::INFINITY;
-        }
-        if binary32 == &0. {
-            return if binary32.is_sign_negative() {
+        if raw_exp == 0 && mantissa == 0 {
+            return if sign != 0 {
                 Self {
                     fraction: F::NEG_ONE_VANISHED_FRACTION,
                     exponent: E::AMBIGUOUS_EXPONENT,
@@ -434,36 +299,46 @@ where
                 Self::ZERO
             };
         }
-        let bits = binary32.to_bits();
-        let raw_exp = ((bits >> 23) & ((1 << 8).wrapping_sub(&1))) as i16;
 
-        let mut fraction = if raw_exp == 0 {
-            (bits & ((1 << 23).wrapping_sub(&1))) as i32
+        let mut tc_frac = if raw_exp == 0 {
+            mantissa as i32
         } else {
-            (bits & ((1 << 23).wrapping_sub(&1)) | (1 << 23)) as i32
+            (mantissa | (1 << 23)) as i32
         };
-        if binary32.is_sign_negative() {
-            fraction = fraction.wrapping_neg();
+        if sign != 0 {
+            tc_frac = tc_frac.wrapping_neg();
         }
-        let mut intermediary = Scalar::<i32, i16>::new(fraction, raw_exp.wrapping_sub(119));
-        intermediary.normalize();
-        let fraction = intermediary.fraction.sa();
+
+        let leading = tc_frac.leading_ones().max(tc_frac.leading_zeros()) as isize;
+        let significant = 32isize.wrapping_sub(leading);
+        let spirix_exp: i16 = (raw_exp as i16)
+            .wrapping_sub(150)
+            .wrapping_add(significant as i16);
+
+        let shift = F::FRACTION_BITS.wrapping_sub(significant);
+        let fraction: F = if shift < 0 {
+            (tc_frac >> shift.wrapping_neg()).as_()
+        } else {
+            (tc_frac << shift).as_()
+        };
+
         if E::EXPONENT_BITS == 8 {
-            if intermediary.exponent > E::MAX_EXPONENT.as_() {
+            if spirix_exp > E::MAX_EXPONENT.as_() {
                 return Self {
-                    fraction,
+                    fraction: if sign != 0 { F::NEG_ONE_EXPLODED_FRACTION } else { F::POS_ONE_EXPLODED_FRACTION },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
-            } else if intermediary.exponent < E::MIN_EXPONENT.as_() {
-                let fraction = fraction >> 1usize;
+            } else if spirix_exp < E::MIN_EXPONENT.as_() {
                 return Self {
-                    fraction,
+                    fraction: if sign != 0 { F::NEG_ONE_VANISHED_FRACTION } else { F::POS_ONE_VANISHED_FRACTION },
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
         }
-        let exponent = intermediary.exponent.as_();
-        Self { fraction, exponent }
+        Self {
+            fraction,
+            exponent: spirix_exp.as_(),
+        }
     }
 }
 
@@ -533,8 +408,15 @@ macro_rules! impl_from_int {
                     }
                     let leading = value.leading_ones().max(value.leading_zeros()) as isize;
                     let significant_bits = (core::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(leading);
-                    let exponent: E = significant_bits.as_();
-                    // Shift to fill FRAC bits of stored precision (sign bit is implicit, not stored)
+                    let spirix_exp: isize = significant_bits;
+
+                    if spirix_exp > E::MAX_EXPONENT.as_() {
+                        return Self {
+                            fraction: if value > 0 { F::POS_ONE_EXPLODED_FRACTION } else { F::NEG_ONE_EXPLODED_FRACTION },
+                            exponent: E::AMBIGUOUS_EXPONENT,
+                        };
+                    }
+
                     let shift = (F::FRACTION_BITS as isize).wrapping_sub(significant_bits);
                     let fraction: F = if shift < 0 {
                         (value >> shift.wrapping_neg()).as_()
@@ -542,7 +424,7 @@ macro_rules! impl_from_int {
                         let intermediate: F = value.as_();
                         intermediate << shift as usize
                     };
-                    Self { fraction, exponent }
+                    Self { fraction, exponent: spirix_exp.as_() }
                 }
             }
             impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<&mut $i> for Scalar<F, E>
@@ -916,7 +798,10 @@ impl Scalar<i16, i16> {
                 // fraction is all-zero or all-ones (only valid if negative = MIN_i32)
                 if frac >= 0 {
                     // positive zero-fraction: vanished/undefined
-                    return Scalar { fraction: i16::MIN >> 1, exponent: i16::MIN };
+                    return Scalar {
+                        fraction: i16::MIN >> 1,
+                        exponent: i16::MIN,
+                    };
                 }
                 new_exp = exp.wrapping_sub((shift.wrapping_add(1)) as i16);
             } else {
@@ -933,7 +818,10 @@ impl Scalar<i16, i16> {
 
         // Left-aligned cast i32 → i16: take the top 16 bits
         let fraction = (frac >> 16) as i16;
-        Scalar { fraction, exponent: exp }
+        Scalar {
+            fraction,
+            exponent: exp,
+        }
     }
 }
 
@@ -944,19 +832,21 @@ mod tests_from_f32 {
     #[test]
     fn from_f32_matches_runtime() {
         let cases: &[f32] = &[
-            1.0, -1.0, 0.5, -0.5, 0.0031308, 12.92, 1.055, 0.055,
-            255.0, 0.00390625, 3.14159265, 0.1, 100.0, -42.75,
+            1.0, -1.0, 0.5, -0.5, 0.0031308, 12.92, 1.055, 0.055, 255.0, 0.00390625, 3.14159265,
+            0.1, 100.0, -42.75,
         ];
         for &v in cases {
             let runtime = ScalarF4E4::from(v);
             let compile = ScalarF4E4::from_f32(v);
             assert_eq!(
                 compile.fraction, runtime.fraction,
-                "fraction mismatch for {v}: from_f32={} from={}", compile.fraction, runtime.fraction
+                "fraction mismatch for {v}: from_f32={} from={}",
+                compile.fraction, runtime.fraction
             );
             assert_eq!(
                 compile.exponent, runtime.exponent,
-                "exponent mismatch for {v}: from_f32={} from={}", compile.exponent, runtime.exponent
+                "exponent mismatch for {v}: from_f32={} from={}",
+                compile.exponent, runtime.exponent
             );
         }
     }

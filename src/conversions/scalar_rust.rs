@@ -1,10 +1,9 @@
 use crate::core::integer::FullInt;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
-use core::ops::*;
 
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -65,23 +64,48 @@ where
 {
     fn into(self) -> f64 {
         if self.is_normal() {
-            let i64: i64 = self.fraction.sa();
-            let base = i64 as f64 / f64::from_bits((1023u64 + 63) << 52);
+            // Convert stored fraction to its effective integer value, then to f64
+            // value = effective_as_f64 * 2^(exponent - FRAC)
+            let effective_i64: i64 = match F::FRACTION_BITS {
+                8 => {
+                    let s: i8 = self.fraction.saturate();
+                    (s as i16 ^ ((-1i16) << 8)) as i64
+                }
+                16 => {
+                    let s: i16 = self.fraction.saturate();
+                    (s as i32 ^ ((-1i32) << 16)) as i64
+                }
+                32 => {
+                    let s: i32 = self.fraction.saturate();
+                    s as i64 ^ ((-1i64) << 32)
+                }
+                64 => {
+                    let s: i64 = self.fraction.saturate();
+                    s ^ i64::MIN
+                }
+                128 => {
+                    let s: i128 = self.fraction.saturate();
+                    let eff = s ^ i128::MIN; // inflate in i128 space
+                    (eff >> 64) as i64 // take top 64 bits (f64 only has 53 bits of mantissa anyway)
+                }
+                _ => unreachable!(),
+            };
+            let base = effective_i64 as f64;
             let exponent: i32 = self.exponent.saturate();
-
-            base * f64::from_bits(((1023i64 + exponent as i64) as u64) << 52)
+            let scale_exp = exponent as i64 - F::FRACTION_BITS as i64;
+            base * f64::from_bits(((1023i64 + scale_exp) as u64) << 52)
         } else {
             if self.is_undefined() {
                 return f64::NAN;
             }
-
             if self.is_negligible() {
-                return if self.fraction.is_negative() { -0. } else { 0. };
+                return if self.is_negative() { -0. } else { 0. };
             }
             if self.is_infinite() {
                 return f64::INFINITY;
             }
-            return if self.fraction.is_negative() {
+            // Exploded: preserve sign
+            return if self.is_negative() {
                 f64::NEG_INFINITY
             } else {
                 f64::INFINITY
@@ -90,7 +114,6 @@ where
     }
 }
 
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -151,31 +174,26 @@ where
 {
     fn into(self) -> f32 {
         if self.is_normal() {
-            let i32: i32 = self.fraction.sa();
-            let base = i32 as f32 / f32::from_bits((127u32 + 31) << 23);
-            let exponent: i32 = self.exponent.saturate();
-
-            base * f32::from_bits(((127i32 + exponent) as u32) << 23)
-        } else {
-            if self.is_undefined() {
-                return f32::NAN;
-            }
-
-            if self.is_negligible() {
-                return if self.fraction.is_negative() { -0. } else { 0. };
-            }
-            if self.is_infinite() {
-                return f32::INFINITY;
-            }
-            return if self.fraction.is_negative() {
-                f32::NEG_INFINITY
-            } else {
-                f32::INFINITY
+            let effective_i32: i32 = match F::FRACTION_BITS {
+                8 => { let s: i8 = self.fraction.saturate(); (s as i16 ^ ((-1i16) << 8)) as i32 }
+                16 => { let s: i16 = self.fraction.saturate(); (s as i32 ^ ((-1i32) << 16)) }
+                32 => { let s: i32 = self.fraction.saturate(); s ^ i32::MIN }
+                _ => { let s: i64 = self.fraction.saturate(); ((s ^ i64::MIN) >> 32) as i32 }
             };
+            let base = effective_i32 as f32;
+            let exponent: i32 = self.exponent.saturate();
+            let scale_exp = exponent as i64 - F::FRACTION_BITS as i64;
+            base * f32::from_bits(((127i64 + scale_exp) as u32) << 23)
+        } else {
+            if self.is_undefined() { return f32::NAN; }
+            if self.is_negligible() {
+                return if self.is_negative() { -0. } else { 0. };
+            }
+            if self.is_infinite() { return f32::INFINITY; }
+            return if self.is_negative() { f32::NEG_INFINITY } else { f32::INFINITY };
         }
     }
 }
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -238,7 +256,6 @@ where
         (&self).into()
     }
 }
-#[cfg(feature = "ieee")]
 impl<
         F: Integer
             + FractionConstants
@@ -1105,7 +1122,6 @@ where
                 .wrapping_sub(shift));
         value
     }
-
 }
 
 /// Pure-integer IEEE conversions for all Scalar types.
@@ -1129,7 +1145,11 @@ macro_rules! impl_to_f32 {
                     if self.is_infinite() {
                         return f32::INFINITY;
                     }
-                    return if self.fraction.is_negative() { f32::NEG_INFINITY } else { f32::INFINITY };
+                    return if self.fraction.is_negative() {
+                        f32::NEG_INFINITY
+                    } else {
+                        f32::INFINITY
+                    };
                 }
                 let frac_i32 = if $frac_bits <= 32 {
                     (self.fraction as i32) << (32 - $frac_bits)
@@ -1146,7 +1166,11 @@ macro_rules! impl_to_f32 {
                 let mantissa = (abs_frac_n >> 7) & 0x7F_FFFF;
                 let raw_exp_i = (self.exponent as i32) + 126 + exp_adj;
                 if raw_exp_i >= 255 {
-                    return if sign_bit != 0 { f32::NEG_INFINITY } else { f32::INFINITY };
+                    return if sign_bit != 0 {
+                        f32::NEG_INFINITY
+                    } else {
+                        f32::INFINITY
+                    };
                 }
                 if raw_exp_i <= 0 {
                     let shift = 1 - raw_exp_i;
@@ -1180,7 +1204,11 @@ macro_rules! impl_to_f64 {
                     if self.is_infinite() {
                         return f64::INFINITY;
                     }
-                    return if self.fraction.is_negative() { f64::NEG_INFINITY } else { f64::INFINITY };
+                    return if self.fraction.is_negative() {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    };
                 }
                 let frac_i64 = if $frac_bits <= 64 {
                     (self.fraction as i64) << (64 - $frac_bits)
@@ -1197,7 +1225,11 @@ macro_rules! impl_to_f64 {
                 let mantissa = (abs_frac_n >> 10) & 0x000F_FFFF_FFFF_FFFF;
                 let raw_exp_i = (self.exponent as i64) + 1022 + exp_adj;
                 if raw_exp_i >= 2047 {
-                    return if sign_bit != 0 { f64::NEG_INFINITY } else { f64::INFINITY };
+                    return if sign_bit != 0 {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    };
                 }
                 if raw_exp_i <= 0 {
                     let shift = 1 - raw_exp_i;
@@ -1223,10 +1255,10 @@ macro_rules! impl_to_ieee_all {
     };
 }
 
-impl_to_ieee_all!(i8,    8,  i8, i16, i32, i64, i128);
-impl_to_ieee_all!(i16,  16,  i8, i16, i32, i64, i128);
-impl_to_ieee_all!(i32,  32,  i8, i16, i32, i64, i128);
-impl_to_ieee_all!(i64,  64,  i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i8, 8, i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i16, 16, i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i32, 32, i8, i16, i32, i64, i128);
+impl_to_ieee_all!(i64, 64, i8, i16, i32, i64, i128);
 impl_to_ieee_all!(i128, 128, i8, i16, i32, i64, i128);
 
 impl Scalar<i16, i16> {
@@ -1266,7 +1298,10 @@ impl Scalar<i16, i16> {
             if shift == 64 {
                 if frac >= 0 {
                     // positive with zero fraction: vanished/undefined
-                    return Scalar { fraction: i16::MIN >> 1, exponent: i16::MIN };
+                    return Scalar {
+                        fraction: i16::MIN >> 1,
+                        exponent: i16::MIN,
+                    };
                 }
                 new_exp = exp.wrapping_sub((shift.wrapping_add(1)) as i16);
             } else {
@@ -1283,7 +1318,10 @@ impl Scalar<i16, i16> {
 
         // Left-aligned cast i64 → i16: take top 16 bits
         let fraction = (frac >> 48) as i16;
-        Scalar { fraction, exponent: exp }
+        Scalar {
+            fraction,
+            exponent: exp,
+        }
     }
 }
 #[cfg(test)]
@@ -1305,7 +1343,7 @@ mod tests_scalar_ieee {
         (ai - bi).abs() <= 1
     }
 
-// ── to_f32 round-trips ────────────────────────────────────────────────────
+    // ── to_f32 round-trips ────────────────────────────────────────────────────
 
     #[test]
     fn to_f32_powers_of_2_exact() {
@@ -1314,9 +1352,11 @@ mod tests_scalar_ieee {
             let s = S44::from_f32(v);
             let back = s.to_f32();
             assert_eq!(
-                v.to_bits(), back.to_bits(),
+                v.to_bits(),
+                back.to_bits(),
                 "power-of-2 round-trip to_f32({v}): got {back} (bits {:08X} vs {:08X})",
-                v.to_bits(), back.to_bits()
+                v.to_bits(),
+                back.to_bits()
             );
         }
     }
@@ -1326,13 +1366,22 @@ mod tests_scalar_ieee {
         // S44 has 15 significant fraction bits; f32 has 23.
         // General values lose 8 bits on round-trip. Accept relative error < 1e-3.
         for &v in &[
-            100.0_f32, -100.0, 1234.5, -1234.5,
-            0.001_f32, 1.0 / 3.0,
-            core::f32::consts::PI, core::f32::consts::E,
+            100.0_f32,
+            -100.0,
+            1234.5,
+            -1234.5,
+            0.001_f32,
+            1.0 / 3.0,
+            core::f32::consts::PI,
+            core::f32::consts::E,
         ] {
             let s = S44::from_f32(v);
             let back = s.to_f32();
-            let rel_err = if v == 0.0 { 0.0 } else { ((back - v) / v).abs() };
+            let rel_err = if v == 0.0 {
+                0.0
+            } else {
+                ((back - v) / v).abs()
+            };
             assert!(
                 rel_err < 1e-3,
                 "to_f32({v}) → {back}: rel_err={rel_err} > 1e-3"
@@ -1344,7 +1393,10 @@ mod tests_scalar_ieee {
     fn to_f32_special_cases() {
         // Use runtime From<f32> (not const fn from_f32) for NaN/inf.
         // NaN → NaN
-        assert!(S44::from(f32::NAN).to_f32().is_nan(), "NaN should produce NaN");
+        assert!(
+            S44::from(f32::NAN).to_f32().is_nan(),
+            "NaN should produce NaN"
+        );
         // +inf → inf (spirix INFINITY is sign-indeterminate; both ±inf map to the same sentinel)
         assert!(S44::from(f32::INFINITY).to_f32().is_infinite());
         // -inf → inf (sign lost in S44 representation)
@@ -1394,8 +1446,14 @@ mod tests_scalar_ieee {
         // Smallest positive subnormal
         let v = f32::from_bits(1u32);
         let back = S44::from_f32(v).to_f32();
-        assert!(back.is_finite() && !back.is_nan(), "subnormal should not produce NaN/inf: {back}");
-        assert!(back >= 0.0, "positive subnormal should stay non-negative: {back}");
+        assert!(
+            back.is_finite() && !back.is_nan(),
+            "subnormal should not produce NaN/inf: {back}"
+        );
+        assert!(
+            back >= 0.0,
+            "positive subnormal should stay non-negative: {back}"
+        );
 
         // Mid-range subnormal — may round-trip to a close value or zero; either is OK
         let v2 = f32::from_bits(0x0040_0000);
@@ -1434,10 +1492,7 @@ mod tests_scalar_ieee {
             } else {
                 ((back - v) / v).abs()
             };
-            assert!(
-                rel_err < 1e-3,
-                "to_f64({v}): got {back}, rel_err={rel_err}"
-            );
+            assert!(rel_err < 1e-3, "to_f64({v}): got {back}, rel_err={rel_err}");
         }
     }
 
@@ -1523,9 +1578,15 @@ mod tests_scalar_ieee {
 
         // Runtime path properly handles infinity
         let pos_rt = S44::from(f64::INFINITY);
-        assert!(pos_rt.is_infinite() || pos_rt.exploded(), "from(+inf) should be infinite/exploded");
+        assert!(
+            pos_rt.is_infinite() || pos_rt.exploded(),
+            "from(+inf) should be infinite/exploded"
+        );
         let neg_rt = S44::from(f64::NEG_INFINITY);
-        assert!(neg_rt.is_infinite() || neg_rt.exploded(), "from(-inf) should be infinite/exploded");
+        assert!(
+            neg_rt.is_infinite() || neg_rt.exploded(),
+            "from(-inf) should be infinite/exploded"
+        );
     }
 
     #[test]
@@ -1543,7 +1604,10 @@ mod tests_scalar_ieee {
             let nan_bits = 0x7FF8_0000_0000_0000u64 | payload;
             let nan = f64::from_bits(nan_bits);
             let s = S44::from(nan);
-            assert!(s.is_undefined(), "from(NaN payload {payload:#x}) should be undefined");
+            assert!(
+                s.is_undefined(),
+                "from(NaN payload {payload:#x}) should be undefined"
+            );
         }
 
         // Signalling NaN
@@ -1631,18 +1695,18 @@ mod tests_scalar_ieee {
         // extremes (MAX, MIN) may overflow back to ±infinity — that's acceptable since
         // the i16::MIN fraction encoding adds +1 to the exponent in to_f64.
         let test_values: &[(f64, bool)] = &[
-            (f64::MIN_POSITIVE * 1.0,   false),
-            (f64::MIN_POSITIVE * 1e10,  false),
-            (f64::MIN_POSITIVE * 1e50,  false),
+            (f64::MIN_POSITIVE * 1.0, false),
+            (f64::MIN_POSITIVE * 1e10, false),
+            (f64::MIN_POSITIVE * 1e50, false),
             (f64::MIN_POSITIVE * 1e100, false),
             (f64::MIN_POSITIVE * 1e200, false),
-            (1.0,                        false),
-            (-1.0,                       false),
-            (1234.5678901234567,         false),
-            (-9876.54321,                false),
+            (1.0, false),
+            (-1.0, false),
+            (1234.5678901234567, false),
+            (-9876.54321, false),
             // IEEE extremes — may overflow to ±infinity in round-trip (accepted)
-            (f64::MAX,                   true),
-            (f64::MIN,                   true),
+            (f64::MAX, true),
+            (f64::MIN, true),
         ];
         for &(v, allow_overflow) in test_values {
             let s = S44::from_f64(v);
@@ -1651,7 +1715,11 @@ mod tests_scalar_ieee {
                 // Overflow to infinity is acceptable for extreme values
                 continue;
             }
-            let rel_err = if v == 0.0 { 0.0 } else { ((back - v) / v).abs() };
+            let rel_err = if v == 0.0 {
+                0.0
+            } else {
+                ((back - v) / v).abs()
+            };
             assert!(
                 rel_err < 1e-3,
                 "from_f64({v}) → to_f64 = {back}, rel_err={rel_err}"
@@ -1681,7 +1749,6 @@ mod tests_scalar_ieee {
     // both the inherent to_f32()/to_f64() methods and the generic Into trait
     // produce consistent results (within 2 ULP, allowing for different rounding).
 
-    #[cfg(feature = "ieee")]
     #[test]
     fn into_f32_agrees_with_to_f32() {
         for &v in &[1.0_f32, -1.0, 0.5, 100.0, -100.0, 0.25] {
@@ -1697,7 +1764,6 @@ mod tests_scalar_ieee {
         }
     }
 
-    #[cfg(feature = "ieee")]
     #[test]
     fn into_f64_agrees_with_to_f64() {
         for &v in &[1.0_f32, -1.0, 0.5, 100.0, -100.0, 0.25] {
@@ -1712,7 +1778,6 @@ mod tests_scalar_ieee {
         }
     }
 
-    #[cfg(feature = "ieee")]
     #[test]
     fn into_f32_nan_and_inf() {
         // Use runtime From<f32> for special values.
