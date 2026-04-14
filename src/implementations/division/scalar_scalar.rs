@@ -529,90 +529,59 @@ where
             let (shifted_num, num_shift_adj) = if self_pot {
                 (num_abs.w_shl(F::FRACTION_BITS - 1), 1isize)
             } else {
-                // abs value fits signed, but shifted exceeds signed range. Use unsigned div.
                 (num_abs.w_shl(F::FRACTION_BITS), 0isize)
             };
-            let quotient_pos = shifted_num.w_div_unsigned(den_abs);
-            let quotient = if expect_neg {
-                quotient_pos.w_neg()
+            let quotient = shifted_num.w_div_unsigned(den_abs);
+            let leading = quotient.w_leading_zeros();
+            let stored_pos = quotient.w_shl(leading).w_shr_logical(F::FRACTION_BITS).deflate();
+            let (fraction, neg_extra) = if expect_neg {
+                if stored_pos == F::POS_ONE_NORMAL_FRACTION {
+                    (F::NEG_ONE_NORMAL_FRACTION, 1isize)
+                } else {
+                    (stored_pos.wrapping_neg(), 0isize)
+                }
             } else {
-                quotient_pos
+                (stored_pos, 0isize)
             };
-            let leading = quotient.leading_same();
-            let fraction = quotient.w_shl(leading).w_shr(F::FRACTION_BITS).deflate();
             let diff = self.exponent.wrapping_sub(&other.exponent);
-            let adj: E = (leading
-                .wrapping_sub(F::FRACTION_BITS)
-                .wrapping_sub(num_shift_adj))
-            .as_();
+            let adj: E = (leading.wrapping_sub(F::FRACTION_BITS).wrapping_sub(num_shift_adj).wrapping_add(neg_extra)).as_();
             let exponent = diff.wrapping_sub(&adj);
             // TODO: exponent overflow/underflow checks
             return Self { fraction, exponent };
         }
-        let denominator = other.fraction.inflate();
+
         // General case: neither operand is power-of-two.
-        // abs → shift → unsigned div → apply sign.
+        // abs → shift → unsigned div → normalize positive → apply sign on stored.
         let num = self.fraction.inflate();
         let den = other.fraction.inflate();
         let expect_negative = self.is_negative() != other.is_negative();
-        let num_abs = if num.w_is_negative() {
-            num.w_neg()
-        } else {
-            num
-        };
-        let den_abs = if den.w_is_negative() {
-            den.w_neg()
-        } else {
-            den
-        };
-        // Shift overflows signed range but fits unsigned: (2^FRAC-1)*2^FRAC < 2^(2*FRAC).
+        let num_abs = if num.w_is_negative() { num.w_neg() } else { num };
+        let den_abs = if den.w_is_negative() { den.w_neg() } else { den };
         let numerator = num_abs.w_shl(F::FRACTION_BITS);
-        let quotient_pos = numerator.w_div_unsigned(den_abs);
-        let quotient = if expect_negative {
-            quotient_pos.w_neg()
+        let quotient = numerator.w_div_unsigned(den_abs);
+        let leading = quotient.w_leading_zeros();
+        let stored_pos = quotient.w_shl(leading).w_shr_logical(F::FRACTION_BITS).deflate();
+        let (fraction, neg_extra) = if expect_negative {
+            if stored_pos == F::POS_ONE_NORMAL_FRACTION {
+                (F::NEG_ONE_NORMAL_FRACTION, 1isize)
+            } else {
+                (stored_pos.wrapping_neg(), 0isize)
+            }
         } else {
-            quotient_pos
+            (stored_pos, 0isize)
         };
-        let leading = quotient.leading_same();
-        let fraction = quotient.w_shl(leading).w_shr(F::FRACTION_BITS).deflate();
 
-        // Exponent: result_exp = diff - (leading - FRAC)
         let diff = self.exponent.wrapping_sub(&other.exponent);
         if !self.exponent.is_negative() && other.exponent.is_negative() && diff.is_negative() {
-            let fraction = quotient
-                .w_shl(leading.wrapping_sub(1))
-                .w_shr(F::FRACTION_BITS)
-                .deflate();
-            return Self {
-                fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
+            return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT };
         }
         if self.exponent.is_negative() && !other.exponent.is_negative() && !diff.is_negative() {
-            let shift = leading.wrapping_sub(2);
-            let fraction = if shift >= 0 {
-                quotient.w_shl(shift).w_shr(F::FRACTION_BITS).deflate()
-            } else {
-                quotient.w_shr(F::FRACTION_BITS - shift).deflate()
-            };
-            return Self {
-                fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
-            };
+            return Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT };
         }
-        let adj: E = (leading.wrapping_sub(F::FRACTION_BITS)).as_();
+        let adj: E = (leading.wrapping_sub(F::FRACTION_BITS).wrapping_add(neg_extra)).as_();
         let exponent = diff.wrapping_sub(&adj);
         if exponent == E::AMBIGUOUS_EXPONENT {
-            let shift = leading.wrapping_sub(2);
-            let fraction = if shift >= 0 {
-                quotient.w_shl(shift).w_shr(F::FRACTION_BITS).deflate()
-            } else {
-                quotient.w_shr(F::FRACTION_BITS - shift).deflate()
-            };
-            Self {
-                fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
-            }
+            Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT }
         } else {
             Self { fraction, exponent }
         }
