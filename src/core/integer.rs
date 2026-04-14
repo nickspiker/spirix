@@ -196,6 +196,8 @@ pub trait Inflate: Sized + Copy {
     fn inflate(self) -> Self::Wide;
     fn sign_extend(self) -> Self::Wide;
     fn left_hand_load(self) -> Self::Wide;
+    /// Branchless inflate-or-sign-extend. Normal class: inflate (XOR mask). Escaped class: sign_extend (no XOR).
+    fn inflate_conditional(self, is_normal: bool) -> Self::Wide;
 }
 
 /// Extract stored fraction from wide result (take low FRAC bits).
@@ -221,6 +223,13 @@ macro_rules! impl_wide_ops {
             #[inline]
             fn left_hand_load(self) -> $wide {
                 (self as $wide) << $frac
+            }
+
+            #[inline]
+            fn inflate_conditional(self, is_normal: bool) -> $wide {
+                let wide = self as $wide;
+                let mask = (-(is_normal as $wide)) & ((-1 as $wide) << $frac);
+                wide ^ mask
             }
         }
 
@@ -321,6 +330,17 @@ impl Inflate for i128 {
     fn left_hand_load(self) -> i256::I256 {
         let wide: i256::I256 = self.into();
         wide << 128
+    }
+
+    #[inline]
+    fn inflate_conditional(self, is_normal: bool) -> i256::I256 {
+        let wide: i256::I256 = self.into();
+        if is_normal {
+            let mask: i256::I256 = (-1i128).into();
+            wide ^ !mask
+        } else {
+            wide
+        }
     }
 }
 

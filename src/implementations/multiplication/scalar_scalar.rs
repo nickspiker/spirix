@@ -177,18 +177,8 @@ where
                 };
             }
             // Escaped * escaped/normal: escaped uses sign_extend, normal uses inflate
-            let (self_wide, other_wide) = if self.is_normal() {
-                (self.fraction.inflate(), other.fraction.sign_extend())
-            } else {
-                (
-                    self.fraction.sign_extend(),
-                    if other.is_normal() {
-                        other.fraction.inflate()
-                    } else {
-                        other.fraction.sign_extend()
-                    },
-                )
-            };
+            let self_wide = self.fraction.inflate_conditional(self.is_normal());
+            let other_wide = other.fraction.inflate_conditional(other.is_normal());
             let product = self_wide.w_mul(other_wide);
             let result_exploded = self.exploded() || other.exploded();
             let leading = product.leading_same();
