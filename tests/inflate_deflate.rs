@@ -732,6 +732,39 @@ fn division_basic() {
     }
 }
 
+#[test]
+fn divide_f3e3_exhaustive() {
+    use spirix::Scalar;
+    type S = Scalar<i8, i8>;
+
+    let mut failures = 0;
+    let mut total = 0;
+    for a_stored in i8::MIN..=i8::MAX {
+        for b_stored in i8::MIN..=i8::MAX {
+            let a = S::new(a_stored, 0);
+            let b = S::new(b_stored, 0);
+            if b.is_zero() { continue; } // skip divide by zero
+            let result = a / b;
+
+            let a_val: f64 = (&a).into();
+            let b_val: f64 = (&b).into();
+            let expected = a_val / b_val;
+            let got: f64 = (&result).into();
+
+            total += 1;
+            let ulp = expected.abs() / 128.0;
+            if (got - expected).abs() > ulp * 2.0 + 1e-10 {
+                if failures < 10 {
+                    eprintln!("FAIL: stored ({a_stored}, {b_stored}) val ({a_val} / {b_val}) = {expected}, got {got}");
+                }
+                failures += 1;
+            }
+        }
+    }
+    eprintln!("{failures}/{total} failures");
+    assert_eq!(failures, 0, "{failures} division failures out of {total}");
+}
+
 // Local helper matching the inflate algorithm (since the trait is pub(crate))
 fn inflate_i8(stored: i8) -> i16 {
     let low = stored as i16;

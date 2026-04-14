@@ -501,38 +501,67 @@ where
             };
         }
 
-        // Pre-check: stored=0 numerator overflows left_hand_load.
-        // Value = -2^exp. Handle via inflate + reduced shift.
-        // stored=0 / stored=0 = positive 2^(exp_a - exp_b).
-        if self.fraction == F::NEG_ONE_NORMAL_FRACTION && other.fraction == F::NEG_ONE_NORMAL_FRACTION {
+        // Power-of-two fractions (stored=0 = NEG_ONE, stored=MIN = POS_ONE) overflow
+        // left_hand_load. Division involving these is just exponent subtraction ± negate.
+        let self_pot = self.fraction == F::NEG_ONE_NORMAL_FRACTION || self.fraction == F::POS_ONE_NORMAL_FRACTION;
+        let other_pot = other.fraction == F::NEG_ONE_NORMAL_FRACTION || other.fraction == F::POS_ONE_NORMAL_FRACTION;
+        if self_pot || other_pot {
+            // Power-of-two / anything or anything / power-of-two.
+            // For pot numerator: self = ±(0.5 or 1.0) * 2^exp. Division = reciprocal(other) * self.
+            // For pot denominator: other = ±(0.5 or 1.0) * 2^exp. Division = self * reciprocal_pot.
+            // Both pot: result is exact power of two.
+            // Use multiply infrastructure: negate + exponent math for pot, reciprocal for non-pot.
+            if self_pot && other_pot {
+                let self_neg1 = self.fraction == F::NEG_ONE_NORMAL_FRACTION;
+                let other_neg1 = other.fraction == F::NEG_ONE_NORMAL_FRACTION;
+                let (frac, exp_adj): (F, E) = match (self_neg1, other_neg1) {
+                    (false, false) => (F::POS_ONE_NORMAL_FRACTION, E::ONE),         // +0.5/+0.5 = +1
+                    (false, true)  => (F::NEG_ONE_NORMAL_FRACTION, E::ZERO.wrapping_sub(&E::ONE)), // +0.5/-1 = -0.5
+                    (true, false)  => (F::NEG_ONE_NORMAL_FRACTION, E::ONE),         // -1/+0.5 = -2
+                    (true, true)   => (F::POS_ONE_NORMAL_FRACTION, E::ONE),         // -1/-1 = +1
+                };
+                let exponent = self.exponent.wrapping_sub(&other.exponent).wrapping_add(&exp_adj);
+                // TODO: exponent overflow/underflow checks
+                return Self { fraction: frac, exponent };
+            }
+            // One is pot, other is not. abs + shift + unsigned div.
+            let num = self.fraction.inflate();
+            let den = other.fraction.inflate();
+            let expect_neg = self.is_negative() != other.is_negative();
+            let num_abs = if num.w_is_negative() { num.w_neg() } else { num };
+            let den_abs = if den.w_is_negative() { den.w_neg() } else { den };
+            let (shifted_num, num_shift_adj) = if self_pot {
+                (num_abs.w_shl(F::FRACTION_BITS - 1), 1isize)
+            } else {
+                // abs value fits signed, but shifted exceeds signed range. Use unsigned div.
+                (num_abs.w_shl(F::FRACTION_BITS), 0isize)
+            };
+            let quotient_pos = shifted_num.w_div_unsigned(den_abs);
+            let quotient = if expect_neg { quotient_pos.w_neg() } else { quotient_pos };
+            let leading = quotient.leading_same();
+            let fraction = quotient.w_shl(leading).w_shr(F::FRACTION_BITS).deflate();
             let diff = self.exponent.wrapping_sub(&other.exponent);
-            if !self.exponent.is_negative() && other.exponent.is_negative() && diff.is_negative() {
-                return Self { fraction: F::POS_ONE_EXPLODED_FRACTION, exponent: E::AMBIGUOUS_EXPONENT };
-            }
-            if self.exponent.is_negative() && !other.exponent.is_negative() && !diff.is_negative() {
-                return Self { fraction: F::POS_ONE_VANISHED_FRACTION, exponent: E::AMBIGUOUS_EXPONENT };
-            }
-            let exp = diff.wrapping_add(&E::ONE);
-            if exp == E::AMBIGUOUS_EXPONENT {
-                return Self { fraction: F::POS_ONE_VANISHED_FRACTION, exponent: E::AMBIGUOUS_EXPONENT };
-            }
-            return Self { fraction: F::POS_ONE_NORMAL_FRACTION, exponent: exp };
+            let adj: E = (leading.wrapping_sub(F::FRACTION_BITS).wrapping_sub(num_shift_adj)).as_();
+            let exponent = diff.wrapping_sub(&adj);
+            // TODO: exponent overflow/underflow checks
+            return Self { fraction, exponent };
         }
-        // left_hand_load overflows for stored=0 (both-stored=0 pre-checked) and stored=MIN (POS_ONE).
-        // For these two: inflate + reduced shift. Everyone else: left_hand_load.
-        let (numerator, num_shift_adj) = if self.fraction == F::NEG_ONE_NORMAL_FRACTION
-            || self.fraction == F::POS_ONE_NORMAL_FRACTION
-        {
-            (self.fraction.inflate().w_shl(F::FRACTION_BITS - 1), 1isize)
-        } else {
-            (self.fraction.left_hand_load(), 0isize)
-        };
         let denominator = other.fraction.inflate();
-        let quotient = numerator.w_div(denominator);
+        // General case: neither operand is power-of-two.
+        // abs → shift → unsigned div → apply sign.
+        let num = self.fraction.inflate();
+        let den = other.fraction.inflate();
+        let expect_negative = self.is_negative() != other.is_negative();
+        let num_abs = if num.w_is_negative() { num.w_neg() } else { num };
+        let den_abs = if den.w_is_negative() { den.w_neg() } else { den };
+        // Shift overflows signed range but fits unsigned: (2^FRAC-1)*2^FRAC < 2^(2*FRAC).
+        let numerator = num_abs.w_shl(F::FRACTION_BITS);
+        let quotient_pos = numerator.w_div_unsigned(den_abs);
+        let quotient = if expect_negative { quotient_pos.w_neg() } else { quotient_pos };
         let leading = quotient.leading_same();
         let fraction = quotient.w_shl(leading).w_shr(F::FRACTION_BITS).deflate();
 
-        // Exponent: self.exp - other.exp - leading
+        // Exponent: result_exp = diff - (leading - FRAC)
         let diff = self.exponent.wrapping_sub(&other.exponent);
         if !self.exponent.is_negative() && other.exponent.is_negative() && diff.is_negative() {
             let fraction = quotient.w_shl(leading.wrapping_sub(1)).w_shr(F::FRACTION_BITS).deflate();
@@ -547,7 +576,7 @@ where
             };
             return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT };
         }
-        let adj: E = (leading.wrapping_sub(F::FRACTION_BITS).wrapping_sub(num_shift_adj)).as_();
+        let adj: E = (leading.wrapping_sub(F::FRACTION_BITS)).as_();
         let exponent = diff.wrapping_sub(&adj);
         if exponent == E::AMBIGUOUS_EXPONENT {
             let shift = leading.wrapping_sub(2);
