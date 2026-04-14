@@ -469,14 +469,10 @@ where
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
-            // Escaped / escaped or escaped / normal: abs + shift + unsigned div to preserve phase
+            // Escaped / escaped or escaped / normal: signed div is safe (escaped fractions are small)
             let self_wide = if self.is_normal() { self.fraction.inflate() } else { self.fraction.sign_extend() };
             let other_wide = if other.is_normal() { other.fraction.inflate() } else { other.fraction.sign_extend() };
-            let expect_neg = self_wide.w_is_negative() != other_wide.w_is_negative();
-            let num_abs = if self_wide.w_is_negative() { self_wide.w_neg() } else { self_wide };
-            let den_abs = if other_wide.w_is_negative() { other_wide.w_neg() } else { other_wide };
-            let quotient_pos = num_abs.w_shl(F::FRACTION_BITS).w_div_unsigned(den_abs);
-            let quotient = if expect_neg { quotient_pos.w_neg() } else { quotient_pos };
+            let quotient = self_wide.w_shl(F::FRACTION_BITS).w_div(other_wide);
             let result_exploded = self.exploded() || other.vanished();
             let result_vanished = self.vanished() || other.exploded();
             let leading = quotient.leading_same();
