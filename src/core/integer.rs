@@ -174,13 +174,18 @@ impl FullInt for usize {}
 /// Implemented per stored/wide pair: i8/i16, i16/i32, i32/i64, i64/i128, i128/I256.
 pub trait WideOps: Sized + Copy {
     fn w_is_zero(&self) -> bool;
+    fn w_is_negative(&self) -> bool;
     fn leading_same(&self) -> isize;
-    fn wide_shl(self, n: isize) -> Self;
-    fn wide_shr(self, n: isize) -> Self;
-    fn wide_shl_assign(&mut self, n: isize);
+    fn w_leading_zeros(&self) -> isize;
+    fn w_leading_ones(&self) -> isize;
+    fn w_shl(self, n: isize) -> Self;
+    fn w_shr(self, n: isize) -> Self;
+    fn w_shr_logical(self, n: isize) -> Self;
+    fn w_shl_assign(&mut self, n: isize);
     fn w_add(self, other: Self) -> Self;
     fn w_sub(self, other: Self) -> Self;
     fn w_mul(self, other: Self) -> Self;
+    fn w_neg(self) -> Self;
 }
 
 /// Restore the implicit sign bits into a wider type for arithmetic.
@@ -195,7 +200,7 @@ pub trait Deflate<Stored>: Sized {
 }
 
 macro_rules! impl_wide_ops {
-    ($wide:ty, $stored:ty, $frac:expr) => {
+    ($wide:ty, $uwide:ty, $stored:ty, $frac:expr) => {
         impl Inflate for $stored {
             type Wide = $wide;
 
@@ -213,22 +218,66 @@ macro_rules! impl_wide_ops {
         }
 
         impl WideOps for $wide {
-            #[inline] fn w_is_zero(&self) -> bool { *self == 0 }
-            #[inline] fn leading_same(&self) -> isize { self.leading_ones().max(self.leading_zeros()) as isize }
-            #[inline] fn wide_shl(self, n: isize) -> Self { self << n }
-            #[inline] fn wide_shr(self, n: isize) -> Self { self >> n }
-            #[inline] fn wide_shl_assign(&mut self, n: isize) { *self <<= n; }
-            #[inline] fn w_add(self, other: Self) -> Self { <$wide>::wrapping_add(self, other) }
-            #[inline] fn w_sub(self, other: Self) -> Self { <$wide>::wrapping_sub(self, other) }
-            #[inline] fn w_mul(self, other: Self) -> Self { <$wide>::wrapping_mul(self, other) }
+            #[inline]
+            fn w_is_zero(&self) -> bool {
+                *self == 0
+            }
+            #[inline]
+            fn w_is_negative(&self) -> bool {
+                *self < 0
+            }
+            #[inline]
+            fn leading_same(&self) -> isize {
+                self.leading_ones().max(self.leading_zeros()) as isize
+            }
+            #[inline]
+            fn w_leading_zeros(&self) -> isize {
+                (*self as $uwide).leading_zeros() as isize
+            }
+            #[inline]
+            fn w_leading_ones(&self) -> isize {
+                (*self as $uwide).leading_ones() as isize
+            }
+            #[inline]
+            fn w_shl(self, n: isize) -> Self {
+                self << n
+            }
+            #[inline]
+            fn w_shr(self, n: isize) -> Self {
+                self >> n
+            }
+            #[inline]
+            fn w_shr_logical(self, n: isize) -> Self {
+                ((self as $uwide) >> n) as $wide
+            }
+            #[inline]
+            fn w_shl_assign(&mut self, n: isize) {
+                *self <<= n;
+            }
+            #[inline]
+            fn w_add(self, other: Self) -> Self {
+                <$wide>::wrapping_add(self, other)
+            }
+            #[inline]
+            fn w_sub(self, other: Self) -> Self {
+                <$wide>::wrapping_sub(self, other)
+            }
+            #[inline]
+            fn w_mul(self, other: Self) -> Self {
+                <$wide>::wrapping_mul(self, other)
+            }
+            #[inline]
+            fn w_neg(self) -> Self {
+                <$wide>::wrapping_neg(self)
+            }
         }
     };
 }
 
-impl_wide_ops!(i16, i8, 8);
-impl_wide_ops!(i32, i16, 16);
-impl_wide_ops!(i64, i32, 32);
-impl_wide_ops!(i128, i64, 64);
+impl_wide_ops!(i16, u16, i8, 8);
+impl_wide_ops!(i32, u32, i16, 16);
+impl_wide_ops!(i64, u64, i32, 32);
+impl_wide_ops!(i128, u128, i64, 64);
 
 // I256 special case: same interface, different method names
 impl Inflate for i128 {
@@ -254,12 +303,59 @@ impl Deflate<i128> for i256::I256 {
 }
 
 impl WideOps for i256::I256 {
-    #[inline] fn w_is_zero(&self) -> bool { *self == i256::I256::from(0i128) }
-    #[inline] fn leading_same(&self) -> isize { self.leading_ones().max(self.leading_zeros()) as isize }
-    #[inline] fn wide_shl(self, n: isize) -> Self { self << n }
-    #[inline] fn wide_shr(self, n: isize) -> Self { self >> n }
-    #[inline] fn wide_shl_assign(&mut self, n: isize) { *self <<= n; }
-    #[inline] fn w_add(self, other: Self) -> Self { i256::I256::wrapping_add(self, other) }
-    #[inline] fn w_sub(self, other: Self) -> Self { i256::I256::wrapping_sub(self, other) }
-    #[inline] fn w_mul(self, other: Self) -> Self { i256::I256::wrapping_mul(self, other) }
+    #[inline]
+    fn w_is_zero(&self) -> bool {
+        *self == i256::I256::from(0i128)
+    }
+    #[inline]
+    fn w_is_negative(&self) -> bool {
+        *self < i256::I256::from(0i128)
+    }
+    #[inline]
+    fn leading_same(&self) -> isize {
+        self.leading_ones().max(self.leading_zeros()) as isize
+    }
+    #[inline]
+    fn w_leading_zeros(&self) -> isize {
+        self.leading_zeros() as isize
+    }
+    #[inline]
+    fn w_leading_ones(&self) -> isize {
+        self.leading_ones() as isize
+    }
+    #[inline]
+    fn w_shl(self, n: isize) -> Self {
+        self << n
+    }
+    #[inline]
+    fn w_shr(self, n: isize) -> Self {
+        self >> n
+    }
+    #[inline]
+    fn w_shr_logical(self, n: isize) -> Self {
+        let bytes = self.to_le_bytes();
+        let unsigned = i256::U256::from_le_bytes(bytes);
+        let shifted = unsigned >> n;
+        i256::I256::from_le_bytes(shifted.to_le_bytes())
+    }
+    #[inline]
+    fn w_shl_assign(&mut self, n: isize) {
+        *self <<= n;
+    }
+    #[inline]
+    fn w_add(self, other: Self) -> Self {
+        i256::I256::wrapping_add(self, other)
+    }
+    #[inline]
+    fn w_sub(self, other: Self) -> Self {
+        i256::I256::wrapping_sub(self, other)
+    }
+    #[inline]
+    fn w_mul(self, other: Self) -> Self {
+        i256::I256::wrapping_mul(self, other)
+    }
+    #[inline]
+    fn w_neg(self) -> Self {
+        i256::I256::wrapping_neg(self)
+    }
 }

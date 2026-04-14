@@ -148,7 +148,7 @@ where
                 return *big;
             }
             let mut big_f = big.fraction.inflate();
-            big_f.wide_shl_assign(shift);
+            big_f.w_shl_assign(shift);
             let result = big_f.w_add(small.fraction.inflate());
             if result.w_is_zero() {
                 return Self {
@@ -163,16 +163,16 @@ where
             if big.exponent.is_negative() && !offset.is_negative() {
                 return Self {
                     fraction: result
-                        .wide_shl(leading.wrapping_sub(1))
-                        .wide_shr(F::FRACTION_BITS)
+                        .w_shl(leading.wrapping_sub(1))
+                        .w_shr(F::FRACTION_BITS)
                         .deflate(),
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
             return Self {
                 fraction: result
-                    .wide_shl(leading)
-                    .wide_shr(F::FRACTION_BITS)
+                    .w_shl(leading)
+                    .w_shr(F::FRACTION_BITS)
                     .deflate(),
                 exponent: offset,
             };

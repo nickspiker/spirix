@@ -1,4 +1,4 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::{Deflate, FullInt, Inflate, IntConvert, WideOps};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
@@ -142,341 +142,90 @@ where
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
                 return *self;
-            } else if other.is_undefined() {
+            }
+            if other.is_undefined() {
                 return *other;
-            } else if self.is_infinite() && other.is_zero() {
+            }
+            if self.is_infinite() && other.is_zero() {
                 return Self {
                     fraction: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
-            } else if self.is_zero() && other.is_infinite() {
+            }
+            if self.is_zero() && other.is_infinite() {
                 return Self {
                     fraction: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
-            } else if self.is_infinite() || other.is_infinite() {
+            }
+            if self.is_infinite() || other.is_infinite() {
                 return Self::INFINITY;
-            } else if self.is_zero() || other.is_zero() {
+            }
+            if self.is_zero() || other.is_zero() {
                 return Self::ZERO;
-            } else if self.exploded() && other.vanished() {
+            }
+            if self.exploded() && other.vanished() {
                 return Self {
                     fraction: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
-            } else if self.vanished() && other.exploded() {
+            }
+            if self.vanished() && other.exploded() {
                 return Self {
                     fraction: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
+            }
+            // Escaped * escaped/normal: determine sign and escape level from inputs
+            let result_negative = self.is_negative() != other.is_negative();
+            let result_exploded = self.exploded() || other.exploded();
+            let fraction = if result_negative {
+                if result_exploded { F::NEG_ONE_EXPLODED_FRACTION } else { F::NEG_ONE_VANISHED_FRACTION }
             } else {
-                let n_level: isize = if self.exploded() || other.exploded() {
-                    -1
-                } else {
-                    -2
-                };
-                let fraction = match F::FRACTION_BITS {
-                    8 => {
-                        let multiplier: i16 = self.fraction.as_();
-                        let multiplicand: i16 = other.fraction.as_();
-                        let product_wide = multiplier.wrapping_mul(multiplicand);
+                if result_exploded { F::POS_ONE_EXPLODED_FRACTION } else { F::POS_ONE_VANISHED_FRACTION }
+            };
+            return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT };
+        }
 
-                        let leading = product_wide
-                            .leading_ones()
-                            .max(product_wide.leading_zeros())
-                            as isize;
-
-                        let shift = leading.wrapping_add(n_level);
-                        let normalized_wide = product_wide << shift;
-                        (normalized_wide >> F::FRACTION_BITS).as_()
-                    }
-                    16 => {
-                        let multiplier: i32 = self.fraction.as_();
-                        let multiplicand: i32 = other.fraction.as_();
-                        let product_wide = multiplier.wrapping_mul(multiplicand);
-
-                        let leading = product_wide
-                            .leading_ones()
-                            .max(product_wide.leading_zeros())
-                            as isize;
-
-                        let shift = leading.wrapping_add(n_level);
-                        let normalized_wide = product_wide << shift;
-                        (normalized_wide >> F::FRACTION_BITS).as_()
-                    }
-                    32 => {
-                        let multiplier: i64 = self.fraction.as_();
-                        let multiplicand: i64 = other.fraction.as_();
-                        let product_wide = multiplier.wrapping_mul(multiplicand);
-
-                        let leading = product_wide
-                            .leading_ones()
-                            .max(product_wide.leading_zeros())
-                            as isize;
-
-                        let shift = leading.wrapping_add(n_level);
-                        let normalized_wide = product_wide << shift;
-                        (normalized_wide >> F::FRACTION_BITS).as_()
-                    }
-                    64 => {
-                        let multiplier: i128 = self.fraction.as_();
-                        let multiplicand: i128 = other.fraction.as_();
-                        let product_wide = multiplier.wrapping_mul(multiplicand);
-
-                        let leading = product_wide
-                            .leading_ones()
-                            .max(product_wide.leading_zeros())
-                            as isize;
-
-                        let shift = leading.wrapping_add(n_level);
-                        let normalized_wide = product_wide << shift;
-                        (normalized_wide >> F::FRACTION_BITS).as_()
-                    }
-                    128 => {
-                        let multiplier: i128 = self.fraction.as_();
-                        let multiplicand: i128 = other.fraction.as_();
-                        let multiplier: I256 = multiplier.into();
-                        let multiplicand: I256 = multiplicand.into();
-                        let product_wide: I256 = multiplier.wrapping_mul(multiplicand);
-
-                        let leading = product_wide
-                            .leading_ones()
-                            .max(product_wide.leading_zeros())
-                            as isize;
-
-                        let shift = leading.wrapping_add(n_level);
-                        let normalized_wide = product_wide << shift;
-                        (normalized_wide >> F::FRACTION_BITS).as_i128().as_()
-                    }
-                    _ => GENERAL.prefix.sa(),
-                };
-
-                return Self {
-                    fraction,
-                    exponent: E::AMBIGUOUS_EXPONENT,
-                };
-            }
+        // Normal * Normal
+        // Pre-check: stored=0 (NEG_ONE_NORMAL_FRACTION) is -2^exp, multiply is just negate + shift
+        if self.fraction == F::NEG_ONE_NORMAL_FRACTION {
+            let mut result = -other;
+            result.exponent = self.exponent.wrapping_add(&result.exponent);
+            return result;
+        }
+        if other.fraction == F::NEG_ONE_NORMAL_FRACTION {
+            let mut result = -self;
+            result.exponent = other.exponent.wrapping_add(&result.exponent);
+            return result;
+        }
+        let product = self.fraction.inflate().w_mul(other.fraction.inflate());
+        let expect_negative = self.is_negative() != other.is_negative();
+        let leading = if expect_negative {
+            product.w_leading_ones()
         } else {
-            let fraction;
-            let expo_adjust: isize;
-            match F::FRACTION_BITS {
-                8 => {
-                    let multiplier: i16 = self.fraction.as_();
-                    let multiplicand: i16 = other.fraction.as_();
-                    let product_wide = multiplier.wrapping_mul(multiplicand);
-                    if product_wide == 0 {
-                        return Self::ZERO;
-                    }
-                    expo_adjust = (product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize)
-                        .wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide = product_wide << shift;
-                    fraction = (normalized_wide >> F::FRACTION_BITS).as_();
-                }
-                16 => {
-                    let multiplier: i32 = self.fraction.as_();
-                    let multiplicand: i32 = other.fraction.as_();
-                    let product_wide = multiplier.wrapping_mul(multiplicand);
-                    if product_wide == 0 {
-                        return Self::ZERO;
-                    }
-                    expo_adjust = (product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize)
-                        .wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide = product_wide << shift;
-                    fraction = (normalized_wide >> F::FRACTION_BITS).as_();
-                }
-                32 => {
-                    let multiplier: i64 = self.fraction.as_();
-                    let multiplicand: i64 = other.fraction.as_();
-                    let product_wide = multiplier.wrapping_mul(multiplicand);
-                    if product_wide == 0 {
-                        return Self::ZERO;
-                    }
-                    expo_adjust = (product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize)
-                        .wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide = product_wide << shift;
-                    fraction = (normalized_wide >> F::FRACTION_BITS).as_();
-                }
-                64 => {
-                    let multiplier: i128 = self.fraction.as_();
-                    let multiplicand: i128 = other.fraction.as_();
-                    let product_wide = multiplier.wrapping_mul(multiplicand);
-                    if product_wide == 0 {
-                        return Self::ZERO;
-                    }
-                    expo_adjust = (product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize)
-                        .wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide = product_wide << shift;
-                    fraction = (normalized_wide >> F::FRACTION_BITS).as_();
-                }
-                128 => {
-                    let multiplier: i128 = self.fraction.as_();
-                    let multiplicand: i128 = other.fraction.as_();
-                    let multiplier: I256 = multiplier.into();
-                    let multiplicand: I256 = multiplicand.into();
-                    let product_wide: I256 = multiplier.wrapping_mul(multiplicand);
-                    if product_wide == 0.into() {
-                        return Self::ZERO;
-                    }
-                    expo_adjust = (product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize)
-                        .wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide = product_wide << shift;
-                    fraction = (normalized_wide >> F::FRACTION_BITS).as_i128().as_();
-                }
-                _ => {
-                    return Self {
-                        fraction: GENERAL.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                }
-            }
+            product.w_leading_zeros()
+        };
+        let fraction = product
+            .w_shl(leading)
+            .w_shr_logical(F::FRACTION_BITS)
+            .deflate();
 
-            match E::EXPONENT_BITS {
-                8 => {
-                    let self_exponent: i16 = self.exponent.as_();
-                    let other_exponent: i16 = other.exponent.as_();
-                    let upcast_exponent: i16 = self_exponent
-                        .wrapping_add(other_exponent)
-                        .wrapping_sub(expo_adjust as i16);
-
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
-                        return Scalar {
-                            fraction,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                        return Scalar {
-                            fraction: fraction >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else {
-                        return Scalar {
-                            fraction,
-                            exponent: upcast_exponent.as_(),
-                        };
-                    }
-                }
-                16 => {
-                    let self_exponent: i32 = self.exponent.as_();
-                    let other_exponent: i32 = other.exponent.as_();
-                    let upcast_exponent: i32 = self_exponent
-                        .wrapping_add(other_exponent)
-                        .wrapping_sub(expo_adjust as i32);
-
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
-                        return Scalar {
-                            fraction,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                        return Scalar {
-                            fraction: fraction >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else {
-                        return Scalar {
-                            fraction,
-                            exponent: upcast_exponent.as_(),
-                        };
-                    }
-                }
-                32 => {
-                    let self_exponent: i64 = self.exponent.as_();
-                    let other_exponent: i64 = other.exponent.as_();
-                    let upcast_exponent: i64 = self_exponent
-                        .wrapping_add(other_exponent)
-                        .wrapping_sub(expo_adjust as i64);
-
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
-                        return Scalar {
-                            fraction,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                        return Scalar {
-                            fraction: fraction >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else {
-                        return Scalar {
-                            fraction,
-                            exponent: upcast_exponent.as_(),
-                        };
-                    }
-                }
-                64 => {
-                    let self_exponent: i128 = self.exponent.as_();
-                    let other_exponent: i128 = other.exponent.as_();
-                    let upcast_exponent: i128 = self_exponent
-                        .wrapping_add(other_exponent)
-                        .wrapping_sub(expo_adjust as i128);
-
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
-                        return Scalar {
-                            fraction,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                        return Scalar {
-                            fraction: fraction >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else {
-                        return Scalar {
-                            fraction,
-                            exponent: upcast_exponent.as_(),
-                        };
-                    }
-                }
-                128 => {
-                    let self_exponent: I256 = self.exponent.into();
-                    let other_exponent: I256 = other.exponent.into();
-                    let e: I256 = (expo_adjust as i128).into();
-                    let upcast_exponent: I256 =
-                        self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
-
-                    if upcast_exponent > E::MAX_EXPONENT.into() {
-                        return Scalar {
-                            fraction,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else if upcast_exponent < E::MIN_EXPONENT.into() {
-                        return Scalar {
-                            fraction: fraction >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
-                        };
-                    } else {
-                        return Scalar {
-                            fraction,
-                            exponent: upcast_exponent.as_i128().as_(),
-                        };
-                    }
-                }
-                _ => {
-                    return Scalar {
-                        fraction: GENERAL.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                }
-            }
+        let sum = self.exponent.wrapping_add(&other.exponent);
+        if self.exponent.is_positive() && other.exponent.is_positive() && !sum.is_positive() {
+            return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT };
+        }
+        if self.exponent.is_negative() && other.exponent.is_negative() && !sum.is_negative() {
+            return Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT };
+        }
+        let adj: E = (leading as isize).as_();
+        let result_exp = sum.wrapping_sub(&adj);
+        if result_exp > E::MAX_EXPONENT {
+            Self { fraction, exponent: E::AMBIGUOUS_EXPONENT }
+        } else if result_exp <= E::AMBIGUOUS_EXPONENT {
+            Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT }
+        } else {
+            Self { fraction, exponent: result_exp }
         }
     }
 }

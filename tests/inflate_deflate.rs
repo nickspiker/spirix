@@ -488,6 +488,171 @@ fn addition_basic() {
     assert!((pos_exploded + neg_exploded).is_undefined(), "[+↑]+[-↑]=[℘]");
 }
 
+#[test]
+fn subtraction_basic() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    let one = S::ONE;
+    let two = S::TWO;
+    let zero = S::ZERO;
+
+    assert!((two - one) == one, "2 - 1 = 1");
+    assert!((one - one) == zero, "1 - 1 = 0");
+    assert!((one - two) == -one, "1 - 2 = -1");
+    assert!((zero - one) == -one, "0 - 1 = -1");
+
+    for &(a, b, expected) in &[
+        (10.0, 3.0, 7.0),
+        (1.0, 0.5, 0.5),
+        (-5.0, 3.0, -8.0),
+        (100.0, 100.0, 0.0),
+        (0.125, 0.125, 0.0),
+    ] {
+        let sa = S::from(a);
+        let sb = S::from(b);
+        let result = sa - sb;
+        let back: f64 = (&result).into();
+        let err = (back - expected).abs();
+        assert!(err < 0.01, "{a} - {b}: expected {expected}, got {back}");
+    }
+}
+
+#[test]
+fn multiplication_basic() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    let one = S::ONE;
+    let two = S::TWO;
+    let neg_one = S::NEG_ONE;
+    let zero = S::ZERO;
+
+    assert!((one * one) == one, "1 * 1 = 1");
+    assert!((two * one) == two, "2 * 1 = 2");
+    assert!((neg_one * neg_one) == one, "-1 * -1 = 1");
+    assert!((one * neg_one) == neg_one, "1 * -1 = -1");
+    assert!((two * zero) == zero, "2 * 0 = 0");
+
+    {
+        type S44 = Scalar<i16, i16>;
+        for &(a, b) in &[(253.0, -254.0), (253.0, 253.0), (-254.0, -254.0), (3.0, 5.0), (0.5, 0.5)] {
+            let sa = S44::from(a);
+            let sb = S44::from(b);
+            let result = sa * sb;
+            let back: f64 = (&result).into();
+            let expected = a * b;
+            let err = (back - expected).abs();
+            eprintln!("F4E4: {a} * {b} = {back} (expected {expected}, err={err})");
+        }
+    }
+
+    for &(a, b, expected) in &[
+        (3.0, 5.0, 15.0),
+        (2.0, 0.5, 1.0),
+        (-2.0, -3.0, 6.0),
+        (0.125, 8.0, 1.0),
+        (-4.0, 3.0, -12.0),
+        (100.0, 0.01, 1.0),
+    ] {
+        let sa = S::from(a);
+        let sb = S::from(b);
+        let result = sa * sb;
+        let back: f64 = (&result).into();
+        let err = (back - expected).abs();
+        assert!(err < 0.01, "{a} * {b}: expected {expected}, got {back}");
+    }
+
+    // --- Full truth table coverage ---
+    let pos_exploded = S::EXPLODED_POS;
+    let neg_exploded = S::EXPLODED_NEG;
+    let pos_vanished = S::VANISHED_POS;
+    let neg_vanished = S::VANISHED_NEG;
+    let inf = S::INFINITY;
+    let undef = S::from(0.0) / S::from(0.0);
+
+    // [0] row
+    assert!((zero * zero) == zero, "[0]*[0]=[0]");
+    assert!((zero * pos_vanished) == zero, "[0]*[+↓]=[0]");
+    assert!((zero * one) == zero, "[0]*[#]=[0]");
+    assert!((zero * pos_exploded) == zero, "[0]*[+↑]=[0]");
+    assert!((zero * inf).is_undefined(), "[0]*[∞]=[℘]");
+    assert!((zero * undef).is_undefined(), "[0]*[℘]=[℘]");
+
+    // [↓] row
+    assert!((pos_vanished * zero) == zero, "[+↓]*[0]=[0]");
+    assert!((pos_vanished * pos_vanished).vanished(), "[+↓]*[+↓]=[↓]");
+    assert!((pos_vanished * one).vanished(), "[+↓]*[#]=[↓]");
+    assert!((pos_vanished * pos_exploded).is_undefined(), "[+↓]*[+↑]=[℘]");
+    assert!((pos_vanished * inf).is_infinite(), "[+↓]*[∞]=[∞]");
+    assert!((pos_vanished * undef).is_undefined(), "[+↓]*[℘]=[℘]");
+
+    // [#] row
+    assert!((one * zero) == zero, "[#]*[0]=[0]");
+    assert!((one * pos_vanished).vanished(), "[#]*[+↓]=[↓]");
+    assert!((one * pos_exploded).exploded(), "[#]*[+↑]=[↑]");
+    assert!((one * inf) .is_infinite(), "[#]*[∞]=[∞]");
+    assert!((one * undef).is_undefined(), "[#]*[℘]=[℘]");
+
+    // [↑] row
+    assert!((pos_exploded * zero) == zero, "[+↑]*[0]=[0]");
+    assert!((pos_exploded * pos_vanished).is_undefined(), "[+↑]*[+↓]=[℘]");
+    assert!((pos_exploded * one).exploded(), "[+↑]*[#]=[↑]");
+    assert!((pos_exploded * pos_exploded).exploded(), "[+↑]*[+↑]=[↑]");
+    assert!((pos_exploded * inf) .is_infinite(), "[+↑]*[∞]=[∞]");
+    assert!((pos_exploded * undef).is_undefined(), "[+↑]*[℘]=[℘]");
+
+    // [∞] row
+    assert!((inf * zero).is_undefined(), "[∞]*[0]=[℘]");
+    assert!((inf * one) .is_infinite(), "[∞]*[#]=[∞]");
+    assert!((inf * inf) .is_infinite(), "[∞]*[∞]=[∞]");
+    assert!((inf * undef).is_undefined(), "[∞]*[℘]=[℘]");
+
+    // [℘] row
+    assert!((undef * zero).is_undefined(), "[℘]*[0]=[℘]");
+    assert!((undef * one).is_undefined(), "[℘]*[#]=[℘]");
+    assert!((undef * undef).is_undefined(), "[℘]*[℘]=[℘]");
+
+    // Sign preservation
+    assert!((neg_exploded * one).exploded() && (neg_exploded * one).is_negative(), "[-↑]*[#]=[-↑]");
+    assert!((neg_vanished * one).vanished() && (neg_vanished * one).is_negative(), "[-↓]*[#]=[-↓]");
+}
+
+#[test]
+fn multiply_f3e3_exhaustive() {
+    use spirix::Scalar;
+    type S = Scalar<i8, i8>;
+
+    let mut failures = 0;
+    let mut total = 0;
+    for a_stored in i8::MIN..=i8::MAX {
+        for b_stored in a_stored..=i8::MAX {
+            let a = S::new(a_stored, 0);
+            let b = S::new(b_stored, 0);
+            let result = a * b;
+
+            // Compute expected via f64
+            let a_val: f64 = (&a).into();
+            let b_val: f64 = (&b).into();
+            let expected = a_val * b_val;
+            let got: f64 = (&result).into();
+
+            total += 1;
+            // F3E3 has 8 bits of fraction = ~2.4 decimal digits. 1 ULP ≈ 1/256 ≈ 0.004.
+            // Allow 2 ULP of error for truncation rounding.
+            let ulp = expected.abs() / 128.0; // 1 ULP at FRAC=8
+            if (got - expected).abs() > ulp * 2.0 + 1e-10 {
+                if failures < 10 {
+                    eprintln!("FAIL: stored ({a_stored}, {b_stored}) val ({a_val} * {b_val}) = {expected}, got {got}");
+                }
+                failures += 1;
+            }
+        }
+    }
+    eprintln!("{failures}/{total} failures");
+    assert_eq!(failures, 0, "{failures} multiplication failures out of {total}");
+}
+
 // Local helper matching the inflate algorithm (since the trait is pub(crate))
 fn inflate_i8(stored: i8) -> i16 {
     let low = stored as i16;
