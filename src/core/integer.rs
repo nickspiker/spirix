@@ -185,6 +185,7 @@ pub trait WideOps: Sized + Copy {
     fn w_add(self, other: Self) -> Self;
     fn w_sub(self, other: Self) -> Self;
     fn w_mul(self, other: Self) -> Self;
+    fn w_div(self, other: Self) -> Self;
     fn w_neg(self) -> Self;
 }
 
@@ -271,6 +272,10 @@ macro_rules! impl_wide_ops {
             #[inline]
             fn w_mul(self, other: Self) -> Self {
                 <$wide>::wrapping_mul(self, other)
+            }
+            #[inline]
+            fn w_div(self, other: Self) -> Self {
+                self.wrapping_div(other)
             }
             #[inline]
             fn w_neg(self) -> Self {
@@ -364,6 +369,10 @@ impl WideOps for i256::I256 {
     #[inline]
     fn w_mul(self, other: Self) -> Self {
         i256::I256::wrapping_mul(self, other)
+    }
+    #[inline]
+    fn w_div(self, other: Self) -> Self {
+        i256::I256::wrapping_div(self, other)
     }
     #[inline]
     fn w_neg(self) -> Self {

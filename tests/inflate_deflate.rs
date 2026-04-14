@@ -695,6 +695,43 @@ fn multiply_f3e3_exhaustive() {
     assert_eq!(failures, 0, "{failures} multiplication failures out of {total}");
 }
 
+#[test]
+fn division_basic() {
+    use spirix::Scalar;
+    type S = Scalar<i32, i8>;
+
+    let one = S::ONE;
+    let two = S::TWO;
+    let neg_one = S::NEG_ONE;
+    let zero = S::ZERO;
+
+    assert!((one / one) == one, "1 / 1 = 1");
+    assert!((two / one) == two, "2 / 1 = 2");
+    assert!((one / two) == S::HALF, "1 / 2 = 0.5");
+    assert!((neg_one / neg_one) == one, "-1 / -1 = 1");
+    assert!((one / neg_one) == neg_one, "1 / -1 = -1");
+
+    // Division by zero = infinity
+    assert!((one / zero).is_infinite(), "1 / 0 = ∞");
+    // Zero divided by zero = undefined
+    assert!((zero / zero).is_undefined(), "0 / 0 = ℘");
+
+    for &(a, b, expected) in &[
+        (10.0, 2.0, 5.0),
+        (1.0, 3.0, 0.333333),
+        (-6.0, 2.0, -3.0),
+        (100.0, 0.5, 200.0),
+        (0.125, 0.25, 0.5),
+    ] {
+        let sa = S::from(a);
+        let sb = S::from(b);
+        let result = sa / sb;
+        let back: f64 = (&result).into();
+        let err = (back - expected).abs();
+        assert!(err < 0.01, "{a} / {b}: expected {expected}, got {back}");
+    }
+}
+
 // Local helper matching the inflate algorithm (since the trait is pub(crate))
 fn inflate_i8(stored: i8) -> i16 {
     let low = stored as i16;

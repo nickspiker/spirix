@@ -1,4 +1,4 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::{Deflate, FullInt, Inflate, IntConvert, WideOps};
 use crate::core::undefined::*;
 use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
@@ -424,6 +424,10 @@ where
             }
         }
     }
+    pub fn reciprocal(&self) -> Self {
+        Self::ONE / self
+    }
+
     pub(crate) fn scalar_divide_scalar(&self, other: &Self) -> Self {
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
@@ -465,404 +469,95 @@ where
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
-            if self.vanished() {
-                let fraction = match F::FRACTION_BITS {
-                    8 => {
-                        let numerator: i16 = self.fraction.as_();
-                        let denominator: i16 = other.fraction.as_();
-                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
-                            .div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    16 => {
-                        let numerator: i32 = self.fraction.as_();
-                        let denominator: i32 = other.fraction.as_();
-                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
-                            .div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    32 => {
-                        let numerator: i64 = self.fraction.as_();
-                        let denominator: i64 = other.fraction.as_();
-                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
-                            .div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    64 => {
-                        let numerator: i128 = self.fraction.as_();
-                        let denominator: i128 = other.fraction.as_();
-                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
-                            .div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    128 => {
-                        let numerator: I256 = self.fraction.into();
-                        let denominator: I256 = other.fraction.into();
-                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
-                            .div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_i128().as_()
-                    }
-                    _ => GENERAL.prefix.sa(),
-                };
-                return Self {
-                    fraction,
-                    exponent: E::AMBIGUOUS_EXPONENT,
-                };
-            }
-            if other.exploded() {
-                let fraction = match F::FRACTION_BITS {
-                    8 => {
-                        let numerator: i16 = self.fraction.as_();
-                        let denominator: i16 = other.fraction.as_();
-                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    16 => {
-                        let numerator: i32 = self.fraction.as_();
-                        let denominator: i32 = other.fraction.as_();
-                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    32 => {
-                        let numerator: i64 = self.fraction.as_();
-                        let denominator: i64 = other.fraction.as_();
-                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    64 => {
-                        let numerator: i128 = self.fraction.as_();
-                        let denominator: i128 = other.fraction.as_();
-                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
-                    }
-                    128 => {
-                        let numerator: I256 = self.fraction.into();
-                        let denominator: I256 = other.fraction.into();
-                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                        let shift = quotient
-                            .leading_ones()
-                            .max(quotient.leading_zeros())
-                            .wrapping_sub(2);
-                        quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_i128().as_()
-                    }
-                    _ => GENERAL.prefix.sa(),
-                };
-                return Self {
-                    fraction,
-                    exponent: E::AMBIGUOUS_EXPONENT,
-                };
-            }
-            let fraction = match F::FRACTION_BITS {
-                8 => {
-                    let numerator: i16 = self.fraction.as_();
-                    let denominator: i16 = other.fraction.as_();
-                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                    let shift = quotient
-                        .leading_ones()
-                        .max(quotient.leading_zeros())
-                        .wrapping_sub(1);
-                    quotient <<= shift;
-                    (quotient >> F::FRACTION_BITS).as_()
-                }
-                16 => {
-                    let numerator: i32 = self.fraction.as_();
-                    let denominator: i32 = other.fraction.as_();
-                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                    let shift = quotient
-                        .leading_ones()
-                        .max(quotient.leading_zeros())
-                        .wrapping_sub(1);
-                    quotient <<= shift;
-                    (quotient >> F::FRACTION_BITS).as_()
-                }
-                32 => {
-                    let numerator: i64 = self.fraction.as_();
-                    let denominator: i64 = other.fraction.as_();
-                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                    let shift = quotient
-                        .leading_ones()
-                        .max(quotient.leading_zeros())
-                        .wrapping_sub(1);
-                    quotient <<= shift;
-                    (quotient >> F::FRACTION_BITS).as_()
-                }
-                64 => {
-                    let numerator: i128 = self.fraction.as_();
-                    let denominator: i128 = other.fraction.as_();
-                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                    let shift = quotient
-                        .leading_ones()
-                        .max(quotient.leading_zeros())
-                        .wrapping_sub(1);
-                    quotient <<= shift;
-                    (quotient >> F::FRACTION_BITS).as_()
-                }
-                128 => {
-                    let numerator: I256 = self.fraction.into();
-                    let denominator: I256 = other.fraction.into();
-                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                    let shift = quotient
-                        .leading_ones()
-                        .max(quotient.leading_zeros())
-                        .wrapping_sub(1);
-                    quotient <<= shift;
-                    (quotient >> F::FRACTION_BITS).as_i128().as_()
-                }
-                _ => GENERAL.prefix.sa(),
+            // Escaped / escaped or escaped / normal: sign_extend for escaped, inflate for normal
+            let self_wide = if self.is_normal() {
+                self.fraction.inflate()
+            } else {
+                self.fraction.sign_extend()
             };
+            let other_wide = if other.is_normal() {
+                other.fraction.inflate()
+            } else {
+                other.fraction.sign_extend()
+            };
+            let quotient = self_wide.w_shl(F::FRACTION_BITS).w_div(other_wide);
+            let result_exploded = self.exploded() || other.vanished();
+            let result_vanished = self.vanished() || other.exploded();
+            let leading = quotient.leading_same();
+            let n: isize = if result_exploded {
+                1
+            } else if result_vanished {
+                2
+            } else {
+                1
+            };
+            let fraction = quotient
+                .w_shl(leading.wrapping_sub(n))
+                .w_shr(F::FRACTION_BITS)
+                .deflate();
             return Self {
                 fraction,
                 exponent: E::AMBIGUOUS_EXPONENT,
             };
         }
 
-        let (fraction, expo_adjust) = match F::FRACTION_BITS {
-            8 => {
-                let numerator: i16 = self.fraction.as_();
-                let denominator: i16 = other.fraction.as_();
-                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
-                    .wrapping_sub(1);
-                quotient <<= shift;
-                (
-                    (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
-                )
+        // Pre-check: stored=0 numerator (value = -2^exp). Division = negate + exp subtract.
+        if self.fraction == F::NEG_ONE_NORMAL_FRACTION {
+            let mut result = -other;
+            if result.is_normal() {
+                result.exponent = self.exponent.wrapping_sub(&other.exponent);
             }
-            16 => {
-                let numerator: i32 = self.fraction.as_();
-                let denominator: i32 = other.fraction.as_();
-                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
-                    .wrapping_sub(1);
-                quotient <<= shift;
-                (
-                    (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
-                )
+            return result;
+        }
+        // Pre-check: stored=0 denominator. Division by -2^exp = negate + exp subtract.
+        if other.fraction == F::NEG_ONE_NORMAL_FRACTION {
+            let mut result = -self;
+            if result.is_normal() {
+                result.exponent = self.exponent.wrapping_sub(&other.exponent);
             }
-            32 => {
-                let numerator: i64 = self.fraction.as_();
-                let denominator: i64 = other.fraction.as_();
-                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
-                    .wrapping_sub(1);
-                quotient <<= shift;
-                (
-                    (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
-                )
+            return result;
+        }
+        // Normal / Normal: abs numerator, shift for precision, divide
+        let num = self.fraction.inflate();
+        let den = other.fraction.inflate();
+        let expect_negative = num.w_is_negative() != den.w_is_negative();
+        let num_abs = if num.w_is_negative() { num.w_neg() } else { num };
+        let den_abs = if den.w_is_negative() { den.w_neg() } else { den };
+        // Shift numerator. POS_ONE effective = 2^(FRAC-1), shifted = 2^(2*FRAC-1) = signed overflow.
+        // Use FRAC-1 shift for POS_ONE, full FRAC for others. Exponent compensates.
+        let (numerator, shift_adj) = if self.fraction == F::POS_ONE_NORMAL_FRACTION {
+            (num_abs.w_shl(F::FRACTION_BITS - 1), 1isize)
+        } else {
+            (num_abs.w_shl(F::FRACTION_BITS), 0isize)
+        };
+        let quotient_abs = numerator.w_div(den_abs);
+        // Quotient is positive. Count leading zeros, normalize, deflate.
+        let leading = quotient_abs.w_leading_zeros();
+        let stored_positive = quotient_abs.w_shl(leading).w_shr_logical(F::FRACTION_BITS).deflate();
+        let (fraction, expo_extra) = if expect_negative {
+            if stored_positive == F::POS_ONE_NORMAL_FRACTION {
+                (F::NEG_ONE_NORMAL_FRACTION, 1isize)
+            } else {
+                (stored_positive.wrapping_neg(), 0isize)
             }
-            64 => {
-                let numerator: i128 = self.fraction.as_();
-                let denominator: i128 = other.fraction.as_();
-                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
-                    .wrapping_sub(1);
-                quotient <<= shift;
-                (
-                    (quotient >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
-                )
-            }
-            128 => {
-                let numerator: I256 = self.fraction.into();
-                let denominator: I256 = other.fraction.into();
-                let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
-                let shift = (quotient.leading_ones().max(quotient.leading_zeros()) as isize)
-                    .wrapping_sub(1);
-                quotient <<= shift;
-                (
-                    (quotient >> F::FRACTION_BITS).as_i128().as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
-                )
-            }
-            _ => {
-                return Self {
-                    fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
-                };
-            }
+        } else {
+            (stored_positive, 0isize)
         };
 
-        match E::EXPONENT_BITS {
-            8 => {
-                let self_exponent: i16 = self.exponent.as_();
-                let other_exponent: i16 = other.exponent.as_();
-                let upcast_exponent: i16 = self_exponent
-                    .wrapping_sub(other_exponent)
-                    .wrapping_sub(expo_adjust as i16);
-
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
-                    return Self {
-                        fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                    return Self {
-                        fraction: fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else {
-                    return Self {
-                        fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            16 => {
-                let self_exponent: i32 = self.exponent.as_();
-                let other_exponent: i32 = other.exponent.as_();
-                let upcast_exponent: i32 = self_exponent
-                    .wrapping_sub(other_exponent)
-                    .wrapping_sub(expo_adjust as i32);
-
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
-                    return Self {
-                        fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                    return Self {
-                        fraction: fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else {
-                    return Self {
-                        fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            32 => {
-                let self_exponent: i64 = self.exponent.as_();
-                let other_exponent: i64 = other.exponent.as_();
-                let upcast_exponent: i64 = self_exponent
-                    .wrapping_sub(other_exponent)
-                    .wrapping_sub(expo_adjust as i64);
-
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
-                    return Self {
-                        fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                    return Self {
-                        fraction: fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else {
-                    return Self {
-                        fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            64 => {
-                let self_exponent: i128 = self.exponent.as_();
-                let other_exponent: i128 = other.exponent.as_();
-                let upcast_exponent: i128 = self_exponent
-                    .wrapping_sub(other_exponent)
-                    .wrapping_sub(expo_adjust as i128);
-
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
-                    return Self {
-                        fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
-                    return Self {
-                        fraction: fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else {
-                    return Self {
-                        fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            128 => {
-                let self_exponent: I256 = self.exponent.into();
-                let other_exponent: I256 = other.exponent.into();
-                let exp_adj: I256 = (expo_adjust as i128).into();
-                let upcast_exponent: I256 = self_exponent
-                    .wrapping_sub(other_exponent)
-                    .wrapping_sub(exp_adj);
-                let max_e: I256 = E::MAX_EXPONENT.into();
-                let min_e: I256 = E::MIN_EXPONENT.into();
-                if upcast_exponent > max_e {
-                    return Self {
-                        fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else if upcast_exponent < min_e {
-                    return Self {
-                        fraction: fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
-                    };
-                } else {
-                    return Self {
-                        fraction,
-                        exponent: upcast_exponent.as_i128().as_(),
-                    };
-                }
-            }
-            _ => {
-                return Self {
-                    fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
-                };
-            }
+        // Exponent: self.exp - other.exp - leading - expo_extra
+        let diff = self.exponent.wrapping_sub(&other.exponent);
+        if !self.exponent.is_negative() && other.exponent.is_negative() && diff.is_negative() {
+            return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT }; // exploded
         }
-    }
-    pub fn reciprocal(&self) -> Self {
-        Self::ONE / self
+        if self.exponent.is_negative() && !other.exponent.is_negative() && !diff.is_negative() {
+            return Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT }; // vanished
+        }
+        let adj: E = ((leading as isize).wrapping_add(expo_extra).wrapping_sub(shift_adj)).as_();
+        let exponent = diff.wrapping_sub(&adj);
+        if exponent == E::AMBIGUOUS_EXPONENT {
+            Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT }
+        } else {
+            Self { fraction, exponent }
+        }
     }
 }
