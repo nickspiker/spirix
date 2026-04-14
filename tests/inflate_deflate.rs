@@ -717,7 +717,7 @@ fn division_basic() {
     assert!((zero / zero).is_undefined(), "0 / 0 = ℘");
 
     for &(a, b, expected) in &[
-        (10.0, 2.0, 5.0),
+        (10.0, 2.0, 5.0),  // stored fracs are negative (positive values)
         (1.0, 3.0, 0.333333),
         (-6.0, 2.0, -3.0),
         (100.0, 0.5, 200.0),
