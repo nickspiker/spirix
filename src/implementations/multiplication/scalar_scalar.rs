@@ -176,56 +176,97 @@ where
                     exponent: E::AMBIGUOUS_EXPONENT,
                 };
             }
-            // Escaped * escaped/normal: determine sign and escape level from inputs
-            let result_negative = self.is_negative() != other.is_negative();
-            let result_exploded = self.exploded() || other.exploded();
-            let fraction = if result_negative {
-                if result_exploded { F::NEG_ONE_EXPLODED_FRACTION } else { F::NEG_ONE_VANISHED_FRACTION }
+            // Escaped * escaped/normal: escaped uses sign_extend, normal uses inflate
+            let (self_wide, other_wide) = if self.is_normal() {
+                (self.fraction.inflate(), other.fraction.sign_extend())
             } else {
-                if result_exploded { F::POS_ONE_EXPLODED_FRACTION } else { F::POS_ONE_VANISHED_FRACTION }
+                (
+                    self.fraction.sign_extend(),
+                    if other.is_normal() {
+                        other.fraction.inflate()
+                    } else {
+                        other.fraction.sign_extend()
+                    },
+                )
             };
-            return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT };
+            let product = self_wide.w_mul(other_wide);
+            let result_exploded = self.exploded() || other.exploded();
+            let leading = product.leading_same();
+            let n: isize = if result_exploded { 1 } else { 2 };
+            let fraction = product
+                .w_shl(leading.wrapping_sub(n))
+                .w_shr(F::FRACTION_BITS)
+                .deflate();
+            return Self {
+                fraction,
+                exponent: E::AMBIGUOUS_EXPONENT,
+            };
         }
 
-        // Normal * Normal
-        // Pre-check: stored=0 (NEG_ONE_NORMAL_FRACTION) is -2^exp, multiply is just negate + shift
-        if self.fraction == F::NEG_ONE_NORMAL_FRACTION {
-            let mut result = -other;
-            result.exponent = self.exponent.wrapping_add(&result.exponent);
-            return result;
+        if self.fraction == F::NEG_ONE_NORMAL_FRACTION
+            && other.fraction == F::NEG_ONE_NORMAL_FRACTION
+        {
+            let mut exp = self.exponent.wrapping_add(&other.exponent);
+            if self.exponent.is_negative() && other.exponent.is_negative() && !exp.is_negative() {
+                return Self {
+                    fraction: F::POS_ONE_VANISHED_FRACTION,
+                    exponent: E::AMBIGUOUS_EXPONENT,
+                };
+            }
+            exp = exp.wrapping_add(&E::ONE);
+            if !self.exponent.is_negative() && !other.exponent.is_negative() && exp.is_negative() {
+                return Self {
+                    fraction: F::POS_ONE_EXPLODED_FRACTION,
+                    exponent: E::AMBIGUOUS_EXPONENT,
+                };
+            }
+            return Self {
+                fraction: F::POS_ONE_NORMAL_FRACTION,
+                exponent: exp,
+            };
         }
-        if other.fraction == F::NEG_ONE_NORMAL_FRACTION {
-            let mut result = -self;
-            result.exponent = other.exponent.wrapping_add(&result.exponent);
-            return result;
-        }
+
         let product = self.fraction.inflate().w_mul(other.fraction.inflate());
-        let expect_negative = self.is_negative() != other.is_negative();
+        let expect_negative = self.fraction.is_negative() != other.fraction.is_negative();
         let leading = if expect_negative {
             product.w_leading_ones()
         } else {
             product.w_leading_zeros()
         };
-        let fraction = product
-            .w_shl(leading)
-            .w_shr_logical(F::FRACTION_BITS)
-            .deflate();
 
         let sum = self.exponent.wrapping_add(&other.exponent);
-        if self.exponent.is_positive() && other.exponent.is_positive() && !sum.is_positive() {
-            return Self { fraction, exponent: E::AMBIGUOUS_EXPONENT };
+        if !self.exponent.is_negative() && !other.exponent.is_negative() && sum.is_negative() {
+            let fraction = product
+                .w_shl(leading.wrapping_sub(1))
+                .w_shr(F::FRACTION_BITS)
+                .deflate();
+            return Self {
+                fraction,
+                exponent: E::AMBIGUOUS_EXPONENT,
+            };
         }
         if self.exponent.is_negative() && other.exponent.is_negative() && !sum.is_negative() {
-            return Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT };
+            let shift = leading.wrapping_sub(2);
+            let fraction = if shift >= 0 {
+                product.w_shl(shift).w_shr(F::FRACTION_BITS).deflate()
+            } else {
+                product.w_shr(F::FRACTION_BITS - shift).deflate()
+            };
+            return Self {
+                fraction,
+                exponent: E::AMBIGUOUS_EXPONENT,
+            };
         }
         let adj: E = (leading as isize).as_();
-        let result_exp = sum.wrapping_sub(&adj);
-        if result_exp > E::MAX_EXPONENT {
-            Self { fraction, exponent: E::AMBIGUOUS_EXPONENT }
-        } else if result_exp <= E::AMBIGUOUS_EXPONENT {
-            Self { fraction: fraction >> 1isize, exponent: E::AMBIGUOUS_EXPONENT }
+        let exponent = sum.wrapping_sub(&adj);
+        let fraction = if exponent == E::AMBIGUOUS_EXPONENT {
+            product
+                .w_shl(leading.wrapping_sub(2))
+                .w_shr(F::FRACTION_BITS)
+                .deflate()
         } else {
-            Self { fraction, exponent: result_exp }
-        }
+            product.w_shl(leading).w_shr(F::FRACTION_BITS).deflate()
+        };
+        Self { fraction, exponent }
     }
 }

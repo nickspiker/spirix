@@ -192,6 +192,7 @@ pub trait WideOps: Sized + Copy {
 pub trait Inflate: Sized + Copy {
     type Wide: WideOps + Deflate<Self>;
     fn inflate(self) -> Self::Wide;
+    fn sign_extend(self) -> Self::Wide;
 }
 
 /// Extract stored fraction from wide result (take low FRAC bits).
@@ -207,6 +208,11 @@ macro_rules! impl_wide_ops {
             #[inline]
             fn inflate(self) -> $wide {
                 (self as $wide) ^ ((-1 as $wide) << $frac)
+            }
+
+            #[inline]
+            fn sign_extend(self) -> $wide {
+                self as $wide
             }
         }
 
@@ -288,6 +294,11 @@ impl Inflate for i128 {
         let wide: i256::I256 = self.into();
         let mask: i256::I256 = (-1i128).into();
         wide ^ !mask
+    }
+
+    #[inline]
+    fn sign_extend(self) -> i256::I256 {
+        self.into()
     }
 }
 

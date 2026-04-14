@@ -614,8 +614,50 @@ fn multiplication_basic() {
     assert!((undef * undef).is_undefined(), "[℘]*[℘]=[℘]");
 
     // Sign preservation
+    // escaped * normal sign preservation:
     assert!((neg_exploded * one).exploded() && (neg_exploded * one).is_negative(), "[-↑]*[#]=[-↑]");
+    // escaped * normal sign preservation:
     assert!((neg_vanished * one).vanished() && (neg_vanished * one).is_negative(), "[-↓]*[#]=[-↓]");
+
+    // Exponent overflow/underflow tests (no f64 equivalent — test state directly)
+    // F3E3: MAX_EXPONENT=127, MIN_EXPONENT=-127, AMBIGUOUS=-128
+    type S88 = Scalar<i8, i8>;
+
+    // stored=0 * stored=0 with normal exponents → positive result
+    let neg1_exp0 = S88::new(0, 0);  // -1 * 2^0 = -1
+    let neg1_exp5 = S88::new(0, 5);  // -1 * 2^5 = -32
+    let result = neg1_exp0 * neg1_exp5;
+    assert!(result.is_positive(), "(-1)*(-32) should be positive");
+    assert!(result.is_normal(), "(-1)*(-32) should be normal");
+
+    // stored=0 * stored=0 near max exponent → still normal
+    let neg1_exp63 = S88::new(0, 63);
+    let result = neg1_exp63 * neg1_exp63;
+    assert!(result.is_normal() && result.is_positive(), "(-2^63)*(-2^63) should be normal positive");
+
+    // stored=0 * stored=0 overflow → exploded
+    let neg1_exp64 = S88::new(0, 64);
+    let result = neg1_exp64 * neg1_exp64;
+    assert!(result.exploded() && result.is_positive(), "(-2^64)*(-2^64) should be positive exploded");
+
+    // stored=0 * stored=0 underflow → vanished
+    let neg1_negexp = S88::new(0, -64);
+    let result = neg1_negexp * neg1_negexp;
+    assert!(result.is_normal() && result.is_positive(), "(-2^-64)*(-2^-64) should be normal positive");
+
+    let neg1_negexp_big = S88::new(0, -65);
+    let result = neg1_negexp_big * neg1_negexp_big;
+    assert!(result.vanished() && result.is_positive(), "(-2^-65)*(-2^-65) should be positive vanished");
+
+    // General normal multiply overflow → exploded
+    let big_pos = S88::new(-100, 100);  // positive, large exponent
+    let result = big_pos * big_pos;
+    assert!(result.exploded(), "large*large should explode");
+
+    // General normal multiply underflow → vanished
+    let tiny_pos = S88::new(-100, -100);  // positive, very negative exponent
+    let result = tiny_pos * tiny_pos;
+    assert!(result.vanished(), "tiny*tiny should vanish");
 }
 
 #[test]
