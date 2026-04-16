@@ -1,13 +1,12 @@
-use crate::core::integer::{Deflate, FullInt, Inflate, IntConvert, WideOps};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -20,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -140,25 +138,25 @@ where
             if self.is_transfinite() && scalar.is_transfinite() {
                 return Self {
                     fraction: TRANSFINITE_MINUS_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() && scalar.vanished() {
                 return Self {
                     fraction: VANISHED_MINUS_VANISHED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_transfinite() {
                 return Self {
                     fraction: TRANSFINITE_MINUS_FINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if scalar.is_transfinite() {
                 return Self {
                     fraction: FINITE_MINUS_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_zero() {
@@ -186,7 +184,7 @@ where
             return *self;
         }
         let shift: isize = exp_diff.saturate();
-        if shift >= F::FRACTION_BITS {
+        if shift >= Self::fraction_bits() {
             return *self;
         }
 
@@ -200,28 +198,25 @@ where
         let result = self_f.w_sub(scalar_f);
         if result.w_is_zero() {
             return Self {
-                fraction: F::ZERO,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                fraction: F::zero(),
+                exponent: Self::ambiguous_exponent(),
             };
         }
         let leading = result.leading_same();
         let offset = small
             .exponent
-            .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+            .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
         if big.exponent.is_negative() && !offset.is_negative() {
             return Self {
                 fraction: result
                     .w_shl(leading.wrapping_sub(1))
-                    .w_shr(F::FRACTION_BITS)
+                    .w_shr(Self::fraction_bits())
                     .deflate(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         Self {
-            fraction: result
-                .w_shl(leading)
-                .w_shr(F::FRACTION_BITS)
-                .deflate(),
+            fraction: result.w_shl(leading).w_shr(Self::fraction_bits()).deflate(),
             exponent: offset,
         }
     }

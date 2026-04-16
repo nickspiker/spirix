@@ -1,7 +1,4 @@
-use crate::{
-    core::integer::FullInt, Circle, CircleConstants, ExponentConstants, FractionConstants, Integer,
-    Scalar, ScalarConstants,
-};
+use crate::{core::integer::FullInt, Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
@@ -60,7 +57,7 @@ pub trait IntoScalars<F: Integer, E: Integer> {
 
 impl<F: Integer, E: Integer> IntoScalars<F, E> for Circle<F, E>
 where
-    F: FractionConstants
+    F: Integer
         + FullInt
         + core::ops::Shl<isize, Output = F>
         + core::ops::Shr<isize, Output = F>
@@ -72,7 +69,7 @@ where
         + WrappingAdd
         + WrappingMul
         + WrappingSub,
-    E: ExponentConstants
+    E: Integer
         + FullInt
         + core::ops::Shl<isize, Output = E>
         + core::ops::Shr<isize, Output = E>
@@ -143,7 +140,7 @@ where
 /// real and imaginary Scalar components without consuming the original.
 impl<F: Integer, E: Integer> IntoScalars<F, E> for &mut Circle<F, E>
 where
-    F: FractionConstants
+    F: Integer
         + FullInt
         + core::ops::Shl<isize, Output = F>
         + core::ops::Shr<isize, Output = F>
@@ -155,7 +152,7 @@ where
         + WrappingAdd
         + WrappingMul
         + WrappingSub,
-    E: ExponentConstants
+    E: Integer
         + FullInt
         + core::ops::Shl<isize, Output = E>
         + core::ops::Shr<isize, Output = E>
@@ -226,7 +223,7 @@ where
 /// real and imaginary Scalar components without consuming the original.
 impl<F: Integer, E: Integer> IntoScalars<F, E> for &Circle<F, E>
 where
-    F: FractionConstants
+    F: Integer
         + FullInt
         + core::ops::Shl<isize, Output = F>
         + core::ops::Shr<isize, Output = F>
@@ -238,7 +235,7 @@ where
         + WrappingAdd
         + WrappingMul
         + WrappingSub,
-    E: ExponentConstants
+    E: Integer
         + FullInt
         + core::ops::Shl<isize, Output = E>
         + core::ops::Shr<isize, Output = E>

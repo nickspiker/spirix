@@ -1,13 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{Integer, Scalar, ScalarConstants};
 use core::{borrow::Borrow, ops::*};
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -20,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -67,15 +65,15 @@ where
             if self.exploded() {
                 return Self {
                     fraction: SINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
         }
-        if self.exponent > F::FRACTION_BITS.wrapping_sub(1).as_() {
+        if self.exponent > Self::fraction_bits().wrapping_sub(1).as_() {
             return Self {
                 fraction: SINE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -108,7 +106,7 @@ where
         let mut denominator = Self::ONE;
         let mut sign = true;
 
-        for i in (2..F::FRACTION_BITS).step_by(2) {
+        for i in (2..Self::fraction_bits()).step_by(2) {
             prev_sum = sum;
             numerator = numerator * x_squared;
             denominator = denominator * i.wrapping_mul(i.wrapping_add(1));
@@ -134,7 +132,7 @@ where
             if self.exploded() {
                 return Self {
                     fraction: COSINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_zero() {
@@ -143,10 +141,10 @@ where
             return Self::EFFECTIVELY_POS_ONE;
         }
 
-        if self.exponent > F::FRACTION_BITS.wrapping_sub(1).as_() {
+        if self.exponent > Self::fraction_bits().wrapping_sub(1).as_() {
             return Self {
                 fraction: COSINE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -182,7 +180,7 @@ where
         let mut denominator = Self::ONE;
         let mut term_sign = true;
 
-        for i in (1..F::FRACTION_BITS).step_by(2) {
+        for i in (1..Self::fraction_bits()).step_by(2) {
             prev_sum = sum;
             numerator = numerator * x_squared;
             denominator = denominator * i.wrapping_mul(i.wrapping_add(1));
@@ -211,24 +209,24 @@ where
             if self.exploded() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
         }
-        if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
-            if self.exponent > F::FRACTION_BITS.as_() {
+        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+            if self.exponent > Self::fraction_bits().as_() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         } else {
             let exponent_isize: isize = self.exponent.as_();
-            if exponent_isize > F::FRACTION_BITS {
+            if exponent_isize > Self::fraction_bits() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -240,7 +238,7 @@ where
             if self.exploded() {
                 return Self {
                     fraction: ARCSINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -252,7 +250,7 @@ where
             }
             return Self {
                 fraction: ARCSINE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         if self == -1 {
@@ -277,7 +275,7 @@ where
                 term = term * x_squared * coefficient;
                 sum = sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
 
-                if sum == prev_sum || n > (F::FRACTION_BITS >> 1) {
+                if sum == prev_sum || n > (Self::fraction_bits() >> 1) {
                     break;
                 }
             }
@@ -310,7 +308,7 @@ where
             term = term * term_squared * coefficient;
             series_sum = series_sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
 
-            if series_sum == prev_sum || n > (F::FRACTION_BITS >> 1) {
+            if series_sum == prev_sum || n > (Self::fraction_bits() >> 1) {
                 break;
             }
         }
@@ -329,7 +327,7 @@ where
             if self.exploded() {
                 return Self {
                     fraction: ARCCOSINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self::HALF_PI;
@@ -341,7 +339,7 @@ where
             } else {
                 return Self {
                     fraction: ARCCOSINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -383,7 +381,7 @@ where
             term = term * term_squared * coefficient;
             series_sum = series_sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
 
-            if series_sum == prev_sum || n > (F::FRACTION_BITS >> 1) {
+            if series_sum == prev_sum || n > (Self::fraction_bits() >> 1) {
                 break;
             }
         }
@@ -434,7 +432,7 @@ where
         let mut previous = Self::ZERO;
         let mut result;
 
-        for iterations in 1..F::FRACTION_BITS {
+        for iterations in 1..Self::fraction_bits() {
             result = Self::from(2isize.wrapping_mul(iterations).wrapping_sub(1));
 
             for k in (1..iterations).rev() {
@@ -502,7 +500,7 @@ where
             if self.exploded() {
                 return Self {
                     fraction: SINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -530,7 +528,7 @@ where
             if self.exploded() {
                 return Self {
                     fraction: COSINE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self::ONE;
@@ -552,7 +550,7 @@ where
             if self.exploded() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -566,7 +564,7 @@ where
     //         if self.exploded() {
     //             return Self {
     //                 fraction: GENERAL.prefix.sa(),
-    //                 exponent: E::AMBIGUOUS_EXPONENT,
+    //                 exponent: Self::ambiguous_exponent(),
     //             };
     //         }
     //         // Zero returns zero
@@ -600,7 +598,7 @@ where
 
     //         sum = sum + term;
 
-    //         if sum == prev_sum || n > F::FRACTION_BITS {
+    //         if sum == prev_sum || n > Self::fraction_bits() {
     //             break;
     //         }
     //     }
@@ -645,7 +643,7 @@ where
 
     //         // Check for convergence
     //         if (delta - Self::ONE).magnitude() < Self::POS_NORMAL_EPSILON
-    //             || j > (F::FRACTION_BITS >> 1)
+    //             || j > (Self::fraction_bits() >> 1)
     //         {
     //             break;
     //         }

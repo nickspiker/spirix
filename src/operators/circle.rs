@@ -1,15 +1,11 @@
-use crate::core::integer::{Inflate, FullInt, Integer};
-use crate::{
-    operators::*, Circle, CircleConstants, ExponentConstants, FractionConstants, Scalar,
-    ScalarConstants,
-};
+use crate::core::integer::*;
+use crate::{operators::*, Circle, CircleConstants, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -22,7 +18,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -84,7 +79,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -97,7 +91,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -151,7 +144,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -164,7 +156,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -218,7 +209,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -231,7 +221,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -289,7 +278,6 @@ macro_rules! impl_circle_unary_op {
         // &Circle op
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -302,7 +290,6 @@ macro_rules! impl_circle_unary_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -354,7 +341,6 @@ macro_rules! impl_circle_unary_op {
         // &mut Circle op
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -367,7 +353,6 @@ macro_rules! impl_circle_unary_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -419,7 +404,6 @@ macro_rules! impl_circle_unary_op {
         // Circle op
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -432,7 +416,6 @@ macro_rules! impl_circle_unary_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>

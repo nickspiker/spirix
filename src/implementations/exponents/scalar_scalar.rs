@@ -1,13 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -20,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -96,38 +94,38 @@ where
             if self.exploded() {
                 return Self {
                     fraction: TRANSFINITE_POWER.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if exp.exploded() {
                 return Self {
                     fraction: POWER_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.fraction.is_negative() {
                 return Self {
                     fraction: NEGATIVE_POWER.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if exp.is_negligible() {
                 return Self {
                     fraction: POWER_NEGLIGIBLE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_negligible() {
                 return Self {
                     fraction: NEGLIGIBLE_POWER.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
         if self.fraction.is_negative() {
             return Self {
                 fraction: NEGATIVE_POWER.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -152,30 +150,30 @@ where
             if self.exploded() {
                 return Self {
                     fraction: TRANSFINITE_LOG.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() {
                 return Self {
                     fraction: NEGLIGIBLE_LOG.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if base.exploded() {
                 return Self {
                     fraction: LOG_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self {
                 fraction: LOG_NEGLIGIBLE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         if base == 1 {
             return Self {
                 fraction: LOG_ONE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 

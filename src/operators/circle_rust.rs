@@ -1,7 +1,7 @@
 // operators/circle_rust.rs
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{Inflate, FullInt, IntConvert};
-use crate::{operators::*, Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::core::integer::*;
+use crate::{operators::*, Circle, Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -15,7 +15,6 @@ macro_rules! impl_circle_op_rust_to_circle {
             // &Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -28,7 +27,6 @@ macro_rules! impl_circle_op_rust_to_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -82,7 +80,6 @@ macro_rules! impl_circle_op_rust_to_circle {
             // &mut Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -95,7 +92,6 @@ macro_rules! impl_circle_op_rust_to_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -149,7 +145,6 @@ macro_rules! impl_circle_op_rust_to_circle {
             // Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -162,7 +157,6 @@ macro_rules! impl_circle_op_rust_to_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -302,7 +296,6 @@ macro_rules! impl_circle_op_rust_to_scalar {
             // &Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -315,7 +308,6 @@ macro_rules! impl_circle_op_rust_to_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -369,7 +361,6 @@ macro_rules! impl_circle_op_rust_to_scalar {
             // &mut Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -382,7 +373,6 @@ macro_rules! impl_circle_op_rust_to_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -436,7 +426,6 @@ macro_rules! impl_circle_op_rust_to_scalar {
             // Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -449,7 +438,6 @@ macro_rules! impl_circle_op_rust_to_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -531,7 +519,6 @@ macro_rules! impl_circle_assign_op_rust {
         $(
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -544,7 +531,6 @@ macro_rules! impl_circle_assign_op_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -682,7 +668,6 @@ macro_rules! impl_circle_shift_op {
             // &Circle op shift
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -695,7 +680,6 @@ macro_rules! impl_circle_shift_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -749,7 +733,6 @@ macro_rules! impl_circle_shift_op {
             // &mut Circle op shift
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -762,7 +745,6 @@ macro_rules! impl_circle_shift_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -816,7 +798,6 @@ macro_rules! impl_circle_shift_op {
             // Circle op shift
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -829,7 +810,6 @@ macro_rules! impl_circle_shift_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -928,7 +908,6 @@ macro_rules! impl_circle_shift_assign_op {
         $(
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -941,7 +920,6 @@ macro_rules! impl_circle_shift_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1038,7 +1016,6 @@ macro_rules! impl_circle_exponent_rust {
             // &Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1051,7 +1028,6 @@ macro_rules! impl_circle_exponent_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1105,7 +1081,6 @@ macro_rules! impl_circle_exponent_rust {
             // &mut Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1118,7 +1093,6 @@ macro_rules! impl_circle_exponent_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1172,7 +1146,6 @@ macro_rules! impl_circle_exponent_rust {
             // Circle op RustType
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1185,7 +1158,6 @@ macro_rules! impl_circle_exponent_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1303,7 +1275,6 @@ macro_rules! impl_circle_cmp_rust {
             // Circle == primitive
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1316,7 +1287,6 @@ macro_rules! impl_circle_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1369,7 +1339,6 @@ macro_rules! impl_circle_cmp_rust {
             impl<
                 'a,
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1382,7 +1351,6 @@ macro_rules! impl_circle_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1434,7 +1402,6 @@ macro_rules! impl_circle_cmp_rust {
             // primitive == Circle
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1447,7 +1414,6 @@ macro_rules! impl_circle_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1500,7 +1466,6 @@ macro_rules! impl_circle_cmp_rust {
             impl<
                 'a,
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1513,7 +1478,6 @@ macro_rules! impl_circle_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>

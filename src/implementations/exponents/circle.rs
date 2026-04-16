@@ -1,15 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -22,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -88,7 +84,7 @@ where
             } else {
                 let n_level: isize = if self.exploded() { -1 } else { -2 };
 
-                let (product_real, product_imaginary) = match F::FRACTION_BITS {
+                let (product_real, product_imaginary) = match Self::fraction_bits() {
                     8 => {
                         let r: i16 = self.real.as_();
                         let i: i16 = self.imaginary.as_();
@@ -109,8 +105,8 @@ where
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
-                            (normalized_real >> F::FRACTION_BITS).as_(),
-                            (normalized_imag >> F::FRACTION_BITS).as_(),
+                            (normalized_real >> Self::fraction_bits()).as_(),
+                            (normalized_imag >> Self::fraction_bits()).as_(),
                         )
                     }
                     16 => {
@@ -133,8 +129,8 @@ where
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
-                            (normalized_real >> F::FRACTION_BITS).as_(),
-                            (normalized_imag >> F::FRACTION_BITS).as_(),
+                            (normalized_real >> Self::fraction_bits()).as_(),
+                            (normalized_imag >> Self::fraction_bits()).as_(),
                         )
                     }
                     32 => {
@@ -157,8 +153,8 @@ where
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
-                            (normalized_real >> F::FRACTION_BITS).as_(),
-                            (normalized_imag >> F::FRACTION_BITS).as_(),
+                            (normalized_real >> Self::fraction_bits()).as_(),
+                            (normalized_imag >> Self::fraction_bits()).as_(),
                         )
                     }
                     64 => {
@@ -181,8 +177,8 @@ where
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
-                            (normalized_real >> F::FRACTION_BITS).as_(),
-                            (normalized_imag >> F::FRACTION_BITS).as_(),
+                            (normalized_real >> Self::fraction_bits()).as_(),
+                            (normalized_imag >> Self::fraction_bits()).as_(),
                         )
                     }
                     128 => {
@@ -205,20 +201,20 @@ where
                         let normalized_real = real_product << shift_amount;
                         let normalized_imag = imag_product << shift_amount;
                         (
-                            (normalized_real >> F::FRACTION_BITS).as_(),
-                            (normalized_imag >> F::FRACTION_BITS).as_(),
+                            (normalized_real >> Self::fraction_bits()).as_(),
+                            (normalized_imag >> Self::fraction_bits()).as_(),
                         )
                     }
                     _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
                 };
 
                 // Check if the calculation resulted in zero due to overflow
-                if product_real == F::ZERO && product_imaginary == F::ZERO {
-                    if self.exploded() && self.imaginary == F::ZERO {
+                if product_real == F::zero() && product_imaginary == F::zero() {
+                    if self.exploded() && self.imaginary == F::zero() {
                         return Self {
                             real: self.real, // Keep exploded magnitude
-                            imaginary: F::ZERO,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            imaginary: F::zero(),
+                            exponent: Self::ambiguous_exponent(),
                         };
                     }
                 }
@@ -226,7 +222,7 @@ where
                 return Self {
                     real: product_real,
                     imaginary: product_imaginary,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -235,7 +231,7 @@ where
         let imaginary;
         let expo_adjust: isize;
 
-        match F::FRACTION_BITS {
+        match Self::fraction_bits() {
             8 => {
                 let r: i16 = self.real.as_();
                 let i: i16 = self.imaginary.as_();
@@ -245,11 +241,11 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == F::ZERO {
+                    if self.exploded() && self.imaginary == F::zero() {
                         return Self {
                             real: self.real, // Keep the exploded magnitude
-                            imaginary: F::ZERO,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            imaginary: F::zero(),
+                            exponent: Self::ambiguous_exponent(),
                         };
                     }
                     return Self::ZERO;
@@ -268,8 +264,8 @@ where
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
 
-                real = (normalized_real >> F::FRACTION_BITS).as_();
-                imaginary = (normalized_imag >> F::FRACTION_BITS).as_();
+                real = (normalized_real >> Self::fraction_bits()).as_();
+                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
             }
             16 => {
                 let r: i32 = self.real.as_();
@@ -280,11 +276,11 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == F::ZERO {
+                    if self.exploded() && self.imaginary == F::zero() {
                         return Self {
                             real: self.real, // Keep the exploded magnitude
-                            imaginary: F::ZERO,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            imaginary: F::zero(),
+                            exponent: Self::ambiguous_exponent(),
                         };
                     }
                     return Self::ZERO;
@@ -303,8 +299,8 @@ where
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
 
-                real = (normalized_real >> F::FRACTION_BITS).as_();
-                imaginary = (normalized_imag >> F::FRACTION_BITS).as_();
+                real = (normalized_real >> Self::fraction_bits()).as_();
+                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
             }
             32 => {
                 let r: i64 = self.real.as_();
@@ -315,11 +311,11 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == F::ZERO {
+                    if self.exploded() && self.imaginary == F::zero() {
                         return Self {
                             real: self.real, // Keep the exploded magnitude
-                            imaginary: F::ZERO,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            imaginary: F::zero(),
+                            exponent: Self::ambiguous_exponent(),
                         };
                     }
                     return Self::ZERO;
@@ -338,8 +334,8 @@ where
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
 
-                real = (normalized_real >> F::FRACTION_BITS).as_();
-                imaginary = (normalized_imag >> F::FRACTION_BITS).as_();
+                real = (normalized_real >> Self::fraction_bits()).as_();
+                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
             }
             64 => {
                 let r: i128 = self.real.as_();
@@ -350,11 +346,11 @@ where
 
                 if real_product == 0 && imag_product == 0 {
                     // Check if this zero is from overflow of exploded positive real
-                    if self.exploded() && self.imaginary == F::ZERO {
+                    if self.exploded() && self.imaginary == F::zero() {
                         return Self {
                             real: self.real, // Keep the exploded magnitude
-                            imaginary: F::ZERO,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            imaginary: F::zero(),
+                            exponent: Self::ambiguous_exponent(),
                         };
                     }
                     return Self::ZERO;
@@ -373,8 +369,8 @@ where
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
 
-                real = (normalized_real >> F::FRACTION_BITS).as_();
-                imaginary = (normalized_imag >> F::FRACTION_BITS).as_();
+                real = (normalized_real >> Self::fraction_bits()).as_();
+                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
             }
             128 => {
                 let r: I256 = self.real.into();
@@ -400,34 +396,34 @@ where
                 let normalized_real = real_product << shift;
                 let normalized_imag = imag_product << shift;
 
-                real = (normalized_real >> F::FRACTION_BITS).as_i128().as_();
-                imaginary = (normalized_imag >> F::FRACTION_BITS).as_i128().as_();
+                real = (normalized_real >> Self::fraction_bits()).as_i128().as_();
+                imaginary = (normalized_imag >> Self::fraction_bits()).as_i128().as_();
             }
             _ => {
                 return Self {
                     real: GENERAL.prefix.sa(),
                     imaginary: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
 
-        match E::EXPONENT_BITS {
+        match Self::exponent_bits() {
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
                 let upcast_exponent: i16 = (self_exponent << 1).wrapping_sub(expo_adjust as i16);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -441,17 +437,17 @@ where
                 let self_exponent: i32 = self.exponent.as_();
                 let upcast_exponent: i32 = (self_exponent << 1).wrapping_sub(expo_adjust as i32);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -465,17 +461,17 @@ where
                 let self_exponent: i64 = self.exponent.as_();
                 let upcast_exponent: i64 = (self_exponent << 1).wrapping_sub(expo_adjust as i64);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -489,17 +485,17 @@ where
                 let self_exponent: i128 = self.exponent.as_();
                 let upcast_exponent: i128 = (self_exponent << 1).wrapping_sub(expo_adjust as i128);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -514,17 +510,17 @@ where
                 let e: I256 = (expo_adjust as i128).into();
                 let upcast_exponent: I256 = (self_exponent << 1usize).wrapping_sub(e);
 
-                if upcast_exponent > E::MAX_EXPONENT.into() {
+                if upcast_exponent > Self::max_exponent().into() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.into() {
+                } else if upcast_exponent < Self::min_exponent().into() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -538,7 +534,7 @@ where
                 return Self {
                     real: GENERAL.prefix.sa(),
                     imaginary: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -554,7 +550,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() {
@@ -562,7 +558,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.exploded() {
@@ -570,7 +566,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -591,7 +587,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.exploded() {
@@ -599,7 +595,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }

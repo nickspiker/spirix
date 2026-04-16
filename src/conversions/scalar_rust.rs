@@ -1,12 +1,12 @@
-use crate::core::integer::FullInt;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::core::integer::*;
+use crate::ScalarConstants;
+use crate::{Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -20,7 +20,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -66,7 +65,7 @@ where
         if self.is_normal() {
             // Convert stored fraction to its effective integer value, then to f64
             // value = effective_as_f64 * 2^(exponent - FRAC)
-            let effective_i64: i64 = match F::FRACTION_BITS {
+            let effective_i64: i64 = match Scalar::<F, E>::fraction_bits() {
                 8 => {
                     let s: i8 = self.fraction.saturate();
                     (s as i16 ^ ((-1i16) << 8)) as i64
@@ -92,7 +91,7 @@ where
             };
             let base = effective_i64 as f64;
             let exponent: i32 = self.exponent.saturate();
-            let scale_exp = exponent as i64 - F::FRACTION_BITS as i64;
+            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64;
             base * f64::from_bits(((1023i64 + scale_exp) as u64) << 52)
         } else {
             if self.is_undefined() {
@@ -116,7 +115,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -130,7 +128,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -174,7 +171,7 @@ where
 {
     fn into(self) -> f32 {
         if self.is_normal() {
-            let effective_i32: i32 = match F::FRACTION_BITS {
+            let effective_i32: i32 = match Scalar::<F, E>::fraction_bits() {
                 8 => {
                     let s: i8 = self.fraction.saturate();
                     (s as i16 ^ ((-1i16) << 8)) as i32
@@ -194,7 +191,7 @@ where
             };
             let base = effective_i32 as f32;
             let exponent: i32 = self.exponent.saturate();
-            let scale_exp = exponent as i64 - F::FRACTION_BITS as i64;
+            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64;
             base * f32::from_bits(((127i64 + scale_exp) as u32) << 23)
         } else {
             if self.is_undefined() {
@@ -216,7 +213,6 @@ where
 }
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -230,7 +226,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -278,7 +273,6 @@ where
 }
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -292,7 +286,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -344,7 +337,6 @@ macro_rules! impl_into_int {
         $(
             impl<
   F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -357,7 +349,6 @@ macro_rules! impl_into_int {
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -406,7 +397,6 @@ macro_rules! impl_into_int {
 
             impl<
   F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -419,7 +409,6 @@ macro_rules! impl_into_int {
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -500,7 +489,6 @@ macro_rules! impl_into_uint {
         $(
             impl<
   F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -513,7 +501,6 @@ macro_rules! impl_into_uint {
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -562,7 +549,6 @@ macro_rules! impl_into_uint {
 
             impl<
   F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -575,7 +561,6 @@ macro_rules! impl_into_uint {
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -644,7 +629,6 @@ impl_into_uint!(u8, u16, u32, u64, u128, usize);
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -657,7 +641,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>

@@ -1,15 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -22,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -146,13 +142,13 @@ where
                 return Circle {
                     real: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
                     imaginary: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             } else if self.is_zero() && other.is_infinite() {
                 return Circle {
                     real: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
                     imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             } else if self.is_zero() || other.is_zero() {
                 return Circle::<F, E>::ZERO;
@@ -160,13 +156,13 @@ where
                 return Circle {
                     real: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
                     imaginary: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             } else if self.vanished() && other.exploded() {
                 return Circle {
                     real: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
                     imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             } else {
                 let n_level: isize = if self.exploded() || other.exploded() {
@@ -174,7 +170,7 @@ where
                 } else {
                     -2
                 };
-                let (real, imaginary) = match F::FRACTION_BITS {
+                let (real, imaginary) = match Self::fraction_bits() {
                     8 => {
                         let multiplier_r: i16 = other.real.as_();
                         let multiplier_i: i16 = other.imaginary.as_();
@@ -196,8 +192,8 @@ where
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
-                            (normalized_wide_r >> F::FRACTION_BITS).as_(),
-                            (normalized_wide_i >> F::FRACTION_BITS).as_(),
+                            (normalized_wide_r >> Self::fraction_bits()).as_(),
+                            (normalized_wide_i >> Self::fraction_bits()).as_(),
                         )
                     }
                     16 => {
@@ -221,8 +217,8 @@ where
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
-                            (normalized_wide_r >> F::FRACTION_BITS).as_(),
-                            (normalized_wide_i >> F::FRACTION_BITS).as_(),
+                            (normalized_wide_r >> Self::fraction_bits()).as_(),
+                            (normalized_wide_i >> Self::fraction_bits()).as_(),
                         )
                     }
                     32 => {
@@ -246,8 +242,8 @@ where
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
-                            (normalized_wide_r >> F::FRACTION_BITS).as_(),
-                            (normalized_wide_i >> F::FRACTION_BITS).as_(),
+                            (normalized_wide_r >> Self::fraction_bits()).as_(),
+                            (normalized_wide_i >> Self::fraction_bits()).as_(),
                         )
                     }
                     64 => {
@@ -271,8 +267,8 @@ where
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
-                            (normalized_wide_r >> F::FRACTION_BITS).as_(),
-                            (normalized_wide_i >> F::FRACTION_BITS).as_(),
+                            (normalized_wide_r >> Self::fraction_bits()).as_(),
+                            (normalized_wide_i >> Self::fraction_bits()).as_(),
                         )
                     }
                     128 => {
@@ -296,8 +292,8 @@ where
                         let normalized_wide_r = product_wide_r << shift_amount;
                         let normalized_wide_i = product_wide_i << shift_amount;
                         (
-                            (normalized_wide_r >> F::FRACTION_BITS).as_i128().as_(),
-                            (normalized_wide_i >> F::FRACTION_BITS).as_i128().as_(),
+                            (normalized_wide_r >> Self::fraction_bits()).as_i128().as_(),
+                            (normalized_wide_i >> Self::fraction_bits()).as_i128().as_(),
                         )
                     }
                     _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
@@ -306,14 +302,14 @@ where
                 return Circle::<F, E> {
                     real,
                     imaginary,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         } else {
             let real;
             let imaginary;
             let expo_adjust: isize;
-            match F::FRACTION_BITS {
+            match Self::fraction_bits() {
                 8 => {
                     let multiplier_r: i16 = other.real.as_();
                     let multiplier_i: i16 = other.imaginary.as_();
@@ -333,8 +329,8 @@ where
                     let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> F::FRACTION_BITS).as_();
-                    imaginary = (normalized_wide_i >> F::FRACTION_BITS).as_();
+                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
+                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
                 }
                 16 => {
                     let multiplier_r: i32 = other.real.as_();
@@ -355,8 +351,8 @@ where
                     let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> F::FRACTION_BITS).as_();
-                    imaginary = (normalized_wide_i >> F::FRACTION_BITS).as_();
+                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
+                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
                 }
                 32 => {
                     let multiplier_r: i64 = other.real.as_();
@@ -377,8 +373,8 @@ where
                     let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> F::FRACTION_BITS).as_();
-                    imaginary = (normalized_wide_i >> F::FRACTION_BITS).as_();
+                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
+                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
                 }
                 64 => {
                     let multiplier_r: i128 = other.real.as_();
@@ -399,8 +395,8 @@ where
                     let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> F::FRACTION_BITS).as_();
-                    imaginary = (normalized_wide_i >> F::FRACTION_BITS).as_();
+                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
+                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
                 }
                 128 => {
                     let multiplier_r: I256 = other.real.into();
@@ -421,19 +417,19 @@ where
                     let shift = expo_adjust.wrapping_add(1);
                     let normalized_wide_r = product_wide_r << shift;
                     let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> F::FRACTION_BITS).as_i128().as_();
-                    imaginary = (normalized_wide_i >> F::FRACTION_BITS).as_i128().as_();
+                    real = (normalized_wide_r >> Self::fraction_bits()).as_i128().as_();
+                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_i128().as_();
                 }
                 _ => {
                     return Circle::<F, E> {
                         real: GENERAL.prefix.sa(),
                         imaginary: GENERAL.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
             }
 
-            match E::EXPONENT_BITS {
+            match Self::exponent_bits() {
                 8 => {
                     let self_exponent: i16 = self.exponent.as_();
                     let other_exponent: i16 = other.exponent.as_();
@@ -441,17 +437,17 @@ where
                         .wrapping_add(other_exponent)
                         .wrapping_sub(expo_adjust as i16);
 
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
+                    if upcast_exponent > Self::max_exponent().as_() {
                         return Circle::<F, E> {
                             real,
                             imaginary,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                    } else if upcast_exponent < Self::min_exponent().as_() {
                         return Circle::<F, E> {
                             real: real >> 1isize,
                             imaginary: imaginary >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
                     } else {
                         return Circle::<F, E> {
@@ -468,17 +464,17 @@ where
                         .wrapping_add(other_exponent)
                         .wrapping_sub(expo_adjust as i32);
 
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
+                    if upcast_exponent > Self::max_exponent().as_() {
                         return Circle::<F, E> {
                             real,
                             imaginary,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                    } else if upcast_exponent < Self::min_exponent().as_() {
                         return Circle::<F, E> {
                             real: real >> 1isize,
                             imaginary: imaginary >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
                     } else {
                         return Circle::<F, E> {
@@ -495,17 +491,17 @@ where
                         .wrapping_add(other_exponent)
                         .wrapping_sub(expo_adjust as i64);
 
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
+                    if upcast_exponent > Self::max_exponent().as_() {
                         return Circle::<F, E> {
                             real,
                             imaginary,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                    } else if upcast_exponent < Self::min_exponent().as_() {
                         return Circle::<F, E> {
                             real: real >> 1isize,
                             imaginary: imaginary >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
                     } else {
                         return Circle::<F, E> {
@@ -522,17 +518,17 @@ where
                         .wrapping_add(other_exponent)
                         .wrapping_sub(expo_adjust as i128);
 
-                    if upcast_exponent > E::MAX_EXPONENT.as_() {
+                    if upcast_exponent > Self::max_exponent().as_() {
                         return Circle::<F, E> {
                             real,
                             imaginary,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
-                    } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                    } else if upcast_exponent < Self::min_exponent().as_() {
                         return Circle::<F, E> {
                             real: real >> 1isize,
                             imaginary: imaginary >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
                     } else {
                         return Circle::<F, E> {
@@ -549,17 +545,17 @@ where
                     let upcast_exponent: I256 =
                         self_exponent.wrapping_add(other_exponent).wrapping_sub(e);
 
-                    if upcast_exponent > E::MAX_EXPONENT.into() {
+                    if upcast_exponent > Self::max_exponent().into() {
                         return Circle::<F, E> {
                             real,
                             imaginary,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
-                    } else if upcast_exponent < E::MIN_EXPONENT.into() {
+                    } else if upcast_exponent < Self::min_exponent().into() {
                         return Circle::<F, E> {
                             real: real >> 1isize,
                             imaginary: imaginary >> 1isize,
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            exponent: Self::ambiguous_exponent(),
                         };
                     } else {
                         return Circle::<F, E> {
@@ -573,7 +569,7 @@ where
                     return Circle {
                         real: GENERAL.prefix.sa(),
                         imaginary: GENERAL.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
             }

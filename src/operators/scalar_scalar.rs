@@ -1,5 +1,5 @@
-use crate::core::integer::{Inflate, FullInt, Integer};
-use crate::{operators::*, ExponentConstants, FractionConstants, Scalar, ScalarConstants};
+use crate::core::integer::*;
+use crate::{operators::*, Scalar, ScalarConstants};
 use core::cmp::Ordering;
 use core::ops::*;
 use i256::I256;
@@ -9,7 +9,6 @@ macro_rules! impl_scalar_op {
         // &Scalar op Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -22,7 +21,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -73,7 +71,6 @@ macro_rules! impl_scalar_op {
         // &mut Scalar op Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -86,7 +83,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -136,7 +132,6 @@ macro_rules! impl_scalar_op {
         // &Scalar op &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -149,7 +144,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -200,7 +194,6 @@ macro_rules! impl_scalar_op {
         // &Scalar op &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -213,7 +206,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -264,7 +256,6 @@ macro_rules! impl_scalar_op {
         // &mut Scalar op &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -277,7 +268,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -328,7 +318,6 @@ macro_rules! impl_scalar_op {
         // &mut Scalar op &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -341,7 +330,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -392,7 +380,6 @@ macro_rules! impl_scalar_op {
         // Scalar op &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -405,7 +392,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -456,7 +442,6 @@ macro_rules! impl_scalar_op {
         // Scalar op &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -469,7 +454,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -520,7 +504,6 @@ macro_rules! impl_scalar_op {
         // Scalar op Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -533,7 +516,6 @@ macro_rules! impl_scalar_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -594,7 +576,6 @@ macro_rules! impl_scalar_assign_op {
         // Scalar op= &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -607,7 +588,6 @@ macro_rules! impl_scalar_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -657,7 +637,6 @@ macro_rules! impl_scalar_assign_op {
         // Scalar op= &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -670,7 +649,6 @@ macro_rules! impl_scalar_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -720,7 +698,6 @@ macro_rules! impl_scalar_assign_op {
         // Scalar op= Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -733,7 +710,6 @@ macro_rules! impl_scalar_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -793,7 +769,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -806,7 +781,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -858,7 +832,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -871,7 +844,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -923,7 +895,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -936,7 +907,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -988,7 +958,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1001,7 +970,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1053,7 +1021,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1066,7 +1033,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1118,7 +1084,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1131,7 +1096,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1183,7 +1147,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1196,7 +1159,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1248,7 +1210,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1261,7 +1222,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1313,7 +1273,6 @@ macro_rules! impl_scalar_math_op {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1326,7 +1285,6 @@ macro_rules! impl_scalar_math_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1384,7 +1342,6 @@ macro_rules! impl_scalar_bitwise_op {
         // &Scalar op &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1397,7 +1354,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1448,7 +1404,6 @@ macro_rules! impl_scalar_bitwise_op {
         // &Scalar op &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1461,7 +1416,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1512,7 +1466,6 @@ macro_rules! impl_scalar_bitwise_op {
         // &mut Scalar op &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1525,7 +1478,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1576,7 +1528,6 @@ macro_rules! impl_scalar_bitwise_op {
         // &mut Scalar op &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1589,7 +1540,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1640,7 +1590,6 @@ macro_rules! impl_scalar_bitwise_op {
         // Scalar op &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1653,7 +1602,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1704,7 +1652,6 @@ macro_rules! impl_scalar_bitwise_op {
         // Scalar op &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1717,7 +1664,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1767,7 +1713,6 @@ macro_rules! impl_scalar_bitwise_op {
         // &Scalar op Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1780,7 +1725,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1831,7 +1775,6 @@ macro_rules! impl_scalar_bitwise_op {
         // &mut Scalar op Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1844,7 +1787,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1894,7 +1836,6 @@ macro_rules! impl_scalar_bitwise_op {
         // Scalar op Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1907,7 +1848,6 @@ macro_rules! impl_scalar_bitwise_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1965,7 +1905,6 @@ macro_rules! impl_scalar_bitwise_assign_op {
         // Scalar op= &Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1978,7 +1917,6 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -2028,7 +1966,6 @@ macro_rules! impl_scalar_bitwise_assign_op {
         // Scalar op= &mut Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -2041,7 +1978,6 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -2091,7 +2027,6 @@ macro_rules! impl_scalar_bitwise_assign_op {
         // Scalar op= Scalar
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -2104,7 +2039,6 @@ macro_rules! impl_scalar_bitwise_assign_op {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -2159,7 +2093,6 @@ impl_scalar_bitwise_assign_op!(BitOrAssign, bitor_assign, aligned_or);
 impl_scalar_bitwise_assign_op!(BitXorAssign, bitxor_assign, aligned_xor);
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2172,7 +2105,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2222,7 +2154,6 @@ where
 // PartialEq implementation for different reference combinations
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2235,7 +2166,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2284,7 +2214,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2297,7 +2226,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2347,7 +2275,6 @@ where
 // PartialOrd implementation
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2360,7 +2287,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2409,7 +2335,6 @@ where
 // Scalar == &mut Scalar
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2422,7 +2347,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2472,7 +2396,6 @@ where
 // &mut Scalar == Scalar
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2485,7 +2408,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2534,7 +2456,6 @@ where
 // Value vs reference
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2547,7 +2468,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2597,7 +2517,6 @@ where
 // Reference vs value
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2610,7 +2529,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2660,7 +2578,6 @@ where
 // With mutable references (these are likely to be needed)
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2673,7 +2590,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -2722,7 +2638,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -2735,7 +2650,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>

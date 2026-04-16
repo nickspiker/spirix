@@ -1,6 +1,6 @@
-use crate::core::integer::{Deflate, FullInt, Inflate, IntConvert, WideOps};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -37,7 +37,6 @@ const RECIPROCAL_LUT_16: [i16; 256] = [
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -50,7 +49,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -104,7 +102,7 @@ where
                 if self.is_zero() {
                     return Self {
                         fraction: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self::INFINITY;
@@ -113,7 +111,7 @@ where
                 if other.is_infinite() {
                     return Self {
                         fraction: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self::INFINITY;
@@ -124,77 +122,78 @@ where
             if self.exploded() && other.exploded() {
                 return Self {
                     fraction: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() && other.vanished() {
                 return Self {
                     fraction: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() {
-                let fraction = match F::FRACTION_BITS {
+                let fraction = match Self::fraction_bits() {
                     16 => {
                         let numerator: i32 = self.fraction.as_();
                         let denominator: i32 = other.fraction.as_();
-                        let mut quotient = (numerator << (F::FRACTION_BITS.wrapping_add(1)))
+                        let mut quotient = (numerator << (Self::fraction_bits().wrapping_add(1)))
                             .div_euclid(denominator);
                         let shift = quotient
                             .leading_ones()
                             .max(quotient.leading_zeros())
                             .wrapping_sub(2);
                         quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
+                        (quotient >> Self::fraction_bits()).as_()
                     }
                     _ => GENERAL.prefix.sa(),
                 };
                 return Self {
                     fraction,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if other.exploded() {
-                let fraction = match F::FRACTION_BITS {
+                let fraction = match Self::fraction_bits() {
                     16 => {
                         let numerator: i32 = self.fraction.as_();
                         let denominator: i32 = other.fraction.as_();
-                        let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                        let mut quotient =
+                            (numerator << Self::fraction_bits()).div_euclid(denominator);
                         let shift = quotient
                             .leading_ones()
                             .max(quotient.leading_zeros())
                             .wrapping_sub(2);
                         quotient <<= shift;
-                        (quotient >> F::FRACTION_BITS).as_()
+                        (quotient >> Self::fraction_bits()).as_()
                     }
                     _ => return self.scalar_divide_scalar(other),
                 };
                 return Self {
                     fraction,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
-            let fraction = match F::FRACTION_BITS {
+            let fraction = match Self::fraction_bits() {
                 16 => {
                     let numerator: i32 = self.fraction.as_();
                     let denominator: i32 = other.fraction.as_();
-                    let mut quotient = (numerator << F::FRACTION_BITS).div_euclid(denominator);
+                    let mut quotient = (numerator << Self::fraction_bits()).div_euclid(denominator);
                     let shift = quotient
                         .leading_ones()
                         .max(quotient.leading_zeros())
                         .wrapping_sub(1);
                     quotient <<= shift;
-                    (quotient >> F::FRACTION_BITS).as_()
+                    (quotient >> Self::fraction_bits()).as_()
                 }
                 _ => return self.scalar_divide_scalar(other),
             };
             return Self {
                 fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
-        let (fraction, expo_adjust) = match F::FRACTION_BITS {
+        let (fraction, expo_adjust) = match Self::fraction_bits() {
             8 => {
                 let numerator: i16 = self.fraction.as_();
                 let denominator: i16 = other.fraction.as_();
@@ -227,8 +226,8 @@ where
                 let normalized = quotient << shift;
 
                 (
-                    (normalized >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (normalized >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             16 => {
@@ -268,8 +267,8 @@ where
                 let normalized = quotient << shift;
 
                 (
-                    (normalized >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (normalized >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             32 => {
@@ -303,8 +302,8 @@ where
                 let normalized = quotient << shift;
 
                 (
-                    (normalized >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (normalized >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             64 => {
@@ -338,8 +337,8 @@ where
                 let normalized = quotient << shift;
 
                 (
-                    (normalized >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (normalized >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             128 => {
@@ -381,8 +380,8 @@ where
                 let normalized: i256::I256 = quotient << shift;
 
                 (
-                    (normalized >> F::FRACTION_BITS).as_i128().as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (normalized >> Self::fraction_bits()).as_i128().as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             _ => {
@@ -391,7 +390,7 @@ where
             }
         };
 
-        match E::EXPONENT_BITS {
+        match Self::exponent_bits() {
             16 => {
                 let self_exponent: i32 = self.exponent.as_();
                 let other_exponent: i32 = other.exponent.as_();
@@ -399,15 +398,15 @@ where
                     .wrapping_sub(other_exponent)
                     .wrapping_sub(expo_adjust as i32);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         fraction: fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -419,7 +418,7 @@ where
             _ => {
                 return Self {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -440,7 +439,7 @@ where
                 if self.is_zero() {
                     return Self {
                         fraction: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self::INFINITY;
@@ -449,7 +448,7 @@ where
                 if other.is_infinite() {
                     return Self {
                         fraction: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self::INFINITY;
@@ -460,19 +459,19 @@ where
             if self.exploded() && other.exploded() {
                 return Self {
                     fraction: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() && other.vanished() {
                 return Self {
                     fraction: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             // Escaped / escaped or escaped / normal: signed div is safe (escaped fractions are small)
             let self_wide = self.fraction.inflate_conditional(self.is_normal());
             let other_wide = other.fraction.inflate_conditional(other.is_normal());
-            let quotient = self_wide.w_shl(F::FRACTION_BITS).w_div(other_wide);
+            let quotient = self_wide.w_shl(Self::fraction_bits()).w_div(other_wide);
             let result_exploded = self.exploded() || other.vanished();
             let result_vanished = self.vanished() || other.exploded();
             let leading = quotient.leading_same();
@@ -485,20 +484,20 @@ where
             };
             let fraction = quotient
                 .w_shl(leading.wrapping_sub(n))
-                .w_shr(F::FRACTION_BITS)
+                .w_shr(Self::fraction_bits())
                 .deflate();
             return Self {
                 fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
         // Power-of-two fractions (stored=0 = NEG_ONE, stored=MIN = POS_ONE) overflow
         // left_hand_load. Division involving these is just exponent subtraction ± negate.
-        let self_pot = self.fraction == F::NEG_ONE_NORMAL_FRACTION
-            || self.fraction == F::POS_ONE_NORMAL_FRACTION;
-        let other_pot = other.fraction == F::NEG_ONE_NORMAL_FRACTION
-            || other.fraction == F::POS_ONE_NORMAL_FRACTION;
+        let self_pot =
+            self.fraction == Self::neg_one_normal() || self.fraction == Self::pos_one_normal();
+        let other_pot =
+            other.fraction == Self::neg_one_normal() || other.fraction == Self::pos_one_normal();
         if self_pot || other_pot {
             // Power-of-two / anything or anything / power-of-two.
             // For pot numerator: self = ±(0.5 or 1.0) * 2^exp. Division = reciprocal(other) * self.
@@ -506,13 +505,13 @@ where
             // Both pot: result is exact power of two.
             // Use multiply infrastructure: negate + exponent math for pot, reciprocal for non-pot.
             if self_pot && other_pot {
-                let self_neg1 = self.fraction == F::NEG_ONE_NORMAL_FRACTION;
-                let other_neg1 = other.fraction == F::NEG_ONE_NORMAL_FRACTION;
+                let self_neg1 = self.fraction == Self::neg_one_normal();
+                let other_neg1 = other.fraction == Self::neg_one_normal();
                 let (frac, exp_adj): (F, E) = match (self_neg1, other_neg1) {
-                    (false, false) => (F::POS_ONE_NORMAL_FRACTION, E::ONE), // +0.5/+0.5 = +1
-                    (false, true) => (F::NEG_ONE_NORMAL_FRACTION, E::ZERO.wrapping_sub(&E::ONE)), // +0.5/-1 = -0.5
-                    (true, false) => (F::NEG_ONE_NORMAL_FRACTION, E::ONE), // -1/+0.5 = -2
-                    (true, true) => (F::POS_ONE_NORMAL_FRACTION, E::ONE),  // -1/-1 = +1
+                    (false, false) => (Self::pos_one_normal(), E::one()), // +0.5/+0.5 = +1
+                    (false, true) => (Self::neg_one_normal(), E::zero().wrapping_sub(&E::one())), // +0.5/-1 = -0.5
+                    (true, false) => (Self::neg_one_normal(), E::one()), // -1/+0.5 = -2
+                    (true, true) => (Self::pos_one_normal(), E::one()),  // -1/-1 = +1
                 };
                 let exponent = self
                     .exponent
@@ -539,19 +538,19 @@ where
                 den
             };
             let (shifted_num, num_shift_adj) = if self_pot {
-                (num_abs.w_shl(F::FRACTION_BITS - 1), 1isize)
+                (num_abs.w_shl(Self::fraction_bits() - 1), 1isize)
             } else {
-                (num_abs.w_shl(F::FRACTION_BITS), 0isize)
+                (num_abs.w_shl(Self::fraction_bits()), 0isize)
             };
             let quotient = shifted_num.w_div_unsigned(den_abs);
             let leading = quotient.w_leading_zeros();
             let stored_pos = quotient
                 .w_shl(leading)
-                .w_shr_logical(F::FRACTION_BITS)
+                .w_shr_logical(Self::fraction_bits())
                 .deflate();
             let (fraction, neg_extra) = if expect_neg {
-                if stored_pos == F::POS_ONE_NORMAL_FRACTION {
-                    (F::NEG_ONE_NORMAL_FRACTION, 1isize)
+                if stored_pos == Self::pos_one_normal() {
+                    (Self::neg_one_normal(), 1isize)
                 } else {
                     (stored_pos.wrapping_neg(), 0isize)
                 }
@@ -560,7 +559,7 @@ where
             };
             let diff = self.exponent.wrapping_sub(&other.exponent);
             let adj: E = (leading
-                .wrapping_sub(F::FRACTION_BITS)
+                .wrapping_sub(Self::fraction_bits())
                 .wrapping_sub(num_shift_adj)
                 .wrapping_add(neg_extra))
             .as_();
@@ -584,16 +583,16 @@ where
         } else {
             den
         };
-        let numerator = num_abs.w_shl(F::FRACTION_BITS);
+        let numerator = num_abs.w_shl(Self::fraction_bits());
         let quotient = numerator.w_div_unsigned(den_abs);
         let leading = quotient.w_leading_zeros();
         let stored_pos = quotient
             .w_shl(leading)
-            .w_shr_logical(F::FRACTION_BITS)
+            .w_shr_logical(Self::fraction_bits())
             .deflate();
         let (fraction, neg_extra) = if expect_negative {
-            if stored_pos == F::POS_ONE_NORMAL_FRACTION {
-                (F::NEG_ONE_NORMAL_FRACTION, 1isize)
+            if stored_pos == Self::pos_one_normal() {
+                (Self::neg_one_normal(), 1isize)
             } else {
                 (stored_pos.wrapping_neg(), 0isize)
             }
@@ -605,24 +604,24 @@ where
         if !self.exponent.is_negative() && other.exponent.is_negative() && diff.is_negative() {
             return Self {
                 fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         if self.exponent.is_negative() && !other.exponent.is_negative() && !diff.is_negative() {
             return Self {
                 fraction: fraction >> 1isize,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         let adj: E = (leading
-            .wrapping_sub(F::FRACTION_BITS)
+            .wrapping_sub(Self::fraction_bits())
             .wrapping_add(neg_extra))
         .as_();
         let exponent = diff.wrapping_sub(&adj);
-        if exponent == E::AMBIGUOUS_EXPONENT {
+        if exponent == Self::ambiguous_exponent() {
             Self {
                 fraction: fraction >> 1isize,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             }
         } else {
             Self { fraction, exponent }

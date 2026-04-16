@@ -1,14 +1,13 @@
 // src/conversions/scalar_scalar.rs
 use crate::constants::ScalarConstants;
-use crate::core::integer::{FullInt, Inflate};
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::core::integer::*;
+use crate::{Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 impl<
         FS: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = FS>
             + Shr<isize, Output = FS>
@@ -22,7 +21,6 @@ impl<
             + WrappingSub
             + AsPrimitive<FD>,
         ES: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = ES>
             + Shr<isize, Output = ES>
@@ -36,7 +34,6 @@ impl<
             + WrappingSub
             + AsPrimitive<ED>,
         FD: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = FD>
             + Shr<isize, Output = FD>
@@ -46,7 +43,6 @@ impl<
             + Shr<ED, Output = FD>
             + AsPrimitive<FS>,
         ED: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = ED>
             + Shr<isize, Output = ED>
@@ -119,20 +115,22 @@ where
         if !source.is_normal() {
             return Self {
                 fraction,
-                exponent: ED::AMBIGUOUS_EXPONENT,
+                exponent: ED::min_value(),
             };
         }
-        if ES::EXPONENT_BITS <= ED::EXPONENT_BITS {
+        if ((core::mem::size_of::<ES>() * 8) as isize)
+            <= ((core::mem::size_of::<ED>() * 8) as isize)
+        {
             let exponent = source.exponent.as_();
             return Self { fraction, exponent };
         }
-        if source.exponent > ED::MAX_EXPONENT.as_() {
-            let exponent = ED::AMBIGUOUS_EXPONENT;
+        if source.exponent > ED::max_value().as_() {
+            let exponent = ED::min_value();
             return Self { fraction, exponent };
         }
-        if source.exponent < ED::MIN_EXPONENT.as_() {
+        if source.exponent < (ED::min_value() + ED::one()).as_() {
             let fraction = fraction >> 1isize;
-            let exponent = ED::AMBIGUOUS_EXPONENT;
+            let exponent = ED::min_value();
             return Self { fraction, exponent };
         }
         let exponent = source.exponent.as_();

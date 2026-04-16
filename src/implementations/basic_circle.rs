@@ -1,8 +1,6 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::{Shl, Shr};
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -59,10 +57,70 @@ impl_circle_new! {
     i64, i128;
     i128, i128
 }
+
+/// Circle format constants — derived from PrimInt, no extra trait bounds needed.
+/// Old format: explicit sign in MSB, N-1 normalization.
+impl<F: Integer, E: Integer> Circle<F, E> {
+    // --- Fraction format (old format: explicit sign) ---
+    #[inline]
+    pub(crate) fn pos_one_normal() -> F {
+        -(F::min_value() >> 1usize)
+    }
+    #[inline]
+    pub(crate) fn neg_one_normal() -> F {
+        F::min_value()
+    }
+    #[inline]
+    pub(crate) fn max_fraction() -> F {
+        F::max_value()
+    }
+    #[inline]
+    pub(crate) fn min_fraction() -> F {
+        F::min_value()
+    }
+    #[inline]
+    pub(crate) fn pos_one_exploded() -> F {
+        -(F::min_value() >> 1usize) >> 1usize
+    }
+    #[inline]
+    pub(crate) fn neg_one_exploded() -> F {
+        F::min_value() >> 1usize
+    }
+    #[inline]
+    pub(crate) fn pos_one_vanished() -> F {
+        -(F::min_value() >> 1usize) >> 2usize
+    }
+    #[inline]
+    pub(crate) fn neg_one_vanished() -> F {
+        F::min_value() >> 2usize
+    }
+    #[inline]
+    pub(crate) fn fraction_bits() -> isize {
+        (core::mem::size_of::<F>() * 8) as isize
+    }
+
+    // --- Exponent (same as Scalar) ---
+    #[inline]
+    pub(crate) fn ambiguous_exponent() -> E {
+        E::min_value()
+    }
+    #[inline]
+    pub(crate) fn max_exponent() -> E {
+        E::max_value()
+    }
+    #[inline]
+    pub(crate) fn min_exponent() -> E {
+        E::min_value() + E::one()
+    }
+    #[inline]
+    pub(crate) fn exponent_bits() -> isize {
+        (core::mem::size_of::<E>() * 8) as isize
+    }
+}
+
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -75,7 +133,6 @@ impl<
             + WrappingSub
             + WrappingMul,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -272,7 +329,7 @@ where
     /// ```
     #[inline]
     pub fn is_normal(&self) -> bool {
-        self.exponent != E::AMBIGUOUS_EXPONENT
+        self.exponent != Self::ambiguous_exponent()
     }
 
     /// Checks if this Circle is in an undefined state `[℘?]`
@@ -322,7 +379,7 @@ where
     #[inline]
     pub fn is_undefined(&self) -> bool {
         // Not ambiguous? not undefined!
-        if self.exponent != E::AMBIGUOUS_EXPONENT {
+        if self.exponent != Self::ambiguous_exponent() {
             return false;
         }
         // Extract high byte and cast
@@ -619,7 +676,7 @@ where
     #[inline]
     pub fn is_transfinite(&self) -> bool {
         if !self.is_normal() {
-            return self.is_n1() || (self.real == F::NEG_ONE && self.imaginary == F::NEG_ONE);
+            return self.is_n1() || (self.real == (-F::one()) && self.imaginary == (-F::one()));
         }
         false
     }
@@ -803,15 +860,15 @@ where
 
     /// Negates both real and imaginary components in place (a+bi → -a-bi). Escaped values preserve their escape state; zero, infinity, and undefined are unchanged.
     pub(crate) fn circle_negate(&mut self) {
-        if self.exponent != E::AMBIGUOUS_EXPONENT {
+        if self.exponent != Self::ambiguous_exponent() {
             let one: E = 1u8.as_();
-            if self.real == F::NEG_ONE_NORMAL_FRACTION {
-                self.real = F::POS_ONE_NORMAL_FRACTION;
+            if self.real == Self::neg_one_normal() {
+                self.real = Self::pos_one_normal();
                 self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
                 self.exponent = self.exponent.wrapping_add(&one);
                 return;
-            } else if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
-                self.imaginary = F::POS_ONE_NORMAL_FRACTION;
+            } else if self.imaginary == Self::neg_one_normal() {
+                self.imaginary = Self::pos_one_normal();
                 self.real = (self.real >> 1isize).wrapping_neg();
                 self.exponent = self.exponent.wrapping_add(&one);
                 return;
@@ -840,11 +897,11 @@ where
                 self.imaginary = self.imaginary.wrapping_neg();
                 self.normalize_vanished();
             } else {
-                if self.real == F::NEG_ONE_NORMAL_FRACTION {
-                    self.real = F::POS_ONE_NORMAL_FRACTION;
+                if self.real == Self::neg_one_normal() {
+                    self.real = Self::pos_one_normal();
                     self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
-                } else if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
-                    self.imaginary = F::POS_ONE_NORMAL_FRACTION;
+                } else if self.imaginary == Self::neg_one_normal() {
+                    self.imaginary = Self::pos_one_normal();
                     self.real = (self.real >> 1isize).wrapping_neg();
                 } else {
                     self.real = self.real.wrapping_neg();
@@ -908,11 +965,11 @@ where
     /// ```
     pub fn conjugate(&self) -> Circle<F, E> {
         if self.is_normal() {
-            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
+            if self.imaginary == Self::neg_one_normal() {
                 return Circle {
                     real: self.real >> 1isize,
-                    imaginary: F::POS_ONE_NORMAL_FRACTION,
-                    exponent: self.exponent.wrapping_add(&E::ONE),
+                    imaginary: Self::pos_one_normal(),
+                    exponent: self.exponent.wrapping_add(&E::one()),
                 };
             }
             let mut conjugate = Circle {
@@ -931,10 +988,10 @@ where
             conjugate.normalize_vanished();
             conjugate
         } else if self.exploded() {
-            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
+            if self.imaginary == Self::neg_one_normal() {
                 return Circle {
                     real: (self.real >> 1isize).wrapping_neg(),
-                    imaginary: F::POS_ONE_NORMAL_FRACTION,
+                    imaginary: Self::pos_one_normal(),
                     exponent: self.exponent,
                 };
             } else {
@@ -1012,10 +1069,10 @@ where
     /// ```
     pub fn conjugate_mut(&mut self) {
         if self.is_normal() {
-            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
+            if self.imaginary == Self::neg_one_normal() {
                 self.real = self.real >> 1isize;
-                self.imaginary = F::POS_ONE_NORMAL_FRACTION;
-                self.exponent = self.exponent.wrapping_add(&E::ONE);
+                self.imaginary = Self::pos_one_normal();
+                self.exponent = self.exponent.wrapping_add(&E::one());
                 return;
             }
             self.imaginary = self.imaginary.wrapping_neg();
@@ -1024,8 +1081,8 @@ where
             self.imaginary = self.imaginary.wrapping_neg();
             self.normalize_vanished();
         } else if self.exploded() {
-            if self.imaginary == F::NEG_ONE_NORMAL_FRACTION {
-                self.imaginary = F::POS_ONE_NORMAL_FRACTION;
+            if self.imaginary == Self::neg_one_normal() {
+                self.imaginary = Self::pos_one_normal();
                 self.real = (self.real >> 1isize).wrapping_neg();
             } else {
                 self.imaginary = self.imaginary.wrapping_neg();
@@ -1253,7 +1310,7 @@ where
     /// assert!(infinity.sign().is_undefined());
     /// ```
     pub fn sign(&self) -> Circle<F, E> {
-        if self.exponent == E::AMBIGUOUS_EXPONENT {
+        if self.exponent == Self::ambiguous_exponent() {
             let prefix_r: i8 = self.real.sa();
             let prefix_i: i8 = self.imaginary.sa();
             if prefix_r == prefix_i {
@@ -1263,7 +1320,7 @@ where
                     return Self {
                         real: prefix,
                         imaginary: prefix,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 let top_three = prefix_r >> 5;
@@ -1276,7 +1333,7 @@ where
         let result = Circle {
             real: self.real,
             imaginary: self.imaginary,
-            exponent: E::ZERO,
+            exponent: E::zero(),
         };
         return result / result.magnitude();
     }
@@ -1304,9 +1361,9 @@ where
         if shift > 1 {
             let shift = shift as isize;
             let new_exponent;
-            if shift == F::FRACTION_BITS {
+            if shift == Self::fraction_bits() {
                 if !self.real.is_negative() && !self.imaginary.is_negative() {
-                    self.exponent = E::AMBIGUOUS_EXPONENT;
+                    self.exponent = Self::ambiguous_exponent();
                     return;
                 }
                 let s: E = shift.wrapping_add(1).as_();
@@ -1317,11 +1374,11 @@ where
             }
 
             if self.exponent.is_negative() && !new_exponent.is_negative() {
-                self.exponent = E::AMBIGUOUS_EXPONENT;
+                self.exponent = Self::ambiguous_exponent();
                 self.real = self.real << shift.wrapping_sub(2);
                 self.imaginary = self.imaginary << shift.wrapping_sub(2);
             } else {
-                self.exponent = new_exponent.wrapping_add(&E::ONE);
+                self.exponent = new_exponent.wrapping_add(&E::one());
                 self.real = self.real << shift.wrapping_sub(1);
                 self.imaginary = self.imaginary << shift.wrapping_sub(1);
             }

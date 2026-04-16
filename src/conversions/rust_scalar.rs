@@ -1,12 +1,11 @@
-use crate::constants::ScalarConstants;
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::{Integer, Scalar, ScalarConstants};
 use num_traits::AsPrimitive;
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f64>
-    for Scalar<F, E>
+impl<F: Integer + FullInt, E: Integer + FullInt> From<f64> for Scalar<F, E>
 where
+    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -38,9 +37,9 @@ where
     }
 }
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt>
-    From<&mut f64> for Scalar<F, E>
+impl<F: Integer + FullInt, E: Integer + FullInt> From<&mut f64> for Scalar<F, E>
 where
+    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -72,9 +71,9 @@ where
     }
 }
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<&f64>
-    for Scalar<F, E>
+impl<F: Integer + FullInt, E: Integer + FullInt> From<&f64> for Scalar<F, E>
 where
+    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -111,7 +110,7 @@ where
             return if mantissa != 0 {
                 Scalar {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 }
             } else {
                 Self::INFINITY
@@ -120,8 +119,8 @@ where
         if raw_exp == 0 && mantissa == 0 {
             return if sign != 0 {
                 Self {
-                    fraction: F::NEG_ONE_VANISHED_FRACTION,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    fraction: Self::neg_one_vanished(),
+                    exponent: Self::ambiguous_exponent(),
                 }
             } else {
                 Self::ZERO
@@ -149,31 +148,31 @@ where
 
         // Shift tc_frac so its significant bits fill the top FRAC bits of the target type.
         // This is identical to the From<integer> path.
-        let shift = F::FRACTION_BITS.wrapping_sub(significant);
+        let shift = Self::fraction_bits().wrapping_sub(significant);
         let fraction: F = if shift < 0 {
             (tc_frac >> shift.wrapping_neg()).as_()
         } else {
             (tc_frac << shift).as_()
         };
 
-        if E::EXPONENT_BITS == 8 {
-            if spirix_exp > E::MAX_EXPONENT.as_() {
+        if Self::exponent_bits() == 8 {
+            if spirix_exp > Self::max_exponent().as_() {
                 return Self {
                     fraction: if sign != 0 {
-                        F::NEG_ONE_EXPLODED_FRACTION
+                        Self::neg_one_exploded()
                     } else {
-                        F::POS_ONE_EXPLODED_FRACTION
+                        Self::pos_one_exploded()
                     },
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
-            } else if spirix_exp < E::MIN_EXPONENT.as_() {
+            } else if spirix_exp < Self::min_exponent().as_() {
                 return Self {
                     fraction: if sign != 0 {
-                        F::NEG_ONE_VANISHED_FRACTION
+                        Self::neg_one_vanished()
                     } else {
-                        F::POS_ONE_VANISHED_FRACTION
+                        Self::pos_one_vanished()
                     },
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -184,9 +183,9 @@ where
     }
 }
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<f32>
-    for Scalar<F, E>
+impl<F: Integer + FullInt, E: Integer + FullInt> From<f32> for Scalar<F, E>
 where
+    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -218,9 +217,9 @@ where
     }
 }
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt>
-    From<&mut f32> for Scalar<F, E>
+impl<F: Integer + FullInt, E: Integer + FullInt> From<&mut f32> for Scalar<F, E>
 where
+    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -252,9 +251,9 @@ where
     }
 }
 
-impl<F: Integer + FractionConstants + FullInt, E: Integer + ExponentConstants + FullInt> From<&f32>
-    for Scalar<F, E>
+impl<F: Integer + FullInt, E: Integer + FullInt> From<&f32> for Scalar<F, E>
 where
+    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -291,7 +290,7 @@ where
             return if mantissa != 0 {
                 Scalar {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 }
             } else {
                 Self::INFINITY
@@ -300,8 +299,8 @@ where
         if raw_exp == 0 && mantissa == 0 {
             return if sign != 0 {
                 Self {
-                    fraction: F::NEG_ONE_VANISHED_FRACTION,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    fraction: Self::neg_one_vanished(),
+                    exponent: Self::ambiguous_exponent(),
                 }
             } else {
                 Self::ZERO
@@ -323,31 +322,31 @@ where
             .wrapping_sub(150)
             .wrapping_add(significant as i16);
 
-        let shift = F::FRACTION_BITS.wrapping_sub(significant);
+        let shift = Self::fraction_bits().wrapping_sub(significant);
         let fraction: F = if shift < 0 {
             (tc_frac >> shift.wrapping_neg()).as_()
         } else {
             (tc_frac << shift).as_()
         };
 
-        if E::EXPONENT_BITS == 8 {
-            if spirix_exp > E::MAX_EXPONENT.as_() {
+        if Self::exponent_bits() == 8 {
+            if spirix_exp > Self::max_exponent().as_() {
                 return Self {
                     fraction: if sign != 0 {
-                        F::NEG_ONE_EXPLODED_FRACTION
+                        Self::neg_one_exploded()
                     } else {
-                        F::POS_ONE_EXPLODED_FRACTION
+                        Self::pos_one_exploded()
                     },
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
-            } else if spirix_exp < E::MIN_EXPONENT.as_() {
+            } else if spirix_exp < Self::min_exponent().as_() {
                 return Self {
                     fraction: if sign != 0 {
-                        F::NEG_ONE_VANISHED_FRACTION
+                        Self::neg_one_vanished()
                     } else {
-                        F::POS_ONE_VANISHED_FRACTION
+                        Self::pos_one_vanished()
                     },
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -361,7 +360,7 @@ where
 macro_rules! impl_from_int {
     ($($i:ty),*) => {
         $(
-            impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<$i> for Scalar<F, E>
+            impl<F: Integer+FullInt, E: Integer+FullInt> From<$i> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
@@ -426,14 +425,14 @@ macro_rules! impl_from_int {
                     let significant_bits = (core::mem::size_of::<$i>() as isize).wrapping_mul(8).wrapping_sub(leading);
                     let spirix_exp: isize = significant_bits;
 
-                    if spirix_exp > E::MAX_EXPONENT.as_() {
+                    if spirix_exp > Self::max_exponent().as_() {
                         return Self {
-                            fraction: if value > 0 { F::POS_ONE_EXPLODED_FRACTION } else { F::NEG_ONE_EXPLODED_FRACTION },
-                            exponent: E::AMBIGUOUS_EXPONENT,
+                            fraction: if value > 0 { Self::pos_one_exploded() } else { Self::neg_one_exploded() },
+                            exponent: Self::ambiguous_exponent(),
                         };
                     }
 
-                    let shift = (F::FRACTION_BITS as isize).wrapping_sub(significant_bits);
+                    let shift = (Self::fraction_bits() as isize).wrapping_sub(significant_bits);
                     let fraction: F = if shift < 0 {
                         (value >> shift.wrapping_neg()).as_()
                     } else {
@@ -443,7 +442,7 @@ macro_rules! impl_from_int {
                     Self { fraction, exponent: spirix_exp.as_() }
                 }
             }
-            impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<&mut $i> for Scalar<F, E>
+            impl<F: Integer+FullInt, E: Integer+FullInt> From<&mut $i> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
@@ -504,7 +503,7 @@ macro_rules! impl_from_int {
                     Self::from(*value)
                 }
             }
-            impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<&$i> for Scalar<F, E>
+            impl<F: Integer+FullInt, E: Integer+FullInt> From<&$i> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
@@ -573,7 +572,7 @@ impl_from_int!(i8, i16, i32, i64, i128, isize);
 macro_rules! impl_from_uint {
     ($($u:ty),*) => {
         $(
-            impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<$u> for Scalar<F, E>
+            impl<F: Integer+FullInt, E: Integer+FullInt> From<$u> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
@@ -637,7 +636,7 @@ macro_rules! impl_from_uint {
                     let mut shift = value.leading_zeros() as isize;
                     shift = (core::mem::size_of::<$u>() as isize).wrapping_mul(8).wrapping_sub(shift);
                     let exponent:E = shift.as_();
-                    shift = (F::FRACTION_BITS as isize).wrapping_sub(shift).wrapping_sub(1);
+                    shift = (Self::fraction_bits() as isize).wrapping_sub(shift).wrapping_sub(1);
                     let fraction: F = if shift < 0 {
                         (value >> shift.wrapping_neg()).as_()
                     } else {
@@ -647,7 +646,7 @@ macro_rules! impl_from_uint {
                     Self { fraction, exponent }
                 }
             }
-            impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<&mut $u> for Scalar<F, E>
+            impl<F: Integer+FullInt, E: Integer+FullInt> From<&mut $u> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
@@ -708,7 +707,7 @@ macro_rules! impl_from_uint {
                     Self::from(*value)
                 }
             }
-            impl<F: Integer+FractionConstants+FullInt, E: Integer+ExponentConstants+FullInt> From<&$u> for Scalar<F, E>
+            impl<F: Integer+FullInt, E: Integer+FullInt> From<&$u> for Scalar<F, E>
             where
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,

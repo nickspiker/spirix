@@ -1,6 +1,6 @@
 //! Statistical functions for Scalar types
-use crate::core::integer::FullInt;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::core::integer::*;
+use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -8,7 +8,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -21,7 +20,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>

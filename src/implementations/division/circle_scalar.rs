@@ -1,8 +1,6 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -10,7 +8,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -23,7 +20,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -83,7 +79,7 @@ where
                     return Circle {
                         real: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
                         imaginary: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Circle::<F, E>::INFINITY;
@@ -93,7 +89,7 @@ where
                     return Circle {
                         real: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
                         imaginary: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Circle::<F, E>::INFINITY;
@@ -105,14 +101,14 @@ where
                 return Self {
                     real: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
                     imaginary: TRANSFINITE_DIVIDE_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() && other.vanished() {
                 return Self {
                     real: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
                     imaginary: NEGLIGIBLE_DIVIDE_NEGLIGIBLE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             let n_level = if self.vanished() || other.exploded() {
@@ -120,14 +116,16 @@ where
             } else {
                 -1
             };
-            let (real, imaginary) = match F::FRACTION_BITS {
+            let (real, imaginary) = match Self::fraction_bits() {
                 8 => {
                     let numerator_r: i16 = self.real.as_();
                     let numerator_i: i16 = self.imaginary.as_();
                     let denominator: i16 = other.fraction.as_();
 
-                    let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                    let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                    let mut quotient_r =
+                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                    let mut quotient_i =
+                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                     let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                     let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -137,8 +135,8 @@ where
                     quotient_i <<= shift;
 
                     (
-                        (quotient_r >> F::FRACTION_BITS).as_(),
-                        (quotient_i >> F::FRACTION_BITS).as_(),
+                        (quotient_r >> Self::fraction_bits()).as_(),
+                        (quotient_i >> Self::fraction_bits()).as_(),
                     )
                 }
                 16 => {
@@ -146,8 +144,10 @@ where
                     let numerator_i: i32 = self.imaginary.as_();
                     let denominator: i32 = other.fraction.as_();
 
-                    let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                    let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                    let mut quotient_r =
+                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                    let mut quotient_i =
+                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                     let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                     let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -157,8 +157,8 @@ where
                     quotient_i <<= shift;
 
                     (
-                        (quotient_r >> F::FRACTION_BITS).as_(),
-                        (quotient_i >> F::FRACTION_BITS).as_(),
+                        (quotient_r >> Self::fraction_bits()).as_(),
+                        (quotient_i >> Self::fraction_bits()).as_(),
                     )
                 }
                 32 => {
@@ -166,8 +166,10 @@ where
                     let numerator_i: i64 = self.imaginary.as_();
                     let denominator: i64 = other.fraction.as_();
 
-                    let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                    let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                    let mut quotient_r =
+                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                    let mut quotient_i =
+                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                     let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                     let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -177,8 +179,8 @@ where
                     quotient_i <<= shift;
 
                     (
-                        (quotient_r >> F::FRACTION_BITS).as_(),
-                        (quotient_i >> F::FRACTION_BITS).as_(),
+                        (quotient_r >> Self::fraction_bits()).as_(),
+                        (quotient_i >> Self::fraction_bits()).as_(),
                     )
                 }
                 64 => {
@@ -186,8 +188,10 @@ where
                     let numerator_i: i128 = self.imaginary.as_();
                     let denominator: i128 = other.fraction.as_();
 
-                    let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                    let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                    let mut quotient_r =
+                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                    let mut quotient_i =
+                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                     let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                     let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -197,8 +201,8 @@ where
                     quotient_i <<= shift;
 
                     (
-                        (quotient_r >> F::FRACTION_BITS).as_(),
-                        (quotient_i >> F::FRACTION_BITS).as_(),
+                        (quotient_r >> Self::fraction_bits()).as_(),
+                        (quotient_i >> Self::fraction_bits()).as_(),
                     )
                 }
                 128 => {
@@ -206,8 +210,10 @@ where
                     let numerator_i: I256 = self.imaginary.into();
                     let denominator: I256 = other.fraction.into();
 
-                    let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                    let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                    let mut quotient_r =
+                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                    let mut quotient_i =
+                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                     let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                     let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -217,8 +223,8 @@ where
                     quotient_i <<= shift;
 
                     (
-                        (quotient_r >> F::FRACTION_BITS).as_i128().as_(),
-                        (quotient_i >> F::FRACTION_BITS).as_i128().as_(),
+                        (quotient_r >> Self::fraction_bits()).as_i128().as_(),
+                        (quotient_i >> Self::fraction_bits()).as_i128().as_(),
                     )
                 }
                 _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
@@ -226,18 +232,18 @@ where
             return Self {
                 real,
                 imaginary,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
-        let (real, imaginary, expo_adjust) = match F::FRACTION_BITS {
+        let (real, imaginary, expo_adjust) = match Self::fraction_bits() {
             8 => {
                 let numerator_r: i16 = self.real.as_();
                 let numerator_i: i16 = self.imaginary.as_();
                 let denominator: i16 = other.fraction.as_();
 
-                let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                 let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                 let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -247,9 +253,9 @@ where
                 quotient_i <<= shift;
 
                 (
-                    (quotient_r >> F::FRACTION_BITS).as_(),
-                    (quotient_i >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (quotient_r >> Self::fraction_bits()).as_(),
+                    (quotient_i >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             16 => {
@@ -257,8 +263,8 @@ where
                 let numerator_i: i32 = self.imaginary.as_();
                 let denominator: i32 = other.fraction.as_();
 
-                let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                 let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                 let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -268,9 +274,9 @@ where
                 quotient_i <<= shift;
 
                 (
-                    (quotient_r >> F::FRACTION_BITS).as_(),
-                    (quotient_i >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (quotient_r >> Self::fraction_bits()).as_(),
+                    (quotient_i >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             32 => {
@@ -278,8 +284,8 @@ where
                 let numerator_i: i64 = self.imaginary.as_();
                 let denominator: i64 = other.fraction.as_();
 
-                let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                 let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                 let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -289,9 +295,9 @@ where
                 quotient_i <<= shift;
 
                 (
-                    (quotient_r >> F::FRACTION_BITS).as_(),
-                    (quotient_i >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (quotient_r >> Self::fraction_bits()).as_(),
+                    (quotient_i >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             64 => {
@@ -299,8 +305,8 @@ where
                 let numerator_i: i128 = self.imaginary.as_();
                 let denominator: i128 = other.fraction.as_();
 
-                let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                 let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                 let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -310,9 +316,9 @@ where
                 quotient_i <<= shift;
 
                 (
-                    (quotient_r >> F::FRACTION_BITS).as_(),
-                    (quotient_i >> F::FRACTION_BITS).as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (quotient_r >> Self::fraction_bits()).as_(),
+                    (quotient_i >> Self::fraction_bits()).as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             128 => {
@@ -320,8 +326,8 @@ where
                 let numerator_i: I256 = self.imaginary.into();
                 let denominator: I256 = other.fraction.into();
 
-                let mut quotient_r = (numerator_r << F::FRACTION_BITS).div_euclid(denominator);
-                let mut quotient_i = (numerator_i << F::FRACTION_BITS).div_euclid(denominator);
+                let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
+                let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
 
                 let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
                 let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
@@ -331,21 +337,21 @@ where
                 quotient_i <<= shift;
 
                 (
-                    (quotient_r >> F::FRACTION_BITS).as_i128().as_(),
-                    (quotient_i >> F::FRACTION_BITS).as_i128().as_(),
-                    shift.wrapping_sub(F::FRACTION_BITS.wrapping_sub(1)),
+                    (quotient_r >> Self::fraction_bits()).as_i128().as_(),
+                    (quotient_i >> Self::fraction_bits()).as_i128().as_(),
+                    shift.wrapping_sub(Self::fraction_bits().wrapping_sub(1)),
                 )
             }
             _ => {
                 return Self {
                     real: GENERAL.prefix.sa(),
                     imaginary: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         };
 
-        match E::EXPONENT_BITS {
+        match Self::exponent_bits() {
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
                 let other_exponent: i16 = other.exponent.as_();
@@ -353,17 +359,17 @@ where
                     .wrapping_sub(other_exponent)
                     .wrapping_sub(expo_adjust as i16);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -380,17 +386,17 @@ where
                     .wrapping_sub(other_exponent)
                     .wrapping_sub(expo_adjust as i32);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -407,17 +413,17 @@ where
                     .wrapping_sub(other_exponent)
                     .wrapping_sub(expo_adjust as i64);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -434,17 +440,17 @@ where
                     .wrapping_sub(other_exponent)
                     .wrapping_sub(expo_adjust as i128);
 
-                if upcast_exponent > E::MAX_EXPONENT.as_() {
+                if upcast_exponent > Self::max_exponent().as_() {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.as_() {
+                } else if upcast_exponent < Self::min_exponent().as_() {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -461,19 +467,19 @@ where
                 let upcast_exponent: I256 = self_exponent
                     .wrapping_sub(other_exponent)
                     .wrapping_sub(exp_adj);
-                let max_e: I256 = E::MAX_EXPONENT.into();
-                let min_e: I256 = E::MIN_EXPONENT.into();
+                let max_e: I256 = Self::max_exponent().into();
+                let min_e: I256 = Self::min_exponent().into();
                 if upcast_exponent > max_e {
                     return Self {
                         real,
                         imaginary,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else if upcast_exponent < min_e {
                     return Self {
                         real: real >> 1isize,
                         imaginary: imaginary >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Self {
@@ -487,7 +493,7 @@ where
                 return Self {
                     real: GENERAL.prefix.sa(),
                     imaginary: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }

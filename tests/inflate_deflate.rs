@@ -105,7 +105,7 @@ fn negation_via_wrapping_neg_i8() {
 
 #[test]
 fn fraction_constants_i8() {
-    use spirix::FractionConstants;
+    use spirix::ScalarFractionConstants;
 
     // Normal class
     assert_eq!(i8::POS_ONE_NORMAL_FRACTION, i8::MIN); // -128 = 10000000
@@ -422,7 +422,10 @@ fn addition_basic() {
         let result = sa + sb;
         let back: f64 = (&result).into();
         let err = (back - expected).abs();
-        assert!(err < 0.01, "{a} + {b}: expected {expected}, got {back}, err={err}");
+        assert!(
+            err < 0.01,
+            "{a} + {b}: expected {expected}, got {back}, err={err}"
+        );
     }
 
     // --- Full truth table coverage ---
@@ -443,9 +446,15 @@ fn addition_basic() {
 
     // [↓] row
     assert!((pos_vanished + zero).vanished(), "[+↓]+[0]=[↓]");
-    assert!((pos_vanished + pos_vanished).is_undefined(), "[+↓]+[+↓]=[℘↓+↓]");
+    assert!(
+        (pos_vanished + pos_vanished).is_undefined(),
+        "[+↓]+[+↓]=[℘↓+↓]"
+    );
     assert!((pos_vanished + one) == one, "[+↓]+[#]=[#]");
-    assert!((pos_vanished + pos_exploded).is_undefined(), "[+↓]+[+↑]=[℘]");
+    assert!(
+        (pos_vanished + pos_exploded).is_undefined(),
+        "[+↓]+[+↑]=[℘]"
+    );
     assert!((pos_vanished + inf).is_undefined(), "[+↓]+[∞]=[℘]");
     assert!((pos_vanished + undef).is_undefined(), "[+↓]+[℘]=[℘]");
 
@@ -458,9 +467,15 @@ fn addition_basic() {
 
     // [↑] row
     assert!((pos_exploded + zero).is_undefined(), "[+↑]+[0]=[℘]");
-    assert!((pos_exploded + pos_vanished).is_undefined(), "[+↑]+[+↓]=[℘]");
+    assert!(
+        (pos_exploded + pos_vanished).is_undefined(),
+        "[+↑]+[+↓]=[℘]"
+    );
     assert!((pos_exploded + one).is_undefined(), "[+↑]+[#]=[℘]");
-    assert!((pos_exploded + pos_exploded).is_undefined(), "[+↑]+[+↑]=[℘]");
+    assert!(
+        (pos_exploded + pos_exploded).is_undefined(),
+        "[+↑]+[+↑]=[℘]"
+    );
     assert!((pos_exploded + inf).is_undefined(), "[+↑]+[∞]=[℘]");
     assert!((pos_exploded + undef).is_undefined(), "[+↑]+[℘]=[℘]");
 
@@ -476,16 +491,34 @@ fn addition_basic() {
     assert!((undef + undef).is_undefined(), "[℘]+[℘]=[℘]");
 
     // Sign preservation for escaped values
-    assert!((zero + pos_vanished).is_positive(), "[0]+[+↓] should be positive");
-    assert!((zero + neg_vanished).is_negative(), "[0]+[-↓] should be negative");
-    assert!((pos_vanished + zero).is_positive(), "[+↓]+[0] should be positive");
-    assert!((neg_vanished + zero).is_negative(), "[-↓]+[0] should be negative");
+    assert!(
+        (zero + pos_vanished).is_positive(),
+        "[0]+[+↓] should be positive"
+    );
+    assert!(
+        (zero + neg_vanished).is_negative(),
+        "[0]+[-↓] should be negative"
+    );
+    assert!(
+        (pos_vanished + zero).is_positive(),
+        "[+↓]+[0] should be positive"
+    );
+    assert!(
+        (neg_vanished + zero).is_negative(),
+        "[-↓]+[0] should be negative"
+    );
 
     // Negative escaped interactions
     assert!((neg_exploded + zero).is_undefined(), "[-↑]+[0]=[℘]");
     assert!((neg_exploded + one).is_undefined(), "[-↑]+[#]=[℘]");
-    assert!((neg_exploded + neg_exploded).is_undefined(), "[-↑]+[-↑]=[℘]");
-    assert!((pos_exploded + neg_exploded).is_undefined(), "[+↑]+[-↑]=[℘]");
+    assert!(
+        (neg_exploded + neg_exploded).is_undefined(),
+        "[-↑]+[-↑]=[℘]"
+    );
+    assert!(
+        (pos_exploded + neg_exploded).is_undefined(),
+        "[+↑]+[-↑]=[℘]"
+    );
 }
 
 #[test]
@@ -536,7 +569,13 @@ fn multiplication_basic() {
 
     {
         type S44 = Scalar<i16, i16>;
-        for &(a, b) in &[(253.0, -254.0), (253.0, 253.0), (-254.0, -254.0), (3.0, 5.0), (0.5, 0.5)] {
+        for &(a, b) in &[
+            (253.0, -254.0),
+            (253.0, 253.0),
+            (-254.0, -254.0),
+            (3.0, 5.0),
+            (0.5, 0.5),
+        ] {
             let sa = S44::from(a);
             let sb = S44::from(b);
             let result = sa * sb;
@@ -583,7 +622,10 @@ fn multiplication_basic() {
     assert!((pos_vanished * zero) == zero, "[+↓]*[0]=[0]");
     assert!((pos_vanished * pos_vanished).vanished(), "[+↓]*[+↓]=[↓]");
     assert!((pos_vanished * one).vanished(), "[+↓]*[#]=[↓]");
-    assert!((pos_vanished * pos_exploded).is_undefined(), "[+↓]*[+↑]=[℘]");
+    assert!(
+        (pos_vanished * pos_exploded).is_undefined(),
+        "[+↓]*[+↑]=[℘]"
+    );
     assert!((pos_vanished * inf).is_infinite(), "[+↓]*[∞]=[∞]");
     assert!((pos_vanished * undef).is_undefined(), "[+↓]*[℘]=[℘]");
 
@@ -591,21 +633,24 @@ fn multiplication_basic() {
     assert!((one * zero) == zero, "[#]*[0]=[0]");
     assert!((one * pos_vanished).vanished(), "[#]*[+↓]=[↓]");
     assert!((one * pos_exploded).exploded(), "[#]*[+↑]=[↑]");
-    assert!((one * inf) .is_infinite(), "[#]*[∞]=[∞]");
+    assert!((one * inf).is_infinite(), "[#]*[∞]=[∞]");
     assert!((one * undef).is_undefined(), "[#]*[℘]=[℘]");
 
     // [↑] row
     assert!((pos_exploded * zero) == zero, "[+↑]*[0]=[0]");
-    assert!((pos_exploded * pos_vanished).is_undefined(), "[+↑]*[+↓]=[℘]");
+    assert!(
+        (pos_exploded * pos_vanished).is_undefined(),
+        "[+↑]*[+↓]=[℘]"
+    );
     assert!((pos_exploded * one).exploded(), "[+↑]*[#]=[↑]");
     assert!((pos_exploded * pos_exploded).exploded(), "[+↑]*[+↑]=[↑]");
-    assert!((pos_exploded * inf) .is_infinite(), "[+↑]*[∞]=[∞]");
+    assert!((pos_exploded * inf).is_infinite(), "[+↑]*[∞]=[∞]");
     assert!((pos_exploded * undef).is_undefined(), "[+↑]*[℘]=[℘]");
 
     // [∞] row
     assert!((inf * zero).is_undefined(), "[∞]*[0]=[℘]");
-    assert!((inf * one) .is_infinite(), "[∞]*[#]=[∞]");
-    assert!((inf * inf) .is_infinite(), "[∞]*[∞]=[∞]");
+    assert!((inf * one).is_infinite(), "[∞]*[#]=[∞]");
+    assert!((inf * inf).is_infinite(), "[∞]*[∞]=[∞]");
     assert!((inf * undef).is_undefined(), "[∞]*[℘]=[℘]");
 
     // [℘] row
@@ -615,17 +660,23 @@ fn multiplication_basic() {
 
     // Sign preservation
     // escaped * normal sign preservation:
-    assert!((neg_exploded * one).exploded() && (neg_exploded * one).is_negative(), "[-↑]*[#]=[-↑]");
+    assert!(
+        (neg_exploded * one).exploded() && (neg_exploded * one).is_negative(),
+        "[-↑]*[#]=[-↑]"
+    );
     // escaped * normal sign preservation:
-    assert!((neg_vanished * one).vanished() && (neg_vanished * one).is_negative(), "[-↓]*[#]=[-↓]");
+    assert!(
+        (neg_vanished * one).vanished() && (neg_vanished * one).is_negative(),
+        "[-↓]*[#]=[-↓]"
+    );
 
     // Exponent overflow/underflow tests (no f64 equivalent — test state directly)
     // F3E3: MAX_EXPONENT=127, MIN_EXPONENT=-127, AMBIGUOUS=-128
     type S88 = Scalar<i8, i8>;
 
     // stored=0 * stored=0 with normal exponents → positive result
-    let neg1_exp0 = S88::new(0, 0);  // -1 * 2^0 = -1
-    let neg1_exp5 = S88::new(0, 5);  // -1 * 2^5 = -32
+    let neg1_exp0 = S88::new(0, 0); // -1 * 2^0 = -1
+    let neg1_exp5 = S88::new(0, 5); // -1 * 2^5 = -32
     let result = neg1_exp0 * neg1_exp5;
     assert!(result.is_positive(), "(-1)*(-32) should be positive");
     assert!(result.is_normal(), "(-1)*(-32) should be normal");
@@ -633,29 +684,41 @@ fn multiplication_basic() {
     // stored=0 * stored=0 near max exponent → still normal
     let neg1_exp63 = S88::new(0, 63);
     let result = neg1_exp63 * neg1_exp63;
-    assert!(result.is_normal() && result.is_positive(), "(-2^63)*(-2^63) should be normal positive");
+    assert!(
+        result.is_normal() && result.is_positive(),
+        "(-2^63)*(-2^63) should be normal positive"
+    );
 
     // stored=0 * stored=0 overflow → exploded
     let neg1_exp64 = S88::new(0, 64);
     let result = neg1_exp64 * neg1_exp64;
-    assert!(result.exploded() && result.is_positive(), "(-2^64)*(-2^64) should be positive exploded");
+    assert!(
+        result.exploded() && result.is_positive(),
+        "(-2^64)*(-2^64) should be positive exploded"
+    );
 
     // stored=0 * stored=0 underflow → vanished
     let neg1_negexp = S88::new(0, -64);
     let result = neg1_negexp * neg1_negexp;
-    assert!(result.is_normal() && result.is_positive(), "(-2^-64)*(-2^-64) should be normal positive");
+    assert!(
+        result.is_normal() && result.is_positive(),
+        "(-2^-64)*(-2^-64) should be normal positive"
+    );
 
     let neg1_negexp_big = S88::new(0, -65);
     let result = neg1_negexp_big * neg1_negexp_big;
-    assert!(result.vanished() && result.is_positive(), "(-2^-65)*(-2^-65) should be positive vanished");
+    assert!(
+        result.vanished() && result.is_positive(),
+        "(-2^-65)*(-2^-65) should be positive vanished"
+    );
 
     // General normal multiply overflow → exploded
-    let big_pos = S88::new(-100, 100);  // positive, large exponent
+    let big_pos = S88::new(-100, 100); // positive, large exponent
     let result = big_pos * big_pos;
     assert!(result.exploded(), "large*large should explode");
 
     // General normal multiply underflow → vanished
-    let tiny_pos = S88::new(-100, -100);  // positive, very negative exponent
+    let tiny_pos = S88::new(-100, -100); // positive, very negative exponent
     let result = tiny_pos * tiny_pos;
     assert!(result.vanished(), "tiny*tiny should vanish");
 }
@@ -692,7 +755,10 @@ fn multiply_f3e3_exhaustive() {
         }
     }
     eprintln!("{failures}/{total} failures");
-    assert_eq!(failures, 0, "{failures} multiplication failures out of {total}");
+    assert_eq!(
+        failures, 0,
+        "{failures} multiplication failures out of {total}"
+    );
 }
 
 #[test]
@@ -717,7 +783,7 @@ fn division_basic() {
     assert!((zero / zero).is_undefined(), "0 / 0 = ℘");
 
     for &(a, b, expected) in &[
-        (10.0, 2.0, 5.0),  // stored fracs are negative (positive values)
+        (10.0, 2.0, 5.0), // stored fracs are negative (positive values)
         (1.0, 3.0, 0.333333),
         (-6.0, 2.0, -3.0),
         (100.0, 0.5, 200.0),
@@ -743,7 +809,9 @@ fn divide_f3e3_exhaustive() {
         for b_stored in i8::MIN..=i8::MAX {
             let a = S::new(a_stored, 0);
             let b = S::new(b_stored, 0);
-            if b.is_zero() { continue; } // skip divide by zero
+            if b.is_zero() {
+                continue;
+            } // skip divide by zero
             let result = a / b;
 
             let a_val: f64 = (&a).into();

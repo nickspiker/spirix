@@ -1,7 +1,7 @@
 use crate::constants::ScalarConstants;
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::{Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -61,10 +61,70 @@ impl_scalar_new! {
     i128, i128
 }
 
+/// Scalar format constants — derived from PrimInt, no extra trait bounds needed.
+/// These replace ScalarFractionConstants and ExponentConstants with functions
+/// that the compiler constant-folds to the same assembly.
+impl<F: Integer, E: Integer> Scalar<F, E> {
+    // --- Fraction format (new format: implicit sign via ~MSB) ---
+    #[inline]
+    pub(crate) fn pos_one_normal() -> F {
+        F::min_value()
+    }
+    #[inline]
+    pub(crate) fn neg_one_normal() -> F {
+        F::zero()
+    }
+    #[inline]
+    pub(crate) fn max_fraction() -> F {
+        -F::one()
+    }
+    #[inline]
+    pub(crate) fn min_fraction() -> F {
+        F::zero()
+    }
+    #[inline]
+    pub(crate) fn pos_one_exploded() -> F {
+        -(F::min_value() >> 1usize)
+    }
+    #[inline]
+    pub(crate) fn neg_one_exploded() -> F {
+        F::min_value()
+    }
+    #[inline]
+    pub(crate) fn pos_one_vanished() -> F {
+        -(F::min_value() >> 1usize) >> 1usize
+    }
+    #[inline]
+    pub(crate) fn neg_one_vanished() -> F {
+        F::min_value() >> 1usize
+    }
+    #[inline]
+    pub(crate) fn fraction_bits() -> isize {
+        (core::mem::size_of::<F>() * 8) as isize
+    }
+
+    // --- Exponent ---
+    #[inline]
+    pub(crate) fn ambiguous_exponent() -> E {
+        E::min_value()
+    }
+    #[inline]
+    pub(crate) fn max_exponent() -> E {
+        E::max_value()
+    }
+    #[inline]
+    pub(crate) fn min_exponent() -> E {
+        E::min_value() + E::one()
+    }
+    #[inline]
+    pub(crate) fn exponent_bits() -> isize {
+        (core::mem::size_of::<E>() * 8) as isize
+    }
+}
+
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -77,7 +137,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -199,7 +258,7 @@ where
     /// ```
     #[inline]
     pub fn is_normal(&self) -> bool {
-        self.exponent != E::AMBIGUOUS_EXPONENT
+        self.exponent != Self::ambiguous_exponent()
     }
 
     /// Checks if this Scalar is undefined `[℘?]`
@@ -487,7 +546,7 @@ where
     /// ```
     #[inline]
     pub fn exploded(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT && self.is_exploded()
+        self.exponent == Self::ambiguous_exponent() && self.is_exploded()
     }
 
     /// Returns true if this Scalar is beyond normal magnitude `[↑]` or `[∞]`
@@ -558,8 +617,8 @@ where
     /// assert!(still_infinity.is_transfinite());
     /// ```
     pub fn is_transfinite(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT
-            && (self.is_exploded() || self.fraction == F::NEG_ONE)
+        self.exponent == Self::ambiguous_exponent()
+            && (self.is_exploded() || self.fraction == (-F::one()))
     }
 
     /// Returns true if this Scalar represents a finite number `[0]`, `[#]`
@@ -685,7 +744,7 @@ where
     /// ```
     #[inline]
     pub fn is_zero(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT && self.fraction == F::ZERO
+        self.exponent == Self::ambiguous_exponent() && self.fraction == F::zero()
     }
 
     /// Returns true if this Scalar is mathematical infinity `[∞]`
@@ -748,7 +807,7 @@ where
     /// ```
     #[inline]
     pub fn is_infinite(&self) -> bool {
-        self.exponent == E::AMBIGUOUS_EXPONENT && self.fraction == F::NEG_ONE
+        self.exponent == Self::ambiguous_exponent() && self.fraction == (-F::one())
     }
 
     /// Returns true if this Scalar is positive `[+#]`, `[+↑]`, `[+↓]`
@@ -940,12 +999,12 @@ where
     /// ```
     #[inline]
     pub fn is_integer(&self) -> bool {
-        if self.exponent >= F::FRACTION_BITS.as_() {
+        if self.exponent >= Self::fraction_bits().as_() {
             return true;
         }
         if self.exponent.is_negative() {
-            if self.exponent == E::AMBIGUOUS_EXPONENT {
-                if self.fraction == F::ZERO {
+            if self.exponent == Self::ambiguous_exponent() {
+                if self.fraction == F::zero() {
                     return true;
                 } // Zero
                 return self.is_exploded(); // Exploded values are integers
@@ -953,13 +1012,13 @@ where
             return false;
         }
         let shift: isize = self.exponent.as_();
-        if shift >= F::FRACTION_BITS {
+        if shift >= Self::fraction_bits() {
             return true;
         }
         if shift < 0 {
             return false;
         }
-        (self.fraction << shift) == F::ZERO
+        (self.fraction << shift) == F::zero()
     }
 
     /// Returns true if this value is a valid integer within the contiguous integer range
@@ -1024,7 +1083,7 @@ where
             let exp_isize: isize = self.exponent.saturate();
 
             // If exponent is >= FRACTION_BITS, all stored bits are integer part — beyond contiguous range
-            if exp_isize >= F::FRACTION_BITS.as_() {
+            if exp_isize >= Self::fraction_bits().as_() {
                 return false;
             }
 
@@ -1036,7 +1095,7 @@ where
         }
 
         // Handle special cases (exploded/vanished integers)
-        if self.exponent.is_negative() && self.exponent == E::AMBIGUOUS_EXPONENT {
+        if self.exponent.is_negative() && self.exponent == Self::ambiguous_exponent() {
             let prefix = self.prefix();
             // Check for exploded integer patterns
             let top_two = prefix >> 6;
@@ -1066,16 +1125,17 @@ where
             self.fraction = !self.fraction; // escaped: flip sign via NOT
             return;
         }
-        if self.fraction == F::POS_ONE_NORMAL_FRACTION {
-            self.exponent = self.exponent.wrapping_sub(&E::ONE);
-            if self.exponent == E::AMBIGUOUS_EXPONENT {
-                self.fraction = F::NEG_ONE_VANISHED_FRACTION;
+        let pos_one_normal_fraction = -!(self.fraction - self.fraction).rotate_right(1);
+        if self.fraction == pos_one_normal_fraction {
+            self.exponent = self.exponent.wrapping_sub(&E::one());
+            if self.exponent == Self::ambiguous_exponent() {
+                self.fraction = Self::neg_one_vanished();
             } else {
-                self.fraction = F::NEG_ONE_NORMAL_FRACTION;
+                self.fraction = Self::neg_one_normal();
             }
-        } else if self.fraction == F::NEG_ONE_NORMAL_FRACTION {
-            self.fraction = F::POS_ONE_NORMAL_FRACTION;
-            self.exponent = self.exponent.wrapping_add(&E::ONE);
+        } else if self.fraction == Self::neg_one_normal() {
+            self.fraction = pos_one_normal_fraction;
+            self.exponent = self.exponent.wrapping_add(&E::one());
         } else {
             self.fraction = self.fraction.wrapping_neg();
         }
@@ -1188,7 +1248,7 @@ where
         if self.is_uniform() {
             return Self {
                 fraction: SIGN_INDETERMINATE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         if self.is_positive() {
@@ -1268,7 +1328,7 @@ where
             return *self;
         }
 
-        if self.exponent <= E::ZERO {
+        if self.exponent <= E::zero() {
             if self.is_negative() {
                 let result = Self::NEG_ONE;
                 return result;
@@ -1277,12 +1337,12 @@ where
             return result;
         }
         let mut result = *self;
-        if result.exponent >= F::FRACTION_BITS.as_() {
+        if result.exponent >= Self::fraction_bits().as_() {
             return result;
         }
         let e: isize = result.exponent.as_();
-        let frac_bits = F::FRACTION_BITS.wrapping_sub(e);
-        let mask: F = !((F::ONE << frac_bits).wrapping_sub(&F::ONE));
+        let frac_bits = Self::fraction_bits().wrapping_sub(e);
+        let mask: F = !((F::one() << frac_bits).wrapping_sub(&F::one()));
         result.fraction = result.fraction & mask;
         result
     }
@@ -1425,22 +1485,22 @@ where
             return f;
         } // already integer
         let e: isize = self.exponent.as_();
-        if e >= F::FRACTION_BITS {
+        if e >= Self::fraction_bits() {
             return f;
         }
-        let guard_pos = F::FRACTION_BITS.wrapping_sub(e).wrapping_sub(1);
-        let guard = (self.fraction >> guard_pos) & F::ONE;
-        if guard == F::ZERO {
+        let guard_pos = Self::fraction_bits().wrapping_sub(e).wrapping_sub(1);
+        let guard = (self.fraction >> guard_pos) & F::one();
+        if guard == F::zero() {
             return f;
         } // < 0.5, floor
-        let sticky_mask: F = (F::ONE << guard_pos).wrapping_sub(&F::ONE);
+        let sticky_mask: F = (F::one() << guard_pos).wrapping_sub(&F::one());
         let sticky = self.fraction & sticky_mask;
-        if sticky != F::ZERO {
+        if sticky != F::zero() {
             return f + Self::ONE;
         } // > 0.5, ceil
           // Exactly 0.5: banker's — round to even. Check integer LSB.
-        let int_lsb = (self.fraction >> (guard_pos + 1)) & F::ONE;
-        if int_lsb != F::ZERO {
+        let int_lsb = (self.fraction >> (guard_pos + 1)) & F::one();
+        if int_lsb != F::zero() {
             f + Self::ONE
         } else {
             f
@@ -1518,7 +1578,7 @@ where
             if self.is_infinite() {
                 return Self {
                     fraction: FRACTIONAL_INFINITY.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -1617,7 +1677,7 @@ where
             if self.is_infinite() || other.is_infinite() {
                 return Self {
                     fraction: MAX_UNORDERED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
 
@@ -1628,7 +1688,7 @@ where
             {
                 return Self {
                     fraction: MAX_UNORDERED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
 
@@ -1639,7 +1699,7 @@ where
             {
                 return Self {
                     fraction: MAX_UNORDERED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -1742,7 +1802,7 @@ where
             if self.is_infinite() || other.is_infinite() {
                 return Self {
                     fraction: MIN_UNORDERED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
 
@@ -1753,7 +1813,7 @@ where
             {
                 return Self {
                     fraction: MIN_UNORDERED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
 
@@ -1764,7 +1824,7 @@ where
             {
                 return Self {
                     fraction: MIN_UNORDERED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -1869,20 +1929,20 @@ where
         if self.is_infinite() || min.is_infinite() || max.is_infinite() {
             return Self {
                 fraction: CLAMP_UNORDERED.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         if min > max {
             return Self {
                 fraction: CLAMP_UNORDERED.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         let clamped = self.max(min).min(max);
         if clamped.is_undefined() {
             return Self {
                 fraction: CLAMP_UNORDERED.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         clamped
@@ -1932,7 +1992,7 @@ where
     /// ```
     #[inline]
     pub fn is_prime(&self) -> bool {
-        if self.exponent < 2.as_() || self.exponent >= F::FRACTION_BITS.as_() {
+        if self.exponent < 2.as_() || self.exponent >= Self::fraction_bits().as_() {
             return false;
         }
 
@@ -1980,12 +2040,12 @@ where
         if shift > 0 {
             let shift = shift as isize;
             let new_exponent;
-            if shift == F::FRACTION_BITS {
+            if shift == Self::fraction_bits() {
                 // All bits identical — either zero (all 0s) or all 1s
                 if !self.fraction.is_negative() {
                     // All zeros in stored = most negative effective, but with max leading same bits
                     // This is effectively zero
-                    self.exponent = E::AMBIGUOUS_EXPONENT;
+                    self.exponent = Self::ambiguous_exponent();
                     return;
                 }
                 // All ones in stored — also a uniform pattern
@@ -1996,7 +2056,7 @@ where
 
             if self.exponent.is_negative() && !new_exponent.is_negative() {
                 // Exponent underflowed -> vanished
-                self.exponent = E::AMBIGUOUS_EXPONENT;
+                self.exponent = Self::ambiguous_exponent();
                 self.fraction = self.fraction << (shift.wrapping_sub(1));
             } else {
                 self.exponent = new_exponent;

@@ -1,6 +1,6 @@
 // operators/rust_scalar.rs
 use crate::core::integer::FullInt;
-use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{operators::*, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -12,7 +12,6 @@ macro_rules! impl_rust_op_scalar {
             // primitive op &Scalar
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -25,7 +24,6 @@ macro_rules! impl_rust_op_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -78,7 +76,6 @@ macro_rules! impl_rust_op_scalar {
             // primitive op Scalar
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -91,7 +88,6 @@ macro_rules! impl_rust_op_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -144,7 +140,6 @@ macro_rules! impl_rust_op_scalar {
             // primitive op &mut Scalar
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -157,7 +152,6 @@ macro_rules! impl_rust_op_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -309,7 +303,6 @@ macro_rules! impl_rust_power_scalar {
             // primitive.pow(&Scalar)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -322,7 +315,6 @@ macro_rules! impl_rust_power_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -375,7 +367,6 @@ macro_rules! impl_rust_power_scalar {
             // primitive.pow(Scalar)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -388,7 +379,6 @@ macro_rules! impl_rust_power_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -441,7 +431,6 @@ macro_rules! impl_rust_power_scalar {
             // primitive.pow(&mut Scalar)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -454,7 +443,6 @@ macro_rules! impl_rust_power_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -508,7 +496,6 @@ macro_rules! impl_rust_power_scalar {
             // primitive.log(&Scalar)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -521,7 +508,6 @@ macro_rules! impl_rust_power_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -574,7 +560,6 @@ macro_rules! impl_rust_power_scalar {
             // primitive.log(Scalar)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -587,7 +572,6 @@ macro_rules! impl_rust_power_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -640,7 +624,6 @@ macro_rules! impl_rust_power_scalar {
             // primitive.log(&mut Scalar)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -653,7 +636,6 @@ macro_rules! impl_rust_power_scalar {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -716,7 +698,6 @@ macro_rules! impl_scalar_cmp_rust {
             // Scalar == primitive
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -729,7 +710,6 @@ macro_rules! impl_scalar_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -781,7 +761,6 @@ macro_rules! impl_scalar_cmp_rust {
             impl<
                 'a,
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -794,7 +773,6 @@ macro_rules! impl_scalar_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -846,7 +824,6 @@ macro_rules! impl_scalar_cmp_rust {
             impl<
                 'a,
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -859,7 +836,6 @@ macro_rules! impl_scalar_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -910,7 +886,6 @@ macro_rules! impl_scalar_cmp_rust {
             // Scalar <=> primitive (PartialOrd)
             impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -923,7 +898,6 @@ macro_rules! impl_scalar_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -975,7 +949,6 @@ macro_rules! impl_scalar_cmp_rust {
             impl<
                 'a,
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -988,7 +961,6 @@ macro_rules! impl_scalar_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -1041,7 +1013,6 @@ macro_rules! impl_scalar_cmp_rust {
             impl<
                 'a,
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -1054,7 +1025,6 @@ macro_rules! impl_scalar_cmp_rust {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>

@@ -1,15 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -22,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -104,7 +100,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.exploded() {
@@ -112,7 +108,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() {
@@ -120,7 +116,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if exp.exploded() {
@@ -128,14 +124,14 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             let prefix: F = POWER_NEGLIGIBLE.prefix.sa();
             return Circle {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -144,7 +140,7 @@ where
             return Circle {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -191,7 +187,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
 
@@ -200,7 +196,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.exploded() {
@@ -208,7 +204,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() {
@@ -216,7 +212,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if base.exploded() {
@@ -224,7 +220,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if base.vanished() {
@@ -232,7 +228,7 @@ where
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -242,7 +238,7 @@ where
             return Circle {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 

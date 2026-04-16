@@ -1,6 +1,6 @@
 // src/operators/scalar_rust.rs
-use crate::core::integer::{Inflate, FullInt, IntConvert};
-use crate::{operators::*, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::core::integer::*;
+use crate::{operators::*, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -36,8 +36,8 @@ macro_rules! impl_scalar_op_rust {
                     + WrappingSub,
      > $trait<$t> for &Scalar<F, E>
             where
-            F: FractionConstants,
-            E: ExponentConstants,
+            F: Integer,
+            E: Integer,
             Scalar<F, E>: ScalarConstants,
             u8: AsPrimitive<F>,
             u16: AsPrimitive<F>,
@@ -101,8 +101,8 @@ macro_rules! impl_scalar_op_rust {
                     + WrappingSub,
         > $trait<$t> for Scalar<F, E>
                where
-               F: FractionConstants,
-               E: ExponentConstants,
+               F: Integer,
+               E: Integer,
                Scalar<F, E>: ScalarConstants,
                u8: AsPrimitive<F>,
                u16: AsPrimitive<F>,
@@ -165,8 +165,8 @@ macro_rules! impl_scalar_op_rust {
                     + WrappingSub,
         > $trait<$t> for &mut Scalar<F, E>
         where
-            F: FractionConstants,
-            E: ExponentConstants,
+            F: Integer,
+            E: Integer,
             Scalar<F, E>: ScalarConstants,
             u8: AsPrimitive<F>,
             u16: AsPrimitive<F>,
@@ -328,8 +328,8 @@ macro_rules! impl_scalar_assign_op_rust {
                     + WrappingSub,
      > $trait<$t> for Scalar<F, E>
      where
-     F: FractionConstants,
-     E: ExponentConstants,
+     F: Integer,
+     E: Integer,
      Scalar<F, E>: ScalarConstants,
      u8: AsPrimitive<F>,
      u16: AsPrimitive<F>,
@@ -489,8 +489,8 @@ macro_rules! impl_scalar_power_rust {
                     + WrappingSub,
      > Power<$t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -554,8 +554,8 @@ macro_rules! impl_scalar_power_rust {
                     + WrappingSub,
  > Power<$t> for &Scalar<F, E>
  where
-     F: FractionConstants,
-     E: ExponentConstants,
+     F: Integer,
+     E: Integer,
      Scalar<F, E>: ScalarConstants,
      u8: AsPrimitive<F>,
      u16: AsPrimitive<F>,
@@ -618,8 +618,8 @@ macro_rules! impl_scalar_power_rust {
                     + WrappingSub,
             > Power<$t> for &mut Scalar<F, E>
             where
-                F: FractionConstants,
-                E: ExponentConstants,
+                F: Integer,
+                E: Integer,
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
                 u16: AsPrimitive<F>,
@@ -683,8 +683,8 @@ macro_rules! impl_scalar_power_rust {
                     + WrappingSub,
             > Logarithm<$t> for &mut Scalar<F, E>
             where
-                F: FractionConstants,
-                E: ExponentConstants,
+                F: Integer,
+                E: Integer,
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
                 u16: AsPrimitive<F>,
@@ -747,8 +747,8 @@ macro_rules! impl_scalar_power_rust {
                     + WrappingSub,
      > Logarithm<$t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -812,8 +812,8 @@ macro_rules! impl_scalar_power_rust {
                     + WrappingSub,
  > Logarithm<$t> for &Scalar<F, E>
  where
-     F: FractionConstants,
-     E: ExponentConstants,
+     F: Integer,
+     E: Integer,
      Scalar<F, E>: ScalarConstants,
      u8: AsPrimitive<F>,
      u16: AsPrimitive<F>,
@@ -888,8 +888,8 @@ macro_rules! impl_scalar_comparison_rust {
                     + WrappingSub,
      > Min<$t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -953,8 +953,8 @@ macro_rules! impl_scalar_comparison_rust {
                     + WrappingSub,
      > Max<$t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -1025,8 +1025,8 @@ macro_rules! impl_scalar_clamp_rust {
                     + WrappingSub,
      > Clamp<$t, $t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -1104,8 +1104,8 @@ macro_rules! impl_scalar_shift_rust {
                     + WrappingSub,
           > Shl<$t> for &mut Scalar<F, E>
               where
-              F: FractionConstants,
-              E: ExponentConstants,
+              F: Integer,
+              E: Integer,
               Scalar<F, E>: ScalarConstants,
               u8: AsPrimitive<F>,
               u16: AsPrimitive<F>,
@@ -1168,8 +1168,8 @@ macro_rules! impl_scalar_shift_rust {
                     + WrappingSub,
      > Shl<$t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -1233,8 +1233,8 @@ macro_rules! impl_scalar_shift_rust {
                     + WrappingSub,
      > Shl<$t> for &Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -1297,8 +1297,8 @@ E: Integer
     + WrappingSub,
 > Shr<$t> for &mut Scalar<F, E>
 where
-F: FractionConstants,
-E: ExponentConstants,
+F: Integer,
+E: Integer,
 Scalar<F, E>: ScalarConstants,
 u8: AsPrimitive<F>,
 u16: AsPrimitive<F>,
@@ -1361,8 +1361,8 @@ fn shr(self, rhs: $t) -> Self::Output {
                     + WrappingSub,
      > Shr<$t> for Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -1426,8 +1426,8 @@ fn shr(self, rhs: $t) -> Self::Output {
                     + WrappingSub,
      > Shr<$t> for &Scalar<F, E>
      where
-         F: FractionConstants,
-         E: ExponentConstants,
+         F: Integer,
+         E: Integer,
          Scalar<F, E>: ScalarConstants,
          u8: AsPrimitive<F>,
          u16: AsPrimitive<F>,
@@ -1500,8 +1500,8 @@ macro_rules! impl_scalar_shift_assign_rust {
                     + WrappingSub,
             > ShlAssign<$t> for Scalar<F, E>
                 where
-                F: FractionConstants,
-                E: ExponentConstants,
+                F: Integer,
+                E: Integer,
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
                 u16: AsPrimitive<F>,
@@ -1563,8 +1563,8 @@ macro_rules! impl_scalar_shift_assign_rust {
                     + WrappingSub,
             > ShrAssign<$t> for Scalar<F, E>
                 where
-                F: FractionConstants,
-                E: ExponentConstants,
+                F: Integer,
+                E: Integer,
                 Scalar<F, E>: ScalarConstants,
                 u8: AsPrimitive<F>,
                 u16: AsPrimitive<F>,

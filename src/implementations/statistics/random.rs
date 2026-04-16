@@ -1,7 +1,5 @@
-use crate::core::integer::FullInt;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::core::integer::*;
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -43,7 +41,6 @@ impl RandomFraction for i128 {
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + RandomFraction
             + Shl<isize, Output = F>
@@ -57,7 +54,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -113,7 +109,7 @@ where
                 .max(result.fraction.leading_zeros())
                 .as_();
 
-            if leading > E::ZERO {
+            if leading > E::zero() {
                 let new_exponent = result.exponent.wrapping_sub(&leading);
                 let shift: isize = leading.as_();
 
@@ -121,18 +117,18 @@ where
                     result.exponent = new_exponent;
                     result.fraction = result.fraction << shift;
 
-                    let mask: F = (F::ONE << shift).wrapping_sub(&F::ONE);
+                    let mask: F = (F::one() << shift).wrapping_sub(&F::one());
                     result.fraction = result.fraction | (F::random() & mask);
                 } else {
                     // Exponent underflowed → vanished
-                    result.exponent = E::AMBIGUOUS_EXPONENT;
+                    result.exponent = Self::ambiguous_exponent();
                     result.fraction = F::random();
                     let mut leading: E = result
                         .fraction
                         .leading_ones()
                         .max(result.fraction.leading_zeros())
                         .as_();
-                    while leading != E::TWO {
+                    while leading != (E::one() + E::one()) {
                         result.fraction = F::random();
                         leading = result
                             .fraction
@@ -182,7 +178,6 @@ where
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + RandomFraction
             + Shl<isize, Output = F>
@@ -196,7 +191,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -261,14 +255,14 @@ where
                 .as_();
             let leading = leading_r.min(leading_i);
 
-            if leading > E::ONE {
+            if leading > E::one() {
                 // Needs normalization
                 let new_exponent = result.exponent.wrapping_sub(&leading);
                 let shift: isize = leading.as_();
 
                 if new_exponent.is_negative() {
                     // Normal N1 value normalization
-                    result.exponent = new_exponent.wrapping_add(&E::ONE);
+                    result.exponent = new_exponent.wrapping_add(&E::one());
 
                     // Shift both components while preserving their relationship
                     result.real = result.real << shift.wrapping_sub(1);
@@ -276,14 +270,14 @@ where
 
                     // Fill lower bits with random values
                     let mask: F =
-                        (F::POS_ONE_NORMAL_FRACTION << shift.wrapping_sub(1)).wrapping_sub(&F::ONE);
+                        (Self::pos_one_normal() << shift.wrapping_sub(1)).wrapping_sub(&F::one());
                     let random_fill_r: F = F::random() & mask;
                     let random_fill_i: F = F::random() & mask;
                     result.real = result.real | random_fill_r;
                     result.imaginary = result.imaginary | random_fill_i;
                 } else {
                     // Generate a vanished N2 value
-                    result.exponent = E::AMBIGUOUS_EXPONENT;
+                    result.exponent = Self::ambiguous_exponent();
 
                     // Keep generating random bits until we get valid N2 patterns for both components
                     loop {
@@ -301,7 +295,7 @@ where
                             .max(result.imaginary.leading_zeros())
                             .as_();
 
-                        if leading_r.min(leading_i) == E::TWO {
+                        if leading_r.min(leading_i) == (E::one() + E::one()) {
                             break;
                         }
                     }

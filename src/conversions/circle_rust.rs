@@ -1,6 +1,6 @@
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::FullInt;
-use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::{Circle, Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_complex::Complex;
@@ -12,7 +12,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 /// mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -26,7 +25,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -119,7 +117,8 @@ where
         let mut base_imag: f64 = self.imaginary.as_();
 
         // Adjust for normal value normalization
-        let frac_scale = f64::from_bits(((1023i64 + F::FRACTION_BITS as i64 - 1) as u64) << 52);
+        let frac_scale =
+            f64::from_bits(((1023i64 + Circle::<F, E>::fraction_bits() as i64 - 1) as u64) << 52);
         base_real = base_real / frac_scale;
         base_imag = base_imag / frac_scale;
 
@@ -137,7 +136,6 @@ where
 /// mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -151,7 +149,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -243,7 +240,8 @@ where
         let mut base_imag: f32 = self.imaginary.as_();
 
         // Adjust for fraction normalization
-        let frac_scale = f32::from_bits(((127i32 + F::FRACTION_BITS as i32 - 1) as u32) << 23);
+        let frac_scale =
+            f32::from_bits(((127i32 + Circle::<F, E>::fraction_bits() as i32 - 1) as u32) << 23);
         base_real = base_real / frac_scale;
         base_imag = base_imag / frac_scale;
 
@@ -258,7 +256,6 @@ where
 // Implement owned versions that use the reference implementations
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -272,7 +269,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -337,7 +333,6 @@ where
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -351,7 +346,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>

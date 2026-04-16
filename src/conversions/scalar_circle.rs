@@ -1,7 +1,6 @@
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::{FullInt, IntConvert};
-use crate::FractionConstants;
-use crate::{core::undefined::*, ExponentConstants};
+use crate::core::undefined::*;
 use crate::{Circle, Integer, Scalar};
 use core::ops::*;
 use i256::I256;
@@ -14,7 +13,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -27,7 +25,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -156,7 +153,7 @@ where
             return Circle {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
         if real.vanished() {
@@ -185,7 +182,7 @@ where
         } else if exp_diff > 0.as_() {
             // Real exponent is larger, shift imaginary fraction right
             let shift: isize = exp_diff.as_();
-            if shift >= F::FRACTION_BITS {
+            if shift >= Self::fraction_bits() {
                 // Imaginary part is effectively zero after shift
                 return Circle {
                     real: real.fraction,
@@ -201,7 +198,7 @@ where
         } else {
             // Imaginary exponent is larger, shift real fraction right
             let shift: isize = (-exp_diff).as_();
-            if shift >= F::FRACTION_BITS {
+            if shift >= Self::fraction_bits() {
                 // Real part is effectively zero after shift
                 return Circle {
                     real: 0.as_(),

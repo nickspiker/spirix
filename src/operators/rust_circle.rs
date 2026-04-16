@@ -1,7 +1,7 @@
 // operators/rust_circle.rs
 use crate::constants::{CircleConstants, ScalarConstants};
 use crate::core::integer::FullInt;
-use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::{Circle, Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -12,7 +12,6 @@ macro_rules! impl_rust_add_circle {
         $(
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -25,7 +24,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -78,7 +76,6 @@ impl<
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -91,7 +88,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -150,7 +146,6 @@ macro_rules! impl_rust_sub_circle {
         $(
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -163,7 +158,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -216,7 +210,6 @@ impl<
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -229,7 +222,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -288,7 +280,6 @@ macro_rules! impl_rust_mul_circle {
         $(
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -301,7 +292,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -354,7 +344,6 @@ impl<
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -367,7 +356,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -426,7 +414,6 @@ macro_rules! impl_rust_div_circle {
         $(
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -439,7 +426,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -492,7 +478,6 @@ impl<
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -505,7 +490,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -564,7 +548,6 @@ macro_rules! impl_rust_rem_circle {
         $(
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -577,7 +560,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -630,7 +612,6 @@ impl<
 
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -643,7 +624,6 @@ impl<
                     + WrappingMul
                     + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>

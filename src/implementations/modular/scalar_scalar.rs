@@ -1,6 +1,6 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -8,7 +8,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -21,7 +20,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -141,7 +139,7 @@ where
             if self.is_transfinite() {
                 return Self {
                     fraction: TRANSFINITE_MODULUS.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if denominator.is_infinite() {
@@ -150,7 +148,7 @@ where
             if denominator.vanished() {
                 return Self {
                     fraction: MODULUS_VANISHED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
 
@@ -160,7 +158,7 @@ where
                 // Signs differ, return undefined state (magnitude is indeterminate)
                 return Self {
                     fraction: MODULUS_EXPLODED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }

@@ -1,15 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -22,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -72,7 +68,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self; // covers undefined, vanished and Zero
@@ -93,7 +89,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_zero() {
@@ -125,7 +121,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self; // covers undefined, vanished and Zero
@@ -141,7 +137,7 @@ where
             return Self {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -156,7 +152,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -178,7 +174,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self::ONE;
@@ -197,7 +193,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -212,7 +208,7 @@ where
             return Self {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -227,7 +223,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -253,7 +249,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self::PI_OVER_TWO;
@@ -275,7 +271,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -298,7 +294,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -322,7 +318,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self::POS_I * Self::PI_OVER_TWO;
@@ -343,7 +339,7 @@ where
                 return Self {
                     real: prefix,
                     imaginary: prefix,
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;

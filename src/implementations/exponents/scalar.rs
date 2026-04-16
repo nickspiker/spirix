@@ -1,8 +1,8 @@
 // src/implementation/exponents/scalar.rs
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
 use crate::lut::SQRT_LUT;
-use crate::{ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants};
+use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -10,7 +10,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -23,7 +22,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -73,7 +71,7 @@ where
             }
 
             let shift_adjust: isize = if self.exploded() { 1 } else { 2 };
-            let fraction = match F::FRACTION_BITS {
+            let fraction = match Self::fraction_bits() {
                 8 => {
                     let fraction: i16 = self.fraction.as_();
                     let product_wide = fraction.wrapping_mul(fraction);
@@ -145,13 +143,13 @@ where
 
             return Self {
                 fraction,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
         let product_fraction;
         let expo_adjust: isize;
-        match F::FRACTION_BITS {
+        match Self::fraction_bits() {
             8 => {
                 let multiplier: i16 = self.fraction.as_();
                 let product_wide = multiplier.wrapping_mul(multiplier);
@@ -227,28 +225,28 @@ where
             _ => {
                 return Self {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
 
-        match E::EXPONENT_BITS {
+        match Self::exponent_bits() {
             8 => {
                 let self_exponent: i16 = self.exponent.as_();
                 let upcast_exponent: i16 = self_exponent
                     .wrapping_mul(2)
                     .wrapping_sub(expo_adjust as i16);
-                let max_e: i16 = E::MAX_EXPONENT.as_();
-                let min_e: i16 = E::MIN_EXPONENT.as_();
+                let max_e: i16 = Self::max_exponent().as_();
+                let min_e: i16 = Self::min_exponent().as_();
                 if upcast_exponent > max_e {
                     return Scalar {
                         fraction: product_fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else if upcast_exponent < min_e {
                     return Scalar {
                         fraction: product_fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Scalar {
@@ -262,17 +260,17 @@ where
                 let upcast_exponent: i32 = self_exponent
                     .wrapping_mul(2)
                     .wrapping_sub(expo_adjust as i32);
-                let max_e: i32 = E::MAX_EXPONENT.as_();
-                let min_e: i32 = E::MIN_EXPONENT.as_();
+                let max_e: i32 = Self::max_exponent().as_();
+                let min_e: i32 = Self::min_exponent().as_();
                 if upcast_exponent > max_e {
                     return Scalar {
                         fraction: product_fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else if upcast_exponent < min_e {
                     return Scalar {
                         fraction: product_fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Scalar {
@@ -286,17 +284,17 @@ where
                 let upcast_exponent: i64 = self_exponent
                     .wrapping_mul(2)
                     .wrapping_sub(expo_adjust as i64);
-                let max_e: i64 = E::MAX_EXPONENT.as_();
-                let min_e: i64 = E::MIN_EXPONENT.as_();
+                let max_e: i64 = Self::max_exponent().as_();
+                let min_e: i64 = Self::min_exponent().as_();
                 if upcast_exponent > max_e {
                     return Scalar {
                         fraction: product_fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else if upcast_exponent < min_e {
                     return Scalar {
                         fraction: product_fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Scalar {
@@ -310,17 +308,17 @@ where
                 let upcast_exponent: i128 = self_exponent
                     .wrapping_mul(2)
                     .wrapping_sub(expo_adjust as i128);
-                let max_e: i128 = E::MAX_EXPONENT.as_();
-                let min_e: i128 = E::MIN_EXPONENT.as_();
+                let max_e: i128 = Self::max_exponent().as_();
+                let min_e: i128 = Self::min_exponent().as_();
                 if upcast_exponent > max_e {
                     return Scalar {
                         fraction: product_fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else if upcast_exponent < min_e {
                     return Scalar {
                         fraction: product_fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Scalar {
@@ -335,15 +333,15 @@ where
                 let two: I256 = 2.into();
                 let upcast_exponent: I256 = self_exponent * two - e;
 
-                if upcast_exponent > E::MAX_EXPONENT.into() {
+                if upcast_exponent > Self::max_exponent().into() {
                     return Scalar {
                         fraction: product_fraction,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
-                } else if upcast_exponent < E::MIN_EXPONENT.into() {
+                } else if upcast_exponent < Self::min_exponent().into() {
                     return Scalar {
                         fraction: product_fraction >> 1isize,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 } else {
                     return Scalar {
@@ -355,7 +353,7 @@ where
             _ => {
                 return Scalar {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -369,12 +367,12 @@ where
             if self.vanished() {
                 return Self {
                     fraction: SQRT_VANISHED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             } else {
                 return Self {
                     fraction: SQRT_EXPLODED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -382,7 +380,7 @@ where
         if self.fraction.is_negative() {
             return Self {
                 fraction: SQRT_NEGATIVE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
@@ -398,7 +396,7 @@ where
             exponent = exponent - 1.as_();
         }
 
-        let fraction = match F::FRACTION_BITS {
+        let fraction = match Self::fraction_bits() {
             8 => {
                 let f: u16 = self.fraction.as_();
                 let radicand = f << (9 - even);
@@ -513,8 +511,8 @@ where
             _ => {
                 let prefix: F = GENERAL.prefix.as_();
                 return Self {
-                    fraction: prefix << (F::FRACTION_BITS - 8),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    fraction: prefix << (Self::fraction_bits() - 8),
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         };
@@ -530,12 +528,12 @@ where
             if self.vanished() {
                 return Self {
                     fraction: SQRT_VANISHED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             } else {
                 return Self {
                     fraction: SQRT_EXPLODED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         }
@@ -543,19 +541,19 @@ where
         if self.fraction.is_negative() {
             return Self {
                 fraction: SQRT_NEGATIVE.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
-        let exponent = (self.exponent) / E::TWO;
-        let even = self.exponent & E::ONE;
+        let exponent = (self.exponent) / (E::one() + E::one());
+        let even = self.exponent & E::one();
         let mut exponent = exponent + even;
         let even: usize = even.as_();
         if self.exponent.is_negative() && even != 0 {
-            exponent = exponent - E::ONE;
+            exponent = exponent - E::one();
         }
 
-        let fraction = match F::FRACTION_BITS {
+        let fraction = match Self::fraction_bits() {
             8 => {
                 let value: u16 = self.fraction.as_();
                 let x = value << 9usize.wrapping_sub(even);
@@ -650,7 +648,7 @@ where
             _ => {
                 return Self {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         };
@@ -673,45 +671,45 @@ where
             if self.exploded() {
                 return Self {
                     fraction: TRANSFINITE_LOG.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self {
                 fraction: NEGLIGIBLE_LOG.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
         if self.fraction.is_negative() {
             return Self {
                 fraction: NEGATIVE_LOG.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             };
         }
 
         // Calculate the integer part
-        let characteristic = self.exponent.wrapping_sub(&E::ONE);
+        let characteristic = self.exponent.wrapping_sub(&E::one());
 
         // Create a value in [1,2) to calculate the fractional part
         let mut x = *self;
-        x.exponent = E::ONE;
+        x.exponent = E::one();
 
         // Calculate fractional part bit by bit
-        let mut fraction = F::ZERO;
-        let mut rotor: F = F::ONE;
-        rotor = rotor << F::FRACTION_BITS.wrapping_sub(2);
+        let mut fraction = F::zero();
+        let mut rotor: F = F::one();
+        rotor = rotor << Self::fraction_bits().wrapping_sub(2);
 
-        while rotor != F::ZERO {
+        while rotor != F::zero() {
             x = x.square();
-            if x.exponent > E::ONE {
+            if x.exponent > E::one() {
                 fraction = fraction | rotor;
-                x.exponent = x.exponent.wrapping_sub(&E::ONE);
+                x.exponent = x.exponent.wrapping_sub(&E::one());
             }
             rotor = rotor >> 1isize;
         }
 
         // Combine integer and fractional parts
-        let characteristic_scalar = match E::EXPONENT_BITS {
+        let characteristic_scalar = match Self::exponent_bits() {
             8 => {
                 let exponent: i8 = characteristic.as_();
                 Self::from(exponent)
@@ -735,7 +733,7 @@ where
             _ => {
                 return Self {
                     fraction: GENERAL.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
         };
@@ -743,7 +741,7 @@ where
         // Add the fractional part to the characteristic
         let mut fractional_part = Self {
             fraction: fraction,
-            exponent: E::ZERO,
+            exponent: E::zero(),
         };
         fractional_part.normalize();
 
@@ -822,7 +820,7 @@ where
                 } else {
                     return Self {
                         fraction: POWER_TRANSFINITE.prefix.sa(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
             }
@@ -863,7 +861,7 @@ where
 
         let mut remaining_exponent = integer_part.magnitude();
 
-        for _bit in 0..E::EXPONENT_BITS {
+        for _bit in 0..Self::exponent_bits() {
             if (remaining_exponent & Self::ONE) == 1 {
                 integer_result *= current_power;
             }

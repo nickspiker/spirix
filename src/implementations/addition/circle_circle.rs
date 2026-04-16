@@ -1,15 +1,12 @@
-use crate::core::integer::{Inflate, FullInt, IntConvert};
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub, Zero};
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -22,7 +19,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -146,28 +142,28 @@ where
                 return Self {
                     real: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() && circle.vanished() {
                 return Self {
                     real: VANISHED_PLUS_VANISHED.prefix.sa(),
                     imaginary: VANISHED_PLUS_VANISHED.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_transfinite() {
                 return Self {
                     real: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_FINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if circle.is_transfinite() {
                 return Self {
                     real: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: FINITE_PLUS_TRANSFINITE.prefix.sa(),
-                    exponent: E::AMBIGUOUS_EXPONENT,
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.vanished() {
@@ -193,18 +189,18 @@ where
             return *big;
         }
 
-        if E::EXPONENT_BITS >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
-            if exp_diff >= F::FRACTION_BITS.as_() {
+        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+            if exp_diff >= Self::fraction_bits().as_() {
                 return *big;
             }
         } else {
             let exp_diff_isize: isize = exp_diff.as_();
-            if exp_diff_isize >= F::FRACTION_BITS {
+            if exp_diff_isize >= Self::fraction_bits() {
                 return *big;
             }
         }
 
-        match F::FRACTION_BITS {
+        match Self::fraction_bits() {
             8 => {
                 let shift: isize = exp_diff.as_();
                 let mut big_r: i16 = big.real.as_();
@@ -219,9 +215,9 @@ where
 
                 if result_r.is_zero() && result_i.is_zero() {
                     return Self {
-                        real: F::ZERO,
-                        imaginary: F::ZERO,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        real: F::zero(),
+                        imaginary: F::zero(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
 
@@ -230,20 +226,23 @@ where
                 let leading = leading_r.min(leading_i);
                 let offset = small
                     .exponent
-                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        imaginary: ((result_i << (leading.wrapping_sub(2)))
+                            >> Self::fraction_bits())
+                        .as_(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    exponent: offset.wrapping_add(&E::ONE),
+                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
+                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
+                        .as_(),
+                    exponent: offset.wrapping_add(&E::one()),
                 };
             }
             16 => {
@@ -260,9 +259,9 @@ where
 
                 if result_r.is_zero() && result_i.is_zero() {
                     return Self {
-                        real: F::ZERO,
-                        imaginary: F::ZERO,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        real: F::zero(),
+                        imaginary: F::zero(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
 
@@ -271,20 +270,23 @@ where
                 let leading = leading_r.min(leading_i);
                 let offset = small
                     .exponent
-                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        imaginary: ((result_i << (leading.wrapping_sub(2)))
+                            >> Self::fraction_bits())
+                        .as_(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    exponent: offset.wrapping_add(&E::ONE),
+                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
+                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
+                        .as_(),
+                    exponent: offset.wrapping_add(&E::one()),
                 };
             }
             32 => {
@@ -301,9 +303,9 @@ where
 
                 if result_r.is_zero() && result_i.is_zero() {
                     return Self {
-                        real: F::ZERO,
-                        imaginary: F::ZERO,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        real: F::zero(),
+                        imaginary: F::zero(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
 
@@ -312,20 +314,23 @@ where
                 let leading = leading_r.min(leading_i);
                 let offset = small
                     .exponent
-                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        imaginary: ((result_i << (leading.wrapping_sub(2)))
+                            >> Self::fraction_bits())
+                        .as_(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    exponent: offset.wrapping_add(&E::ONE),
+                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
+                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
+                        .as_(),
+                    exponent: offset.wrapping_add(&E::one()),
                 };
             }
             64 => {
@@ -342,9 +347,9 @@ where
 
                 if result_r.is_zero() && result_i.is_zero() {
                     return Self {
-                        real: F::ZERO,
-                        imaginary: F::ZERO,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        real: F::zero(),
+                        imaginary: F::zero(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
 
@@ -353,20 +358,23 @@ where
                 let leading = leading_r.min(leading_i);
                 let offset = small
                     .exponent
-                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS).as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        imaginary: ((result_i << (leading.wrapping_sub(2)))
+                            >> Self::fraction_bits())
+                        .as_(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> F::FRACTION_BITS).as_(),
-                    exponent: offset.wrapping_add(&E::ONE),
+                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
+                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
+                        .as_(),
+                    exponent: offset.wrapping_add(&E::one()),
                 };
             }
             128 => {
@@ -383,9 +391,9 @@ where
 
                 if result_r == 0.into() && result_i == 0.into() {
                     return Self {
-                        real: F::ZERO,
-                        imaginary: F::ZERO,
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        real: F::zero(),
+                        imaginary: F::zero(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
 
@@ -394,33 +402,34 @@ where
                 let leading = leading_r.min(leading_i);
                 let offset = small
                     .exponent
-                    .wrapping_add(&(F::FRACTION_BITS.wrapping_sub(leading)).as_());
+                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                 if big.exponent.is_negative() && !offset.is_negative() {
                     return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
+                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_i128()
                             .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2))) >> F::FRACTION_BITS)
-                            .as_i128()
-                            .as_(),
-                        exponent: E::AMBIGUOUS_EXPONENT,
+                        imaginary: ((result_i << (leading.wrapping_sub(2)))
+                            >> Self::fraction_bits())
+                        .as_i128()
+                        .as_(),
+                        exponent: Self::ambiguous_exponent(),
                     };
                 }
                 return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_i128()
                         .as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> F::FRACTION_BITS)
+                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_i128()
                         .as_(),
-                    exponent: offset.wrapping_add(&E::ONE),
+                    exponent: offset.wrapping_add(&E::one()),
                 };
             }
             _ => Self {
                 real: GENERAL.prefix.sa(),
                 imaginary: GENERAL.prefix.sa(),
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Self::ambiguous_exponent(),
             },
         }
     }

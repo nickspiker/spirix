@@ -1,7 +1,5 @@
-use crate::core::integer::{FullInt, Inflate};
-use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar, ScalarConstants,
-};
+use crate::core::integer::*;
+use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -25,7 +23,6 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 /// converting between different sizes.
 impl<
         FS: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = FS>
             + Shr<isize, Output = FS>
@@ -39,7 +36,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         ES: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = ES>
             + Shr<isize, Output = ES>
@@ -53,7 +49,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         FD: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = FD>
             + Shr<isize, Output = FD>
@@ -67,7 +62,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         ED: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = ED>
             + Shr<isize, Output = ED>
@@ -164,31 +158,33 @@ where
             return Self {
                 real,
                 imaginary,
-                exponent: ED::AMBIGUOUS_EXPONENT,
+                exponent: ED::min_value(),
             };
         }
 
-        if ES::EXPONENT_BITS <= ED::EXPONENT_BITS {
+        if ((core::mem::size_of::<ES>() * 8) as isize)
+            <= ((core::mem::size_of::<ED>() * 8) as isize)
+        {
             return Self {
                 real,
                 imaginary,
                 exponent: source.exponent.as_(),
             };
         }
-        if source.exponent > ED::MAX_EXPONENT.as_() {
+        if source.exponent > ED::max_value().as_() {
             return Self {
                 real,
                 imaginary,
-                exponent: ED::AMBIGUOUS_EXPONENT,
+                exponent: ED::min_value(),
             };
         }
-        if source.exponent < ED::MIN_EXPONENT.as_() {
+        if source.exponent < (ED::min_value() + ED::one()).as_() {
             let real = real >> 1isize;
             let imaginary = imaginary >> 1isize;
             return Self {
                 real,
                 imaginary,
-                exponent: ED::AMBIGUOUS_EXPONENT,
+                exponent: ED::min_value(),
             };
         }
         let exponent = source.exponent.as_();

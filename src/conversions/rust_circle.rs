@@ -1,8 +1,7 @@
-use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::FullInt;
-use crate::core::integer::IntConvert;
+use crate::core::integer::*;
 use crate::core::undefined::*;
-use crate::{Circle, ExponentConstants, FractionConstants, Integer, Scalar};
+use crate::ScalarConstants;
+use crate::{Circle, CircleConstants, Integer, Scalar};
 use core::ops::*;
 use i256::I256;
 use num_complex::Complex;
@@ -83,7 +82,6 @@ pub trait IntoCircle<F: Integer, E: Integer> {
 impl<
         F: Integer
             + FullInt
-            + FractionConstants
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
             + Shl<F, Output = F>
@@ -92,7 +90,6 @@ impl<
             + Shr<E, Output = F>,
         E: Integer
             + FullInt
-            + ExponentConstants
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
             + Shl<E, Output = E>
@@ -102,8 +99,9 @@ impl<
         R,
     > From<R> for Circle<F, E>
 where
+    Scalar<F, E>: From<R>,
+    Scalar<F, E>: ScalarConstants,
     Circle<F, E>: CircleConstants,
-    Scalar<F, E>: ScalarConstants + From<R>,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -170,7 +168,6 @@ where
 impl<
         F: Integer
             + FullInt
-            + FractionConstants
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
             + Shl<F, Output = F>
@@ -183,7 +180,6 @@ impl<
             + WrappingSub,
         E: Integer
             + FullInt
-            + ExponentConstants
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
             + Shl<E, Output = E>
@@ -196,8 +192,8 @@ impl<
             + WrappingSub,
     > From<Complex<f64>> for Circle<F, E>
 where
-    Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
+    Circle<F, E>: CircleConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -258,7 +254,7 @@ where
             return Self {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
             };
         }
         Self::from_ri(real_scalar, imag_scalar)
@@ -272,7 +268,6 @@ where
 impl<
         F: Integer
             + FullInt
-            + FractionConstants
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
             + Shl<F, Output = F>
@@ -285,7 +280,6 @@ impl<
             + WrappingSub,
         E: Integer
             + FullInt
-            + ExponentConstants
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
             + Shl<E, Output = E>
@@ -298,8 +292,8 @@ impl<
             + WrappingSub,
     > From<Complex<f32>> for Circle<F, E>
 where
-    Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
+    Circle<F, E>: CircleConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -360,7 +354,7 @@ where
             return Self {
                 real: prefix,
                 imaginary: prefix,
-                exponent: E::AMBIGUOUS_EXPONENT,
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
             };
         }
         Self::from_ri(real_scalar, imag_scalar)
@@ -374,7 +368,6 @@ where
 impl<
         F: Integer
             + FullInt
-            + FractionConstants
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
             + Shl<F, Output = F>
@@ -387,7 +380,6 @@ impl<
             + WrappingSub,
         E: Integer
             + FullInt
-            + ExponentConstants
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
             + Shl<E, Output = E>
@@ -402,8 +394,9 @@ impl<
         I,
     > From<(R, I)> for Circle<F, E>
 where
+    Scalar<F, E>: From<R> + From<I>,
+    Scalar<F, E>: ScalarConstants,
     Circle<F, E>: CircleConstants,
-    Scalar<F, E>: ScalarConstants + From<R> + From<I>,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -475,7 +468,6 @@ where
 impl<
         F: Integer
             + FullInt
-            + FractionConstants
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
             + Shl<F, Output = F>
@@ -488,7 +480,6 @@ impl<
             + WrappingSub,
         E: Integer
             + FullInt
-            + ExponentConstants
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
             + Shl<E, Output = E>
@@ -501,8 +492,8 @@ impl<
             + WrappingSub,
     > From<&Complex<f64>> for Circle<F, E>
 where
-    Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
+    Circle<F, E>: CircleConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -565,7 +556,6 @@ where
 impl<
         F: Integer
             + FullInt
-            + FractionConstants
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
             + Shl<F, Output = F>
@@ -578,7 +568,6 @@ impl<
             + WrappingSub,
         E: Integer
             + FullInt
-            + ExponentConstants
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
             + Shl<E, Output = E>
@@ -591,8 +580,8 @@ impl<
             + WrappingSub,
     > From<&Complex<f32>> for Circle<F, E>
 where
-    Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
+    Circle<F, E>: CircleConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,

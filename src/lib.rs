@@ -606,9 +606,7 @@ pub use crate::core::{
 };
 
 // Constants for components
-pub use crate::constants::{
-    CircleConstants, ExponentConstants, FractionConstants, ScalarConstants,
-};
+pub use crate::constants::{CircleConstants, ScalarConstants};
 
 // Operator traits for mixed-type operations
 pub use crate::operators::{Clamp, Logarithm, Max, Min, Power};

@@ -1,8 +1,5 @@
-use crate::core::integer::{Inflate, FullInt, Integer};
-use crate::{
-    operators::*, Circle, CircleConstants, ExponentConstants, FractionConstants, Scalar,
-    ScalarConstants,
-};
+use crate::core::integer::*;
+use crate::{operators::*, Circle, CircleConstants, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
@@ -12,7 +9,6 @@ macro_rules! impl_scalar_op_circle {
         // &Scalar op &Circle
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -25,7 +21,6 @@ macro_rules! impl_scalar_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -77,7 +72,6 @@ macro_rules! impl_scalar_op_circle {
         // &Scalar op Circle
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -90,7 +84,6 @@ macro_rules! impl_scalar_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -142,7 +135,6 @@ macro_rules! impl_scalar_op_circle {
         // &mut Scalar op &Circle
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -155,7 +147,6 @@ macro_rules! impl_scalar_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -207,7 +198,6 @@ macro_rules! impl_scalar_op_circle {
         // &mut Scalar op Circle
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -220,7 +210,6 @@ macro_rules! impl_scalar_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -272,7 +261,6 @@ macro_rules! impl_scalar_op_circle {
         // Scalar op &Circle
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -285,7 +273,6 @@ macro_rules! impl_scalar_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -337,7 +324,6 @@ macro_rules! impl_scalar_op_circle {
         // Scalar op Circle
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -350,7 +336,6 @@ macro_rules! impl_scalar_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -409,7 +394,6 @@ impl_scalar_op_circle!(Rem, rem, scalar_modulus_circle);
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -422,7 +406,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -476,7 +459,6 @@ macro_rules! impl_scalar_math_op_circle {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -489,7 +471,6 @@ macro_rules! impl_scalar_math_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -542,7 +523,6 @@ macro_rules! impl_scalar_math_op_circle {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -555,7 +535,6 @@ macro_rules! impl_scalar_math_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -608,7 +587,6 @@ macro_rules! impl_scalar_math_op_circle {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -621,7 +599,6 @@ macro_rules! impl_scalar_math_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>
@@ -674,7 +651,6 @@ macro_rules! impl_scalar_math_op_circle {
         #[allow(private_bounds)]
         impl<
                 F: Integer
-                    + FractionConstants
                     + FullInt
                     + Shl<isize, Output = F>
                     + Shr<isize, Output = F>
@@ -687,7 +663,6 @@ macro_rules! impl_scalar_math_op_circle {
                     + WrappingMul
                     + WrappingSub,
                 E: Integer
-                    + ExponentConstants
                     + FullInt
                     + Shl<isize, Output = E>
                     + Shr<isize, Output = E>

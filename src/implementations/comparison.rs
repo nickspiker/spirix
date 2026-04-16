@@ -1,11 +1,7 @@
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
-use crate::{
-    core::integer::{FullInt, IntConvert},
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
-    ScalarConstants,
-};
+use crate::{core::integer::*, Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 
 use core::cmp::Ordering;
 use core::ops::*;
@@ -13,7 +9,6 @@ use core::ops::*;
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -26,7 +21,6 @@ impl<
             + WrappingSub
             + WrappingMul,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -153,7 +147,6 @@ where
 #[allow(private_bounds)]
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -166,7 +159,6 @@ impl<
             + WrappingSub
             + WrappingMul,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>

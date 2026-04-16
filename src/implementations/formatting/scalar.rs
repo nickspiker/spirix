@@ -44,8 +44,8 @@ use crate::core::integer::FullInt;
 use crate::core::undefined::*;
 use crate::implementations::formatting::colours::{ColourScheme, COLOURS};
 use crate::{
-    Circle, CircleConstants, ExponentConstants, FractionConstants, Integer, Scalar,
-    ScalarConstants, ScalarF4E4, ScalarF5E5, ScalarF6E6, ScalarF7E7,
+    Circle, CircleConstants, Integer, Scalar, ScalarConstants, ScalarF4E4, ScalarF5E5, ScalarF6E6,
+    ScalarF7E7,
 };
 use ::core::fmt;
 use ::core::ops::*;
@@ -56,7 +56,6 @@ use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 impl<
         F: Integer
-            + FractionConstants
             + FullInt
             + Shl<isize, Output = F>
             + Shr<isize, Output = F>
@@ -69,7 +68,6 @@ impl<
             + WrappingMul
             + WrappingSub,
         E: Integer
-            + ExponentConstants
             + FullInt
             + Shl<isize, Output = E>
             + Shr<isize, Output = E>
@@ -141,14 +139,18 @@ where
 
         // Calculate default digit count based on fraction bit precision
         // For very large fraction types, use a smaller type to avoid overflow in the calculation
-        let mut digits = if F::FRACTION_BITS > 100 && E::EXPONENT_BITS < 12 {
+        let mut digits = if Self::fraction_bits() > 100 && Self::exponent_bits() < 12 {
             crate::ScalarF7E4::TWO
-                .pow(F::FRACTION_BITS)
+                .pow(Self::fraction_bits())
                 .log(base)
                 .floor()
                 .to_isize()
         } else {
-            Self::TWO.pow(F::FRACTION_BITS).log(base).floor().to_isize()
+            Self::TWO
+                .pow(Self::fraction_bits())
+                .log(base)
+                .floor()
+                .to_isize()
         };
 
         // Override digit count if width is specified
@@ -188,8 +190,8 @@ impl<
             + WrappingSub,
     > fmt::Debug for Scalar<F, E>
 where
-    F: FractionConstants,
-    E: ExponentConstants,
+    F: Integer,
+    E: Integer,
     Circle<F, E>: CircleConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
@@ -281,8 +283,8 @@ impl<
             + WrappingSub,
     > Scalar<F, E>
 where
-    F: FractionConstants,
-    E: ExponentConstants,
+    F: Integer,
+    E: Integer,
     Scalar<F, E>: ScalarConstants,
     Circle<F, E>: CircleConstants,
     u8: AsPrimitive<F>,
@@ -376,8 +378,8 @@ where
 
             // Three-way split: Big (scientific), Normal (decimal), Small (scientific)
             if self <= -base_scalar.pow(digits) || self >= base_scalar.pow(digits) {
-                if F::FRACTION_BITS < E::EXPONENT_BITS {
-                    match E::EXPONENT_BITS {
+                if Self::fraction_bits() < Self::exponent_bits() {
+                    match Self::exponent_bits() {
                         16 => string
                             .push_str(&ScalarF4E4::from(self).format_scientific_big(base, digits)),
                         32 => string
@@ -392,8 +394,8 @@ where
                     string.push_str(&self.format_scientific_big(base, digits))
                 }
             } else if self < base_scalar.pow(-4) && self > -base_scalar.pow(-4) {
-                if F::FRACTION_BITS < E::EXPONENT_BITS {
-                    match E::EXPONENT_BITS {
+                if Self::fraction_bits() < Self::exponent_bits() {
+                    match Self::exponent_bits() {
                         16 => string.push_str(
                             &ScalarF4E4::from(self).format_scientific_small(base, digits),
                         ),
@@ -725,11 +727,11 @@ where
     fn format_debug_plain(&self) -> String {
         let mut binary = String::new();
         let mut rotating = self.fraction;
-        let middle = F::FRACTION_BITS / 2;
+        let middle = Self::fraction_bits() / 2;
 
         // Format fraction bits
-        for b in 0..F::FRACTION_BITS {
-            if F::FRACTION_BITS != 8 && b == middle {
+        for b in 0..Self::fraction_bits() {
+            if Self::fraction_bits() != 8 && b == middle {
                 binary.push_str("  "); // Double space in middle
             }
             binary.push(if rotating.is_negative() { '1' } else { '0' });
@@ -743,7 +745,7 @@ where
 
         // Format exponent bits
         let mut exp_rotating = self.exponent;
-        for b in 0..E::EXPONENT_BITS {
+        for b in 0..Self::exponent_bits() {
             binary.push(if exp_rotating.is_negative() { '1' } else { '0' });
             exp_rotating = exp_rotating.rotate_left(1);
             if b % 8 == 7 || b == 0 {
@@ -781,7 +783,7 @@ where
         let mut binary = String::new();
         let mut rotating = self.fraction;
         let (unset, set) = self.get_binary_chars();
-        let middle = F::FRACTION_BITS / 2;
+        let middle = Self::fraction_bits() / 2;
         let scheme = self.get_colour_scheme();
         let rgb = &scheme.colour;
 
@@ -789,8 +791,8 @@ where
         binary.push_str(&format!("\x1B[38;2;{};{};{}m", rgb[0], rgb[1], rgb[2]));
 
         // Format fraction bits
-        for b in 0..F::FRACTION_BITS {
-            if F::FRACTION_BITS != 8 && b == middle {
+        for b in 0..Self::fraction_bits() {
+            if Self::fraction_bits() != 8 && b == middle {
                 binary.push(' ');
             }
 
@@ -820,7 +822,7 @@ where
         ));
 
         let mut exp_rotating = self.exponent;
-        for b in 0..E::EXPONENT_BITS {
+        for b in 0..Self::exponent_bits() {
             binary.push(if exp_rotating.is_negative() {
                 '■'
             } else {
