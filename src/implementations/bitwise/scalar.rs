@@ -1,14 +1,9 @@
-use crate::core::integer::FullInt;
-use crate::core::integer::IntConvert;
+use crate::core::integer::{Deflate, FullInt, IntConvert, WideOps};
 use crate::core::undefined::*;
 use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
-use num_traits::AsPrimitive;
-use num_traits::WrappingAdd;
-use num_traits::WrappingMul;
-use num_traits::WrappingNeg;
-use num_traits::WrappingSub;
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -22,8 +17,7 @@ impl<
             + WrappingNeg
             + WrappingAdd
             + WrappingMul
-            + WrappingSub
-            + 'static,
+            + WrappingSub,
         E: Integer
             + FullInt
             + Shl<isize, Output = E>
@@ -35,8 +29,7 @@ impl<
             + WrappingNeg
             + WrappingAdd
             + WrappingMul
-            + WrappingSub
-            + 'static,
+            + WrappingSub,
     > Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
@@ -67,43 +60,11 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Performs bitwise AND operation on two Scalars after aligning their fractions
+    /// Performs bitwise AND on two Scalars after aligning their fractions by exponent.
     ///
-    /// # Two's Complement Behavior
-    /// In two's complement, negative numbers have their most significant bit set to 1 and all bits above the highest 1 bit are also 1. This implementation respects these properties:
-    ///
-    /// - If a smaller number is non-negative (highest bit 0), its higher bits are 0, so AND with any larger number will produce 0 in those bit positions
-    /// - If a smaller number is negative, all high bits are ones, so AND with a larger number preserves the larger number's bits in those positions
-    ///
-    /// # Specifics
-    /// 0. Special case handling for ambiguous values (undefined, exploded, vanished and Zero)
-    /// 1. Determination of which Scalar has larger exponent to align the values
-    /// 2. Calculation of exponent difference and early return cases if the difference is too large (when bits don't overlap after alignment) and relevant sign extensions etc.
-    /// 3. Alignment of the fraction with larger exponent by left-shifting by the exponent difference
-    /// 4. Performing the bitwise AND on aligned fractions
-    /// 5. Normalization of the result by counting leading zeros/ones and adjusting the exponent
-    ///
-    /// # Arguments
-    /// * `other` - The Scalar to AND with
-    ///
-    /// # Returns
-    /// * A Scalar containing the result of the aligned AND of both Scalars
-    /// * Returns undefined AND if both operands escaped the same way
-    /// * Returns Zero if either operand is Zero, or if non-negative operand is AND'ed with a
-    ///   larger value (no bit overlap)
-    /// * Returns the non-vanished operand if the other is vanished and negative
-    ///
-    /// # Representation Patterns
-    /// ```txt
-    /// Exploded Normal Vanished
-    /// ↓↓↓↓↓↓↓↓ ↓↓↓↓↓↓ ↓↓↓↓↓↓↓↓
-    /// □■?????? ?????? ???????? - Exploded positive
-    /// ■□?????? ?????? ???????? - Exploded negative
-    /// □□□□□□□□ □■???? ???????? - Normal positive
-    /// ■■■■■■■■ ■□???? ???????? - Normal negative
-    /// □□□□□□□□ □□□□□□ □■?????? - Vanished positive
-    /// ■■■■■■■■ ■■■■■■ ■□?????? - Vanished negative
-    /// ```
+    /// Operates in inflated (effective) value space so the standard two's complement
+    /// AND semantics apply: negative operands have leading ones, positive operands
+    /// have leading zeros, after inflate.
     pub(crate) fn aligned_and(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
@@ -154,229 +115,10 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let (big, small) = if self.exponent > other.exponent {
-            (self, other)
-        } else {
-            (other, self)
-        };
-        let exp_diff = big.exponent.wrapping_sub(&small.exponent);
-        if exp_diff.is_negative() {
-            if small.fraction.is_negative() {
-                return *big;
-            } else {
-                return Self::ZERO;
-            }
-        }
-
-        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
-            if exp_diff >= Self::fraction_bits().as_() {
-                if small.fraction.is_negative() {
-                    return *big;
-                } else {
-                    return Self::ZERO;
-                }
-            }
-        } else {
-            let exp_diff_isize: isize = exp_diff.as_();
-            if exp_diff_isize >= Self::fraction_bits() {
-                if small.fraction.is_negative() {
-                    return *big;
-                } else {
-                    return Self::ZERO;
-                }
-            }
-        }
-        match Self::fraction_bits() {
-            8 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i16 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i16 = small.fraction.as_();
-                let result = big_f & small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            16 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i32 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i32 = small.fraction.as_();
-                let result = big_f & small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            32 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i64 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i64 = small.fraction.as_();
-                let result = big_f & small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            64 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i128 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i128 = small.fraction.as_();
-                let result = big_f & small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            128 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: I256 = big.fraction.into();
-                big_f <<= shift;
-                let small_f: I256 = small.fraction.into();
-                let result = big_f & small_f;
-                if result == 0.into() {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            _ => Self {
-                fraction: GENERAL.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            },
-        }
+        self.bitwise_normal(other, BitwiseOp::And)
     }
-    /// Performs bitwise OR operation on two Scalars after aligning their fractions
-    ///
-    /// # Two's Complement Behavior
-    /// In two's complement, negative numbers have their most significant bit set to 1 and all bits above the highest 1 bit are also 1. This implementation respects these properties:
-    ///
-    /// - If a smaller number is non-negative (highest bit 0), its higher bits are 0, so OR with a larger number preserves the larger number's bits in those positions
-    /// - If a smaller number is negative, all high bits are ones, so OR with any larger number results in 1s in those positions (effectively returning the negative value)
-    ///
-    /// # Specifics
-    /// 0. Special case handling for ambiguous values (undefined, exploded, vanished and Zero)
-    /// 1. Determination of which Scalar has larger exponent to align the values
-    /// 2. Calculation of exponent difference and early return cases if the difference is too large (when bits don't overlap after alignment) and relevant sign extensions etc.
-    /// 3. Alignment of the fraction with larger exponent by left-shifting by the exponent difference
-    /// 4. Performing the bitwise OR on aligned fractions
-    /// 5. Normalization of the result by counting leading zeros/ones and adjusting the exponent
-    ///
-    /// # Arguments
-    /// * `other` - The Scalar to OR with
-    ///
-    /// # Returns
-    /// * A Scalar containing the result of the aligned OR of both Scalars
-    /// * Returns undefined OR if both operands escaped the same way
-    /// * Returns the non-zero operand if either operand is Zero
-    /// * Returns the negative operand if either is negative with substantially larger exponent
-    ///   (due to sign extension in two's complement)
-    ///
-    /// # Representation Patterns
-    /// ```txt
-    /// Exploded Normal Vanished
-    /// ↓↓↓↓↓↓↓↓ ↓↓↓↓↓↓ ↓↓↓↓↓↓↓↓
-    /// □■?????? ?????? ???????? - Exploded positive
-    /// ■□?????? ?????? ???????? - Exploded negative
-    /// □□□□□□□□ □■???? ???????? - Normal positive
-    /// ■■■■■■■■ ■□???? ???????? - Normal negative
-    /// □□□□□□□□ □□□□□□ □■?????? - Vanished positive
-    /// ■■■■■■■■ ■■■■■■ ■□?????? - Vanished negative
-    /// ```
+
+    /// Performs bitwise OR on two Scalars after aligning their fractions by exponent.
     pub(crate) fn aligned_or(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
@@ -385,14 +127,12 @@ where
             if other.is_undefined() {
                 return *other;
             }
-
             if self.is_infinite() || other.is_infinite() || self.exploded() && other.exploded() {
                 return Self {
                     fraction: OR.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-
             if self.is_zero() {
                 return *other;
             }
@@ -428,229 +168,10 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let (big, small) = if self.exponent > other.exponent {
-            (self, other)
-        } else {
-            (other, self)
-        };
-        let exp_diff = big.exponent.wrapping_sub(&small.exponent);
-        if exp_diff.is_negative() {
-            if small.fraction.is_negative() {
-                return *small;
-            } else {
-                return *big;
-            }
-        }
-
-        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
-            if exp_diff >= Self::fraction_bits().as_() {
-                if small.fraction.is_negative() {
-                    return *small;
-                } else {
-                    return *big;
-                }
-            }
-        } else {
-            let exp_diff_isize: isize = exp_diff.as_();
-            if exp_diff_isize >= Self::fraction_bits() {
-                if small.fraction.is_negative() {
-                    return *small;
-                } else {
-                    return *big;
-                }
-            }
-        }
-        match Self::fraction_bits() {
-            8 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i16 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i16 = small.fraction.as_();
-                let result = big_f | small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            16 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i32 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i32 = small.fraction.as_();
-                let result = big_f | small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            32 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i64 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i64 = small.fraction.as_();
-                let result = big_f | small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            64 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i128 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i128 = small.fraction.as_();
-                let result = big_f | small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            128 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: I256 = big.fraction.into();
-                big_f <<= shift;
-                let small_f: I256 = small.fraction.into();
-                let result = big_f | small_f;
-                if result == 0.into() {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            _ => Self {
-                fraction: GENERAL.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            },
-        }
+        self.bitwise_normal(other, BitwiseOp::Or)
     }
-    /// Performs bitwise XOR operation on two Scalars after aligning their fractions
-    ///
-    /// # Two's Complement Behavior
-    /// In two's complement, negative numbers have their most significant bit set to 1 and all bits above the highest 1 bit are also 1. This implementation respects these properties:
-    ///
-    /// - If a smaller number is non-negative (highest bit 0), its higher bits are 0, so XOR with a larger number preserves the larger number's bits in those positions
-    /// - If a smaller number is negative, all high bits are ones, so XOR with a larger number flips the larger number's bits in those positions
-    ///
-    /// # Specifics
-    /// 0. Special case handling for ambiguous values (undefined, exploded, vanished and Zero)
-    /// 1. Determination of which Scalar has larger exponent to align the values
-    /// 2. Calculation of exponent difference and early return cases if the difference is too large (when bits don't overlap after alignment) and relevant sign extensions etc.
-    /// 3. Alignment of the fraction with larger exponent by left-shifting by the exponent difference
-    /// 4. Performing the bitwise XOR on aligned fractions
-    /// 5. Normalization of the result by counting leading zeros/ones and adjusting the exponent
-    ///
-    /// # Arguments
-    /// * `other` - The Scalar to XOR with
-    ///
-    /// # Returns
-    /// * A Scalar containing the result of the aligned XOR of both Scalars
-    /// * Returns undefined XOR if both operands escaped the same way
-    /// * Returns the non-zero operand if either operand is Zero
-    /// * Returns the complement of the larger operand if the smaller operand is negative with
-    ///   substantially larger exponent difference (due to sign extension in two's complement)
-    ///
-    /// # Representation Patterns
-    /// ```txt
-    /// Exploded Normal Vanished
-    /// ↓↓↓↓↓↓↓↓ ↓↓↓↓↓↓ ↓↓↓↓↓↓↓↓
-    /// □■?????? ?????? ???????? - Exploded positive
-    /// ■□?????? ?????? ???????? - Exploded negative
-    /// □□□□□□□□ □■???? ???????? - Normal positive
-    /// ■■■■■■■■ ■□???? ???????? - Normal negative
-    /// □□□□□□□□ □□□□□□ □■?????? - Vanished positive
-    /// ■■■■■■■■ ■■■■■■ ■□?????? - Vanished negative
-    /// ```
+
+    /// Performs bitwise XOR on two Scalars after aligning their fractions by exponent.
     pub(crate) fn aligned_xor(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
@@ -677,25 +198,25 @@ where
             }
             if self.vanished() {
                 if self.is_negative() {
-                    return !other;
+                    return other.not_scalar();
                 }
                 return *other;
             }
             if other.vanished() {
                 if other.is_negative() {
-                    return !self;
+                    return self.not_scalar();
                 }
                 return *self;
             }
             if self.is_normal() {
                 if self.is_negative() {
-                    return !other;
+                    return other.not_scalar();
                 }
                 return *other;
             }
             if other.is_normal() {
                 if other.is_negative() {
-                    return !self;
+                    return self.not_scalar();
                 }
                 return *self;
             }
@@ -704,6 +225,12 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        self.bitwise_normal(other, BitwiseOp::Xor)
+    }
+
+    /// Generic normal-path bitwise operation. Inflates both operands, aligns by exponent,
+    /// applies the op in wide effective space, then normalizes and deflates.
+    fn bitwise_normal(&self, other: &Scalar<F, E>, op: BitwiseOp) -> Scalar<F, E> {
         let (big, small) = if self.exponent > other.exponent {
             (self, other)
         } else {
@@ -711,194 +238,83 @@ where
         };
         let exp_diff = big.exponent.wrapping_sub(&small.exponent);
         if exp_diff.is_negative() {
-            if small.fraction.is_negative() {
-                return !big;
-            } else {
-                return *big;
-            }
+            return Self::bitwise_no_overlap(big, small, op);
         }
-
-        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
-            if exp_diff >= Self::fraction_bits().as_() {
-                if small.fraction.is_negative() {
-                    return !big;
-                } else {
-                    return *big;
-                }
-            }
-        } else {
-            let exp_diff_isize: isize = exp_diff.as_();
-            if exp_diff_isize >= Self::fraction_bits() {
-                if small.fraction.is_negative() {
-                    return !big;
-                } else {
-                    return *big;
-                }
-            }
+        let shift: isize = exp_diff.saturate();
+        if shift >= Self::fraction_bits() {
+            return Self::bitwise_no_overlap(big, small, op);
         }
-        match Self::fraction_bits() {
-            8 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i16 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i16 = small.fraction.as_();
-                let result = big_f ^ small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            16 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i32 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i32 = small.fraction.as_();
-                let result = big_f ^ small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            32 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i64 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i64 = small.fraction.as_();
-                let result = big_f ^ small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            64 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: i128 = big.fraction.as_();
-                big_f <<= shift;
-                let small_f: i128 = small.fraction.as_();
-                let result = big_f ^ small_f;
-                if result == 0 {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            128 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_f: I256 = big.fraction.into();
-                big_f <<= shift;
-                let small_f: I256 = small.fraction.into();
-                let result = big_f ^ small_f;
-                if result == 0.into() {
-                    return Self {
-                        fraction: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                let leading = result.leading_ones().max(result.leading_zeros()) as isize;
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
-                    return Self {
-                        fraction: ((result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    fraction: ((result << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
-                };
-            }
-            _ => Self {
-                fraction: GENERAL.prefix.sa(),
+        let mut big_w = big.fraction.inflate();
+        big_w.w_shl_assign(shift);
+        let small_w = small.fraction.inflate();
+        let result = match op {
+            BitwiseOp::And => big_w.w_and(small_w),
+            BitwiseOp::Or => big_w.w_or(small_w),
+            BitwiseOp::Xor => big_w.w_xor(small_w),
+        };
+        if result.w_is_zero() {
+            return Self {
+                fraction: F::zero(),
                 exponent: Self::ambiguous_exponent(),
-            },
+            };
+        }
+        let leading = result.leading_same();
+        let offset = small
+            .exponent
+            .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
+        if big.exponent.is_negative() && !offset.is_negative() {
+            return Self {
+                fraction: result
+                    .w_shl(leading.wrapping_sub(1))
+                    .w_shr(Self::fraction_bits())
+                    .deflate(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        Self {
+            fraction: result.w_shl(leading).w_shr(Self::fraction_bits()).deflate(),
+            exponent: offset,
         }
     }
+
+    /// Bitwise result when operands don't overlap after alignment. Sign of `small`
+    /// determines whether the high bits are all-ones (negative) or all-zeros (positive).
+    fn bitwise_no_overlap(big: &Scalar<F, E>, small: &Scalar<F, E>, op: BitwiseOp) -> Scalar<F, E> {
+        match op {
+            BitwiseOp::And => {
+                if small.is_negative() {
+                    *big
+                } else {
+                    Self::ZERO
+                }
+            }
+            BitwiseOp::Or => {
+                if small.is_negative() {
+                    *small
+                } else {
+                    *big
+                }
+            }
+            BitwiseOp::Xor => {
+                if small.is_negative() {
+                    big.not_scalar()
+                } else {
+                    *big
+                }
+            }
+        }
+    }
+
     pub(crate) fn not_scalar(&self) -> Scalar<F, E> {
         if self.is_undefined() {
             return *self;
         }
-        return Self {
+        Self {
             fraction: !self.fraction,
             exponent: self.exponent,
-        };
+        }
     }
+
     pub fn scalar_shl_integer(&self, shift: &E) -> Scalar<F, E> {
         if !self.is_normal() {
             return *self;
@@ -919,11 +335,12 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        return Self {
+        Self {
             fraction: self.fraction,
             exponent: new_exp,
-        };
+        }
     }
+
     pub fn scalar_shr_integer(&self, shift: &E) -> Scalar<F, E> {
         if !self.is_normal() {
             return *self;
@@ -944,9 +361,16 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        return Self {
+        Self {
             fraction: self.fraction,
             exponent: new_exp,
-        };
+        }
     }
+}
+
+#[derive(Clone, Copy)]
+enum BitwiseOp {
+    And,
+    Or,
+    Xor,
 }

@@ -188,6 +188,10 @@ pub trait WideOps: Sized + Copy {
     fn w_div(self, other: Self) -> Self;
     fn w_div_unsigned(self, other: Self) -> Self;
     fn w_neg(self) -> Self;
+    fn w_and(self, other: Self) -> Self;
+    fn w_or(self, other: Self) -> Self;
+    fn w_xor(self, other: Self) -> Self;
+    fn w_not(self) -> Self;
 }
 
 /// Restore the implicit sign bits into a wider type for arithmetic.
@@ -300,6 +304,22 @@ macro_rules! impl_wide_ops {
             #[inline]
             fn w_neg(self) -> Self {
                 <$wide>::wrapping_neg(self)
+            }
+            #[inline]
+            fn w_and(self, other: Self) -> Self {
+                self & other
+            }
+            #[inline]
+            fn w_or(self, other: Self) -> Self {
+                self | other
+            }
+            #[inline]
+            fn w_xor(self, other: Self) -> Self {
+                self ^ other
+            }
+            #[inline]
+            fn w_not(self) -> Self {
+                !self
             }
         }
     };
@@ -420,5 +440,21 @@ impl WideOps for i256::I256 {
     #[inline]
     fn w_neg(self) -> Self {
         i256::I256::wrapping_neg(self)
+    }
+    #[inline]
+    fn w_and(self, other: Self) -> Self {
+        self & other
+    }
+    #[inline]
+    fn w_or(self, other: Self) -> Self {
+        self | other
+    }
+    #[inline]
+    fn w_xor(self, other: Self) -> Self {
+        self ^ other
+    }
+    #[inline]
+    fn w_not(self) -> Self {
+        !self
     }
 }
