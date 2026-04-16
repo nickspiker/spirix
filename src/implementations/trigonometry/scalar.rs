@@ -313,7 +313,7 @@ where
             }
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return (series_sum << 1) - Self::HALF_PI;
         } else {
             return Self::HALF_PI - (series_sum << 1);
@@ -355,7 +355,7 @@ where
         let one_minus_abs_x = Self::ONE - self.magnitude();
 
         if one_minus_abs_x.is_negligible() {
-            if self.fraction.is_negative() {
+            if self.is_negative() {
                 return Self::PI;
             } else {
                 return Self::ZERO;
@@ -386,7 +386,7 @@ where
             }
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return Self::PI - (series_sum << 1);
         } else {
             return series_sum << 1;
@@ -395,7 +395,7 @@ where
     pub fn atan(&self) -> Self {
         if !self.is_normal() {
             if self.exploded() {
-                return if self.fraction.is_negative() {
+                return if self.is_negative() {
                     Self::NEG_HALF_PI
                 } else {
                     Self::HALF_PI

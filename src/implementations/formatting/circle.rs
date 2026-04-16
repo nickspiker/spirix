@@ -358,7 +358,7 @@ where
                 string.push_str("↑");
                 let decimal = 1;
                 if mag_r.is_normal() {
-                    if self.r().is_negative() {
+                    if self.real.is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -381,7 +381,7 @@ where
                 string.push(',');
                 string.push('↑');
                 if mag_i.is_normal() {
-                    if self.i().is_negative() {
+                    if self.imaginary.is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -408,7 +408,7 @@ where
                 string.push_str("↓");
                 let decimal = 1;
                 if mag_r.is_normal() {
-                    if self.r().is_negative() {
+                    if self.real.is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');
@@ -432,7 +432,7 @@ where
                 string.push(',');
                 string.push('↓');
                 if mag_i.is_normal() {
-                    if self.i().is_negative() {
+                    if self.imaginary.is_negative() {
                         string.push('-');
                     } else {
                         string.push('+');

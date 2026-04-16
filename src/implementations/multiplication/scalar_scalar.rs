@@ -213,7 +213,7 @@ where
         }
 
         let product = self.fraction.inflate().w_mul(other.fraction.inflate());
-        let expect_negative = self.fraction.is_negative() != other.fraction.is_negative();
+        let expect_negative = self.is_negative() != other.is_negative();
         let leading = if expect_negative {
             product.w_leading_ones()
         } else {

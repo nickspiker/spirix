@@ -105,34 +105,34 @@ fn negation_via_wrapping_neg_i8() {
 
 #[test]
 fn fraction_constants_i8() {
-    use spirix::ScalarFractionConstants;
+    use spirix::ScalarF3E3;
 
     // Normal class
-    assert_eq!(i8::POS_ONE_NORMAL_FRACTION, i8::MIN); // -128 = 10000000
-    let eff = inflate_i8(i8::POS_ONE_NORMAL_FRACTION);
+    assert_eq!(i8::MIN, i8::MIN); // -128 = 10000000
+    let eff = inflate_i8(i8::MIN);
     assert_eq!(eff, 128);
     assert!(eff > 0);
 
-    assert_eq!(i8::NEG_ONE_NORMAL_FRACTION, 0); // 00000000
-    let eff = inflate_i8(i8::NEG_ONE_NORMAL_FRACTION);
+    assert_eq!(0i8, 0); // 00000000
+    let eff = inflate_i8(0i8);
     assert_eq!(eff, -256);
     assert!(eff < 0);
 
-    assert_eq!(i8::MAX_FRACTION, -1); // 11111111
-    let eff = inflate_i8(i8::MAX_FRACTION);
+    assert_eq!(-1i8, -1); // 11111111
+    let eff = inflate_i8(-1i8);
     assert_eq!(eff, 255);
 
-    assert_eq!(i8::MIN_FRACTION, 0); // 00000000
-    let eff = inflate_i8(i8::MIN_FRACTION);
+    assert_eq!(0i8, 0); // 00000000
+    let eff = inflate_i8(0i8);
     assert_eq!(eff, -256);
 
     // Escaped class: exploded (N-1 stored, sign direct)
-    assert_eq!(i8::POS_ONE_EXPLODED_FRACTION, 64); // 01000000
-    assert_eq!(i8::NEG_ONE_EXPLODED_FRACTION, -128); // 10000000
+    assert_eq!(64i8, 64); // 01000000
+    assert_eq!(i8::MIN, -128); // 10000000
 
     // Escaped class: vanished (N-2 stored, sign direct)
-    assert_eq!(i8::POS_ONE_VANISHED_FRACTION, 32); // 00100000
-    assert_eq!(i8::NEG_ONE_VANISHED_FRACTION, -64); // 11000000
+    assert_eq!(32i8, 32); // 00100000
+    assert_eq!(-64i8, -64); // 11000000
 }
 
 #[test]
@@ -249,7 +249,7 @@ fn from_f64_basic() {
     assert!(zero == S::ZERO, "from(0.0) should be ZERO");
 
     let inf = S::from(f64::INFINITY);
-    assert!(inf.is_infinite(), "from(INFINITY) should be infinite");
+    assert!(inf.exploded(), "from(INFINITY) should be exploded (IEEE inf has direction)");
 
     let nan = S::from(f64::NAN);
     assert!(nan.is_undefined(), "from(NAN) should be undefined");
@@ -276,7 +276,7 @@ fn from_f32_basic() {
     assert!(zero == S::ZERO, "from(0.0f32) should be ZERO");
 
     let inf = S::from(f32::INFINITY);
-    assert!(inf.is_infinite(), "from(f32::INFINITY) should be infinite");
+    assert!(inf.exploded(), "from(f32::INFINITY) should be exploded (IEEE inf has direction)");
 
     let nan = S::from(f32::NAN);
     assert!(nan.is_undefined(), "from(f32::NAN) should be undefined");

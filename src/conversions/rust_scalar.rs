@@ -1,3 +1,28 @@
+//! # IEEE 754 → Scalar Conversions
+//!
+//! ## State mapping rationale
+//!
+//! IEEE 754 and Spirix categorize "abnormal" values differently, so the conversion isn't one-to-one for non-finite inputs:
+//!
+//! | IEEE 754                  | Spirix              | Reason |
+//! |---------------------------|---------------------|--------|
+//! | finite normal             | `[#]` Normal        | exact math when precision allows |
+//! | finite subnormal          | `[#]` Normal (or `[↓]` if it underflows Spirix) | IEEE's subnormals are genuinely-tiny non-zeros. |
+//! | `±0.0`                    | `[0]`               | IEEE `+0.0 == -0.0` (both are defined as mathematically zero). The sign bit is informational — used for direction-of-approach in `atan2`, `1/x`, etc. — not part of the value. |
+//! | `±∞`                      | `[+↑]` / `[-↑]` Exploded | see below |
+//! | NaN                       | `[℘?]` Undefined    | mantissa bits lost, first-cause prefix set to GENERAL |
+//!
+//! ### Why IEEE `±∞` maps to Exploded, not Infinity
+//!
+//! IEEE 754 calls its saturating overflow value "infinity", but its algebraic behavior is closer to "signed overflow with direction" than to a true mathematical infinity:
+//!
+//! - **IEEE `±∞` has direction**: `+∞` and `-∞` are distinct, with a sign bit. A true singular infinity has no direction.
+//! - **IEEE `±∞` is reached by overflow**: `f64::MAX * 2.0 = +∞`. That's an overflow, not "we divided by zero and got infinity". In Spirix, reaching the representable upper bound is exactly what `[↑]` Exploded means.
+//! - **IEEE `±∞ - ±∞ = NaN`** and **`0 × ±∞ = NaN`**: these indicate IEEE doesn't actually treat `±∞` as an absorbing element the way mathematical infinity would. Spirix's Exploded has matching semantics here — arithmetic with Exploded operands can produce Undefined results.
+//! - **Conservation of information**: rounding IEEE `+∞` to singular `[∞]` silently discards the sign. Mapping to `[+↑]` / `[-↑]` keeps the sign and roundtrips cleanly (Exploded → f64 goes back to `±∞`).
+//!
+//! Spirix reserves the singular `[∞]` for cases where the result genuinely is directionless — e.g. `1/0`, `ln(0)`, or other operations whose true mathematical result is a point-at-infinity with no well-defined sign.
+
 use crate::core::integer::*;
 use crate::core::undefined::*;
 use crate::{Integer, Scalar, ScalarConstants};
@@ -5,7 +30,6 @@ use num_traits::AsPrimitive;
 
 impl<F: Integer + FullInt, E: Integer + FullInt> From<f64> for Scalar<F, E>
 where
-    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -40,7 +64,6 @@ where
 impl<F: Integer + FullInt, E: Integer + FullInt> From<&mut f64> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
-    Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -73,7 +96,6 @@ where
 
 impl<F: Integer + FullInt, E: Integer + FullInt> From<&f64> for Scalar<F, E>
 where
-    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -108,23 +130,23 @@ where
 
         if raw_exp == 0x7FF {
             return if mantissa != 0 {
+                // NaN -> undefined
                 Scalar {
                     fraction: GENERAL.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 }
+            } else if sign != 0 {
+                // IEEE -∞ -> Spirix [-↑]: see module doc for rationale
+                Self::EXPLODED_NEG
             } else {
-                Self::INFINITY
+                // IEEE +∞ -> Spirix [+↑]
+                Self::EXPLODED_POS
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            return if sign != 0 {
-                Self {
-                    fraction: Self::neg_one_vanished(),
-                    exponent: Self::ambiguous_exponent(),
-                }
-            } else {
-                Self::ZERO
-            };
+            // IEEE ±0.0 are both mathematically zero (they compare equal).
+            // The sign bit is informational, not part of the value.
+            return Self::ZERO;
         }
 
         // Build two's complement i64 from IEEE mantissa + sign
@@ -186,7 +208,6 @@ where
 impl<F: Integer + FullInt, E: Integer + FullInt> From<f32> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
-    Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -219,7 +240,6 @@ where
 
 impl<F: Integer + FullInt, E: Integer + FullInt> From<&mut f32> for Scalar<F, E>
 where
-    Scalar<F, E>: ScalarConstants,
     Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
@@ -254,7 +274,6 @@ where
 impl<F: Integer + FullInt, E: Integer + FullInt> From<&f32> for Scalar<F, E>
 where
     Scalar<F, E>: ScalarConstants,
-    Scalar<F, E>: ScalarConstants,
     u8: AsPrimitive<F>,
     u16: AsPrimitive<F>,
     u32: AsPrimitive<F>,
@@ -288,23 +307,23 @@ where
 
         if raw_exp == 0xFF {
             return if mantissa != 0 {
+                // NaN -> undefined
                 Scalar {
                     fraction: GENERAL.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 }
+            } else if sign != 0 {
+                // -Infinity -> negative exploded
+                Self::EXPLODED_NEG
             } else {
-                Self::INFINITY
+                // +Infinity -> positive exploded
+                Self::EXPLODED_POS
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            return if sign != 0 {
-                Self {
-                    fraction: Self::neg_one_vanished(),
-                    exponent: Self::ambiguous_exponent(),
-                }
-            } else {
-                Self::ZERO
-            };
+            // IEEE ±0.0 are both mathematically zero (they compare equal).
+            // The sign bit is informational, not part of the value.
+            return Self::ZERO;
         }
 
         let mut tc_frac = if raw_exp == 0 {

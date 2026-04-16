@@ -76,7 +76,7 @@ where
                 if exp.real.is_positive() {
                     return Self::ZERO;
                 }
-                let prefix: F = NEGLIGIBLE_POWER.prefix.sa();
+                let prefix: F = VANISHED_POWER.prefix.sa();
                 return Self {
                     real: prefix,
                     imaginary: prefix,
@@ -92,7 +92,7 @@ where
                 };
             }
             if self.vanished() {
-                let prefix: F = NEGLIGIBLE_POWER.prefix.sa();
+                let prefix: F = VANISHED_POWER.prefix.sa();
                 return Self {
                     real: prefix,
                     imaginary: prefix,
@@ -107,7 +107,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            let prefix: F = POWER_NEGLIGIBLE.prefix.sa();
+            let prefix: F = POWER_VANISHED.prefix.sa();
             return Self {
                 real: prefix,
                 imaginary: prefix,

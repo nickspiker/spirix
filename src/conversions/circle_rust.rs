@@ -87,22 +87,22 @@ where
             if self.is_undefined() {
                 return Complex::new(f64::NAN, f64::NAN);
             }
+            if self.is_infinite() {
+                // Singular [∞] has no direction; IEEE can't represent it.
+                return Complex::new(f64::NAN, f64::NAN);
+            }
             if self.is_negligible() {
                 return Complex::new(
                     if self.real.is_negative() { -0.0 } else { 0.0 },
-                    if self.imaginary.is_negative() {
-                        // This feels weird
-                        -0.0
-                    } else {
-                        0.0
-                    },
+                    if self.imaginary.is_negative() { -0.0 } else { 0.0 },
                 );
             }
+            // Exploded: per-component sign is meaningful.
             return Complex::new(
                 if self.real.is_negative() {
                     f64::NEG_INFINITY
                 } else {
-                    f64::INFINITY // Do they mean positive?
+                    f64::INFINITY
                 },
                 if self.imaginary.is_negative() {
                     f64::NEG_INFINITY
@@ -211,16 +211,17 @@ where
             if self.is_undefined() {
                 return Complex::new(f32::NAN, f32::NAN);
             }
+            if self.is_infinite() {
+                // Singular [∞] has no direction.
+                return Complex::new(f32::NAN, f32::NAN);
+            }
             if self.is_negligible() {
                 return Complex::new(
                     if self.real.is_negative() { -0.0 } else { 0.0 },
-                    if self.imaginary.is_negative() {
-                        -0.0
-                    } else {
-                        0.0
-                    },
+                    if self.imaginary.is_negative() { -0.0 } else { 0.0 },
                 );
             }
+            // Exploded: per-component sign is meaningful.
             return Complex::new(
                 if self.real.is_negative() {
                     f32::NEG_INFINITY

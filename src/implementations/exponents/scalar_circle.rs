@@ -96,7 +96,7 @@ where
                     return Circle::<F, E>::ZERO;
                 }
 
-                let prefix: F = NEGLIGIBLE_POWER.prefix.sa();
+                let prefix: F = VANISHED_POWER.prefix.sa();
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
@@ -112,7 +112,7 @@ where
                 };
             }
             if self.vanished() {
-                let prefix: F = NEGLIGIBLE_POWER.prefix.sa();
+                let prefix: F = VANISHED_POWER.prefix.sa();
                 return Circle {
                     real: prefix,
                     imaginary: prefix,
@@ -127,7 +127,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            let prefix: F = POWER_NEGLIGIBLE.prefix.sa();
+            let prefix: F = POWER_VANISHED.prefix.sa();
             return Circle {
                 real: prefix,
                 imaginary: prefix,
@@ -135,7 +135,7 @@ where
             };
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             let prefix: F = NEGATIVE_POWER.prefix.sa();
             return Circle {
                 real: prefix,
@@ -233,7 +233,7 @@ where
             }
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             let prefix: F = NEGATIVE_LOG.prefix.sa();
             return Circle {
                 real: prefix,

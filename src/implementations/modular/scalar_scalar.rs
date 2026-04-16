@@ -61,117 +61,260 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Calculates the mathematical modulus of this Scalar with respect to another Scalar
+    /// Calculates the mathematical modulus of this Scalar
     ///
     /// # Description
     ///
-    /// The mathematical modulus operation finds the remainder after division, where the result takes the sign of the divisor
+    /// Returns the unique value `r` such that `numerator ≡ r (mod period)`, where `r` is the canonical representative of the numerator's congruence class with sign following the period.
     ///
-    /// For normal values, this follows the mathematical definition: `a % b = a - (⌊a/b⌋ × b)`, where the result has the same sign as the divisor.
+    /// `⬆` denotes *transfinite* (either exploded `[↑]` or infinite `[∞]`).
+    /// Undefined prefixes collapse both into one tag since the distinction
+    /// isn't preserved in the stored undefined class.
     ///
-    /// # Special Cases
+    /// # Special Cases (first matching rule wins, in order):
     ///
-    /// - For undefined states `[℘]`: Returns the first undefined state encountered
-    /// - For exploded numerator `[↑]`: Returns an undefined state with `TRANSFINITE_MODULUS` pattern
-    /// - For vanished denominator `[↓]`: Returns an undefined state with `MODULUS_VANISHED` pattern
-    /// - For escaped values with differing signs: Returns an undefined state with `MODULUS_TRANSFINITE` pattern
-    /// - For escaped values with matching signs: Returns the numerator
-    /// - For Zero denominator or numerator: Returns Zero
+    /// 1. `[℘?]` numerator or period → the first undefined encountered
+    /// 2. `[0]` numerator or period → `[0]`
+    /// 3. Transfinite numerator (`[↑]` or `[∞]`):
+    ///    - transfinite period → `[℘⬆%⬆]`
+    ///    - otherwise → `[℘⬆%]`
+    /// 4. Vanished period `[↓]`:
+    ///    - vanished numerator → `[℘↓%↓]`
+    ///    - otherwise → `[℘%↓]`
+    /// 5. Infinite period `[∞]` → `[℘%⬆]` (signless period, no sign to floor against)
+    /// 6. Exploded period `[↑]`:
+    ///    - signs match → numerator (preserved)
+    ///    - signs differ → `[℘%⬆]`
+    /// 7. Both finite (normal or vanished with normal period) → integer floored modulus
     ///
     /// # Returns
     ///
-    /// - `[#] % [#]` ➔ `[#]` A finite Scalar following mathematical modulus definition
-    /// - `[↑] % [#]` ➔ `[℘ ↑%]` Undefined modulus with exploded numerator
-    /// - `[#] % [↓]` ➔ `[℘ %↓]` Undefined modulus with vanished denominator
-    /// - `[#] % [↑]` and signs match  ➔ `[#]` Original numerator (preserved)
-    /// - `[#] % [↑]` and signs differ ➔ `[℘ %↑]` Undefined modulus with exploded denominator
-    /// - `[↓] % [#]` and signs match  ➔ `[↓]` Original vanished value
-    /// - `[↓] % [#]` and signs differ ➔ `[℘ %↑]` Undefined modulus with exploded denominator
-    /// - `[0] % [?]` or `[?] % [0]`   ➔ `[0]` Zero (excluding undefined states)
+    /// - `[#] % [#]` ➔ `[0]`, `[↓]`, or `[#]`
+    /// - `[#] % [↓]` ➔ `[℘%↓]`
+    /// - `[↓] % [↓]` ➔ `[℘↓%↓]`
+    /// - `[#] % [↑]` signs match ➔ `[#]`
+    /// - `[#] % [↑]` signs differ ➔ `[℘%⬆]`
+    /// - `[↓] % [↑]` signs match ➔ `[↓]`
+    /// - `[↓] % [↑]` signs differ ➔ `[℘%⬆]`
+    /// - `[?] % [∞]` ➔ `[℘%⬆]` (signless period)
+    /// - `[↑] % [#]` or `[↑] % [↓]` or `[∞] % [#]` or `[∞] % [↓]` ➔ `[℘⬆%]`
+    /// - `[↑] % [↑]` or `[↑] % [∞]` or `[∞] % [↑]` or `[∞] % [∞]` ➔ `[℘⬆%⬆]`
+    /// - `[0] % [?]` or `[?] % [0]` ➔ `[0]`
     ///
     /// # Examples
     ///
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Basic modulus operation for normal values
-    /// let a = Scalar::<i32, i8>::from(7);
+    /// // Basic modulus
+    /// let a = ScalarF5E3::from(7);
     /// let b = ScalarF5E3::from(3);
     /// assert!(a % b == 1);  // 7 % 3 = 1
     ///
-    /// // Modulus preserves sign of divisor
+    /// // Result takes sign of period
     /// let neg_a = ScalarF5E3::from(-7);
-    /// assert!(neg_a % b == 2);  // -7 % 3 = 2 (not -1)
+    /// assert!(neg_a % b == 2);   // -7 % 3 = 2
     /// let neg_b = ScalarF5E3::from(-3);
     /// assert!(a % neg_b == -2);  // 7 % -3 = -2
     ///
-    /// // Modulus with exploded values and matching signs
+    /// // Exploded period, matching signs: numerator preserved
     /// let exploded = ScalarF5E3::MAX * 2;
-    /// assert!((ScalarF5E3::PI % exploded) == ScalarF5E3::PI);  // π % +huge = π
+    /// assert!((ScalarF5E3::PI % exploded) == ScalarF5E3::PI);
     ///
-    /// // Modulus with exploded values and differing signs produces undefined result
-    /// assert!((ScalarF5E3::PI % -exploded).is_undefined());  // π % -huge = undefined
+    /// // Exploded period, differing signs: undefined
+    /// assert!((ScalarF5E3::PI % -exploded).is_undefined());
     ///
-    /// // Modulus with vanished values as denominator is undefined
+    /// // Vanished period: undefined
     /// let vanished = ScalarF5E3::MIN_POS / 19;
     /// assert!((ScalarF5E3::from(42) % vanished).is_undefined());
     ///
     /// // Zero cases
-    /// assert!((0 % ScalarF5E3::PI).is_zero());
-    /// assert!((ScalarF5E3::PI % 0).is_zero());
-    /// assert!((ScalarF5E3::ZERO % 0).is_zero());
-    /// assert!((exploded % 0).is_zero());
-    /// assert!((vanished % 0).is_zero());
-    /// assert!((0 % exploded).is_zero());
-    /// assert!((0 % vanished).is_zero());
+    /// assert!((ScalarF5E3::ZERO % ScalarF5E3::PI).is_zero());
+    /// assert!((ScalarF5E3::PI % ScalarF5E3::ZERO).is_zero());
     /// ```
-    pub(crate) fn scalar_modulus_scalar(&self, denominator: &Scalar<F, E>) -> Scalar<F, E> {
-        if !self.is_normal() || !denominator.is_normal() {
+    pub(crate) fn scalar_modulus_scalar(&self, modulus: &Scalar<F, E>) -> Scalar<F, E> {
+        if !self.is_normal() || !modulus.is_normal() {
             if self.is_undefined() {
                 return *self;
             }
-            if denominator.is_undefined() {
-                return *denominator;
+            if modulus.is_undefined() {
+                return *modulus;
             }
-            if self.is_zero() || denominator.is_zero() {
+            if self.is_zero() || modulus.is_zero() {
                 return Self::ZERO;
             }
+            // Rule 3: Transfinite numerator ([↑] or [∞])
             if self.is_transfinite() {
+                if modulus.is_transfinite() {
+                    return Self {
+                        fraction: TRANSFINITE_MODULUS_TRANSFINITE.prefix.sa(),
+                        exponent: Self::ambiguous_exponent(),
+                    };
+                }
                 return Self {
                     fraction: TRANSFINITE_MODULUS.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if denominator.is_infinite() {
-                return *self;
-            }
-            if denominator.vanished() {
+            // Rule 4: Vanished period
+            if modulus.vanished() {
+                if self.vanished() {
+                    return Self {
+                        fraction: VANISHED_MODULUS_VANISHED.prefix.sa(),
+                        exponent: Self::ambiguous_exponent(),
+                    };
+                }
                 return Self {
                     fraction: MODULUS_VANISHED.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-
-            if self.fraction.is_negative() == denominator.fraction.is_negative() {
-                return *self;
-            } else {
-                // Signs differ, return undefined state (magnitude is indeterminate)
+            // Rule 5: Infinite period (signless — no sign to floor against)
+            if modulus.is_infinite() {
                 return Self {
-                    fraction: MODULUS_EXPLODED.prefix.sa(),
+                    fraction: MODULUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Rule 6: Exploded period
+            if modulus.exploded() {
+                if self.is_negative() == modulus.is_negative() {
+                    return *self;
+                }
+                if self.vanished() {
+                    return *modulus;
+                }
+                return Self {
+                    fraction: MODULUS_TRANSFINITE.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Vanished numerator with normal period: |↓| < |#| always
+            if self.vanished() {
+                if self.is_negative() == modulus.is_negative() {
+                    return *self;
+                }
+                return *modulus;
+            }
+            return *self;
         }
 
-        if self.is_zero() || denominator.is_zero() {
+        // Both operands are normal. Compute floored modulus using proper restoring-divider style remainder: align fractions by exponent, do integer modulo on inflated wide values, apply floored sign rule.
+        //
+        // Floored mod: result has the sign of the divisor.
+        //   same signs:    result = a_mag mod b_mag, signed like a/b
+        //   diff signs:    result = b_mag - (a_mag mod b_mag), signed like b
+        //
+        // |a| < |b| short-circuit:
+        //   same signs:    result = a (already in [0, b) magnitude)
+        //   diff signs:    result = a + b (one b-step over to land on b's side)
+
+        let a_neg = self.is_negative();
+        let b_neg = modulus.is_negative();
+        let signs_differ = a_neg != b_neg;
+
+        // |a| < |b|: shortcut with sign correction.
+        if self.exponent < modulus.exponent {
+            if !signs_differ {
+                // Same sign: a is already the remainder.
+                return *self;
+            }
+            // Diff signs: result = a + b. Inlined add (skips abnormal checks — we already know both are normal — and the result can't underflow to zero: |a+b| = |b|-|a| > 0 since |a|<|b|).
+            let exp_diff_ba = modulus.exponent.wrapping_sub(&self.exponent);
+            let shift_ba: isize = exp_diff_ba.saturate();
+            if shift_ba >= Self::fraction_bits() {
+                // a is negligible at b's precision: result = b.
+                return *modulus;
+            }
+            let mut big_f = modulus.fraction.inflate();
+            big_f.w_shl_assign(shift_ba);
+            let sum = big_f.w_add(self.fraction.inflate());
+            let leading = sum.leading_same();
+            let offset = self
+                .exponent
+                .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
+            if modulus.exponent.is_negative() && !offset.is_negative() {
+                return Self {
+                    fraction: sum
+                        .w_shl(leading.wrapping_sub(1))
+                        .w_shr(Self::fraction_bits())
+                        .deflate(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            return Self {
+                fraction: sum.w_shl(leading).w_shr(Self::fraction_bits()).deflate(),
+                exponent: offset,
+            };
+        }
+
+        let exp_diff_e = self.exponent.wrapping_sub(&modulus.exponent);
+        let exp_diff: isize = exp_diff_e.saturate();
+
+        // Exponent gap too wide for an exact remainder in 2*FRAC bits. For very large a relative to b, the remainder isn't representable without a wider intermediate. Match FPGA semantics: return ZERO. (Limit is FRAC-1 to avoid signed overflow on the left shift below.)
+        if exp_diff >= Self::fraction_bits() {
             return Self::ZERO;
         }
 
-        let quotient = self / denominator;
+        // Inflate both fractions to wide effective values, take magnitudes.
+        let a_wide = self.fraction.inflate();
+        let b_wide = modulus.fraction.inflate();
+        let a_mag = if a_neg { a_wide.w_neg() } else { a_wide };
+        let b_mag = if b_neg { b_wide.w_neg() } else { b_wide };
 
-        // Use the numerically stable algorithm for all cases:
-        // remainder = self - floor(quotient) * denominator
-        let product = quotient.floor() * denominator;
-        self - product
+        // Align a's magnitude to b's exponent by shifting left.
+        let a_aligned = a_mag.w_shl(exp_diff);
+
+        // Integer modulo via unsigned arithmetic on the bit pattern. (After abs+shift, both magnitudes are positive; unsigned interpretation gives the correct remainder even if signed view overflows.)
+        let r_mag = a_aligned.w_rem_unsigned(b_mag);
+
+        if r_mag.w_is_zero() {
+            return Self::ZERO;
+        }
+
+        // Floored sign correction.
+        let result_wide = if signs_differ {
+            // result magnitude = |b| - r_mag, sign of b
+            let mag = b_mag.w_sub(r_mag);
+            if b_neg {
+                mag.w_neg()
+            } else {
+                mag
+            }
+        } else {
+            // result magnitude = r_mag, sign of b (= sign of a)
+            if b_neg {
+                r_mag.w_neg()
+            } else {
+                r_mag
+            }
+        };
+
+        if result_wide.w_is_zero() {
+            return Self::ZERO;
+        }
+
+        // Normalize result at b's exponent. Same pattern as scalar_add_scalar.
+        let leading = result_wide.leading_same();
+        let offset = modulus
+            .exponent
+            .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
+
+        if modulus.exponent.is_negative() && !offset.is_negative() {
+            return Self {
+                fraction: result_wide
+                    .w_shl(leading.wrapping_sub(1))
+                    .w_shr(Self::fraction_bits())
+                    .deflate(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        Self {
+            fraction: result_wide
+                .w_shl(leading)
+                .w_shr(Self::fraction_bits())
+                .deflate(),
+            exponent: offset,
+        }
     }
 }

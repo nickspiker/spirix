@@ -583,7 +583,7 @@ where
                 return Self::ONE;
             }
             if self.vanished() {
-                let prefix: F = POWER_NEGLIGIBLE.prefix.sa();
+                let prefix: F = POWER_VANISHED.prefix.sa();
                 return Self {
                     real: prefix,
                     imaginary: prefix,

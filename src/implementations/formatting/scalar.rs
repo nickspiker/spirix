@@ -358,13 +358,13 @@ where
             if self.is_infinite() {
                 string.push_str("∞");
             } else if self.exploded() {
-                if self.fraction.is_negative() {
+                if self.is_negative() {
                     string.push_str("-↑");
                 } else {
                     string.push_str("+↑")
                 };
             } else if self.vanished() {
-                if self.fraction.is_negative() {
+                if self.is_negative() {
                     string.push_str("-↓");
                 } else {
                     string.push_str("+↓");
@@ -850,7 +850,7 @@ where
     /// A reference to the appropriate `ColourScheme` from the global `COLOURS` palette.
     fn get_colour_scheme(&self) -> &'static ColourScheme {
         if self.is_normal() {
-            if self.fraction.is_negative() {
+            if self.is_negative() {
                 return &COLOURS.normal_negative;
             } else {
                 return &COLOURS.normal_positive;

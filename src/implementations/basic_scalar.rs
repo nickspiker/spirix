@@ -865,7 +865,7 @@ where
     pub fn is_positive(&self) -> bool {
         // For normal values: sign is ~stored[MSB], so positive when stored MSB=1 (negative stored)
         if self.is_normal() {
-            return self.fraction.is_negative();
+            return self.is_negative();
         }
 
         // For ambiguous states: sign is stored directly in the bit pattern
@@ -932,7 +932,7 @@ where
     pub fn is_negative(&self) -> bool {
         // For normal values: sign is ~stored[MSB], so negative when stored MSB=0 (non-negative stored)
         if self.is_normal() {
-            return !self.fraction.is_negative();
+            return !self.is_negative();
         }
 
         // For ambiguous states: sign is stored directly in the bit pattern
@@ -2042,7 +2042,7 @@ where
             let new_exponent;
             if shift == Self::fraction_bits() {
                 // All bits identical — either zero (all 0s) or all 1s
-                if !self.fraction.is_negative() {
+                if !self.is_negative() {
                     // All zeros in stored = most negative effective, but with max leading same bits
                     // This is effectively zero
                     self.exponent = Self::ambiguous_exponent();

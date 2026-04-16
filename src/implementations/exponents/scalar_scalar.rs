@@ -103,7 +103,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.fraction.is_negative() {
+            if self.is_negative() {
                 return Self {
                     fraction: NEGATIVE_POWER.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -111,18 +111,18 @@ where
             }
             if exp.is_negligible() {
                 return Self {
-                    fraction: POWER_NEGLIGIBLE.prefix.sa(),
+                    fraction: POWER_VANISHED.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
             if self.is_negligible() {
                 return Self {
-                    fraction: NEGLIGIBLE_POWER.prefix.sa(),
+                    fraction: VANISHED_POWER.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
         }
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return Self {
                 fraction: NEGATIVE_POWER.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),

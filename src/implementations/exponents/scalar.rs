@@ -377,7 +377,7 @@ where
             }
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return Self {
                 fraction: SQRT_NEGATIVE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -538,7 +538,7 @@ where
             }
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return Self {
                 fraction: SQRT_NEGATIVE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -680,7 +680,7 @@ where
             };
         }
 
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return Self {
                 fraction: NEGATIVE_LOG.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -815,7 +815,7 @@ where
                 return *self;
             }
             if self.exploded() {
-                if self.fraction.is_negative() {
+                if self.is_negative() {
                     return Self::ZERO;
                 } else {
                     return Self {
@@ -825,7 +825,7 @@ where
                 }
             }
             // Vanished values
-            if self.fraction.is_negative() {
+            if self.is_negative() {
                 // e^(tiny negative) = a smidge less than 1
                 return Self::EFFECTIVELY_POS_ONE;
             } else {

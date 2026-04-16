@@ -101,7 +101,9 @@ where
                 return if self.is_negative() { -0. } else { 0. };
             }
             if self.is_infinite() {
-                return f64::INFINITY;
+                // Singular [∞] has no direction; IEEE's ±∞ both imply a sign.
+                // NaN is the honest mapping for a value IEEE can't represent.
+                return f64::NAN;
             }
             // Exploded: preserve sign
             return if self.is_negative() {
@@ -201,7 +203,8 @@ where
                 return if self.is_negative() { -0. } else { 0. };
             }
             if self.is_infinite() {
-                return f32::INFINITY;
+                // Singular [∞] has no direction; NaN is the honest mapping.
+                return f32::NAN;
             }
             return if self.is_negative() {
                 f32::NEG_INFINITY
@@ -453,7 +456,7 @@ macro_rules! impl_into_int {
 fn into(self) -> $i {
     if !self.exponent.is_positive() {
         if self.exploded() {
-            if self.fraction.is_negative() {
+            if self.is_negative() {
                 return <$i>::MIN;
             }
             return <$i>::MAX;
@@ -462,27 +465,64 @@ fn into(self) -> $i {
         if number_bits == number_bits.wrapping_shr(1) {
             return 0;
         }
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return -1;
         }
         return 0;
     }
 
-    let shift: usize = (self.exponent).saturate();
-    if shift >= core::mem::size_of::<$i>().wrapping_mul(8) {
-        if self.fraction.is_negative() {
-            return <$i>::MIN;
-        }
+    // Normal path: value = inflate(stored) * 2^(exp - FRAC_BITS).
+    // Compute in I256 to handle any F width (including i128 stored).
+    let exp: isize = self.exponent.saturate();
+    let frac_bits = Scalar::<F, E>::fraction_bits();
+    let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_mul(8);
+
+    // Early saturation: if exp is so large that the integer part can't
+    // possibly fit in target, short-circuit. Upper bound on |value| is
+    // roughly 2^(exp+1), so bail when exp >= target_bits - 1.
+    if exp >= target_bits {
+        if self.is_negative() { return <$i>::MIN; }
         return <$i>::MAX;
     }
-    let mut value = self.fraction.sa();
-    value = value >> (core::mem::size_of::<$i>().wrapping_mul(8).wrapping_sub(1).wrapping_sub(shift));
-    value
+
+    // Inflate: effective = stored ^ ((-1) << FRAC_BITS) in I256 space.
+    let stored_wide: I256 = self.fraction.into();
+    let mask: I256 = I256::from(-1i128) << frac_bits;
+    let effective: I256 = stored_wide ^ mask;
+
+    // Scale by 2^(exp - FRAC_BITS).
+    let shift = exp.wrapping_sub(frac_bits);
+    let scaled: I256 = if shift >= 0 {
+        effective << shift
+    } else {
+        effective >> (-shift)
+    };
+
+    saturate_i256::<$i>(scaled)
 }
 }
         )*
     }
 }
+
+/// Saturating I256 → target signed int. Returns target MAX/MIN if out of range.
+#[inline]
+fn saturate_i256<T: FullInt>(v: I256) -> T {
+    let bytes = v.to_le_bytes();
+    let low_i128 = i128::from_le_bytes([
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+    ]);
+    // Expected sign-extension byte in the high 16 bytes.
+    let sign_byte: u8 = if low_i128 < 0 { 0xFF } else { 0x00 };
+    let fits_i128 = bytes[16..32].iter().all(|&b| b == sign_byte);
+    if !fits_i128 {
+        // Overflows i128: pick MAX or MIN by sign of v.
+        return if v < I256::from(0i128) { T::min_value() } else { T::max_value() };
+    }
+    low_i128.saturate::<T>()
+}
+
 impl_into_int!(i8, i16, i32, i64, i128, isize);
 macro_rules! impl_into_uint {
     ($($u:ty),*) => {
@@ -603,7 +643,7 @@ macro_rules! impl_into_uint {
     I256: From<E>,
 {
     fn into(self) -> $u {
-        if self.fraction.is_negative() {
+        if self.is_negative() {
             return 0;
         }
         if self.exploded() {
@@ -613,18 +653,53 @@ macro_rules! impl_into_uint {
             return 0;
         }
 
-        let shift: usize = (self.exponent).saturate();
-        if shift > core::mem::size_of::<$u>().wrapping_mul(8) {
+        // Normal positive path: value = inflate(stored) * 2^(exp - FRAC_BITS).
+        let exp: isize = self.exponent.saturate();
+        let frac_bits = Scalar::<F, E>::fraction_bits();
+        let target_bits = (core::mem::size_of::<$u>() as isize).wrapping_mul(8);
+
+        // Unsigned can hold one more bit than signed of the same width,
+        // so we saturate at exp >= target_bits + 1.
+        if exp >= target_bits.wrapping_add(1) {
             return <$u>::MAX;
         }
-        let mut value = (self.fraction<<1isize).sa();
-        value = value >> (core::mem::size_of::<$u>().wrapping_mul(8).wrapping_sub(shift));
-        value
+
+        let stored_wide: I256 = self.fraction.into();
+        let mask: I256 = I256::from(-1i128) << frac_bits;
+        let effective: I256 = stored_wide ^ mask;
+        let shift = exp.wrapping_sub(frac_bits);
+        let scaled: I256 = if shift >= 0 {
+            effective << shift
+        } else {
+            effective >> (-shift)
+        };
+
+        saturate_u_i256::<$u>(scaled)
     }
 }
         )*
     }
 }
+
+/// Saturating I256 → target unsigned int. Assumes `v` is non-negative.
+/// Returns 0 for negative inputs (defensive), target MAX if too large.
+#[inline]
+fn saturate_u_i256<T: FullInt>(v: I256) -> T {
+    if v < I256::from(0i128) {
+        return T::min_value();
+    }
+    let bytes = v.to_le_bytes();
+    let low_u128 = u128::from_le_bytes([
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+    ]);
+    let fits_u128 = bytes[16..32].iter().all(|&b| b == 0);
+    if !fits_u128 {
+        return T::max_value();
+    }
+    low_u128.saturate::<T>()
+}
+
 impl_into_uint!(u8, u16, u32, u64, u128, usize);
 #[allow(private_bounds)]
 impl<
@@ -682,449 +757,21 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Converts this Scalar to an i8 value
-    ///
-    /// Handles special cases:
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Vanished negative returns -1, positive returns 0
-    /// - Exploded negative returns i8::MIN, positive returns i8::MAX
-    /// - Values with negative exponents round towards zero
-    /// - Values outside the representable range return i8::MIN or i8::MAX
-    #[inline]
-    pub fn to_i8(&self) -> i8 {
-        if !self.exponent.is_positive() {
-            if self.exploded() {
-                if self.fraction.is_negative() {
-                    return i8::MIN;
-                }
-                return i8::MAX;
-            }
-            let number_bits = self.prefix() >> 5;
-            if number_bits == number_bits.wrapping_shr(1) {
-                return 0;
-            }
-            if self.fraction.is_negative() {
-                return -1;
-            }
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= 8 {
-            if self.fraction.is_negative() {
-                return i8::MIN;
-            }
-            return i8::MAX;
-        }
-        let mut value = self.fraction.sa();
-        value = value >> 7usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to an i16 value
-    ///
-    /// Handles special cases:
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Vanished negative returns -1, positive returns 0
-    /// - Exploded negative returns i16::MIN, positive returns i16::MAX
-    /// - Values with negative exponents round towards zero
-    /// - Values outside the representable range return i16::MIN or i16::MAX
-    #[inline]
-    pub fn to_i16(&self) -> i16 {
-        if !self.exponent.is_positive() {
-            if self.exploded() {
-                if self.fraction.is_negative() {
-                    return i16::MIN;
-                }
-                return i16::MAX;
-            }
-            let number_bits = self.prefix() >> 5;
-            if number_bits == number_bits.wrapping_shr(1) {
-                return 0;
-            }
-            if self.fraction.is_negative() {
-                return -1;
-            }
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= 16 {
-            if self.fraction.is_negative() {
-                return i16::MIN;
-            }
-            return i16::MAX;
-        }
-        let mut value = self.fraction.sa();
-        value = value >> 15usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to an i32 value
-    ///
-    /// Handles special cases:
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Vanished negative returns -1, positive returns 0
-    /// - Exploded negative returns i32::MIN, positive returns i32::MAX
-    /// - Values with negative exponents round towards zero
-    /// - Values outside the representable range return i32::MIN or i32::MAX
-    #[inline]
-    pub fn to_i32(&self) -> i32 {
-        if !self.exponent.is_positive() {
-            if self.exploded() {
-                if self.fraction.is_negative() {
-                    return i32::MIN;
-                }
-                return i32::MAX;
-            }
-            let number_bits = self.prefix() >> 5;
-            if number_bits == number_bits.wrapping_shr(1) {
-                return 0;
-            }
-            if self.fraction.is_negative() {
-                return -1;
-            }
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= 32 {
-            if self.fraction.is_negative() {
-                return i32::MIN;
-            }
-            return i32::MAX;
-        }
-        let mut value = self.fraction.sa();
-        value = value >> 31usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to an i64 value
-    ///
-    /// Handles special cases:
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Vanished negative returns -1, positive returns 0
-    /// - Exploded negative returns i64::MIN, positive returns i64::MAX
-    /// - Values with negative exponents round towards zero
-    /// - Values outside the representable range return i64::MIN or i64::MAX
-    #[inline]
-    pub fn to_i64(&self) -> i64 {
-        if !self.exponent.is_positive() {
-            if self.exploded() {
-                if self.fraction.is_negative() {
-                    return i64::MIN;
-                }
-                return i64::MAX;
-            }
-            let number_bits = self.prefix() >> 5;
-            if number_bits == number_bits.wrapping_shr(1) {
-                return 0;
-            }
-            if self.fraction.is_negative() {
-                return -1;
-            }
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= 64 {
-            if self.fraction.is_negative() {
-                return i64::MIN;
-            }
-            return i64::MAX;
-        }
-        let mut value = self.fraction.sa();
-        value = value >> 63usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to an i128 value
-    ///
-    /// Handles special cases:
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Vanished negative returns -1, positive returns 0
-    /// - Exploded negative returns i128::MIN, positive returns i128::MAX
-    /// - Values with negative exponents round towards zero
-    /// - Values outside the representable range return i128::MIN or i128::MAX
-    #[inline]
-    pub fn to_i128(&self) -> i128 {
-        if !self.exponent.is_positive() {
-            if self.exploded() {
-                if self.fraction.is_negative() {
-                    return i128::MIN;
-                }
-                return i128::MAX;
-            }
-            let number_bits = self.prefix() >> 5;
-            if number_bits == number_bits.wrapping_shr(1) {
-                return 0;
-            }
-            if self.fraction.is_negative() {
-                return -1;
-            }
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= 128 {
-            if self.fraction.is_negative() {
-                return i128::MIN;
-            }
-            return i128::MAX;
-        }
-        let mut value = self.fraction.sa();
-        value = value >> 127usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to an isize value
-    ///
-    /// Handles special cases:
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Vanished negative returns -1, positive returns 0
-    /// - Exploded negative returns isize::MIN, positive returns isize::MAX
-    /// - Values with negative exponents round towards zero
-    /// - Values outside the representable range return isize::MIN or isize::MAX
-    #[inline]
-    pub fn to_isize(&self) -> isize {
-        if !self.exponent.is_positive() {
-            if self.exploded() {
-                if self.fraction.is_negative() {
-                    return isize::MIN;
-                }
-                return isize::MAX;
-            }
-            let number_bits = self.prefix() >> 5;
-            if number_bits == number_bits.wrapping_shr(1) {
-                return 0;
-            }
-            if self.fraction.is_negative() {
-                return -1;
-            }
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= core::mem::size_of::<isize>().wrapping_mul(8) {
-            if self.fraction.is_negative() {
-                return isize::MIN;
-            }
-            return isize::MAX;
-        }
-        let mut value = self.fraction.sa();
-        value = value
-            >> (core::mem::size_of::<isize>()
-                .wrapping_mul(8)
-                .wrapping_sub(1)
-                .wrapping_sub(shift));
-        value
-    }
-
-    /// Converts this Scalar to a u8 value
-    ///
-    /// Handles special cases:
-    /// - Negative values return 0
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Exploded positive returns u8::MAX
-    /// - Values with exponents < 1 return 0
-    /// - Values outside the representable range return u8::MAX
-    #[inline]
-    pub fn to_u8(&self) -> u8 {
-        if self.fraction.is_negative() {
-            return 0;
-        }
-        if self.exploded() {
-            return u8::MAX;
-        }
-        if !self.exponent.is_positive() {
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-
-        if shift > 8 {
-            return u8::MAX;
-        }
-
-        let shifted_fraction = self.fraction << 1isize;
-
-        let mut value = shifted_fraction.sa();
-
-        value = value >> 8usize.wrapping_sub(shift);
-
-        value
-    }
-
-    /// Converts this Scalar to a u16 value
-    ///
-    /// Handles special cases:
-    /// - Negative values return 0
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Exploded positive returns u16::MAX
-    /// - Values with exponents < 1 return 0
-    /// - Values outside the representable range return u16::MAX
-    #[inline]
-    pub fn to_u16(&self) -> u16 {
-        if self.fraction.is_negative() {
-            return 0;
-        }
-        if self.exploded() {
-            return u16::MAX;
-        }
-        if !self.exponent.is_positive() {
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift > 16 {
-            return u16::MAX;
-        }
-        let mut value = (self.fraction << 1isize).sa();
-        value = value >> 16usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to a u32 value
-    ///
-    /// Handles special cases:
-    /// - Negative values return 0
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Exploded positive returns u32::MAX
-    /// - Values with exponents < 1 return 0
-    /// - Values outside the representable range return u32::MAX
-    #[inline]
-    pub fn to_u32(&self) -> u32 {
-        if self.fraction.is_negative() {
-            return 0;
-        }
-        if self.exploded() {
-            return u32::MAX;
-        }
-        if !self.exponent.is_positive() {
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift > 32 {
-            return u32::MAX;
-        }
-        let mut value = (self.fraction << 1isize).sa();
-        value = value >> 32usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to a u64 value
-    ///
-    /// Handles special cases:
-    /// - Negative values return 0
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Exploded positive returns u64::MAX
-    /// - Values with exponents < 1 return 0
-    /// - Values outside the representable range return u64::MAX
-    #[inline]
-    pub fn to_u64(&self) -> u64 {
-        if self.fraction.is_negative() {
-            return 0;
-        }
-        if self.exploded() {
-            return u64::MAX;
-        }
-        if !self.exponent.is_positive() {
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift > 64 {
-            return u64::MAX;
-        }
-        let mut value = (self.fraction << 1isize).sa();
-        value = value >> 64usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to a u128 value
-    ///
-    /// Handles special cases:
-    /// - Negative values return 0
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Infinity returns 0
-    /// - Exploded positive returns u128::MAX
-    /// - Values with exponents < 1 return 0
-    /// - Values outside the representable range return u128::MAX
-    #[inline]
-    pub fn to_u128(&self) -> u128 {
-        if self.fraction.is_negative() {
-            return 0;
-        }
-        if self.exploded() {
-            return u128::MAX;
-        }
-        if !self.exponent.is_positive() {
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift > 128 {
-            return u128::MAX;
-        }
-        let mut value = (self.fraction << 1isize).sa();
-        value = value >> 128usize.wrapping_sub(shift);
-        value
-    }
-
-    /// Converts this Scalar to a usize value
-    ///
-    /// Handles special cases:
-    /// - Negative values return 0
-    /// - Zero returns 0
-    /// - Undefined returns 0
-    /// - Exploded positive returns usize::MAX
-    /// - Values with exponents < 1 return 0
-    /// - Values outside the representable range return usize::MAX
-    #[inline]
-    pub fn to_usize(&self) -> usize {
-        if self.fraction.is_negative() {
-            return 0;
-        }
-        if self.exploded() {
-            return usize::MAX;
-        }
-        if !self.exponent.is_positive() {
-            return 0;
-        }
-
-        let shift: usize = (self.exponent).saturate();
-        if shift >= core::mem::size_of::<usize>().wrapping_mul(8) {
-            return usize::MAX;
-        }
-        let mut value = (self.fraction << 1isize).sa();
-        value = value
-            >> (core::mem::size_of::<usize>()
-                .wrapping_mul(8)
-                .wrapping_sub(shift));
-        value
-    }
+    /// Inherent convenience methods — delegate to Into<iN>/<uN> impls.
+    /// Behavior: Zero/Infinity/Undefined → 0; Vanished-neg → -1, Vanished-pos → 0;
+    /// Exploded → MIN/MAX by sign; normal values saturate on overflow.
+    #[inline] pub fn to_i8(&self) -> i8 { (*self).into() }
+    #[inline] pub fn to_i16(&self) -> i16 { (*self).into() }
+    #[inline] pub fn to_i32(&self) -> i32 { (*self).into() }
+    #[inline] pub fn to_i64(&self) -> i64 { (*self).into() }
+    #[inline] pub fn to_i128(&self) -> i128 { (*self).into() }
+    #[inline] pub fn to_isize(&self) -> isize { (*self).into() }
+    #[inline] pub fn to_u8(&self) -> u8 { (*self).into() }
+    #[inline] pub fn to_u16(&self) -> u16 { (*self).into() }
+    #[inline] pub fn to_u32(&self) -> u32 { (*self).into() }
+    #[inline] pub fn to_u64(&self) -> u64 { (*self).into() }
+    #[inline] pub fn to_u128(&self) -> u128 { (*self).into() }
+    #[inline] pub fn to_usize(&self) -> usize { (*self).into() }
 }
 
 /// Pure-integer IEEE conversions for all Scalar types.
@@ -1143,12 +790,12 @@ macro_rules! impl_to_f32 {
                         return f32::NAN;
                     }
                     if self.is_negligible() {
-                        return if self.fraction.is_negative() { -0. } else { 0. };
+                        return if self.is_negative() { -0. } else { 0. };
                     }
                     if self.is_infinite() {
-                        return f32::INFINITY;
+                        return f32::NAN;
                     }
-                    return if self.fraction.is_negative() {
+                    return if self.is_negative() {
                         f32::NEG_INFINITY
                     } else {
                         f32::INFINITY
@@ -1202,12 +849,12 @@ macro_rules! impl_to_f64 {
                         return f64::NAN;
                     }
                     if self.is_negligible() {
-                        return if self.fraction.is_negative() { -0. } else { 0. };
+                        return if self.is_negative() { -0. } else { 0. };
                     }
                     if self.is_infinite() {
-                        return f64::INFINITY;
+                        return f64::NAN;
                     }
-                    return if self.fraction.is_negative() {
+                    return if self.is_negative() {
                         f64::NEG_INFINITY
                     } else {
                         f64::INFINITY
