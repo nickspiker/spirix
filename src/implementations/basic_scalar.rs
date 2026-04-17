@@ -65,7 +65,7 @@ impl_scalar_new! {
 /// These replace ScalarFractionConstants and ExponentConstants with functions
 /// that the compiler constant-folds to the same assembly.
 impl<F: Integer, E: Integer> Scalar<F, E> {
-    // --- Fraction format (new format: implicit sign via ~MSB) ---
+    // --- Fraction format (implicit sign via ~MSB) ---
     #[inline]
     pub(crate) fn pos_one_normal() -> F {
         F::min_value()
@@ -318,9 +318,8 @@ where
     /// ```
     #[inline]
     pub fn is_undefined(&self) -> bool {
-        // Normal values are never undefined — in new format, any stored
-        // fraction pattern is valid for normals, so prefix checks only
-        // apply when exponent == AMBIGUOUS.
+        // Any stored fraction pattern is valid for a normal — prefix
+        // classification only applies when exponent == AMBIGUOUS.
         if self.is_normal() {
             return false;
         }
@@ -1133,8 +1132,10 @@ where
             self.fraction = !self.fraction; // escaped: flip sign via NOT
             return;
         }
-        let pos_one_normal_fraction = -!(self.fraction - self.fraction).rotate_right(1);
-        if self.fraction == pos_one_normal_fraction {
+        // Negation: general case is wrapping_neg on stored. Power-of-2 boundaries
+        // (pos_one_normal ↔ neg_one_normal) require exponent adjustment since
+        // negating 2^k gives -2^k which must shift normalization by one.
+        if self.fraction == Self::pos_one_normal() {
             self.exponent = self.exponent.wrapping_sub(&E::one());
             if self.exponent == Self::ambiguous_exponent() {
                 self.fraction = Self::neg_one_vanished();
@@ -1142,7 +1143,7 @@ where
                 self.fraction = Self::neg_one_normal();
             }
         } else if self.fraction == Self::neg_one_normal() {
-            self.fraction = pos_one_normal_fraction;
+            self.fraction = Self::pos_one_normal();
             self.exponent = self.exponent.wrapping_add(&E::one());
         } else {
             self.fraction = self.fraction.wrapping_neg();

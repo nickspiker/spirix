@@ -149,32 +149,29 @@ where
             return Self::ZERO;
         }
 
-        // Build two's complement i64 from IEEE mantissa + sign
-        let mut tc_frac: i64 = if raw_exp == 0 {
-            mantissa as i64
+        // Build positive magnitude from IEEE mantissa; sign applied below.
+        let abs_mantissa: u64 = if raw_exp == 0 {
+            mantissa
         } else {
-            (mantissa | (1 << 52)) as i64
+            mantissa | (1 << 52)
         };
-        if sign != 0 {
-            tc_frac = tc_frac.wrapping_neg();
-        }
 
-        // Same logic as From<integer>: count leading same bits, shift to fill FRAC stored bits
-        let leading = tc_frac.leading_ones().max(tc_frac.leading_zeros()) as isize;
+        // Count significant bits of the mantissa magnitude.
+        let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 64isize.wrapping_sub(leading);
-        // spirix_exp = ieee_scale + significant_bits
-        // ieee_scale = raw_exp - 1023 - 52 (the power of 2 that scales the mantissa integer)
+        // spirix_exp = ieee_scale + significant_bits.
+        // ieee_scale = raw_exp - 1023 - 52 (power of 2 that scales the integer mantissa).
         let spirix_exp: i16 = (raw_exp)
             .wrapping_sub(1075)
             .wrapping_add(significant as i16);
 
-        // Shift tc_frac so its significant bits fill the top FRAC bits of the target type.
-        // This is identical to the From<integer> path.
+        // Cast to F first, THEN shift — avoids overflow when FRAC > 64 (i.e., i128 fraction).
         let shift = Self::fraction_bits().wrapping_sub(significant);
-        let fraction: F = if shift < 0 {
-            (tc_frac >> shift.wrapping_neg()).as_()
+        let fraction_pos: F = if shift < 0 {
+            (abs_mantissa >> shift.wrapping_neg()).as_()
         } else {
-            (tc_frac << shift).as_()
+            let intermediate: F = abs_mantissa.as_();
+            intermediate << shift as usize
         };
 
         if Self::exponent_bits() == 8 {
@@ -198,9 +195,22 @@ where
                 };
             }
         }
-        Self {
-            fraction,
-            exponent: spirix_exp.as_(),
+
+        if sign == 0 {
+            return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
+        }
+        // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent
+        // because its magnitude straddles the boundary between exp buckets.
+        if fraction_pos == Self::pos_one_normal() {
+            Self {
+                fraction: Self::neg_one_normal(),
+                exponent: (spirix_exp.wrapping_sub(1)).as_(),
+            }
+        } else {
+            Self {
+                fraction: F::zero() - fraction_pos,
+                exponent: spirix_exp.as_(),
+            }
         }
     }
 }
@@ -326,26 +336,25 @@ where
             return Self::ZERO;
         }
 
-        let mut tc_frac = if raw_exp == 0 {
-            mantissa as i32
+        let abs_mantissa: u32 = if raw_exp == 0 {
+            mantissa
         } else {
-            (mantissa | (1 << 23)) as i32
+            mantissa | (1 << 23)
         };
-        if sign != 0 {
-            tc_frac = tc_frac.wrapping_neg();
-        }
 
-        let leading = tc_frac.leading_ones().max(tc_frac.leading_zeros()) as isize;
+        let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 32isize.wrapping_sub(leading);
         let spirix_exp: i16 = (raw_exp as i16)
             .wrapping_sub(150)
             .wrapping_add(significant as i16);
 
+        // Cast to F first, then shift — avoids overflow when FRAC > 32.
         let shift = Self::fraction_bits().wrapping_sub(significant);
-        let fraction: F = if shift < 0 {
-            (tc_frac >> shift.wrapping_neg()).as_()
+        let fraction_pos: F = if shift < 0 {
+            (abs_mantissa >> shift.wrapping_neg()).as_()
         } else {
-            (tc_frac << shift).as_()
+            let intermediate: F = abs_mantissa.as_();
+            intermediate << shift as usize
         };
 
         if Self::exponent_bits() == 8 {
@@ -369,9 +378,20 @@ where
                 };
             }
         }
-        Self {
-            fraction,
-            exponent: spirix_exp.as_(),
+
+        if sign == 0 {
+            return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
+        }
+        if fraction_pos == Self::pos_one_normal() {
+            Self {
+                fraction: Self::neg_one_normal(),
+                exponent: (spirix_exp.wrapping_sub(1)).as_(),
+            }
+        } else {
+            Self {
+                fraction: F::zero() - fraction_pos,
+                exponent: spirix_exp.as_(),
+            }
         }
     }
 }
@@ -440,25 +460,68 @@ macro_rules! impl_from_int {
                     if value == 0 {
                         return Self::ZERO;
                     }
-                    let leading = value.leading_ones().max(value.leading_zeros()) as isize;
+                    // Handle negative by negating, converting as positive, then negating the Scalar.
+                    let negative = value < 0;
+                    // Compute abs(value). For MIN, negation overflows — handle specially below.
+                    let abs_value = if value == <$i>::MIN {
+                        // |MIN| = 2^(bits-1) is exactly a power of 2. We can construct directly.
+                        let bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
+                        if bits > Self::max_exponent().as_() {
+                            return Self {
+                                fraction: Self::neg_one_exploded(),
+                                exponent: Self::ambiguous_exponent(),
+                            };
+                        }
+                        // value = MIN = -2^(bits-1). Represent as neg_one_normal at exp = bits-1.
+                        return Self {
+                            fraction: Self::neg_one_normal(),
+                            exponent: bits.wrapping_sub(1).as_(),
+                        };
+                    } else if negative {
+                        value.wrapping_neg()
+                    } else {
+                        value
+                    };
+
+                    // Positive path: compute significant bits from MSB of abs_value.
+                    let leading = abs_value.leading_zeros() as isize;
                     let significant_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3).wrapping_sub(leading);
                     let spirix_exp: isize = significant_bits;
 
                     if spirix_exp > Self::max_exponent().as_() {
                         return Self {
-                            fraction: if value > 0 { Self::pos_one_exploded() } else { Self::neg_one_exploded() },
+                            fraction: if negative { Self::neg_one_exploded() } else { Self::pos_one_exploded() },
                             exponent: Self::ambiguous_exponent(),
                         };
                     }
 
+                    // Position the MSB of abs_value at bit FRAC-1 of the stored fraction.
                     let shift = (Self::fraction_bits() as isize).wrapping_sub(significant_bits);
-                    let fraction: F = if shift < 0 {
-                        (value >> shift.wrapping_neg()).as_()
+                    let fraction_pos: F = if shift < 0 {
+                        (abs_value >> shift.wrapping_neg()).as_()
                     } else {
-                        let intermediate: F = value.as_();
+                        let intermediate: F = abs_value.as_();
                         intermediate << shift as usize
                     };
-                    Self { fraction, exponent: spirix_exp.as_() }
+
+                    if !negative {
+                        return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
+                    }
+
+                    // Negation: power-of-2 boundary requires exponent shift.
+                    //   {pos_one_normal, e} negated → {neg_one_normal, e-1}
+                    //   general stored s → {-s, e}  (safe: fraction_pos != F::min_value() here)
+                    if fraction_pos == Self::pos_one_normal() {
+                        Self {
+                            fraction: Self::neg_one_normal(),
+                            exponent: spirix_exp.wrapping_sub(1).as_(),
+                        }
+                    } else {
+                        Self {
+                            fraction: F::zero() - fraction_pos,
+                            exponent: spirix_exp.as_(),
+                        }
+                    }
                 }
             }
             impl<F: Integer+FullInt, E: Integer+FullInt> From<&mut $i> for Scalar<F, E>

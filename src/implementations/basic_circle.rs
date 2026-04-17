@@ -59,9 +59,9 @@ impl_circle_new! {
 }
 
 /// Circle format constants — derived from PrimInt, no extra trait bounds needed.
-/// Old format: explicit sign in MSB, N-1 normalization.
+/// Explicit sign in MSB, N-1 normalization.
 impl<F: Integer, E: Integer> Circle<F, E> {
-    // --- Fraction format (old format: explicit sign) ---
+    // --- Fraction format (explicit sign) ---
     #[inline]
     pub(crate) fn pos_one_normal() -> F {
         -(F::min_value() >> 1usize)

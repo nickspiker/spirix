@@ -63,11 +63,9 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Squares this Scalar. Delegates to the already-migrated multiplication
-    /// which handles all edge cases and normalization for the new format.
-    /// Squares this Scalar. Specialized for a² (not multiply(a, a)) to avoid:
-    /// double abnormal check, double inflate, sign comparison, and leading_ones branch.
-    /// Result is always positive, so leading_zeros is always the correct normalization.
+    /// Squares this Scalar. Specialized for a² to avoid the double abnormal check,
+    /// double inflate, sign comparison, and leading_ones branch of multiply(a, a).
+    /// Result is always positive, so leading_zeros is the only normalization needed.
     pub fn square(&self) -> Self {
         if !self.is_normal() {
             // Edge cases delegate to multiplication (same tables, same logic).
@@ -437,66 +435,66 @@ where
             };
         }
 
-        // Calculate the integer part
+        // Integer part (characteristic) = exp - 1. Since x in normal form has effective
+        // fraction m in [0.5, 1), value = m * 2^exp, so lb(x) = lb(m) + exp, and
+        // lb(m) in [-1, 0), so floor(lb(x)) = exp - 1.
         let characteristic = self.exponent.wrapping_sub(&E::one());
 
-        // Create a value in [1,2) to calculate the fractional part
+        // Normalize x to be in [1, 2) for the bit-by-bit loop.
         let mut x = *self;
         x.exponent = E::one();
 
-        // Calculate fractional part bit by bit
-        let mut fraction = F::zero();
-        let mut rotor: F = F::one();
-        rotor = rotor << Self::fraction_bits().wrapping_sub(2);
-
-        while rotor != F::zero() {
+        // Build fractional bits directly into u128 — each iteration is ~1 OR + 1 shift.
+        // Bit (FRAC-1) = 0.5 contribution, bit (FRAC-2) = 0.25, etc.
+        let mut raw_frac: u128 = 0;
+        let mut rotor: u128 = 1u128 << (Self::fraction_bits().wrapping_sub(1) as u32);
+        while rotor != 0 {
             x = x.square();
             if x.exponent > E::one() {
-                fraction = fraction | rotor;
+                raw_frac |= rotor;
                 x.exponent = x.exponent.wrapping_sub(&E::one());
             }
-            rotor = rotor >> 1isize;
+            rotor >>= 1;
         }
 
-        // Combine integer and fractional parts
+        // Convert raw_frac (FRAC-bit fractional fixed-point) to a normalized Scalar.
+        // raw_frac has meaningful bits in positions 0..FRAC-1. Normalize by shifting the
+        // highest set bit up to position FRAC-1; the shift amount becomes -exponent.
+        let fractional = if raw_frac == 0 {
+            Self::ZERO
+        } else {
+            let frac_bits = Self::fraction_bits();
+            // leading_zeros in the FRAC-bit view of raw_frac (raw_frac fits in FRAC bits)
+            let lz = (raw_frac.leading_zeros() as isize).wrapping_sub(128 - frac_bits);
+            let normalized_u = raw_frac << lz;
+            let stored: F = match frac_bits {
+                8 => (normalized_u as u8 as i8).as_(),
+                16 => (normalized_u as u16 as i16).as_(),
+                32 => (normalized_u as u32 as i32).as_(),
+                64 => (normalized_u as u64 as i64).as_(),
+                128 => (normalized_u as i128).as_(),
+                _ => unreachable!(),
+            };
+            Self {
+                fraction: stored,
+                exponent: (0isize).wrapping_sub(lz).as_(),
+            }
+        };
+
+        // Convert characteristic (E type) to Scalar and combine.
         let characteristic_scalar = match Self::exponent_bits() {
-            8 => {
-                let exponent: i8 = characteristic.as_();
-                Self::from(exponent)
-            }
-            16 => {
-                let exponent: i16 = characteristic.as_();
-                Self::from(exponent)
-            }
-            32 => {
-                let exponent: i32 = characteristic.as_();
-                Self::from(exponent)
-            }
-            64 => {
-                let exponent: i64 = characteristic.as_();
-                Self::from(exponent)
-            }
-            128 => {
-                let exponent: i128 = characteristic.as_();
-                Self::from(exponent)
-            }
-            _ => {
-                return Self {
-                    fraction: GENERAL.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+            8 => { let e: i8 = characteristic.as_(); Self::from(e) }
+            16 => { let e: i16 = characteristic.as_(); Self::from(e) }
+            32 => { let e: i32 = characteristic.as_(); Self::from(e) }
+            64 => { let e: i64 = characteristic.as_(); Self::from(e) }
+            128 => { let e: i128 = characteristic.as_(); Self::from(e) }
+            _ => return Self {
+                fraction: GENERAL.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            },
         };
 
-        // Add the fractional part to the characteristic
-        let mut fractional_part = Self {
-            fraction: fraction,
-            exponent: E::zero(),
-        };
-        fractional_part.normalize();
-
-        let result = characteristic_scalar + fractional_part;
-        result
+        characteristic_scalar + fractional
     }
 
     /// Computes e raised to the power of this Scalar value (e^x)
@@ -625,7 +623,7 @@ where
             }
         }
 
-        if integer_part.fraction.is_negative() {
+        if integer_part.is_negative() {
             integer_result = integer_result.reciprocal();
         }
 
