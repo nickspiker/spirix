@@ -160,8 +160,9 @@ where
         let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 64isize.wrapping_sub(leading);
         // spirix_exp = ieee_scale + significant_bits.
-        // ieee_scale = raw_exp - 1023 - 52 (power of 2 that scales the integer mantissa).
-        let spirix_exp: i16 = (raw_exp)
+        // For subnormals (raw_exp=0), IEEE uses effective exp=1 — compensate.
+        let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp };
+        let spirix_exp: i16 = eff_exp
             .wrapping_sub(1075)
             .wrapping_add(significant as i16);
 
@@ -344,7 +345,9 @@ where
 
         let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 32isize.wrapping_sub(leading);
-        let spirix_exp: i16 = (raw_exp as i16)
+        // For subnormals (raw_exp=0), IEEE uses effective exp=1.
+        let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp as i16 };
+        let spirix_exp: i16 = eff_exp
             .wrapping_sub(150)
             .wrapping_add(significant as i16);
 
@@ -875,60 +878,58 @@ impl Scalar<i16, i16> {
     pub const fn from_f32(v: f32) -> Self {
         // Decode IEEE 754 binary32 using pure integer ops (all const-stable).
         let bits = v.to_bits();
+        let sign = bits >> 31;
         let raw_exp = ((bits >> 23) & 0xFF) as i16;
-        // fraction as i32 with implicit leading bit (subnormal: no leading 1)
-        let frac_u = if raw_exp == 0 {
-            bits & 0x7F_FFFF
+        let mantissa = bits & 0x7F_FFFF;
+
+        // Special values
+        if raw_exp == 0xFF {
+            if mantissa != 0 {
+                // NaN → undefined (generic N-3 prefix)
+                return Scalar { fraction: 0xE000u16 as i16, exponent: i16::MIN };
+            }
+            return if sign != 0 {
+                // -Inf → EXPLODED_NEG
+                Scalar { fraction: i16::MIN, exponent: i16::MIN }
+            } else {
+                // +Inf → EXPLODED_POS
+                Scalar { fraction: -(i16::MIN >> 1), exponent: i16::MIN }
+            };
+        }
+        if raw_exp == 0 && mantissa == 0 {
+            return Scalar { fraction: 0, exponent: i16::MIN };
+        }
+
+        // Build positive magnitude (mantissa with implicit leading 1 for normals).
+        let abs_mantissa: u32 = if raw_exp == 0 {
+            mantissa
         } else {
-            (bits & 0x7F_FFFF) | 0x80_0000
+            mantissa | 0x80_0000
         };
-        // Apply sign: two's complement negate if negative
-        let mut frac: i32 = frac_u as i32;
-        if (bits >> 31) != 0 {
-            frac = frac.wrapping_neg();
-        }
-        // Intermediary exponent: raw_exp - 119 brings binary32 bias (127) to Spirix normal (8)
-        // Specifically: for a normalised f32 the value is frac * 2^(raw_exp - 127 - 23 + 16)
-        //   = frac * 2^(raw_exp - 134 + 16) ... but Spirix normalises so MSB is at bit 1 (N1),
-        //   meaning frac already has its MSB at bit 8 (of 32). That's raw_exp - 127 - 23 + (32-1) = raw_exp - 119.
-        let mut exp: i16 = raw_exp.wrapping_sub(119);
 
-        // Inline normalize for Scalar<i32, i16>:
-        // FRACTION_BITS for i32 = 32, AMBIGUOUS_EXPONENT for i16 = i16::MIN
-        let lo = frac.leading_ones();
-        let lz = frac.leading_zeros();
-        let shift = if lo > lz { lo } else { lz };
-        if shift > 1 {
-            let shift = shift as i32;
-            let new_exp: i16;
-            if shift == 32 {
-                // fraction is all-zero or all-ones (only valid if negative = MIN_i32)
-                if frac >= 0 {
-                    // positive zero-fraction: vanished/undefined
-                    return Scalar {
-                        fraction: i16::MIN >> 1,
-                        exponent: i16::MIN,
-                    };
-                }
-                new_exp = exp.wrapping_sub((shift.wrapping_add(1)) as i16);
-            } else {
-                new_exp = exp.wrapping_sub(shift as i16);
-            }
-            if exp < 0 && new_exp >= 0 {
-                exp = i16::MIN; // AMBIGUOUS_EXPONENT
-                frac = frac << (shift.wrapping_sub(2) as u32);
-            } else {
-                exp = new_exp.wrapping_add(1);
-                frac = frac << (shift.wrapping_sub(1) as u32);
-            }
+        let leading = abs_mantissa.leading_zeros() as i16;
+        let significant: i16 = 32 - leading;
+        // spirix_exp = ieee_scale + significant. For subnormals (raw_exp=0), IEEE uses
+        // effective exp=1 (not 0), so we add 1 to compensate.
+        let eff_exp = if raw_exp == 0 { 1 } else { raw_exp };
+        let spirix_exp: i16 = eff_exp - 150 + significant;
+
+        // Position MSB at bit FRAC-1 = 15 (FRAC=16 for Scalar<i16, i16>).
+        let shift = 16 - significant;
+        let fraction_pos: i16 = if shift < 0 {
+            (abs_mantissa >> ((-shift) as u32)) as i16
+        } else {
+            (abs_mantissa as i16).wrapping_shl(shift as u32)
+        };
+
+        if sign == 0 {
+            return Scalar { fraction: fraction_pos, exponent: spirix_exp };
         }
 
-        // Left-aligned cast i32 → i16: take the top 16 bits
-        let fraction = (frac >> 16) as i16;
-        Scalar {
-            fraction,
-            exponent: exp,
+        if fraction_pos == i16::MIN {
+            return Scalar { fraction: 0, exponent: spirix_exp - 1 };
         }
+        Scalar { fraction: -fraction_pos, exponent: spirix_exp }
     }
 }
 

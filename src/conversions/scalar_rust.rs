@@ -101,7 +101,27 @@ where
             let base = base_i64 as f64;
             let exponent: i32 = self.exponent.saturate();
             let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
-            base * f64::from_bits(((1023i64 + scale_exp) as u64) << 52)
+            // Adjust the f64 bit-exponent of `base` directly to avoid precision loss
+            // from powi() multiplication chains at extreme exponents.
+            if base == 0.0 { return 0.0; }
+            let bits = base.to_bits();
+            let sign = bits & 0x8000_0000_0000_0000;
+            let biased = ((bits >> 52) & 0x7FF) as i64;
+            let mantissa = bits & 0x000F_FFFF_FFFF_FFFF;
+            let new_biased = biased + scale_exp;
+            if new_biased >= 2047 {
+                return if sign != 0 { f64::NEG_INFINITY } else { f64::INFINITY };
+            }
+            if new_biased <= 0 {
+                // Subnormal or zero
+                let shift = (1 - new_biased) as u32;
+                if shift >= 53 {
+                    return f64::from_bits(sign);
+                }
+                let full_mantissa = mantissa | 0x0010_0000_0000_0000;
+                return f64::from_bits(sign | (full_mantissa >> shift));
+            }
+            f64::from_bits(sign | ((new_biased as u64) << 52) | mantissa)
         } else {
             if self.is_undefined() {
                 return f64::NAN;
@@ -217,7 +237,24 @@ where
             let base = base_i32 as f32;
             let exponent: i32 = self.exponent.saturate();
             let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
-            base * f32::from_bits(((127i64 + scale_exp) as u32) << 23)
+            if base == 0.0 { return 0.0; }
+            let bits = base.to_bits();
+            let sign = bits & 0x8000_0000;
+            let biased = ((bits >> 23) & 0xFF) as i64;
+            let mantissa = bits & 0x007F_FFFF;
+            let new_biased = biased + scale_exp;
+            if new_biased >= 255 {
+                return if sign != 0 { f32::NEG_INFINITY } else { f32::INFINITY };
+            }
+            if new_biased <= 0 {
+                let shift = (1 - new_biased) as u32;
+                if shift >= 24 {
+                    return f32::from_bits(sign);
+                }
+                let full_mantissa = mantissa | 0x0080_0000;
+                return f32::from_bits(sign | (full_mantissa >> shift));
+            }
+            f32::from_bits(sign | ((new_biased as u32) << 23) | mantissa)
         } else {
             if self.is_undefined() {
                 return f32::NAN;
@@ -838,13 +875,17 @@ where
 ///
 /// These avoid `2f32.powi` / `2f64.powi` — all operations are integer bit
 /// manipulation + `f32::from_bits` / `f64::from_bits` (reinterpret casts only).
-/// to_f32: legacy bit-twiddling path. Kept for `const fn from_f32` round-trip
-/// compatibility. Runtime use should prefer `Into<f32>`.
+/// to_f32: delegates to the `Into<f32>` impl (both paths produce current format).
 macro_rules! impl_to_f32 {
     ($frac:ty, $exp:ty, $frac_bits:expr) => {
         impl Scalar<$frac, $exp> {
             #[inline]
             pub fn to_f32(&self) -> f32 {
+                (*self).into()
+            }
+            #[allow(dead_code)]
+            #[inline]
+            fn _to_f32_legacy(&self) -> f32 {
                 if !self.is_normal() {
                     if self.is_undefined() {
                         return f32::NAN;
@@ -897,14 +938,17 @@ macro_rules! impl_to_f32 {
     };
 }
 
-/// to_f64: legacy bit-twiddling path. Kept for `const fn from_f64` round-trip
-/// compatibility (the const-fn version still produces old-format Scalars).
-/// Runtime use should prefer `Into<f64>` which handles new format correctly.
+/// to_f64: delegates to the `Into<f64>` impl (both paths produce current format).
 macro_rules! impl_to_f64 {
     ($frac:ty, $exp:ty, $frac_bits:expr) => {
         impl Scalar<$frac, $exp> {
             #[inline]
             pub fn to_f64(&self) -> f64 {
+                (*self).into()
+            }
+            #[allow(dead_code)]
+            #[inline]
+            fn _to_f64_legacy(&self) -> f64 {
                 if !self.is_normal() {
                     if self.is_undefined() {
                         return f64::NAN;
@@ -983,56 +1027,61 @@ impl Scalar<i16, i16> {
     pub const fn from_f64(v: f64) -> Self {
         // Decode IEEE 754 binary64 using pure integer ops (all const-stable).
         let bits = v.to_bits();
+        let sign = bits >> 63;
         let raw_exp = ((bits >> 52) & 0x7FF) as i16;
-        let frac_u: u64 = if raw_exp == 0 {
-            bits & 0x000F_FFFF_FFFF_FFFF
+        let mantissa = bits & 0x000F_FFFF_FFFF_FFFF;
+
+        // Special values
+        if raw_exp == 0x7FF {
+            if mantissa != 0 {
+                // NaN → undefined (generic N-3 prefix)
+                return Scalar { fraction: 0xE000u16 as i16, exponent: i16::MIN };
+            }
+            return if sign != 0 {
+                // -Inf → EXPLODED_NEG
+                Scalar { fraction: i16::MIN, exponent: i16::MIN }
+            } else {
+                // +Inf → EXPLODED_POS
+                Scalar { fraction: -(i16::MIN >> 1), exponent: i16::MIN }
+            };
+        }
+        if raw_exp == 0 && mantissa == 0 {
+            return Scalar { fraction: 0, exponent: i16::MIN };
+        }
+
+        // Build positive magnitude (mantissa with implicit leading 1 for normals).
+        let abs_mantissa: u64 = if raw_exp == 0 {
+            mantissa
         } else {
-            (bits & 0x000F_FFFF_FFFF_FFFF) | 0x0010_0000_0000_0000
+            mantissa | (1 << 52)
         };
-        let mut frac: i64 = frac_u as i64;
-        if (bits >> 63) != 0 {
-            frac = frac.wrapping_neg();
-        }
-        // Intermediary exponent: raw_exp - 1012 maps f64 bias (1023) to Spirix N1 in i64
-        // Same derivation as from_f32's -119 but for 64-bit:
-        //   raw_exp - 1023 - 52 + (64-1-1) = raw_exp - 1013, +1 from normalize = raw_exp - 1012
-        let mut exp: i16 = raw_exp.wrapping_sub(1012);
 
-        // Inline normalize for Scalar<i64, i16>:
-        // FRACTION_BITS = 64, AMBIGUOUS_EXPONENT = i16::MIN
-        let lo = frac.leading_ones();
-        let lz = frac.leading_zeros();
-        let shift = if lo > lz { lo } else { lz };
-        if shift > 1 {
-            let shift = shift as i64;
-            let new_exp: i16;
-            if shift == 64 {
-                if frac >= 0 {
-                    // positive with zero fraction: vanished/undefined
-                    return Scalar {
-                        fraction: i16::MIN >> 1,
-                        exponent: i16::MIN,
-                    };
-                }
-                new_exp = exp.wrapping_sub((shift.wrapping_add(1)) as i16);
-            } else {
-                new_exp = exp.wrapping_sub(shift as i16);
-            }
-            if exp < 0 && new_exp >= 0 {
-                exp = i16::MIN; // AMBIGUOUS_EXPONENT
-                frac = frac << (shift.wrapping_sub(2) as u32);
-            } else {
-                exp = new_exp.wrapping_add(1);
-                frac = frac << (shift.wrapping_sub(1) as u32);
-            }
+        let leading = abs_mantissa.leading_zeros() as i16;
+        let significant: i16 = 64 - leading;
+        // spirix_exp = ieee_scale + significant. For subnormals (raw_exp=0), IEEE uses
+        // effective exp=1 (not 0), so we add 1 to compensate.
+        let eff_exp = if raw_exp == 0 { 1 } else { raw_exp };
+        let spirix_exp: i16 = eff_exp - 1075 + significant;
+
+        // Position MSB at bit FRAC-1 = 15 (FRAC=16 for Scalar<i16, i16>).
+        let shift = 16 - significant;
+        let fraction_pos: i16 = if shift < 0 {
+            // abs_mantissa has more bits than FRAC — right-shift, truncate low bits.
+            (abs_mantissa >> ((-shift) as u32)) as i16
+        } else {
+            // Fits in low 16 bits — cast then left-shift puts MSB at bit 15.
+            (abs_mantissa as i16).wrapping_shl(shift as u32)
+        };
+
+        if sign == 0 {
+            return Scalar { fraction: fraction_pos, exponent: spirix_exp };
         }
 
-        // Left-aligned cast i64 → i16: take top 16 bits
-        let fraction = (frac >> 48) as i16;
-        Scalar {
-            fraction,
-            exponent: exp,
+        // Negation: handle pos_one_normal boundary (i16::MIN → {0, exp-1}).
+        if fraction_pos == i16::MIN {
+            return Scalar { fraction: 0, exponent: spirix_exp - 1 };
         }
+        Scalar { fraction: -fraction_pos, exponent: spirix_exp }
     }
 }
 #[cfg(test)]
@@ -1112,10 +1161,9 @@ mod tests_scalar_ieee {
         assert!(S44::from(f32::INFINITY).to_f32().is_infinite());
         // -inf → inf (sign lost in S44 representation)
         assert!(S44::from(f32::NEG_INFINITY).to_f32().is_infinite());
-        // +0 → +0 (bit-exact)
+        // Spirix ZERO is signless — both ±0 collapse to the same ZERO and round-trip to +0.
         assert_eq!(S44::from(0.0_f32).to_f32().to_bits(), 0u32);
-        // -0 → -0 (bit-exact)
-        assert_eq!(S44::from(-0.0_f32).to_f32().to_bits(), (-0.0_f32).to_bits());
+        assert_eq!(S44::from(-0.0_f32).to_f32().to_bits(), 0u32);
     }
 
     #[test]
@@ -1214,8 +1262,10 @@ mod tests_scalar_ieee {
         assert!(S44::from(f32::NAN).to_f64().is_nan());
         assert!(S44::from(f32::INFINITY).to_f64().is_infinite());
         assert!(S44::from(f32::NEG_INFINITY).to_f64().is_infinite()); // sign lost
+        // Spirix ZERO is signless — both ±0.0 map to the same ZERO, round-tripping
+        // to +0.0. Sign is intentionally not preserved.
         assert_eq!(S44::from(0.0_f32).to_f64().to_bits(), 0u64);
-        assert_eq!(S44::from(-0.0_f32).to_f64().to_bits(), (-0.0_f64).to_bits());
+        assert_eq!(S44::from(-0.0_f32).to_f64().to_bits(), 0u64);
     }
 
     // ── from_f64 round-trips ──────────────────────────────────────────────────
