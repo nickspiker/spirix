@@ -258,6 +258,129 @@ Where:
 - **[∞]**: Infinity
 - **[℘?]**: Undefined states
 
+#### Bitwise AND
+
+| & | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [0] | [0] | [0] | [0] | [℘?] |
+| **[↓]** | [0] | [↓] | [↓] | [℘&] | [℘&] | [℘?] |
+| **[#]** | [0] | [↓] | [#] | [℘&] | [℘&] | [℘?] |
+| **[↑]** | [0] | [℘&] | [℘&] | [℘&] | [℘&] | [℘?] |
+| **[∞]** | [0] | [℘&] | [℘&] | [℘&] | [℘&] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Bitwise OR
+
+| \| | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|----|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [℘\|] | [℘\|] | [℘?] |
+| **[↓]** | [↓] | [↓] | [#] | [℘\|] | [℘\|] | [℘?] |
+| **[#]** | [#] | [#] | [#] | [℘\|] | [℘\|] | [℘?] |
+| **[↑]** | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘?] |
+| **[∞]** | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Bitwise XOR
+
+| ⊕ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [℘⊕] | [℘⊕] | [℘?] |
+| **[↓]** | [↓] | [℘↓⊕↓] | [#] | [℘⊕] | [℘⊕] | [℘?] |
+| **[#]** | [#] | [#] | [#] | [℘⊕] | [℘⊕] | [℘?] |
+| **[↑]** | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘?] |
+| **[∞]** | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+### Unary Operation Truth Tables
+
+The following tables describe how single-argument operations transform each value class.
+Sign-dependent results split into positive (`[+#]`) and negative (`[-#]`) cases where they differ.
+
+#### Bitwise NOT
+
+NOT flips every stored bit, which preserves class for all categories *except* the
+zero ↔ infinity swap (since `00…0` and `11…1` are bit-flips of each other and live
+in the same ambiguous-exponent slot). Within preserved classes, the sign flips
+because the stored MSB flips.
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[∞]` |
+| `[+↓]` | `[-↓]` |
+| `[-↓]` | `[+↓]` |
+| `[+#]` | `[-#]` |
+| `[-#]` | `[+#]` |
+| `[+↑]` | `[-↑]` |
+| `[-↑]` | `[+↑]` |
+| `[∞]` | `[0]` |
+| `[℘?]` | `[℘?]` |
+
+
+#### Square Root
+
+`sqrt` of a negative value yields the undefined state `[℘√-]` (no real square root).
+Vanished/exploded inputs carry magnitude uncertainty, so `sqrt` of escaped
+classes returns specific undefined sub-states rather than guessing at a class.
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[+↓]` | `[℘√↓]` |
+| `[-↓]` | `[℘√-]` |
+| `[+#]` | `[+#]` |
+| `[-#]` | `[℘√-]` |
+| `[+↑]` | `[℘√↑]` |
+| `[-↑]` | `[℘√-]` |
+| `[∞]` | `[∞]` |
+| `[℘?]` | `[℘?]` |
+
+#### Binary Logarithm (`lb`) and Natural Log (`ln`)
+
+Both behave identically on classes; `ln` is just `lb × ln(2)`.
+Logs of non-positive values are undefined.
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[∞]` (singular infinity, log(0) is unbounded) |
+| `[+↓]` | `[℘ log↓]` (vanished-domain log undefined sub-state) |
+| `[-↓]` | `[℘ log-]` |
+| `[+#]` | `[-#], [0], [+#]` (sign depends on whether input < 1, = 1, or > 1) |
+| `[-#]` | `[℘ log-]` |
+| `[+↑]` | `[℘ log↑]` |
+| `[-↑]` | `[℘ log-]` |
+| `[∞]` | `[∞]` |
+| `[℘?]` | `[℘?]` |
+
+#### Exponential (`exp` = e^x) and Binary Exponential (`powb` = 2^x)
+
+Both have the same truth-table structure (different bases, identical class behavior).
+Negligible inputs (vanished, zero) collapse to `1` since e^0 = 2^0 = 1.
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[+#]` (= 1) |
+| `[+↓]` | `[+#]` (≈ 1, slightly above) |
+| `[-↓]` | `[+#]` (≈ 1, slightly below) |
+| `[+#]` | `[+#]` or `[+↑]` (large positive input may overflow) |
+| `[-#]` | `[+#]` or `[+↓]` or `[0]` (large negative input may underflow) |
+| `[+↑]` | `[℘ pow↑]` |
+| `[-↑]` | `[0]` (e^-∞ = 0) |
+| `[∞]` | `[∞]` |
+| `[℘?]` | `[℘?]` |
+
+#### Square
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[±↓]` | `[+↓]` (always positive, smaller magnitude) |
+| `[±#]` | `[+#]` or `[+↓]` or `[+↑]` (always positive, magnitude depends) |
+| `[±↑]` | `[+↑]` |
+| `[∞]` | `[∞]` |
+| `[℘?]` | `[℘?]` |
+
+Where the prefix `[℘ X]` denotes a specific undefined sub-state described in the [Undefined State Catalog](#undefined-state-catalog) below.
+
 Spirix Rust native operations supported:
 
 # Spirix Mathematical Operations

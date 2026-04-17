@@ -477,20 +477,15 @@ macro_rules! impl_into_int {
     I256: From<E>,
 {
 fn into(self) -> $i {
-    if !self.exponent.is_positive() {
+    // Non-normal values: handle escape classes explicitly.
+    if !self.is_normal() {
+        if self.is_undefined() { return 0; }
+        if self.is_zero() { return 0; }
+        if self.is_infinite() { return <$i>::MAX; }
         if self.exploded() {
-            if self.is_negative() {
-                return <$i>::MIN;
-            }
-            return <$i>::MAX;
+            return if self.is_negative() { <$i>::MIN } else { <$i>::MAX };
         }
-        let number_bits = self.prefix() >> 5;
-        if number_bits == number_bits.wrapping_shr(1) {
-            return 0;
-        }
-        if self.is_negative() {
-            return -1;
-        }
+        // Vanished: tiny values truncate to 0 in integer conversion.
         return 0;
     }
 
@@ -673,10 +668,12 @@ macro_rules! impl_into_uint {
         if self.is_negative() {
             return 0;
         }
-        if self.exploded() {
-            return <$u>::MAX;
-        }
-        if !self.exponent.is_positive() {
+        if !self.is_normal() {
+            if self.is_undefined() { return 0; }
+            if self.is_zero() { return 0; }
+            if self.is_infinite() { return <$u>::MAX; }
+            if self.exploded() { return <$u>::MAX; }
+            // Vanished: tiny values truncate to 0.
             return 0;
         }
 
