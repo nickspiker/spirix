@@ -70,7 +70,7 @@ where
             }
             return *self;
         }
-        if self.exponent > Self::fraction_bits().wrapping_sub(1).as_() {
+        if self.exponent > Self::fraction_bits().as_() {
             return Self {
                 fraction: SINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -141,7 +141,7 @@ where
             return Self::EFFECTIVELY_POS_ONE;
         }
 
-        if self.exponent > Self::fraction_bits().wrapping_sub(1).as_() {
+        if self.exponent > Self::fraction_bits().as_() {
             return Self {
                 fraction: COSINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),

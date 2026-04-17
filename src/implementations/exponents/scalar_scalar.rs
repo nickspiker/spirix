@@ -77,7 +77,7 @@ where
             }
 
             if self.is_infinite() {
-                if exp.fraction.is_negative() || exp.exponent.is_positive() {
+                if exp.is_negative() || exp.exponent.is_positive() {
                     return Self::ZERO;
                 }
                 if exp.is_zero() {
