@@ -188,8 +188,8 @@ where
             return *self;
         }
 
-        let mut self_f = self.fraction.inflate();
-        let mut scalar_f = scalar.fraction.inflate();
+        let mut self_f = self.fraction.inflate(true);
+        let mut scalar_f = scalar.fraction.inflate(true);
         if self.exponent > scalar.exponent {
             self_f.w_shl_assign(shift);
         } else {

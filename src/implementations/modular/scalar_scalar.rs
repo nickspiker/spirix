@@ -226,9 +226,9 @@ where
                 // a is negligible at b's precision: result = b.
                 return *modulus;
             }
-            let mut big_f = modulus.fraction.inflate();
+            let mut big_f = modulus.fraction.inflate(true);
             big_f.w_shl_assign(shift_ba);
-            let sum = big_f.w_add(self.fraction.inflate());
+            let sum = big_f.w_add(self.fraction.inflate(true));
             let leading = sum.leading_same();
             let offset = self
                 .exponent
@@ -257,8 +257,8 @@ where
         }
 
         // Inflate both fractions to wide effective values, take magnitudes.
-        let a_wide = self.fraction.inflate();
-        let b_wide = modulus.fraction.inflate();
+        let a_wide = self.fraction.inflate(true);
+        let b_wide = modulus.fraction.inflate(true);
         let a_mag = if a_neg { a_wide.w_neg() } else { a_wide };
         let b_mag = if b_neg { b_wide.w_neg() } else { b_wide };
 

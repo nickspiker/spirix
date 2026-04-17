@@ -63,587 +63,260 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
+    /// Squares this Scalar. Delegates to the already-migrated multiplication
+    /// which handles all edge cases and normalization for the new format.
+    /// Squares this Scalar. Specialized for a² (not multiply(a, a)) to avoid:
+    /// double abnormal check, double inflate, sign comparison, and leading_ones branch.
+    /// Result is always positive, so leading_zeros is always the correct normalization.
     pub fn square(&self) -> Self {
         if !self.is_normal() {
-            if self.is_undefined() || self.is_uniform() {
-                // Undefined, Zeros and Infinities stay the same
-                return *self;
+            // Edge cases delegate to multiplication (same tables, same logic).
+            return self.scalar_multiply_scalar(self);
+        }
+        // NEG_ONE_NORMAL has inflate = -2^FRAC; squaring overflows the wide type.
+        // Handle via exponent arithmetic: (-1 * 2^e)² = 1 * 2^(2e+1).
+        if self.fraction == Self::neg_one_normal() {
+            let mut exp = self.exponent.wrapping_add(&self.exponent);
+            if self.exponent.is_negative() && !exp.is_negative() {
+                return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
             }
-
-            let shift_adjust: isize = if self.exploded() { 1 } else { 2 };
-            let fraction = match Self::fraction_bits() {
-                8 => {
-                    let fraction: i16 = self.fraction.as_();
-                    let product_wide = fraction.wrapping_mul(fraction);
-
-                    let normalize_shift = product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize;
-
-                    let shift_amount = normalize_shift.wrapping_sub(shift_adjust);
-                    let normalized_wide = product_wide << shift_amount;
-                    (normalized_wide >> 8).as_()
-                }
-                16 => {
-                    let fraction: i32 = self.fraction.as_();
-                    let product_wide = fraction.wrapping_mul(fraction);
-
-                    let normalize_shift = product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize;
-
-                    let shift_amount = normalize_shift.wrapping_sub(shift_adjust);
-                    let normalized_wide = product_wide << shift_amount;
-                    (normalized_wide >> 16).as_()
-                }
-                32 => {
-                    let fraction: i64 = self.fraction.as_();
-                    let product_wide = fraction.wrapping_mul(fraction);
-
-                    let normalize_shift = product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize;
-
-                    let shift_amount = normalize_shift.wrapping_sub(shift_adjust);
-                    let normalized_wide = product_wide << shift_amount;
-                    (normalized_wide >> 32).as_()
-                }
-                64 => {
-                    let fraction: i128 = self.fraction.as_();
-                    let product_wide = fraction.wrapping_mul(fraction);
-
-                    let normalize_shift = product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize;
-
-                    let shift_amount = normalize_shift.wrapping_sub(shift_adjust);
-                    let normalized_wide = product_wide << shift_amount;
-                    (normalized_wide >> 64).as_()
-                }
-                128 => {
-                    let fraction: i128 = self.fraction.as_();
-                    let multiplier: I256 = fraction.into();
-                    let product_wide: I256 = multiplier.wrapping_mul(multiplier);
-
-                    let normalize_shift = product_wide
-                        .leading_ones()
-                        .max(product_wide.leading_zeros())
-                        as isize;
-
-                    let shift_amount = normalize_shift.wrapping_sub(shift_adjust);
-                    let normalized_wide = product_wide << shift_amount;
-                    (normalized_wide >> 128isize).as_i128().as_()
-                }
-                _ => GENERAL.prefix.sa(),
+            exp = exp.wrapping_add(&E::one());
+            if !self.exponent.is_negative() && exp.is_negative() {
+                return Self { fraction: Self::pos_one_exploded(), exponent: Self::ambiguous_exponent() };
+            }
+            return Self { fraction: Self::pos_one_normal(), exponent: exp };
+        }
+        // Normal path: one inflate, one w_mul, positive result → leading_zeros.
+        let inflated = self.fraction.inflate(true);
+        let product = inflated.w_mul(inflated);
+        let leading = product.w_leading_zeros();
+        let sum = self.exponent.wrapping_add(&self.exponent);
+        let self_neg = self.exponent.is_negative();
+        let sum_neg = sum.is_negative();
+        if !self_neg && sum_neg {
+            // Exponent overflow → exploded (positive × positive doubles into negative).
+            let fraction = product
+                .w_shl(leading.wrapping_sub(1))
+                .w_shr(Self::fraction_bits())
+                .deflate();
+            return Self { fraction, exponent: Self::ambiguous_exponent() };
+        }
+        if self_neg && !sum_neg {
+            // Exponent underflow → vanished.
+            let shift = leading.wrapping_sub(2);
+            let fraction = if shift >= 0 {
+                product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
+            } else {
+                product.w_shr(Self::fraction_bits().wrapping_sub(shift)).deflate()
             };
-
-            return Self {
-                fraction,
-                exponent: Self::ambiguous_exponent(),
-            };
+            return Self { fraction, exponent: Self::ambiguous_exponent() };
         }
-
-        let product_fraction;
-        let expo_adjust: isize;
-        match Self::fraction_bits() {
-            8 => {
-                let multiplier: i16 = self.fraction.as_();
-                let product_wide = multiplier.wrapping_mul(multiplier);
-                if product_wide == 0 {
-                    return Self::ZERO;
-                }
-                expo_adjust = (product_wide
-                    .leading_ones()
-                    .max(product_wide.leading_zeros()) as isize)
-                    .wrapping_sub(2);
-                let shift_amount = expo_adjust.wrapping_add(1);
-                let normalized_wide = product_wide << shift_amount;
-                product_fraction = (normalized_wide >> 8).as_();
-            }
-            16 => {
-                let multiplier: i32 = self.fraction.as_();
-                let product_wide = multiplier.wrapping_mul(multiplier);
-                if product_wide == 0 {
-                    return Self::ZERO;
-                }
-                expo_adjust = (product_wide
-                    .leading_ones()
-                    .max(product_wide.leading_zeros()) as isize)
-                    .wrapping_sub(2);
-                let shift_amount = expo_adjust.wrapping_add(1);
-                let normalized_wide = product_wide << shift_amount;
-                product_fraction = (normalized_wide >> 16).as_();
-            }
-            32 => {
-                let multiplier: i64 = self.fraction.as_();
-                let product_wide = multiplier.wrapping_mul(multiplier);
-                if product_wide == 0 {
-                    return Self::ZERO;
-                }
-                expo_adjust = (product_wide
-                    .leading_ones()
-                    .max(product_wide.leading_zeros()) as isize)
-                    .wrapping_sub(2);
-                let shift_amount = expo_adjust.wrapping_add(1);
-                let normalized_wide = product_wide << shift_amount;
-                product_fraction = (normalized_wide >> 32).as_();
-            }
-            64 => {
-                let multiplier: i128 = self.fraction.as_();
-                let product_wide = multiplier.wrapping_mul(multiplier);
-                if product_wide == 0 {
-                    return Self::ZERO;
-                }
-                expo_adjust = (product_wide
-                    .leading_ones()
-                    .max(product_wide.leading_zeros()) as isize)
-                    .wrapping_sub(2);
-                let shift_amount = expo_adjust.wrapping_add(1);
-                let normalized_wide = product_wide << shift_amount;
-                product_fraction = (normalized_wide >> 64).as_();
-            }
-            128 => {
-                let multiplier: i128 = self.fraction.as_();
-                let multiplier: I256 = multiplier.into();
-                let multiplier: I256 = multiplier.into();
-                let product_wide: I256 = multiplier.wrapping_mul(multiplier);
-                if product_wide == 0.into() {
-                    return Self::ZERO;
-                }
-                expo_adjust = (product_wide
-                    .leading_ones()
-                    .max(product_wide.leading_zeros()) as isize)
-                    .wrapping_sub(2);
-                let shift_amount = expo_adjust.wrapping_add(1);
-                let normalized_wide = product_wide << shift_amount;
-                product_fraction = (normalized_wide >> 128isize).as_i128().as_();
-            }
-            _ => {
-                return Self {
-                    fraction: GENERAL.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-        }
-
-        match Self::exponent_bits() {
-            8 => {
-                let self_exponent: i16 = self.exponent.as_();
-                let upcast_exponent: i16 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i16);
-                let max_e: i16 = Self::max_exponent().as_();
-                let min_e: i16 = Self::min_exponent().as_();
-                if upcast_exponent > max_e {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < min_e {
-                    return Scalar {
-                        fraction: product_fraction >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            16 => {
-                let self_exponent: i32 = self.exponent.as_();
-                let upcast_exponent: i32 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i32);
-                let max_e: i32 = Self::max_exponent().as_();
-                let min_e: i32 = Self::min_exponent().as_();
-                if upcast_exponent > max_e {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < min_e {
-                    return Scalar {
-                        fraction: product_fraction >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            32 => {
-                let self_exponent: i64 = self.exponent.as_();
-                let upcast_exponent: i64 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i64);
-                let max_e: i64 = Self::max_exponent().as_();
-                let min_e: i64 = Self::min_exponent().as_();
-                if upcast_exponent > max_e {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < min_e {
-                    return Scalar {
-                        fraction: product_fraction >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            64 => {
-                let self_exponent: i128 = self.exponent.as_();
-                let upcast_exponent: i128 = self_exponent
-                    .wrapping_mul(2)
-                    .wrapping_sub(expo_adjust as i128);
-                let max_e: i128 = Self::max_exponent().as_();
-                let min_e: i128 = Self::min_exponent().as_();
-                if upcast_exponent > max_e {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < min_e {
-                    return Scalar {
-                        fraction: product_fraction >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            128 => {
-                let self_exponent: I256 = self.exponent.into();
-                let e: I256 = (expo_adjust as i128).into();
-                let two: I256 = 2.into();
-                let upcast_exponent: I256 = self_exponent * two - e;
-
-                if upcast_exponent > Self::max_exponent().into() {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < Self::min_exponent().into() {
-                    return Scalar {
-                        fraction: product_fraction >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Scalar {
-                        fraction: product_fraction,
-                        exponent: upcast_exponent.as_i128().as_(),
-                    };
-                }
-            }
-            _ => {
-                return Scalar {
-                    fraction: GENERAL.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-        }
+        let adj: E = (leading as isize).as_();
+        let exponent = sum.wrapping_sub(&adj);
+        let fraction = if exponent == Self::ambiguous_exponent() {
+            product
+                .w_shl(leading.wrapping_sub(2))
+                .w_shr(Self::fraction_bits())
+                .deflate()
+        } else {
+            product
+                .w_shl(leading)
+                .w_shr(Self::fraction_bits())
+                .deflate()
+        };
+        Self { fraction, exponent }
     }
+    /// Square root — restoring binary, bit-exact floor.
+    /// Subtractive method on inflated unsigned value, 1 bit per iteration.
+    /// Matches hardware spirix_sqrt_iter. Double-wide types only, no multiply.
     pub fn sqrt(&self) -> Self {
         if !self.is_normal() {
             if self.is_undefined() || self.is_uniform() {
                 return *self;
             }
-
             if self.vanished() {
                 return Self {
                     fraction: SQRT_VANISHED.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
-            } else {
-                return Self {
-                    fraction: SQRT_EXPLODED.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
             }
+            return Self {
+                fraction: SQRT_EXPLODED.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
         }
 
-        if self.is_negative() {
+        // Sign is inverse of MSB
+        if !self.fraction.is_negative() {
             return Self {
                 fraction: SQRT_NEGATIVE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
 
-        if self.is_zero() {
-            return Self::ZERO;
-        }
+        // Exponent: even e → e/2, odd e → (e+1)/2.
+        // Arithmetic right shift floors, adding odd bit corrects to ceiling division.
+        let odd: usize = (self.exponent & E::one()).as_();
+        let result_exp = (self.exponent >> 1usize) + odd.as_();
 
-        let exponent = (self.exponent) / 2.as_();
-        let even = self.exponent & 1.as_();
-        let mut exponent = exponent + even;
-        let even: usize = even.as_();
-        if self.exponent.is_negative() && even != 0 {
-            exponent = exponent - 1.as_();
-        }
-
+        // Subtractive restoring binary sqrt on inflated unsigned value.
+        // Even exponent: radicand = eff << FRAC,     result is FRAC bits.
+        // Odd exponent:  radicand = eff << (FRAC+1), result is FRAC+1 bits → >>1.
+        // Bit pairs extracted on the fly from eff — keeps everything double-wide.
         let fraction = match Self::fraction_bits() {
             8 => {
-                let f: u16 = self.fraction.as_();
-                let radicand = f << (9 - even);
-                let mut bit = 1 << 7;
-                let mut result = 0u16;
-                while bit != 0 {
-                    let guess = result | bit;
-                    bit >>= 1;
-                    if guess * guess <= radicand {
-                        result = guess;
-                        if guess * guess == radicand {
-                            break;
-                        }
+                let s: i8 = self.fraction.as_();
+                let eff: u16 = s.inflate(true) as u16;
+                let shift: usize = 8 + odd;
+                let mut rem: u16 = 0;
+                let mut root: u16 = 0;
+                for i in (0..=8).rev() {
+                    let bit_lo = i << 1;
+                    let pair = if bit_lo >= shift {
+                        (eff >> bit_lo.wrapping_sub(shift)) & 3
+                    } else if (bit_lo | 1) >= shift {
+                        ((eff >> (bit_lo | 1).wrapping_sub(shift)) & 1) << 1
+                    } else {
+                        0
+                    };
+                    rem = (rem << 2) | pair;
+                    let trial = (root << 2) | 1;
+                    if rem >= trial {
+                        rem = rem.wrapping_sub(trial);
+                        root = (root << 1) | 1;
+                    } else {
+                        root <<= 1;
                     }
                 }
-
-                let leading_zeros = result.leading_zeros() as isize - 1;
-                let result = result << leading_zeros;
-                exponent = exponent - (leading_zeros - 7).as_();
-
-                (result >> 8).as_()
+                if odd != 0 {
+                    root >>= 1;
+                }
+                (root as u8 as i8).as_()
             }
             16 => {
-                let f: u32 = self.fraction.as_();
-                let radicand = f << (17 - even);
-                let mut bit = 1 << 15;
-                let mut result = 0u32;
-                while bit != 0 {
-                    let guess = result | bit;
-                    bit >>= 1;
-                    if guess * guess <= radicand {
-                        result = guess;
-                        if guess * guess == radicand {
-                            break;
-                        }
+                let s: i16 = self.fraction.as_();
+                let eff: u32 = s.inflate(true) as u32;
+                let shift: usize = 16 + odd;
+                let mut rem: u32 = 0;
+                let mut root: u32 = 0;
+                for i in (0..=16).rev() {
+                    let bit_lo = i << 1;
+                    let pair = if bit_lo >= shift {
+                        (eff >> bit_lo.wrapping_sub(shift)) & 3
+                    } else if (bit_lo | 1) >= shift {
+                        ((eff >> (bit_lo | 1).wrapping_sub(shift)) & 1) << 1
+                    } else {
+                        0
+                    };
+                    rem = (rem << 2) | pair;
+                    let trial = (root << 2) | 1;
+                    if rem >= trial {
+                        rem = rem.wrapping_sub(trial);
+                        root = (root << 1) | 1;
+                    } else {
+                        root <<= 1;
                     }
                 }
-
-                let leading_zeros = result.leading_zeros() as isize - 1;
-                let result = result << leading_zeros;
-                exponent = exponent - (leading_zeros - 15).as_();
-
-                (result >> 16).as_()
+                if odd != 0 {
+                    root >>= 1;
+                }
+                (root as u16 as i16).as_()
             }
             32 => {
-                let f: u64 = self.fraction.as_();
-                let radicand = f << (33 - even);
-                let mut bit = 1 << 31;
-                let mut result = 0u64;
-                while bit != 0 {
-                    let guess = result | bit;
-                    bit >>= 1;
-                    if guess * guess <= radicand {
-                        result = guess;
-                        if guess * guess == radicand {
-                            break;
-                        }
+                let s: i32 = self.fraction.as_();
+                let eff: u64 = s.inflate(true) as u64;
+                let shift: usize = 32 + odd;
+                let mut rem: u64 = 0;
+                let mut root: u64 = 0;
+                for i in (0..=32).rev() {
+                    let bit_lo = i << 1;
+                    let pair = if bit_lo >= shift {
+                        (eff >> bit_lo.wrapping_sub(shift)) & 3
+                    } else if (bit_lo | 1) >= shift {
+                        ((eff >> (bit_lo | 1).wrapping_sub(shift)) & 1) << 1
+                    } else {
+                        0
+                    };
+                    rem = (rem << 2) | pair;
+                    let trial = (root << 2) | 1;
+                    if rem >= trial {
+                        rem = rem.wrapping_sub(trial);
+                        root = (root << 1) | 1;
+                    } else {
+                        root <<= 1;
                     }
                 }
-
-                let leading_zeros = result.leading_zeros() as isize - 1;
-                let result = result << leading_zeros;
-                exponent = exponent - (leading_zeros - 31).as_();
-
-                (result >> 32).as_()
+                if odd != 0 {
+                    root >>= 1;
+                }
+                (root as u32 as i32).as_()
             }
             64 => {
-                let f: u128 = self.fraction.as_();
-                let radicand = f << (65 - even);
-                let mut bit = 1 << 63;
-                let mut result = 0u128;
-                while bit != 0 {
-                    let guess = result | bit;
-                    bit >>= 1;
-                    if guess * guess <= radicand {
-                        result = guess;
-                        if guess * guess == radicand {
-                            break;
-                        }
+                let s: i64 = self.fraction.as_();
+                let eff: u128 = s.inflate(true) as u128;
+                let shift: usize = 64 + odd;
+                let mut rem: u128 = 0;
+                let mut root: u128 = 0;
+                for i in (0..=64).rev() {
+                    let bit_lo = i << 1;
+                    let pair = if bit_lo >= shift {
+                        (eff >> bit_lo.wrapping_sub(shift)) & 3
+                    } else if (bit_lo | 1) >= shift {
+                        ((eff >> (bit_lo | 1).wrapping_sub(shift)) & 1) << 1
+                    } else {
+                        0
+                    };
+                    rem = (rem << 2) | pair;
+                    let trial = (root << 2) | 1;
+                    if rem >= trial {
+                        rem = rem.wrapping_sub(trial);
+                        root = (root << 1) | 1;
+                    } else {
+                        root <<= 1;
                     }
                 }
-
-                let leading_zeros = result.leading_zeros() as isize - 1;
-                let result = result << leading_zeros;
-                exponent = exponent - (leading_zeros - 63).as_();
-
-                (result >> 64).as_()
+                if odd != 0 {
+                    root >>= 1;
+                }
+                (root as u64 as i64).as_()
             }
             128 => {
-                let fraction_u128: u128 = self.fraction.as_();
-                let fraction_u256: i256::U256 = fraction_u128.into();
-                let radicand = fraction_u256 << (129 - even);
-                let mut bit: i256::U256 = (1u128 << 127).into();
-                let mut result: i256::U256 = 0u128.into();
-                while bit != 0u128.into() {
-                    let guess = result | bit;
-                    bit >>= 1;
-                    if guess * guess <= radicand {
-                        result = guess;
-                        if guess * guess == radicand {
-                            break;
-                        }
+                let s: i128 = self.fraction.as_();
+                let eff: I256 = s.inflate(true);
+                let shift: usize = 128 + odd;
+                let zero = I256::from(0i128);
+                let one = I256::from(1i128);
+                let three = I256::from(3i128);
+                let mut rem = zero;
+                let mut root = zero;
+                for i in (0..=128).rev() {
+                    let bit_lo = i << 1;
+                    let pair = if bit_lo >= shift {
+                        (eff >> bit_lo.wrapping_sub(shift)) & three
+                    } else if (bit_lo | 1) >= shift {
+                        ((eff >> (bit_lo | 1).wrapping_sub(shift)) & one) << 1usize
+                    } else {
+                        zero
+                    };
+                    rem = (rem << 2usize) | pair;
+                    let trial = (root << 2usize) | one;
+                    if rem >= trial {
+                        rem = rem.wrapping_sub(trial);
+                        root = (root << 1usize) | one;
+                    } else {
+                        root = root << 1usize;
                     }
                 }
-
-                let leading_zeros = result.leading_zeros() as isize - 1;
-                let result = result << leading_zeros;
-                exponent = exponent - (leading_zeros - 127).as_();
-
-                (result >> 128isize).as_i128().as_()
-            }
-            _ => {
-                let prefix: F = GENERAL.prefix.as_();
-                return Self {
-                    fraction: prefix << (Self::fraction_bits() - 8),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-        };
-
-        Self { fraction, exponent }
-    }
-    pub fn sqrt_newton(&self) -> Self {
-        if !self.is_normal() {
-            if self.is_undefined() || self.is_uniform() {
-                return *self;
-            }
-
-            if self.vanished() {
-                return Self {
-                    fraction: SQRT_VANISHED.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            } else {
-                return Self {
-                    fraction: SQRT_EXPLODED.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-        }
-
-        if self.is_negative() {
-            return Self {
-                fraction: SQRT_NEGATIVE.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-
-        let exponent = (self.exponent) / (E::one() + E::one());
-        let even = self.exponent & E::one();
-        let mut exponent = exponent + even;
-        let even: usize = even.as_();
-        if self.exponent.is_negative() && even != 0 {
-            exponent = exponent - E::one();
-        }
-
-        let fraction = match Self::fraction_bits() {
-            8 => {
-                let value: u16 = self.fraction.as_();
-                let x = value << 9usize.wrapping_sub(even);
-                let lut_index = ((value >> 0) & 0xFF) as usize;
-                let mut y = (SQRT_LUT[lut_index] as u16) << 0;
-                while y <= x {
-                    let new_y = (y.wrapping_add(x / y)) >> 1;
-                    if new_y == y {
-                        break;
-                    }
-                    y = new_y;
+                if odd != 0 {
+                    root = root >> 1usize;
                 }
-                let shift = y.leading_zeros().wrapping_sub(1);
-                let y = y << shift;
-                let s: E = (shift as isize).wrapping_sub(7).as_();
-                exponent = exponent.wrapping_add(&s);
-                (y >> 8).as_()
-            }
-            16 => {
-                let value: u32 = self.fraction.as_();
-                let x = value << 17usize.wrapping_sub(even);
-                let lut_index = ((value >> 8) & 0xFF) as usize;
-                let mut y = (SQRT_LUT[lut_index] as u32) << 8;
-                while y <= x {
-                    let new_y = (y.wrapping_add(x / y)) >> 1;
-                    if new_y == y {
-                        break;
-                    }
-                    y = new_y;
-                }
-                let shift = y.leading_zeros().wrapping_sub(1);
-                let y = y << shift;
-                let s: E = (shift as isize).wrapping_sub(15).as_();
-                exponent = exponent.wrapping_add(&s);
-                (y >> 16).as_()
-            }
-            32 => {
-                let value: u64 = self.fraction.as_();
-                let x = value << 33usize.wrapping_sub(even);
-                let lut_index = ((value >> 24) & 0xFF) as usize;
-                let mut y = (SQRT_LUT[lut_index] as u64) << 24;
-                while y <= x {
-                    let new_y = (y.wrapping_add(x / y)) >> 1;
-                    if new_y == y {
-                        break;
-                    }
-                    y = new_y;
-                }
-                let shift = y.leading_zeros().wrapping_sub(1);
-                let y = y << shift;
-                let s: E = (shift as isize).wrapping_sub(31).as_();
-                exponent = exponent.wrapping_add(&s);
-                (y >> 32).as_()
-            }
-            64 => {
-                let value: u128 = self.fraction.as_();
-                let x = value << 65usize.wrapping_sub(even);
-                let lut_index = ((value >> 56) & 0xFF) as usize;
-                let mut y = (SQRT_LUT[lut_index] as u128) << 56;
-                while y <= x {
-                    let new_y = (y.wrapping_add(x / y)) >> 1;
-                    if new_y == y {
-                        break;
-                    }
-                    y = new_y;
-                }
-                let shift = y.leading_zeros().wrapping_sub(1);
-                let y = y << shift;
-                let s: E = (shift as isize).wrapping_sub(63).as_();
-                exponent = exponent.wrapping_add(&s);
-                (y >> 64).as_()
-            }
-            128 => {
-                let fraction_u128: u128 = self.fraction.as_();
-                let value: i256::U256 = fraction_u128.into();
-                let x = value << 129usize.wrapping_sub(even);
-                let mut y = (i256::U256::from(1u8) << i256::U256::from(128u8))
-                    .wrapping_sub(i256::U256::from(1u8));
-                while y <= x {
-                    let new_y = (y.wrapping_add(x / y)) >> 1;
-                    if new_y >= y {
-                        break;
-                    }
-                    y = new_y;
-                }
-                let shift = y.leading_zeros().wrapping_sub(1);
-                let y = y << shift;
-                let s: E = (shift as isize).wrapping_sub(127).as_();
-                exponent = exponent.wrapping_add(&s);
-                (y >> i256::U256::from(128u8)).as_i128().as_()
+                // Extract low 128 bits of I256 via byte reassembly.
+                let bytes = root.to_le_bytes();
+                let r_low = i128::from_le_bytes([
+                    bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                    bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+                ]);
+                r_low.as_()
             }
             _ => {
                 return Self {
@@ -652,8 +325,85 @@ where
                 };
             }
         };
-        Self { fraction, exponent }
+
+        Self {
+            fraction,
+            exponent: result_exp,
+        }
     }
+
+    /// Square root via LUT-seeded Newton-Raphson — nearest, NOT floor.
+    /// Rounds to the representable value whose square is closest to self.
+    /// Can differ from sqrt() by 1 ULP where floor and nearest disagree.
+    /// SQRT_LUT seeds 8 bits, Newton doubles per step (~2 iters for F5E3).
+    /// Oscillation between floor/ceil detected and resolved by closest-square.
+    pub fn sqrt_newton(&self) -> Self {
+        if !self.is_normal() {
+            if self.is_undefined() || self.is_uniform() {
+                return *self;
+            }
+            if self.vanished() {
+                return Self {
+                    fraction: SQRT_VANISHED.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            return Self {
+                fraction: SQRT_EXPLODED.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+
+        if self.is_negative() {
+            return Self {
+                fraction: SQRT_NEGATIVE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+
+        // LUT seed: top 8 bits of stored fraction (= top 8 of inflate, XOR is above FRAC).
+        let idx: usize = self.fraction.sa::<u8>() as usize;
+        let guess_frac: F = SQRT_LUT[idx].sa();
+
+        let odd: E = self.exponent & E::one();
+        let result_exp = (self.exponent >> 1usize) + odd;
+        let mut guess = Self {
+            fraction: guess_frac,
+            exponent: result_exp,
+        };
+
+        // Newton: x_{n+1} = (x_n + S/x_n) / 2.
+        // Converges monotonically, but can oscillate between floor and ceil
+        // at the last ULP. Track previous to detect the 2-cycle.
+        let mut prev = guess;
+        loop {
+            let next = (guess + *self / guess) >> 1u8;
+            if next.fraction == guess.fraction {
+                break;
+            }
+            if next.fraction == prev.fraction {
+                // 2-cycle between prev and guess — pick closer square.
+                let err_guess = if guess.square() > *self {
+                    guess.square() - *self
+                } else {
+                    *self - guess.square()
+                };
+                let err_prev = if prev.square() > *self {
+                    prev.square() - *self
+                } else {
+                    *self - prev.square()
+                };
+                if err_prev < err_guess {
+                    guess = prev;
+                }
+                break;
+            }
+            prev = guess;
+            guess = next;
+        }
+        guess
+    }
+
     pub fn ln(&self) -> Self {
         let binary_log = self.lb();
         binary_log * Self::LN_TWO

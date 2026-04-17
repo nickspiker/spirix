@@ -145,9 +145,9 @@ where
             if shift >= Self::fraction_bits() {
                 return *big;
             }
-            let mut big_f = big.fraction.inflate();
+            let mut big_f = big.fraction.inflate(true);
             big_f.w_shl_assign(shift);
-            let result = big_f.w_add(small.fraction.inflate());
+            let result = big_f.w_add(small.fraction.inflate(true));
             if result.w_is_zero() {
                 return Self {
                     fraction: F::zero(),

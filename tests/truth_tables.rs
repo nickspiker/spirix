@@ -355,8 +355,20 @@ fn modulus_truth_table() {
 
     // [#]%[#] = [0],[↓],[#]
     check("%", np, nn, np % nn, &[Zero, Vanished, Normal]);
-    check("%", S::from(6), S::from(3), S::from(6) % S::from(3), &[Zero]);
-    check("%", S::from(7), S::from(3), S::from(7) % S::from(3), &[Zero, Vanished, Normal]);
+    check(
+        "%",
+        S::from(6),
+        S::from(3),
+        S::from(6) % S::from(3),
+        &[Zero],
+    );
+    check(
+        "%",
+        S::from(7),
+        S::from(3),
+        S::from(7) % S::from(3),
+        &[Zero, Vanished, Normal],
+    );
 
     // [#]%[↓] = [℘] (vanished period)
     check("%", np, vp, np % vp, &[Undefined]);
@@ -367,15 +379,15 @@ fn modulus_truth_table() {
 
     // [↓]%[#] same sign = [↓], diff sign = [#]
     check("%", vp, np, vp % np, &[Vanished]); // same sign (both pos)
-    check("%", vn, np, vn % np, &[Normal]);   // diff sign
+    check("%", vn, np, vn % np, &[Normal]); // diff sign
 
     // [#]%[↑] same sign = [#], diff sign = [℘]
-    check("%", np, ep, np % ep, &[Normal]);     // same sign
-    check("%", np, en, np % en, &[Undefined]);  // diff sign
+    check("%", np, ep, np % ep, &[Normal]); // same sign
+    check("%", np, en, np % en, &[Undefined]); // diff sign
 
     // [↓]%[↑] same sign = [↓], diff sign = [↑]
-    check("%", vp, ep, vp % ep, &[Vanished]);   // same sign
-    check("%", vn, ep, vn % ep, &[Exploded]);   // diff sign (vanished absorbed)
+    check("%", vp, ep, vp % ep, &[Vanished]); // same sign
+    check("%", vn, ep, vn % ep, &[Exploded]); // diff sign (vanished absorbed)
 
     // [↑]%anything = [℘] (transfinite numerator)
     check("%", ep, np, ep % np, &[Undefined]);
@@ -408,7 +420,7 @@ fn subtraction_min_boundary_exploded() {
     // But the interesting case: negate MIN at exp boundary
     let at_boundary = S::ONE; // fraction = POS_ONE_NORMAL (MIN stored), exp=1
     let neg_boundary = S::NEG_ONE; // fraction = NEG_ONE_NORMAL (0 stored), exp=0
-    // These should negate cleanly
+                                   // These should negate cleanly
     let r1 = S::ZERO - at_boundary;
     assert!(r1.is_negative(), "0-1 should be negative");
     let r2 = S::ZERO - neg_boundary;

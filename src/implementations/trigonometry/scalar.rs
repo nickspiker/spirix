@@ -214,7 +214,7 @@ where
             }
             return *self;
         }
-        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_mul(8) {
+        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_shl(3) {
             if self.exponent > Self::fraction_bits().as_() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),

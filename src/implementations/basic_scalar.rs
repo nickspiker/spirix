@@ -2114,7 +2114,7 @@ use alloc::string::String;
 #[allow(dead_code)]
 fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = core::mem::size_of::<T>().wrapping_mul(8);
+    let bits = core::mem::size_of::<T>().wrapping_shl(3);
     let mut result = String::new();
 
     for b in 0..bits {

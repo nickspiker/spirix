@@ -249,7 +249,10 @@ fn from_f64_basic() {
     assert!(zero == S::ZERO, "from(0.0) should be ZERO");
 
     let inf = S::from(f64::INFINITY);
-    assert!(inf.exploded(), "from(INFINITY) should be exploded (IEEE inf has direction)");
+    assert!(
+        inf.exploded(),
+        "from(INFINITY) should be exploded (IEEE inf has direction)"
+    );
 
     let nan = S::from(f64::NAN);
     assert!(nan.is_undefined(), "from(NAN) should be undefined");
@@ -276,7 +279,10 @@ fn from_f32_basic() {
     assert!(zero == S::ZERO, "from(0.0f32) should be ZERO");
 
     let inf = S::from(f32::INFINITY);
-    assert!(inf.exploded(), "from(f32::INFINITY) should be exploded (IEEE inf has direction)");
+    assert!(
+        inf.exploded(),
+        "from(f32::INFINITY) should be exploded (IEEE inf has direction)"
+    );
 
     let nan = S::from(f32::NAN);
     assert!(nan.is_undefined(), "from(f32::NAN) should be undefined");

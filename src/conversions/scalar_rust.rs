@@ -63,35 +63,44 @@ where
 {
     fn into(self) -> f64 {
         if self.is_normal() {
-            // Convert stored fraction to its effective integer value, then to f64
-            // value = effective_as_f64 * 2^(exponent - FRAC)
-            let effective_i64: i64 = match Scalar::<F, E>::fraction_bits() {
+            // Inflate to effective value (FRAC+1 bits signed), then to f64.
+            // f64 mantissa is 53 bits — for wider fractions we shift down and adjust scale.
+            let (base_i64, scale_adjust) = match Scalar::<F, E>::fraction_bits() {
                 8 => {
                     let s: i8 = self.fraction.saturate();
-                    (s as i16 ^ ((-1i16) << 8)) as i64
+                    ((s as i16 ^ ((-1i16) << 8)) as i64, 0i64)
                 }
                 16 => {
                     let s: i16 = self.fraction.saturate();
-                    (s as i32 ^ ((-1i32) << 16)) as i64
+                    ((s as i32 ^ ((-1i32) << 16)) as i64, 0i64)
                 }
                 32 => {
                     let s: i32 = self.fraction.saturate();
-                    s as i64 ^ ((-1i64) << 32)
+                    (s as i64 ^ ((-1i64) << 32), 0i64)
                 }
                 64 => {
+                    // Effective is 65 bits — shift right 1 to fit signed i64, scale +1.
                     let s: i64 = self.fraction.saturate();
-                    s ^ i64::MIN
+                    let eff: i128 = (s as i128) ^ ((-1i128) << 64);
+                    ((eff >> 1) as i64, 1i64)
                 }
                 128 => {
+                    // Effective is 129 bits — shift right 65 to fit signed i64, scale +65.
                     let s: i128 = self.fraction.saturate();
-                    let eff = s ^ i128::MIN; // inflate in i128 space
-                    (eff >> 64) as i64 // take top 64 bits (f64 only has 53 bits of mantissa anyway)
+                    let eff: i256::I256 = s.inflate(true);
+                    let eff_shifted = eff >> 65usize;
+                    let bytes = eff_shifted.to_le_bytes();
+                    let v = i64::from_le_bytes([
+                        bytes[0], bytes[1], bytes[2], bytes[3],
+                        bytes[4], bytes[5], bytes[6], bytes[7],
+                    ]);
+                    (v, 65i64)
                 }
                 _ => unreachable!(),
             };
-            let base = effective_i64 as f64;
+            let base = base_i64 as f64;
             let exponent: i32 = self.exponent.saturate();
-            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64;
+            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             base * f64::from_bits(((1023i64 + scale_exp) as u64) << 52)
         } else {
             if self.is_undefined() {
@@ -173,27 +182,41 @@ where
 {
     fn into(self) -> f32 {
         if self.is_normal() {
-            let effective_i32: i32 = match Scalar::<F, E>::fraction_bits() {
+            let (base_i32, scale_adjust) = match Scalar::<F, E>::fraction_bits() {
                 8 => {
                     let s: i8 = self.fraction.saturate();
-                    (s as i16 ^ ((-1i16) << 8)) as i32
+                    ((s as i16 ^ ((-1i16) << 8)) as i32, 0i64)
                 }
                 16 => {
                     let s: i16 = self.fraction.saturate();
-                    s as i32 ^ ((-1i32) << 16)
+                    (s as i32 ^ ((-1i32) << 16), 0i64)
                 }
                 32 => {
+                    // Effective is 33 bits — shift right 1 to fit i32, scale +1.
                     let s: i32 = self.fraction.saturate();
-                    s ^ i32::MIN
+                    let eff: i64 = (s as i64) ^ ((-1i64) << 32);
+                    ((eff >> 1) as i32, 1i64)
                 }
-                _ => {
+                64 => {
+                    // Effective is 65 bits — shift right 33 to fit i32, scale +33.
                     let s: i64 = self.fraction.saturate();
-                    ((s ^ i64::MIN) >> 32) as i32
+                    let eff: i128 = (s as i128) ^ ((-1i128) << 64);
+                    ((eff >> 33) as i32, 33i64)
                 }
+                128 => {
+                    // Effective is 129 bits — shift right 97 to fit i32, scale +97.
+                    let s: i128 = self.fraction.saturate();
+                    let eff: i256::I256 = s.inflate(true);
+                    let eff_shifted = eff >> 97usize;
+                    let bytes = eff_shifted.to_le_bytes();
+                    let v = i32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                    (v, 97i64)
+                }
+                _ => unreachable!(),
             };
-            let base = effective_i32 as f32;
+            let base = base_i32 as f32;
             let exponent: i32 = self.exponent.saturate();
-            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64;
+            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             base * f32::from_bits(((127i64 + scale_exp) as u32) << 23)
         } else {
             if self.is_undefined() {
@@ -475,7 +498,7 @@ fn into(self) -> $i {
     // Compute in I256 to handle any F width (including i128 stored).
     let exp: isize = self.exponent.saturate();
     let frac_bits = Scalar::<F, E>::fraction_bits();
-    let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_mul(8);
+    let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
 
     // Early saturation: if exp is so large that the integer part can't
     // possibly fit in target, short-circuit. Upper bound on |value| is
@@ -510,15 +533,19 @@ fn into(self) -> $i {
 fn saturate_i256<T: FullInt>(v: I256) -> T {
     let bytes = v.to_le_bytes();
     let low_i128 = i128::from_le_bytes([
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
+        bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
     ]);
     // Expected sign-extension byte in the high 16 bytes.
     let sign_byte: u8 = if low_i128 < 0 { 0xFF } else { 0x00 };
     let fits_i128 = bytes[16..32].iter().all(|&b| b == sign_byte);
     if !fits_i128 {
         // Overflows i128: pick MAX or MIN by sign of v.
-        return if v < I256::from(0i128) { T::min_value() } else { T::max_value() };
+        return if v < I256::from(0i128) {
+            T::min_value()
+        } else {
+            T::max_value()
+        };
     }
     low_i128.saturate::<T>()
 }
@@ -656,7 +683,7 @@ macro_rules! impl_into_uint {
         // Normal positive path: value = inflate(stored) * 2^(exp - FRAC_BITS).
         let exp: isize = self.exponent.saturate();
         let frac_bits = Scalar::<F, E>::fraction_bits();
-        let target_bits = (core::mem::size_of::<$u>() as isize).wrapping_mul(8);
+        let target_bits = (core::mem::size_of::<$u>() as isize).wrapping_shl(3);
 
         // Unsigned can hold one more bit than signed of the same width,
         // so we saturate at exp >= target_bits + 1.
@@ -690,8 +717,8 @@ fn saturate_u_i256<T: FullInt>(v: I256) -> T {
     }
     let bytes = v.to_le_bytes();
     let low_u128 = u128::from_le_bytes([
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
+        bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
     ]);
     let fits_u128 = bytes[16..32].iter().all(|&b| b == 0);
     if !fits_u128 {
@@ -760,18 +787,54 @@ where
     /// Inherent convenience methods — delegate to Into<iN>/<uN> impls.
     /// Behavior: Zero/Infinity/Undefined → 0; Vanished-neg → -1, Vanished-pos → 0;
     /// Exploded → MIN/MAX by sign; normal values saturate on overflow.
-    #[inline] pub fn to_i8(&self) -> i8 { (*self).into() }
-    #[inline] pub fn to_i16(&self) -> i16 { (*self).into() }
-    #[inline] pub fn to_i32(&self) -> i32 { (*self).into() }
-    #[inline] pub fn to_i64(&self) -> i64 { (*self).into() }
-    #[inline] pub fn to_i128(&self) -> i128 { (*self).into() }
-    #[inline] pub fn to_isize(&self) -> isize { (*self).into() }
-    #[inline] pub fn to_u8(&self) -> u8 { (*self).into() }
-    #[inline] pub fn to_u16(&self) -> u16 { (*self).into() }
-    #[inline] pub fn to_u32(&self) -> u32 { (*self).into() }
-    #[inline] pub fn to_u64(&self) -> u64 { (*self).into() }
-    #[inline] pub fn to_u128(&self) -> u128 { (*self).into() }
-    #[inline] pub fn to_usize(&self) -> usize { (*self).into() }
+    #[inline]
+    pub fn to_i8(&self) -> i8 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_i16(&self) -> i16 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_i32(&self) -> i32 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_i64(&self) -> i64 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_i128(&self) -> i128 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_isize(&self) -> isize {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_u8(&self) -> u8 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_u16(&self) -> u16 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_u32(&self) -> u32 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_u64(&self) -> u64 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_u128(&self) -> u128 {
+        (*self).into()
+    }
+    #[inline]
+    pub fn to_usize(&self) -> usize {
+        (*self).into()
+    }
 }
 
 /// Pure-integer IEEE conversions for all Scalar types.
@@ -1447,7 +1510,7 @@ use alloc::string::String;
 #[allow(dead_code)]
 fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
     let mut number = number;
-    let bits = core::mem::size_of::<T>().wrapping_mul(8);
+    let bits = core::mem::size_of::<T>().wrapping_shl(3);
     let mut result = String::new();
 
     for b in 0..bits {

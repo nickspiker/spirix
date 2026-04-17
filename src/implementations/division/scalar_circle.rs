@@ -125,7 +125,7 @@ where
                     let dd = d.wrapping_mul(d);
                     let mag_sq = (cc.wrapping_add(dd)) as u16;
                     let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                             / (mag_sq >> Self::fraction_bits())) as i16;
 
                     let ac = a.wrapping_mul(c);
@@ -160,7 +160,7 @@ where
                     let dd = d.wrapping_mul(d);
                     let mag_sq = (cc.wrapping_add(dd)) as u16;
                     let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                             / (mag_sq >> Self::fraction_bits())) as i32;
 
                     let ac = a.wrapping_mul(c);
@@ -195,7 +195,7 @@ where
                     let dd = d.wrapping_mul(d);
                     let mag_sq = (cc.wrapping_add(dd)) as u16;
                     let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                             / (mag_sq >> Self::fraction_bits())) as i64;
 
                     let ac = a.wrapping_mul(c);
@@ -230,7 +230,7 @@ where
                     let dd = d.wrapping_mul(d);
                     let mag_sq = (cc.wrapping_add(dd)) as u16;
                     let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                             / (mag_sq >> Self::fraction_bits())) as i128;
 
                     let ac = a.wrapping_mul(c);
@@ -267,7 +267,7 @@ where
                     let one: I256 = 1.into();
                     let one = one.as_unsigned();
                     let reciprocal = ((one
-                        << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                        << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                         / (mag_sq >> Self::fraction_bits()))
                     .as_signed();
 
@@ -312,7 +312,7 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u16;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                     / (mag_sq >> Self::fraction_bits())) as i16;
 
                 let ac = a.wrapping_mul(c);
@@ -347,7 +347,7 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u32;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                     / (mag_sq >> Self::fraction_bits())) as i32;
 
                 let ac = a.wrapping_mul(c);
@@ -383,7 +383,7 @@ where
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u64;
 
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                     / (mag_sq >> Self::fraction_bits())) as i64;
 
                 let ac = a.wrapping_mul(c);
@@ -418,7 +418,7 @@ where
                 let cc = c.wrapping_mul(c);
                 let dd = d.wrapping_mul(d);
                 let mag_sq = (cc.wrapping_add(dd)) as u128;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                     / (mag_sq >> Self::fraction_bits())) as i128;
 
                 let ac = a.wrapping_mul(c);
@@ -455,7 +455,7 @@ where
                 let mag_sq = (cc.wrapping_add(dd)).as_unsigned();
                 let one: I256 = 1.into();
                 let one = one.as_unsigned();
-                let reciprocal = ((one << (Self::fraction_bits().wrapping_mul(2).wrapping_sub(2)))
+                let reciprocal = ((one << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
                     / (mag_sq >> Self::fraction_bits()))
                 .as_signed();
 

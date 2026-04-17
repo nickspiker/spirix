@@ -137,8 +137,8 @@ macro_rules! impl_int_convert {
                 where
                     $t: AsPrimitive<I>,
                 {
-                    let src_bits = core::mem::size_of::<$t>().wrapping_mul(8);
-                    let dst_bits = core::mem::size_of::<I>().wrapping_mul(8);
+                    let src_bits = core::mem::size_of::<$t>().wrapping_shl(3);
+                    let dst_bits = core::mem::size_of::<I>().wrapping_shl(3);
                     if src_bits < dst_bits {
                         (self.as_() << dst_bits.wrapping_sub(src_bits))
                     } else if src_bits > dst_bits {
@@ -146,6 +146,7 @@ macro_rules! impl_int_convert {
                     } else {
                         self.as_()
                     }
+     // (self as $u).reverse_bits().as_().reverse_bits() // apparently the compiler isn't smart enough to figure out this is a simple left handed cast so it turns into 38 lines of asm when it could be one op and now I have to write a massive macro, oh wait x-86 just completely forgot
                 }
             }
         )*
@@ -198,11 +199,10 @@ pub trait WideOps: Sized + Copy {
 /// Restore the implicit sign bits into a wider type for arithmetic.
 pub trait Inflate: Sized + Copy {
     type Wide: WideOps + Deflate<Self>;
-    fn inflate(self) -> Self::Wide;
     fn sign_extend(self) -> Self::Wide;
     fn left_hand_load(self) -> Self::Wide;
     /// Branchless inflate-or-sign-extend. Normal class: inflate (XOR mask). Escaped class: sign_extend (no XOR).
-    fn inflate_conditional(self, is_normal: bool) -> Self::Wide;
+    fn inflate(self, is_normal: bool) -> Self::Wide;
 }
 
 /// Extract stored fraction from wide result (take low FRAC bits).
@@ -216,11 +216,6 @@ macro_rules! impl_wide_ops {
             type Wide = $wide;
 
             #[inline]
-            fn inflate(self) -> $wide {
-                (self as $wide) ^ ((-1 as $wide) << $frac)
-            }
-
-            #[inline]
             fn sign_extend(self) -> $wide {
                 self as $wide
             }
@@ -231,7 +226,7 @@ macro_rules! impl_wide_ops {
             }
 
             #[inline]
-            fn inflate_conditional(self, is_normal: bool) -> $wide {
+            fn inflate(self, is_normal: bool) -> $wide {
                 let wide = self as $wide;
                 let mask = (-(is_normal as $wide)) & ((-1 as $wide) << $frac);
                 wide ^ mask
@@ -340,13 +335,6 @@ impl Inflate for i128 {
     type Wide = i256::I256;
 
     #[inline]
-    fn inflate(self) -> i256::I256 {
-        let wide: i256::I256 = self.into();
-        let mask: i256::I256 = (-1i128).into();
-        wide ^ !mask
-    }
-
-    #[inline]
     fn sign_extend(self) -> i256::I256 {
         self.into()
     }
@@ -358,11 +346,12 @@ impl Inflate for i128 {
     }
 
     #[inline]
-    fn inflate_conditional(self, is_normal: bool) -> i256::I256 {
+    fn inflate(self, is_normal: bool) -> i256::I256 {
         let wide: i256::I256 = self.into();
         if is_normal {
-            let mask: i256::I256 = (-1i128).into();
-            wide ^ !mask
+            // Flip bits above FRAC=128. Works regardless of From's extension behavior.
+            let mask: i256::I256 = i256::I256::from(-1i128) << 128;
+            wide ^ mask
         } else {
             wide
         }

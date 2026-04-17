@@ -244,9 +244,9 @@ where
         if shift >= Self::fraction_bits() {
             return Self::bitwise_no_overlap(big, small, op);
         }
-        let mut big_w = big.fraction.inflate();
+        let mut big_w = big.fraction.inflate(true);
         big_w.w_shl_assign(shift);
-        let small_w = small.fraction.inflate();
+        let small_w = small.fraction.inflate(true);
         let result = match op {
             BitwiseOp::And => big_w.w_and(small_w),
             BitwiseOp::Or => big_w.w_or(small_w),

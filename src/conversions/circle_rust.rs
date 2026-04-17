@@ -94,7 +94,11 @@ where
             if self.is_negligible() {
                 return Complex::new(
                     if self.real.is_negative() { -0.0 } else { 0.0 },
-                    if self.imaginary.is_negative() { -0.0 } else { 0.0 },
+                    if self.imaginary.is_negative() {
+                        -0.0
+                    } else {
+                        0.0
+                    },
                 );
             }
             // Exploded: per-component sign is meaningful.
@@ -218,7 +222,11 @@ where
             if self.is_negligible() {
                 return Complex::new(
                     if self.real.is_negative() { -0.0 } else { 0.0 },
-                    if self.imaginary.is_negative() { -0.0 } else { 0.0 },
+                    if self.imaginary.is_negative() {
+                        -0.0
+                    } else {
+                        0.0
+                    },
                 );
             }
             // Exploded: per-component sign is meaningful.

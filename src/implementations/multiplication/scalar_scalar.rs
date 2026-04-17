@@ -175,8 +175,8 @@ where
                 };
             }
             // Escaped * escaped/normal: escaped uses sign_extend, normal uses inflate
-            let self_wide = self.fraction.inflate_conditional(self.is_normal());
-            let other_wide = other.fraction.inflate_conditional(other.is_normal());
+            let self_wide = self.fraction.inflate(self.is_normal());
+            let other_wide = other.fraction.inflate(other.is_normal());
             let product = self_wide.w_mul(other_wide);
             let result_exploded = self.exploded() || other.exploded();
             let leading = product.leading_same();
@@ -212,7 +212,10 @@ where
             };
         }
 
-        let product = self.fraction.inflate().w_mul(other.fraction.inflate());
+        let product = self
+            .fraction
+            .inflate(true)
+            .w_mul(other.fraction.inflate(true));
         let expect_negative = self.is_negative() != other.is_negative();
         let leading = if expect_negative {
             product.w_leading_ones()
@@ -236,7 +239,7 @@ where
             let fraction = if shift >= 0 {
                 product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
             } else {
-                product.w_shr(Self::fraction_bits() - shift).deflate()
+                product.w_shr(Self::fraction_bits().wrapping_sub(shift)).deflate()
             };
             return Self {
                 fraction,
