@@ -111,13 +111,18 @@ where
     I256: From<ED>,
 {
     fn from(source: &Scalar<FS, ES>) -> Self {
-        let fraction: FD = source.fraction.sa();
         if !source.is_normal() {
+            // INFINITY needs all-1s fraction in destination width — sa would shift in zeros.
+            if source.is_infinite() {
+                return Self::INFINITY;
+            }
+            // ZERO, escaped, undefined: sa preserves the prefix bits (top byte determines class).
             return Self {
-                fraction,
+                fraction: source.fraction.sa(),
                 exponent: ED::min_value(),
             };
         }
+        let fraction: FD = source.fraction.sa();
         if ((core::mem::size_of::<ES>() * 8) as isize)
             <= ((core::mem::size_of::<ED>() * 8) as isize)
         {

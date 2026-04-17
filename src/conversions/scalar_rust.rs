@@ -838,8 +838,8 @@ where
 ///
 /// These avoid `2f32.powi` / `2f64.powi` — all operations are integer bit
 /// manipulation + `f32::from_bits` / `f64::from_bits` (reinterpret casts only).
-/// to_f32: left-align fraction into i32 (top 32 bits), then extract 23-bit mantissa.
-/// For frac_bits <= 32, left-shift. For frac_bits > 32, right-shift (truncate low bits).
+/// to_f32: legacy bit-twiddling path. Kept for `const fn from_f32` round-trip
+/// compatibility. Runtime use should prefer `Into<f32>`.
 macro_rules! impl_to_f32 {
     ($frac:ty, $exp:ty, $frac_bits:expr) => {
         impl Scalar<$frac, $exp> {
@@ -897,8 +897,9 @@ macro_rules! impl_to_f32 {
     };
 }
 
-/// to_f64: left-align fraction into i64 (top 64 bits), then extract 52-bit mantissa.
-/// For frac_bits <= 64, left-shift. For frac_bits > 64, right-shift (truncate low bits).
+/// to_f64: legacy bit-twiddling path. Kept for `const fn from_f64` round-trip
+/// compatibility (the const-fn version still produces old-format Scalars).
+/// Runtime use should prefer `Into<f64>` which handles new format correctly.
 macro_rules! impl_to_f64 {
     ($frac:ty, $exp:ty, $frac_bits:expr) => {
         impl Scalar<$frac, $exp> {

@@ -175,7 +175,7 @@ where
         };
 
         if Self::exponent_bits() == 8 {
-            if spirix_exp > Self::max_exponent().as_() {
+            if spirix_exp > Self::max_exponent().saturate::<i16>() {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_exploded()
@@ -184,7 +184,7 @@ where
                     },
                     exponent: Self::ambiguous_exponent(),
                 };
-            } else if spirix_exp < Self::min_exponent().as_() {
+            } else if spirix_exp < Self::min_exponent().saturate::<i16>() {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_vanished()
@@ -358,7 +358,7 @@ where
         };
 
         if Self::exponent_bits() == 8 {
-            if spirix_exp > Self::max_exponent().as_() {
+            if spirix_exp > Self::max_exponent().saturate::<i16>() {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_exploded()
@@ -367,7 +367,7 @@ where
                     },
                     exponent: Self::ambiguous_exponent(),
                 };
-            } else if spirix_exp < Self::min_exponent().as_() {
+            } else if spirix_exp < Self::min_exponent().saturate::<i16>() {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_vanished()
@@ -466,7 +466,7 @@ macro_rules! impl_from_int {
                     let abs_value = if value == <$i>::MIN {
                         // |MIN| = 2^(bits-1) is exactly a power of 2. We can construct directly.
                         let bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
-                        if bits > Self::max_exponent().as_() {
+                        if bits > Self::max_exponent().saturate::<isize>() {
                             return Self {
                                 fraction: Self::neg_one_exploded(),
                                 exponent: Self::ambiguous_exponent(),
@@ -488,7 +488,7 @@ macro_rules! impl_from_int {
                     let significant_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3).wrapping_sub(leading);
                     let spirix_exp: isize = significant_bits;
 
-                    if spirix_exp > Self::max_exponent().as_() {
+                    if spirix_exp > Self::max_exponent().saturate::<isize>() {
                         return Self {
                             fraction: if negative { Self::neg_one_exploded() } else { Self::pos_one_exploded() },
                             exponent: Self::ambiguous_exponent(),
@@ -715,17 +715,27 @@ macro_rules! impl_from_uint {
                     if value == 0 {
                         return Self::ZERO;
                     }
-                    let mut shift = value.leading_zeros() as isize;
-                    shift = (core::mem::size_of::<$u>() as isize).wrapping_shl(3).wrapping_sub(shift);
-                    let exponent:E = shift.as_();
-                    shift = (Self::fraction_bits() as isize).wrapping_sub(shift).wrapping_sub(1);
+                    let leading = value.leading_zeros() as isize;
+                    let significant_bits = (core::mem::size_of::<$u>() as isize).wrapping_shl(3).wrapping_sub(leading);
+                    let spirix_exp: isize = significant_bits;
+
+                    if spirix_exp > Self::max_exponent().saturate::<isize>() {
+                        return Self {
+                            fraction: Self::pos_one_exploded(),
+                            exponent: Self::ambiguous_exponent(),
+                        };
+                    }
+
+                    // Position MSB at bit FRAC-1 of stored. For positive-only u-types,
+                    // the result fraction has stored MSB=1 → represents positive in new format.
+                    let shift = (Self::fraction_bits() as isize).wrapping_sub(significant_bits);
                     let fraction: F = if shift < 0 {
                         (value >> shift.wrapping_neg()).as_()
                     } else {
                         let intermediate: F = value.as_();
                         intermediate << shift as usize
                     };
-                    Self { fraction, exponent }
+                    Self { fraction, exponent: spirix_exp.as_() }
                 }
             }
             impl<F: Integer+FullInt, E: Integer+FullInt> From<&mut $u> for Scalar<F, E>
