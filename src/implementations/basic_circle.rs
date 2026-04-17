@@ -406,7 +406,6 @@ where
         let prefix: i8 = self.real.sa();
         let prefix_i: i8 = self.imaginary.sa();
         if prefix != prefix_i {
-            // Prefixes don't match? not N0!
             return false;
         }
         prefix == prefix.rotate_right(1)
@@ -416,9 +415,6 @@ where
         let prefix_r: i8 = self.real.sa();
         let prefix_i: i8 = self.imaginary.sa();
 
-        // Check for N-1 escaped small patterns by shifting:
-        // □■xxxxxx -6-> □□□□□□□■
-        // ■□xxxxxx -6-> ■■■■■■■□
         let top_two = prefix_r >> 6;
         if top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8 {
             return true;
@@ -432,9 +428,6 @@ where
         let prefix_r: i8 = self.real.sa();
         let prefix_i: i8 = self.imaginary.sa();
 
-        // Check for N-1 patterns by shifting:
-        // □■xxxxxx -6-> □□□□□□□■
-        // ■□xxxxxx -6-> ■■■■■■■□
         let top_two = prefix_r >> 6;
         if top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8 {
             return false;
@@ -444,9 +437,7 @@ where
         if top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8 {
             return false;
         }
-        // Check for N-2 patterns by shifting:
-        // □□■xxxxx -5-> □□□□□□□■
-        // ■■□xxxxx -5-> ■■■■■■■□
+
         let top_three = prefix_r >> 5;
         if top_three == 0b00000001u8 as i8 || top_three == 0b11111110u8 as i8 {
             return true;

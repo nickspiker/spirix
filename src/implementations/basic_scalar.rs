@@ -318,6 +318,12 @@ where
     /// ```
     #[inline]
     pub fn is_undefined(&self) -> bool {
+        // Normal values are never undefined — in new format, any stored
+        // fraction pattern is valid for normals, so prefix checks only
+        // apply when exponent == AMBIGUOUS.
+        if self.is_normal() {
+            return false;
+        }
         // Zero and Infinity are defined
         if self.is_uniform() {
             return false;
@@ -333,24 +339,26 @@ where
     }
 
     pub fn is_uniform(&self) -> bool {
-        // Check for uniform patterns by shifting and equality
+        if self.is_normal() {
+            return false;
+        }
         self.prefix() == self.prefix().rotate_right(1)
     }
 
     pub fn is_exploded(&self) -> bool {
+        if self.is_normal() {
+            return false;
+        }
         let prefix = self.prefix();
-        // Check for N1 patterns by shifting:
-        // □■xxxxxx -6-> □□□□□□□■
-        // ■□xxxxxx -6-> ■■■■■■■□
         let top_two = prefix >> 6;
         top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8
     }
 
     pub fn is_vanished(&self) -> bool {
+        if self.is_normal() {
+            return false;
+        }
         let prefix = self.prefix();
-        // Check for N2 patterns by shifting:
-        // □□■xxxxx -5-> □□□□□□□■
-        // ■■□xxxxx -5-> ■■■■■■■□
         let top_three = prefix >> 5;
         top_three == 0b00000001u8 as i8 || top_three == 0b11111110u8 as i8
     }
@@ -865,7 +873,7 @@ where
     pub fn is_positive(&self) -> bool {
         // For normal values: sign is ~stored[MSB], so positive when stored MSB=1 (negative stored)
         if self.is_normal() {
-            return self.is_negative();
+            return self.fraction.is_negative();
         }
 
         // For ambiguous states: sign is stored directly in the bit pattern
@@ -932,7 +940,7 @@ where
     pub fn is_negative(&self) -> bool {
         // For normal values: sign is ~stored[MSB], so negative when stored MSB=0 (non-negative stored)
         if self.is_normal() {
-            return !self.is_negative();
+            return !self.fraction.is_negative();
         }
 
         // For ambiguous states: sign is stored directly in the bit pattern
