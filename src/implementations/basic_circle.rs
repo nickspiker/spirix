@@ -211,20 +211,48 @@ where
     /// let undefined = zero / 0;
     /// assert!(undefined.r().is_undefined());
     /// ```
+    /// Translate one Circle stored component into a Scalar.
+    ///
+    /// Circle value per component: `c * 2^(exp - FRAC + 1)`.
+    /// Scalar value:              `inflate(c) * 2^(exp - FRAC)`.
+    ///
+    /// So `scalar_inflate = 2 * circle_stored` (in a wider signed type to avoid
+    /// overflow), then normalize to N-1 and deflate to Scalar's stored format.
+    fn extract_component(&self, c: F) -> Scalar<F, E> {
+        // Escape-class handling — Circle's class determines Scalar's class.
+        if self.is_undefined() {
+            return Scalar {
+                fraction: self.real,
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
+            };
+        }
+        if self.is_zero() {
+            return Scalar::<F, E>::ZERO;
+        }
+        if self.is_infinite() {
+            return Scalar::<F, E>::INFINITY;
+        }
+        // Zero sub-component of a non-zero Circle: becomes Scalar ZERO.
+        if c == F::zero() {
+            return Scalar::<F, E>::ZERO;
+        }
+
+        // Normal translation: inflate (sign-extend) × 2, normalize N-1, deflate.
+        let raw = c.inflate(false).w_shl(1isize);
+        let leading_same = raw.leading_same();
+        let frac_bits = Scalar::<F, E>::fraction_bits();
+        let wide_bits = frac_bits.wrapping_shl(1);
+        let shift = leading_same.wrapping_sub(wide_bits.wrapping_sub(frac_bits));
+        let normalized = raw.w_shl(shift);
+        let stored = normalized.deflate();
+        let shift_e: E = shift.as_();
+        let new_exp = self.exponent.wrapping_sub(&shift_e);
+        Scalar { fraction: stored, exponent: new_exp }
+    }
+
     #[inline]
     pub fn r(&self) -> Scalar<F, E> {
-        let mut scalar = Scalar {
-            fraction: self.real,
-            exponent: self.exponent,
-        };
-        if self.is_normal() {
-            scalar.normalize();
-        } else if self.vanished() {
-            scalar.normalize_vanished();
-        } else if self.exploded() {
-            scalar.normalize_exploded();
-        }
-        scalar
+        self.extract_component(self.real)
     }
 
     /// Returns the imaginary part of this Circle as a Scalar
@@ -265,18 +293,7 @@ where
     /// ```
     #[inline]
     pub fn i(&self) -> Scalar<F, E> {
-        let mut scalar = Scalar {
-            fraction: self.imaginary,
-            exponent: self.exponent,
-        };
-        if self.is_normal() {
-            scalar.normalize();
-        } else if self.vanished() {
-            scalar.normalize_vanished();
-        } else if self.exploded() {
-            scalar.normalize_exploded();
-        }
-        scalar
+        self.extract_component(self.imaginary)
     }
 
     /// Returns true if this Circle is a normal complex number

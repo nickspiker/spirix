@@ -1,5 +1,5 @@
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Deflate, FullInt, Inflate, IntConvert, WideOps};
 use crate::core::undefined::*;
 use crate::{Circle, Integer, Scalar};
 use core::ops::*;
@@ -132,16 +132,18 @@ where
             };
         }
         if real.is_zero() {
+            let imag_c: F = imaginary.fraction.inflate(true).w_shr(1isize).deflate();
             return Circle {
-                real: real.fraction,
-                imaginary: imaginary.fraction,
+                real: 0.as_(),
+                imaginary: imag_c,
                 exponent: imaginary.exponent,
             };
         }
         if imaginary.is_zero() {
+            let real_c: F = real.fraction.inflate(true).w_shr(1isize).deflate();
             return Circle {
-                real: real.fraction,
-                imaginary: imaginary.fraction,
+                real: real_c,
+                imaginary: 0.as_(),
                 exponent: real.exponent,
             };
         }
@@ -170,45 +172,47 @@ where
                 exponent: real.exponent,
             };
         }
-        // Normal case: we need to align exponents and combine the components
+        // Normal case: translate each Scalar into Circle format (inflate>>1),
+        // then align exponents (shift smaller component's fraction right).
+        // Scalar format: value = inflate * 2^(exp - FRAC).
+        // Circle format: value = stored * 2^(exp - FRAC + 1) = (inflate/2) * 2^(exp - FRAC + 1).
+        // So: circle_stored = scalar_inflate >> 1, same exp.
+        let real_c: F = real.fraction.inflate(true).w_shr(1isize).deflate();
+        let imag_c: F = imaginary.fraction.inflate(true).w_shr(1isize).deflate();
         let exp_diff = real.exponent.wrapping_sub(&imaginary.exponent);
         if exp_diff == 0.as_() {
-            // Easy case: exponents match
             return Circle {
-                real: real.fraction,
-                imaginary: imaginary.fraction,
+                real: real_c,
+                imaginary: imag_c,
                 exponent: real.exponent,
             };
         } else if exp_diff > 0.as_() {
-            // Real exponent is larger, shift imaginary fraction right
             let shift: isize = exp_diff.as_();
             if shift >= Self::fraction_bits() {
-                // Imaginary part is effectively zero after shift
                 return Circle {
-                    real: real.fraction,
+                    real: real_c,
                     imaginary: 0.as_(),
                     exponent: real.exponent,
                 };
             }
             return Circle {
-                real: real.fraction,
-                imaginary: imaginary.fraction >> shift,
+                real: real_c,
+                imaginary: imag_c >> shift,
                 exponent: real.exponent,
             };
         } else {
-            // Imaginary exponent is larger, shift real fraction right
-            let shift: isize = (-exp_diff).as_();
+            let zero_e: E = 0.as_();
+            let shift: isize = zero_e.wrapping_sub(&exp_diff).as_();
             if shift >= Self::fraction_bits() {
-                // Real part is effectively zero after shift
                 return Circle {
                     real: 0.as_(),
-                    imaginary: imaginary.fraction,
+                    imaginary: imag_c,
                     exponent: imaginary.exponent,
                 };
             }
             return Circle {
-                real: real.fraction >> shift,
-                imaginary: imaginary.fraction,
+                real: real_c >> shift,
+                imaginary: imag_c,
                 exponent: imaginary.exponent,
             };
         }

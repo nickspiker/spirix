@@ -111,26 +111,7 @@ where
     I256: From<E>,
 {
     fn into_scalars(&self) -> (Scalar<F, E>, Scalar<F, E>) {
-        let mut real = Scalar {
-            fraction: self.real,
-            exponent: self.exponent,
-        };
-        let mut imaginary = Scalar {
-            fraction: self.imaginary,
-            exponent: self.exponent,
-        };
-        if self.is_normal() {
-            real.normalize();
-            imaginary.normalize();
-        } else if self.exploded() {
-            real.normalize_exploded();
-            imaginary.normalize_exploded();
-        } else if self.vanished() {
-            real.normalize_vanished();
-            imaginary.normalize_vanished();
-        }
-
-        (real, imaginary)
+        (self.r(), self.i())
     }
 }
 
@@ -194,26 +175,7 @@ where
     I256: From<E>,
 {
     fn into_scalars(&self) -> (Scalar<F, E>, Scalar<F, E>) {
-        let mut real = Scalar {
-            fraction: self.real,
-            exponent: self.exponent,
-        };
-        let mut imaginary = Scalar {
-            fraction: self.imaginary,
-            exponent: self.exponent,
-        };
-        if self.is_normal() {
-            real.normalize();
-            imaginary.normalize();
-        } else if self.exploded() {
-            real.normalize_exploded();
-            imaginary.normalize_exploded();
-        } else if self.vanished() {
-            real.normalize_vanished();
-            imaginary.normalize_vanished();
-        }
-
-        (real, imaginary)
+        (self.r(), self.i())
     }
 }
 
@@ -277,25 +239,6 @@ where
     I256: From<E>,
 {
     fn into_scalars(&self) -> (Scalar<F, E>, Scalar<F, E>) {
-        let mut real = Scalar {
-            fraction: self.real,
-            exponent: self.exponent,
-        };
-        let mut imaginary = Scalar {
-            fraction: self.imaginary,
-            exponent: self.exponent,
-        };
-        if self.is_normal() {
-            real.normalize();
-            imaginary.normalize();
-        } else if self.exploded() {
-            real.normalize_exploded();
-            imaginary.normalize_exploded();
-        } else if self.vanished() {
-            real.normalize_vanished();
-            imaginary.normalize_vanished();
-        }
-
-        (real, imaginary)
+        (self.r(), self.i())
     }
 }

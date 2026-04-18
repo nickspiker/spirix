@@ -153,8 +153,19 @@ where
     /// ```
     fn from(value: R) -> Self {
         let scalar = Scalar::<F, E>::from(value);
+        // Translate Scalar format (implicit sign, FRAC bits) to Circle format
+        // (explicit sign, FRAC-1 bits): Circle stored = scalar_inflate >> 1.
+        let is_normal = scalar.exponent != E::min_value();
+        let circle_real: F = if is_normal {
+            scalar.fraction.inflate(true).w_shr(1isize).deflate()
+        } else {
+            // Escape classes: prefix bit patterns differ between formats.
+            // ZERO, INFINITY: same bit pattern (all 0s / all 1s).
+            // Others: translation via sign_extend >> 1 works (prefix shifts down by 1).
+            scalar.fraction.inflate(false).w_shr(1isize).deflate()
+        };
         Self {
-            real: scalar.fraction,
+            real: circle_real,
             imaginary: 0.as_(),
             exponent: scalar.exponent,
         }
