@@ -1,57 +1,73 @@
 # Migration Status
 
 ## Done ✅
-### Committed
-- Addition, Subtraction, Multiplication, Division, Modulus — inflate/deflate, truth tables pass
-- Bitwise AND/OR/XOR, Comparison
+- Addition, Subtraction, Multiplication, Division, Modulus (truth tables pass)
+- Bitwise AND/OR/XOR/NOT, Comparison
 - Classification gating on is_normal()
-- is_positive/is_negative recursion fix
+- is_positive/is_negative (method + recursion fix)
 - Constants via PrimInt-derived functions
-- IEEE conversions (±∞→exploded, ±0→zero, [∞]→NaN)
-- Scalar→int via inflate + I256
+- IEEE conversions (±∞→exploded, ±0→zero, [∞]→NaN, subnormals)
+- Scalar→int via inflate + I256 (fixed Into<iN>/Into<uN> for normals)
+- From<iN> / From<uN> (negative handling + pow-of-2 boundary)
+- From<f64> / From<f32> (runtime + const-fn)
+- to_f64() / to_f32() (delegate to Into<>)
 - Undefined prefix overhaul (signed hex)
-- Truth tables standardized (col OP row)
+- Truth tables standardized (col OP row); 6/6 pass
+- Unary truth tables added (sqrt, lb/ln, exp/powb, square, not)
 - Square specialized (single inflate, NEG_ONE special case)
 - Sqrt: restoring binary (bit-exact floor) + Newton (LUT-seeded nearest)
 - i128 inflate mask fix
-- Into<f64>/Into<f32> for i64 and i128 widths
-- Division Newton + LUT deletion
+- Division Newton + LUT deletion; scalar_power_scalar sign fix
 - Wrapping ops pass + power-of-2 multiplies → shifts
+- lb() direct-bit rewrite; scalar_negate fix; exp() sign fix
+- Trig FRAC boundary fix (line 73)
 
-### Uncommitted (this session)
-- **lb() rewrite**: direct bit-OR into u128 accumulator, ~15× faster than Scalar adds
-- **scalar_negate fix**: replaced broken bit-trick with `Self::pos_one_normal()`
-- **From<iN> fix**: handles negative integers (negate abs + power-of-2 boundary shift)
-- **From<f64>/From<f32> fix**: cast to F before shifting (was overflowing for FRAC > intermediate width)
-- **exp() sign fix**: `is_negative()` method instead of stored MSB check
-- **Comment cleanup**: removed all "old format"/"new format" archaeology
-- **Side effect**: subtraction `ZERO - ONE` boundary now passes → truth tables 6/6
+## Circle ↔ Scalar Format Relationship (reference)
+
+Circle and Scalar use different stored encodings for the same mathematical value:
+
+| Format | Sign encoding | Magnitude bits | Value formula |
+|---|---|---|---|
+| Circle | Explicit (MSB = sign) | FRAC-1 | `stored * 2^(exp - FRAC + 1)` |
+| Scalar | Implicit (~MSB = sign) | FRAC | `inflate(stored) * 2^(exp - FRAC)` |
+
+**Translation equivalence:** `scalar_inflate = 2 × circle_stored` for the same value.
+
+**Circle → Scalar** (extracting a component):
+1. `sign_extend(circle_stored)` to wider type (no XOR needed)
+2. `<< 1` (scale up by 2)
+3. Renormalize to N-1 if the component wasn't individually normalized
+4. `deflate` to Scalar's F (truncate low FRAC bits)
+
+**Scalar → Circle**:
+1. `inflate(scalar_stored, is_normal)` — for normals this **XORs with the mask** to undo implicit sign
+2. `>> 1` (arithmetic shift, preserves sign)
+3. `deflate` to Circle's F (truncate)
+
+The XOR is asymmetric: needed going Scalar→Circle (to recover effective
+magnitude from Scalar's implicit encoding), not needed the other direction.
 
 ## Still needs work
 
-### Tests to write (NEXT)
-- Exhaustive F3E3 conversion suite covering:
-  - All 256 i8 values → Scalar<i8,i8> → i8 round-trip
-  - All 256 stored Scalar<i8,i8> → f32, f64
-  - Constants, primes, powers of 2, **negative powers of 2** (always a problem)
-  - All edges: ZERO, ONE, NEG_ONE, MIN, MAX, MIN_POS, MAX_NEG, exploded/vanished/undefined
-  - Cross-width Scalar→Scalar (i8↔i16↔i32↔i64↔i128)
-  - Round-trip property: f64 → Scalar → f64 within ULP bound
+### Tests to write
 - Exhaustive F3E3 truth tables for bitwise, powers/roots, trig
 - Patent + website truth table sync
+- Circle boundary ops (Scalar + Circle, Circle - Scalar, etc.)
+- Exhaustive Circle↔Scalar round trips
 
-### Code still using old-format assumptions
-- **normalize()** (`basic_scalar.rs`): counts leading_same of stored bits. Only called from constructors, but conceptually wrong.
-- **Trigonometry** (`trigonometry/scalar.rs`): exponent boundary check at line 73 uses `FRAC-1` instead of `FRAC`. Otherwise composition of working ops.
-- **Formatting** (`formatting/scalar.rs`): digit extraction assumes stored == effective. Cosmetic (Display impl).
-- **Random** (`statistics/random.rs`): normalization loop counts leading_same of stored bits — doesn't apply now.
-- **exponents/scalar_scalar.rs**: integer_power should work via repeated squaring; general power and logarithm need testing now that lb works.
+### Boundary code still to convert
+- `Scalar + Circle` and other mixed arithmetic (`implementations/addition/scalar_circle.rs` etc.)
+- `Complex<f64>` / `Complex<f32>` → Circle via non-zero imaginary paths
 
-### Currently failing lib tests
-- `from_f32_is_const` / `from_f32_matches_runtime` — const-fn From<f32> path I haven't touched
-- `into_f32_agrees_with_to_f32` / `into_f64_agrees_with_to_f64` — my Into<> fix likely diverged from `to_*()` method
-- `to_f32_special_cases` / `to_f64_special_cases`
-- 8 tensor tests (separate subsystem)
+### Circle-internal (not boundary)
+- Circle reciprocal precision bug: `z.reciprocal()` ≠ `Circle::ONE / z` for same z.
+  Both pure-Circle ops, but internal representations differ slightly.
+  4 tests in `core_circle_reciprocal.rs` fail.
 
-## Circle
-Circle keeps old format. No changes to Circle code itself; only Scalar↔Circle boundary needs translation.
+### Low-priority / cosmetic
+- Formatting (`formatting/scalar.rs`) — works, but digit extraction assumes stored == effective. Display output is correct per testing; but format could be cleaner.
+- Random (`statistics/random.rs`) — normalization loop uses leading_same of stored bits; concept doesn't apply to current Scalar format.
+- `normalize()` in basic_scalar.rs — only called from Circle→Scalar conversion (now via `extract_component()` helper which doesn't use it).
+
+### Tensor tests
+- 8 failing tests in `tensor::*` — separate subsystem, may have its own format assumptions.
