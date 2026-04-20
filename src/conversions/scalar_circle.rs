@@ -116,7 +116,7 @@ where
     /// assert_eq!(z.r().is_zero());
     /// assert!(z.i() > 0);   // Sign is also preserved
     /// ```
-    pub(crate) fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
+    pub fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
         if real.is_undefined() {
             return Circle {
                 real: real.fraction,
@@ -131,8 +131,11 @@ where
                 exponent: imaginary.exponent,
             };
         }
+        if real.is_zero() && imaginary.is_zero() {
+            return Circle::<F, E>::ZERO;
+        }
         if real.is_zero() {
-            let imag_c: F = imaginary.fraction.inflate(true).w_shr(1isize).deflate();
+            let imag_c: F = imaginary.fraction.inflate(imaginary.is_normal()).w_shr(1isize).deflate();
             return Circle {
                 real: 0.as_(),
                 imaginary: imag_c,
@@ -140,7 +143,7 @@ where
             };
         }
         if imaginary.is_zero() {
-            let real_c: F = real.fraction.inflate(true).w_shr(1isize).deflate();
+            let real_c: F = real.fraction.inflate(real.is_normal()).w_shr(1isize).deflate();
             return Circle {
                 real: real_c,
                 imaginary: 0.as_(),
