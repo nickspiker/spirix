@@ -34,18 +34,23 @@ Circle and Scalar use different stored encodings for the same mathematical value
 **Translation equivalence:** `scalar_inflate = 2 × circle_stored` for the same value.
 
 **Circle → Scalar** (extracting a component):
-1. `sign_extend(circle_stored)` to wider type (no XOR needed)
-2. `<< 1` (scale up by 2)
-3. Renormalize to N-1 if the component wasn't individually normalized
-4. `deflate` to Scalar's F (truncate low FRAC bits)
+1. `circle_stored << 1` — plain shift; Circle's sign is already explicit in the
+   MSB, no sign inference needed. Working in F directly or via a wider type
+   gives the same low-FRAC bits.
+2. **Normalize** so the Scalar's MSB lands in the right spot: count leading
+   same bits, shift further, and adjust the exponent to compensate.
+3. Truncate back to Scalar's F.
 
 **Scalar → Circle**:
-1. `inflate(scalar_stored, is_normal)` — for normals this **XORs with the mask** to undo implicit sign
-2. `>> 1` (arithmetic shift, preserves sign)
-3. `deflate` to Circle's F (truncate)
+1. `inflate(scalar_stored, true)` — for normals this **XORs with the mask** to
+   un-hide the implicit sign and recover the effective (FRAC+1)-bit signed value.
+   Required because Scalar's stored doesn't carry the sign as a regular bit.
+2. `>> 1` (arithmetic right shift, preserves sign).
+3. Truncate to Circle's F.
 
-The XOR is asymmetric: needed going Scalar→Circle (to recover effective
-magnitude from Scalar's implicit encoding), not needed the other direction.
+The XOR is asymmetric: only needed going Scalar→Circle (to undo the implicit-
+sign encoding). Circle→Scalar is just a shift + normalization — no XOR, no
+sign inference, because Circle already carries the effective value directly.
 
 ## Still needs work
 
