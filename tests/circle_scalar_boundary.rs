@@ -153,11 +153,11 @@ fn circle_class(c: C) -> Class {
 }
 
 fn expect_circle(real: S, imag: S, real_name: &str, imag_name: &str, allowed: &[Class]) {
-    let c = C::from_ri(real, imag);
+    let c = C::from((real, imag));
     let cc = circle_class(c);
     if !allowed.contains(&cc) {
         panic!(
-            "from_ri({} real, {} imag) → Circle class {} expected one of {:?}\n  circle: real={:#x} imag={:#x} exp={}",
+            "from((r={}, i={})) → Circle class {} expected one of {:?}\n  circle: real={:#x} imag={:#x} exp={}",
             real_name, imag_name, class_name(cc),
             allowed.iter().map(|c| class_name(*c)).collect::<Vec<_>>(),
             c.real as u32, c.imaginary as u32, c.exponent
@@ -299,7 +299,7 @@ fn round_trip_stability() {
         let c1 = C::from((r, i));
         let s_r1 = c1.r();
         let s_i1 = c1.i();
-        let c2 = C::from_ri(s_r1, s_i1);
+        let c2 = C::from((s_r1, s_i1));
         let s_r2 = c2.r();
         let s_i2 = c2.i();
         let r1: f64 = s_r1.into();
