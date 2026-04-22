@@ -457,9 +457,7 @@ where
             rotor >>= 1;
         }
 
-        // Convert raw_frac (FRAC-bit fractional fixed-point) to a normalized Scalar.
-        // raw_frac has meaningful bits in positions 0..FRAC-1. Normalize by shifting the
-        // highest set bit up to position FRAC-1; the shift amount becomes -exponent.
+        // Convert raw_frac (FRAC-bit fractional fixed-point) to a normalized Scalar. raw_frac has meaningful bits in positions 0..FRAC-1. Normalize by shifting the highest set bit up to position FRAC-1; the shift amount becomes -exponent.
         let fractional = if raw_frac == 0 {
             Self::ZERO
         } else {

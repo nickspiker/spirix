@@ -187,121 +187,38 @@ Undefined states propagate thru operations, preserving their cause.
 ## Mathematical Operations
 
 ### Arithmetic Operations
-Note that Rust primitives like f32, i8 are treated as Scalars. For convenience, Circles can be converted to/from Num::Complex::<f32> or <f64>, where circle.r() and circle.i() return normalized Scalars from each respective component. A Circle can be constructed from a single Scalar/Rust primitive CircleF3E3::from(3),CircleF3E3::from(Scalar), or from a tuple of two valid types like CircleF5E4::from((scalar, i8))
+Rust primitives like `f32` and `i8` convert to Scalar automatically. A Circle constructs from either a single real value (imaginary becomes zero) — `CircleF3E3::from(3)`, `CircleF3E3::from(my_scalar)` — or from a `(real, imag)` tuple, where the two values can be any mix of Scalar-convertible types: `CircleF5E4::from((my_scalar, 7i8))`. Note the double parens: `from((r, i))` takes one tuple argument, while `from(r, i)` won't compile. Circles also convert to and from `num_complex::Complex<f32>` / `Complex<f64>` directly — `CircleF5E4::from(Complex::new(1.5, 2.0))`. Going the other way, `circle.r()` and `circle.i()` extract the real and imaginary components as Scalars.
 
 ### Truth Tables
 
-The following tables show how different value states interact during basic arithmetic operations:
+**Classes:**
 
-#### Addition
+| Tag | Meaning |
+|-----|---------|
+| `[0]` | Zero |
+| `[↓]` | Vanished — nonzero but too small to represent (sign preserved) |
+| `[#]` | Normal value (sign preserved) |
+| `[↑]` | Exploded — too large to represent (sign preserved) |
+| `[∞]` | Infinity — unsigned point-at-infinity |
+| `[℘?]` | Undefined; specific sub-states spell out the cause (e.g. `[℘ ⬆+⬆]`) |
 
-| + | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [↓] | [#] | [℘⬆+] | [℘⬆+] | [℘?] |
-| **[↓]** | [↓] | [℘↓+↓] | [#] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
-| **[#]** | [#] | [#] | [0], [#], [↓], [↑] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
-| **[↑]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
-| **[∞]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+**Grouping shorthand** used inside cells when the exact class depends on magnitudes:
+`[⬆]` = *transfinite* (`[↑]` or `[∞]`); `[⬇]` = *negligible* (`[0]` or `[↓]`).
+Sub-state tags like `[℘ +⬆]` identify the *reason* the result is undefined and are
+catalogued in the [Undefined State Catalog](#undefined-state-catalog).
 
-#### Subtraction
-
-| - | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [↓] | [#] | [℘⬆-] | [℘⬆-] | [℘?] |
-| **[↓]** | [↓] | [℘↓-↓] | [#] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
-| **[#]** | [#], [↓], [↑] | [#], [↓], [↑] | [0], [#], [↓], [↑] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
-| **[↑]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
-| **[∞]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-#### Multiplication
-
-| × | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [0] | [0] | [0] | [℘⬆×⬇] | [℘?] |
-| **[↓]** | [0] | [↓] | [↓] | [℘⬆×⬇] | [∞] | [℘?] |
-| **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
-| **[↑]** | [0] | [℘⬇×⬆] | [↑] | [↑] | [∞] | [℘?] |
-| **[∞]** | [℘⬇×⬆] | [∞] | [∞] | [∞] | [∞] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-#### Division
-
-| ÷ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [℘ ⬇/⬇] | [∞] | [∞] | [∞] | [∞] | [℘?] |
-| **[↓]** | [0] | [℘ ⬇/⬇] | [↑] | [↑] | [∞] | [℘?] |
-| **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
-| **[↑]** | [0] | [↓] | [↓] | [℘ ⬆/⬆] | [∞] | [℘?] |
-| **[∞]** | [0] | [0] | [0] | [0] | [℘ ⬆/⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-#### Proper Modulus (sign of result follows period)
-
-`⬆` = transfinite (either `[↑]` exploded or `[∞]` infinity). Cells showing `X / Y` depend on sign agreement: matching signs yield `X`, differing signs yield `Y`. Row header distinguishes `[↑]` vs `[∞]` even when tags are identical.
-
-| % | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [0] | [0] | [0] | [0] | [℘?] |
-| **[↓]** | [0] | [℘↓%↓] | [℘%↓] | [℘⬆%] | [℘⬆%] | [℘?] |
-| **[#]** | [0] | [↓] / [#] | [0], [↓], [#] | [℘⬆%] | [℘⬆%] | [℘?] |
-| **[↑]** | [0] | [↓] / [↑] | [#] / [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
-| **[∞]** | [0] | [℘%⬆] | [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-Where:
-- **[0]**: Zero
-- **[↓]**: Vanished (extremely small)
-- **[#]**: Normal values
-- **[↑]**: Exploded (extremely large)
-- **[∞]**: Infinity
-- **[℘?]**: Undefined states
-
-#### Bitwise AND
-
-| & | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [0] | [0] | [0] | [0] | [℘?] |
-| **[↓]** | [0] | [↓] | [↓] | [℘&] | [℘&] | [℘?] |
-| **[#]** | [0] | [↓] | [#] | [℘&] | [℘&] | [℘?] |
-| **[↑]** | [0] | [℘&] | [℘&] | [℘&] | [℘&] | [℘?] |
-| **[∞]** | [0] | [℘&] | [℘&] | [℘&] | [℘&] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-#### Bitwise OR
-
-| \| | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|----|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [↓] | [#] | [℘\|] | [℘\|] | [℘?] |
-| **[↓]** | [↓] | [↓] | [#] | [℘\|] | [℘\|] | [℘?] |
-| **[#]** | [#] | [#] | [#] | [℘\|] | [℘\|] | [℘?] |
-| **[↑]** | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘?] |
-| **[∞]** | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘\|] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-#### Bitwise XOR
-
-| ⊕ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-|---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [↓] | [#] | [℘⊕] | [℘⊕] | [℘?] |
-| **[↓]** | [↓] | [℘↓⊕↓] | [#] | [℘⊕] | [℘⊕] | [℘?] |
-| **[#]** | [#] | [#] | [#] | [℘⊕] | [℘⊕] | [℘?] |
-| **[↑]** | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘?] |
-| **[∞]** | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘⊕] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
-
-### Unary Operation Truth Tables
-
-The following tables describe how single-argument operations transform each value class.
-Sign-dependent results split into positive (`[+#]`) and negative (`[-#]`) cases where they differ.
+**Reading the tables.** Binary tables are `row OP col → result`. When a cell lists
+several classes (e.g. `[#], [↓], [↑]`), any of them is possible depending on the
+exact magnitudes involved. Cells written `X / Y` resolve to `X` when signs agree
+and `Y` when they differ. Unary tables read `Input → Output`; signed classes are
+split into separate rows (`[+#]` / `[-#]`) when the op treats them differently and
+collapsed as `[±#]` when it doesn't.
 
 #### Bitwise NOT
 
-NOT flips every stored bit, which preserves class for all categories *except* the
-zero ↔ infinity swap (since `00…0` and `11…1` are bit-flips of each other and live
-in the same ambiguous-exponent slot). Within preserved classes, the sign flips
-because the stored MSB flips.
+Bit-flip preserves class for everything except `[0] ↔ [∞]`, which swap because
+`00…0` and `11…1` share the ambiguous-exponent slot. Sign flips within preserved
+classes since the stored MSB flips.
 
 | Input | Output |
 |-------|--------|
@@ -315,12 +232,144 @@ because the stored MSB flips.
 | `[∞]` | `[0]` |
 | `[℘?]` | `[℘?]` |
 
+#### Bitwise AND
+
+`[0]` is the absorber (`[0] & X = [0]`, since all-zeros erases any pattern) and
+`[∞]` is the identity (`[∞] & X = X`, since all-ones leaves every bit alone).
+Both are alignment-independent. Escape operands (`[↓]`, `[↑]`) paired with a
+normal produce `[℘&]` — the ambiguous exponent can't align with a real one.
+Escape-with-escape and `[#] & [#]` can miss each other bitwise and collapse
+to `[0]` or `[↓]`.
+
+| & | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [0] | [0] | [0] | [0] | [℘?] |
+| **[↓]** | [0] | [℘&] | [℘&] | [0], [↑]| [↓] | [℘?] |
+| **[#]** | [0] | [℘&] | [#], [0], [↓] | [℘&] | [#] | [℘?] |
+| **[↑]** | [0] | [0], [↑] | [℘&] | [℘&] | [↑] | [℘?] |
+| **[∞]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Bitwise OR
+
+`[0]` is the identity (`[0] | X = X`) and `[∞]` is the absorber (`[∞] | X = [∞]`,
+since all-ones dominates any pattern) — the dual of AND. Both are alignment-
+independent. Escape operands paired with a normal produce `[℘|]` for the same
+ambiguous-exponent reason. Escape-with-escape combines directly at the shared
+ambiguous frame, so `[↓] | [↑]` lands in `[↓]` or `[↑]` depending on signs.
+
+| \| | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|----|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+| **[↓]** | [↓] | [℘\|] | [℘\|] | [↓], [↑] | [∞] | [℘?] |
+| **[#]** | [#] | [℘\|] | [#], [↓] | [℘\|] | [∞] | [℘?] |
+| **[↑]** | [↑] | [↓], [↑] | [℘\|] | [℘\|] | [∞] | [℘?] |
+| **[∞]** | [∞] | [∞] | [∞] | [∞] | [∞] | [∞] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Bitwise XOR
+
+`[0]` is the identity (`[0] ⊻ X = X`) and `[∞]` inverts (`[∞] ⊻ X = ~X` — the
+NOT table applied to `X`). Both are alignment-independent. Escape operands
+paired with a normal produce `[℘⊻]` (ambiguous exponent can't align). At the
+shared ambiguous frame, `[↓] ⊻ [↑]` collapses cleanly to `[↑]` — opposite-rank
+bit patterns XOR to N-1 regardless of sign. Self-XOR of identical values
+always cancels to `[0]`.
+
+| ⊻ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+| **[↓]** | [↓] | [℘⊻] | [℘⊻] | [↑] | [↓] | [℘?] |
+| **[#]** | [#] | [℘⊻] | [0], [↓], [#] | [℘⊻] | [#] | [℘?] |
+| **[↑]** | [↑] | [↑] | [℘⊻] | [℘⊻] | [↑] | [℘?] |
+| **[∞]** | [∞] | [↓] | [#] | [↑] | [0] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Addition
+
+Adding two normals can land anywhere in `[0]`, `[↓]`, `[#]`, or `[↑]` depending
+on magnitudes and signs. Transfinite + anything-finite is an indeterminate form
+(`[℘ +⬆]`), and two transfinites collide into `[℘ ⬆+⬆]`.
+
+| + | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [℘⬆+] | [℘⬆+] | [℘?] |
+| **[↓]** | [↓] | [℘↓+↓] | [#] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
+| **[#]** | [#] | [#] | [0], [#], [↓], [↑] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
+| **[↑]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
+| **[∞]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Subtraction
+
+Mirror of addition, but cancellation is now common: `[#] - [#]` can reach any
+class from `[0]` up through `[↑]`. Transfinite cases match addition's pattern.
+
+| - | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [↓] | [#] | [℘⬆-] | [℘⬆-] | [℘?] |
+| **[↓]** | [↓] | [℘↓-↓] | [#] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
+| **[#]** | [#], [↓], [↑] | [#], [↓], [↑] | [0], [#], [↓], [↑] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
+| **[↑]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
+| **[∞]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Multiplication
+
+Classes combine multiplicatively; the two indeterminate forms are
+`[0] × [∞]` (both directions), producing `[℘⬆×⬇]` / `[℘⬇×⬆]`. Vanished × vanished
+stays `[↓]`; exploded × exploded goes to `[↑]`.
+
+| × | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [0] | [0] | [0] | [℘⬆×⬇] | [℘?] |
+| **[↓]** | [0] | [↓] | [↓] | [℘⬆×⬇] | [∞] | [℘?] |
+| **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
+| **[↑]** | [0] | [℘⬇×⬆] | [↑] | [↑] | [∞] | [℘?] |
+| **[∞]** | [℘⬇×⬆] | [∞] | [∞] | [∞] | [∞] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Division
+
+Inverse of multiplication: `[X] ÷ [0] = [∞]` for any finite `[X]`, and `[X] ÷ [∞] = [0]`.
+The indeterminate forms are `[0] ÷ [0]` / `[↓] ÷ [↓]` (`[℘ ⬇/⬇]`) and `[↑] ÷ [↑]` /
+`[∞] ÷ [∞]` (`[℘ ⬆/⬆]`).
+
+| ÷ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [℘ ⬇/⬇] | [∞] | [∞] | [∞] | [∞] | [℘?] |
+| **[↓]** | [0] | [℘ ⬇/⬇] | [↑] | [↑] | [∞] | [℘?] |
+| **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
+| **[↑]** | [0] | [↓] | [↓] | [℘ ⬆/⬆] | [∞] | [℘?] |
+| **[∞]** | [0] | [0] | [0] | [0] | [℘ ⬆/⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+#### Proper Modulus
+
+Sign of the result follows the period (divisor), not the dividend — so `[↑] % [↓]`
+resolves to `[↓]` when signs agree and `[#]` when they don't. Row header
+distinguishes `[↑]` vs `[∞]` even when output tags are identical, because the
+undefined sub-states differ.
+
+| % | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **[0]** | [0] | [0] | [0] | [0] | [0] | [℘?] |
+| **[↓]** | [0] | [℘↓%↓] | [℘%↓] | [℘⬆%] | [℘⬆%] | [℘?] |
+| **[#]** | [0] | [↓] / [#] | [0], [↓], [#] | [℘⬆%] | [℘⬆%] | [℘?] |
+| **[↑]** | [0] | [↓] / [↑] | [#] / [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
+| **[∞]** | [0] | [℘%⬆] | [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
+| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+
+### Unary Operations
+
+Single-argument ops. Signed classes split into `[+X]` / `[-X]` rows when the op
+treats them differently.
 
 #### Square Root
 
-`sqrt` of a negative value yields the undefined state `[℘√-]` (no real square root).
-Vanished/exploded inputs carry magnitude uncertainty, so `sqrt` of escaped
-classes returns specific undefined sub-states rather than guessing at a class.
+Negative input has no real square root (`[℘√-]`). Escaped inputs can't commit to
+an output class without resolving their magnitude, so `[+↓]`, `[+↑]` map to
+specific undefined sub-states.
 
 | Input | Output |
 |-------|--------|
@@ -336,8 +385,9 @@ classes returns specific undefined sub-states rather than guessing at a class.
 
 #### Binary Logarithm (`lb`) and Natural Log (`ln`)
 
-Both behave identically on classes; `ln` is just `lb × ln(2)`.
-Logs of non-positive values are undefined.
+Same class behavior — `ln` is just `lb × ln(2)`. Non-positive inputs have no real
+log; positive normal inputs yield sign-varying output since `log(x)` crosses zero
+at `x = 1`.
 
 | Input | Output |
 |-------|--------|
@@ -353,8 +403,9 @@ Logs of non-positive values are undefined.
 
 #### Exponential (`exp` = e^x) and Binary Exponential (`powb` = 2^x)
 
-Both have the same truth-table structure (different bases, identical class behavior).
-Negligible inputs (vanished, zero) collapse to `1` since e^0 = 2^0 = 1.
+Same class behavior — different bases don't change the table. Negligible inputs
+(`[0]`, `[±↓]`) land at `1` since `e^0 = 2^0 = 1`. `[-↑]` rigorously collapses
+to `[0]` (e^-∞ = 0); `[+↑]` can't resolve without magnitude.
 
 | Input | Output |
 |-------|--------|
@@ -370,16 +421,101 @@ Negligible inputs (vanished, zero) collapse to `1` since e^0 = 2^0 = 1.
 
 #### Square
 
+Sign always collapses to positive (`x² ≥ 0`). Class is preserved for escapes;
+normals can move up or down the class ladder depending on magnitude.
+
 | Input | Output |
 |-------|--------|
 | `[0]` | `[0]` |
-| `[±↓]` | `[+↓]` (always positive, smaller magnitude) |
-| `[±#]` | `[+#]` or `[+↓]` or `[+↑]` (always positive, magnitude depends) |
+| `[±↓]` | `[+↓]` |
+| `[±#]` | `[+↓]`, `[+#]`, or `[+↑]` |
 | `[±↑]` | `[+↑]` |
 | `[∞]` | `[∞]` |
 | `[℘?]` | `[℘?]` |
 
-Where the prefix `[℘ X]` denotes a specific undefined sub-state described in the [Undefined State Catalog](#undefined-state-catalog) below.
+#### Trigonometric Operations
+
+`sin`, `cos`, and `atan` output bounded ranges, so escaped inputs lose phase
+information and map to specific undefined sub-states. `tan` has poles at
+odd multiples of π/2 (normal inputs near those poles can escape to any class).
+`asin` and `acos` carry a hard domain restriction of `|x| ≤ 1`.
+
+##### `sin` (output ∈ [-1, 1])
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[+↓]` | `[+↓]` (≈ x for small x) |
+| `[-↓]` | `[-↓]` |
+| `[+#]` \| `[-#]` | `[0]`, `[±↓]`, `[±#]` (any value in `[-1, 1]`, depends on angle) |
+| `[±↑]` | `[℘ sin↑]` (phase unresolvable) |
+| `[∞]` | `[℘ sin∞]` |
+| `[℘?]` | `[℘?]` |
+
+##### `cos` (output ∈ [-1, 1])
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[+#]` (= 1) |
+| `[±↓]` | `[+#]` (≈ 1) |
+| `[+#]` \| `[-#]` | `[-#]`, `[0]`, `[±↓]`, `[+#]` (any value in `[-1, 1]`) |
+| `[±↑]` | `[℘ cos↑]` |
+| `[∞]` | `[℘ cos∞]` |
+| `[℘?]` | `[℘?]` |
+
+##### `tan` (unbounded — poles at odd multiples of π/2)
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[+↓]` | `[+↓]` |
+| `[-↓]` | `[-↓]` |
+| `[+#]` \| `[-#]` | `[±#]`, `[±↓]`, `[±↑]`, `[∞]` (near-pole inputs escape) |
+| `[±↑]` | `[℘ tan↑]` |
+| `[∞]` | `[℘ tan∞]` |
+| `[℘?]` | `[℘?]` |
+
+##### `asin` (domain |x| ≤ 1, output ∈ [-π/2, π/2])
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[+↓]` | `[+↓]` |
+| `[-↓]` | `[-↓]` |
+| `[+#]` | `[+#]` if ≤ 1, else `[℘ asin>1]` |
+| `[-#]` | `[-#]` if ≥ -1, else `[℘ asin>1]` |
+| `[±↑]` \| `[∞]` | `[℘ asin>1]` (always out of domain) |
+| `[℘?]` | `[℘?]` |
+
+##### `acos` (domain |x| ≤ 1, output ∈ [0, π])
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[+#]` (= π/2) |
+| `[±↓]` | `[+#]` (≈ π/2) |
+| `[+#]` | `[0]` or `[+#]` if ≤ 1, else `[℘ acos>1]` (acos(1) = 0) |
+| `[-#]` | `[+#]` if ≥ -1, else `[℘ acos>1]` |
+| `[±↑]` \| `[∞]` | `[℘ acos>1]` |
+| `[℘?]` | `[℘?]` |
+
+##### `atan` (no domain restriction, output ∈ (-π/2, π/2))
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[+↓]` | `[+↓]` |
+| `[-↓]` | `[-↓]` |
+| `[+#]` | `[+#]` |
+| `[-#]` | `[-#]` |
+| `[+↑]` | `[+#]` (→ π/2) |
+| `[-↑]` | `[-#]` (→ -π/2) |
+| `[∞]` | `[℘ atan∞]` (unsigned infinity — direction undetermined) |
+| `[℘?]` | `[℘?]` |
+
+Hyperbolic variants (`sinh`/`cosh`/`tanh`) follow the unbounded-growth pattern of
+`exp`/`powb` on magnitude rather than the wrapping pattern of their circular
+counterparts, so their class tables match the `exp` table with appropriate sign
+handling.
 
 Spirix Rust native operations supported:
 

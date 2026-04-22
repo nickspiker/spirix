@@ -174,28 +174,32 @@ where
             return *self;
         }
 
-        let (big, small) = if self.exponent > scalar.exponent {
+        let big_is_self = self.exponent > scalar.exponent;
+        let (big, small) = if big_is_self {
             (self, scalar)
         } else {
             (scalar, self)
         };
         let exp_diff = big.exponent.wrapping_sub(&small.exponent);
+        // x86 implementation note: Spirix's signless design wants to drop small only when shift ≥ FRAC. But Wide = 2*FRAC bits, and the inflated form reaches 2^FRAC magnitude at the ±1.0 boundary, so big_f<<shift ± small_f needs 2*FRAC+2 bits — one more than Rust/x86 provides at any power-of-2 width. Tightening the threshold to FRAC-1 keeps the sub in signed 2*FRAC-bit arithmetic with no sign branching. Cost: ≤1 ULP when shift == FRAC-1. In Verilog this tightening is unnecessary.
+        let small_lost = if big_is_self { *self } else { -scalar };
         if exp_diff.is_negative() {
-            return *self;
+            return small_lost;
         }
         let shift: isize = exp_diff.saturate();
-        if shift >= Self::fraction_bits() {
-            return *self;
+        if shift >= Self::fraction_bits().wrapping_sub(1) {
+            return small_lost;
         }
 
-        let mut self_f = self.fraction.inflate(true);
-        let mut scalar_f = scalar.fraction.inflate(true);
-        if self.exponent > scalar.exponent {
-            self_f.w_shl_assign(shift);
+        let big_f = big.fraction.inflate(true).w_shl(shift);
+        let small_f = small.fraction.inflate(true);
+        // Pure two's complement subtract. With shift<=FRAC-2 both operands fit
+        // with room to spare, so signed wrap cannot occur regardless of sign.
+        let result = if big_is_self {
+            big_f.w_sub(small_f)
         } else {
-            scalar_f.w_shl_assign(shift);
-        }
-        let result = self_f.w_sub(scalar_f);
+            small_f.w_sub(big_f)
+        };
         if result.w_is_zero() {
             return Self {
                 fraction: F::zero(),
@@ -203,20 +207,36 @@ where
             };
         }
         let leading = result.leading_same();
-        let offset = small
-            .exponent
-            .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-        if big.exponent.is_negative() && !offset.is_negative() {
+        let fb = Self::fraction_bits();
+        let delta: isize = fb.wrapping_sub(leading);
+        let delta_e: E = delta.as_();
+        let offset = small.exponent.wrapping_add(&delta_e);
+        let one_e: E = 1u8.as_();
+        // Underflow: cancellation shrank magnitude past MIN_EXP → vanished (N-2).
+        let underflowed = delta.is_negative() && offset.wrapping_sub(&one_e) > small.exponent;
+        if underflowed {
             return Self {
-                fraction: result
-                    .w_shl(leading.wrapping_sub(1))
-                    .w_shr(Self::fraction_bits())
-                    .deflate(),
+                fraction: result.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        // Overflow: borrow bumped magnitude past MAX_EXP → exploded (N-1).
+        let overflowed = delta > 0 && offset < small.exponent;
+        if overflowed {
+            return Self {
+                fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        // Main path extraction: `result << L >> FRAC` composed as a net shift of (L - FRAC). Writing it directly avoids the Rust shift-overflow semantics that bite when L == wide_bits (result = -1, full sign extension).
+        let shl_amount = leading.wrapping_sub(fb);
+        let canonical = if shl_amount >= 0 {
+            result.w_shl(shl_amount)
+        } else {
+            result.w_shr(shl_amount.wrapping_neg())
+        };
         Self {
-            fraction: result.w_shl(leading).w_shr(Self::fraction_bits()).deflate(),
+            fraction: canonical.deflate(),
             exponent: offset,
         }
     }

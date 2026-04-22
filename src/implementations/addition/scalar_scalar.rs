@@ -142,12 +142,13 @@ where
             }
 
             let shift: isize = exp_diff.saturate();
-            if shift >= Self::fraction_bits() {
+            // x86 implementation note: Spirix's signless design wants to drop small only when shift ≥ FRAC. But Wide = 2*FRAC bits, and the inflated form reaches 2^FRAC magnitude at the ±1.0 boundary, so big_f<<shift + small_f needs 2*FRAC+2 bits in the worst case — one bit more than Rust/x86 provides at any power-of-2 width. Tightening the threshold to FRAC-1 guarantees the sum fits in the signed 2*FRAC-bit intermediate, letting us use pure two's-complement arithmetic with no sign branching. Cost: dropping small at shift == FRAC-1 loses ≤1 ULP of its contribution. In Verilog this tightening is unnecessary — we just declare a 2*FRAC+2-bit intermediate and keep full precision.
+            if shift >= Self::fraction_bits().wrapping_sub(1) {
                 return *big;
             }
-            let mut big_f = big.fraction.inflate(true);
-            big_f.w_shl_assign(shift);
-            let result = big_f.w_add(small.fraction.inflate(true));
+            let big_f = big.fraction.inflate(true).w_shl(shift);
+            let small_f = small.fraction.inflate(true);
+            let result = big_f.w_add(small_f);
             if result.w_is_zero() {
                 return Self {
                     fraction: F::zero(),
@@ -155,20 +156,36 @@ where
                 };
             }
             let leading = result.leading_same();
-            let offset = small
-                .exponent
-                .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-            if big.exponent.is_negative() && !offset.is_negative() {
+            let fb = Self::fraction_bits();
+            let delta: isize = fb.wrapping_sub(leading);
+            let delta_e: E = delta.as_();
+            let offset = small.exponent.wrapping_add(&delta_e);
+            let one_e: E = 1u8.as_();
+            // Underflow: cancellation shrank past MIN_EXP → vanished (N-2).
+            let underflowed = delta.is_negative() && offset.wrapping_sub(&one_e) > small.exponent;
+            if underflowed {
                 return Self {
-                    fraction: result
-                        .w_shl(leading.wrapping_sub(1))
-                        .w_shr(Self::fraction_bits())
-                        .deflate(),
+                    fraction: result.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Overflow: carry bumped past MAX_EXP → exploded (N-1).
+            let overflowed = delta > 0 && offset < small.exponent;
+            if overflowed {
+                return Self {
+                    fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Main path: `result << L >> FRAC` composed as a net shift of L-FRAC. Written directly to sidestep Rust's shift-overflow semantics when L == wide_bits (result is all sign bits).
+            let shl_amount = leading.wrapping_sub(fb);
+            let canonical = if shl_amount >= 0 {
+                result.w_shl(shl_amount)
+            } else {
+                result.w_shr(shl_amount.wrapping_neg())
+            };
             return Self {
-                fraction: result.w_shl(leading).w_shr(Self::fraction_bits()).deflate(),
+                fraction: canonical.deflate(),
                 exponent: offset,
             };
         }

@@ -60,11 +60,19 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Performs bitwise AND on two Scalars after aligning their fractions by exponent.
+    /// Bitwise AND of two Scalars, aligned at the binary point.
     ///
-    /// Operates in inflated (effective) value space so the standard two's complement
-    /// AND semantics apply: negative operands have leading ones, positive operands
-    /// have leading zeros, after inflate.
+    /// Two's complement AND extended to numbers with exponents: line the operands
+    /// up at their binary points, AND the bit patterns, renormalize. Class-level
+    /// behaviour follows from the boolean identities of zero and infinity, which
+    /// are alignment-independent:
+    ///
+    /// - `[0] & X = [0]` — zero is the absorber (all-zeros erases every bit).
+    /// - `[∞] & X = X` — infinity is the identity (all-ones leaves bits alone).
+    /// - `[℘?] & X = [℘?]` — undefined propagates first to preserve the error cause.
+    ///
+    /// Escape operands (`[↓]`, `[↑]`) paired with a normal can't align their
+    /// ambiguous exponent with a real one, so those pairings resolve to `[℘&]`.
     pub(crate) fn aligned_and(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
@@ -73,47 +81,37 @@ where
             if other.is_undefined() {
                 return *other;
             }
+            // All-ones (infinity) is the identity for AND: [∞] & X = X.
+            if self.is_infinite() {
+                return *other;
+            }
+            if other.is_infinite() {
+                return *self;
+            }
+            // All-zeros (zero) is the absorber for AND: [0] & X = [0].
+            if self.is_zero() || other.is_zero() {
+                return Self::ZERO;
+            }
             if (self.exploded() && other.exploded())
                 || (self.vanished() && other.vanished())
-                || self.is_infinite()
-                || other.is_infinite()
+                || self.is_normal()
+                || other.is_normal()
             {
                 return Self {
                     fraction: AND.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_zero() || other.is_zero() {
-                return Self::ZERO;
-            }
             if self.vanished() {
-                if self.is_negative() {
+                if self.fraction.is_negative() {
                     return *other;
                 }
                 return Self::ZERO;
             }
-            if other.vanished() {
-                if other.is_negative() {
-                    return *self;
-                }
-                return Self::ZERO;
+            if other.fraction.is_negative() {
+                return *self;
             }
-            if self.is_normal() {
-                if self.is_negative() {
-                    return *other;
-                }
-                return Self::ZERO;
-            }
-            if other.is_normal() {
-                if other.is_negative() {
-                    return *self;
-                }
-                return Self::ZERO;
-            }
-            return Self {
-                fraction: AND.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
+            return Self::ZERO;
         }
         self.bitwise_normal(other, BitwiseOp::And)
     }
@@ -127,17 +125,25 @@ where
             if other.is_undefined() {
                 return *other;
             }
-            if self.is_infinite() || other.is_infinite() || self.exploded() && other.exploded() {
-                return Self {
-                    fraction: OR.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
+            // Infinity's fraction is all-ones; OR with anything stays all-ones.
+            if self.is_infinite() || other.is_infinite() {
+                return Self::INFINITY;
             }
             if self.is_zero() {
                 return *other;
             }
             if other.is_zero() {
                 return *self;
+            }
+            if (self.exploded() && other.exploded())
+                || (self.vanished() && other.vanished())
+                || self.is_normal()
+                || other.is_normal()
+            {
+                return Self {
+                    fraction: OR.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
             }
             if self.exploded() {
                 if other.is_negative() {
@@ -145,85 +151,67 @@ where
                 }
                 return *self;
             }
-            if other.exploded() {
-                if self.is_negative() {
-                    return *self;
-                }
-                return *other;
-            }
-            if self.is_normal() {
-                if other.is_negative() {
-                    return *other;
-                }
+            if self.is_negative() {
                 return *self;
             }
-            if other.is_normal() {
-                if self.is_negative() {
-                    return *self;
-                }
-                return *other;
-            }
-            return Self {
-                fraction: OR.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
+            return *other;
         }
         self.bitwise_normal(other, BitwiseOp::Or)
     }
 
-    /// Performs bitwise XOR on two Scalars after aligning their fractions by exponent.
+    /// Bitwise XOR of two Scalars, aligned at the binary point.
+    ///
+    /// `[0]` is the identity; `[∞]` inverts (NOT). Both are alignment-independent.
+    /// Escape operands (`[↓]`, `[↑]`) paired with a normal produce `[℘⊻]` because
+    /// ambiguous exponents can't align with real ones. At the shared ambiguous
+    /// frame, `[↓] ⊻ [↑]` collapses to `[↑]` (opposite-rank bit patterns always
+    /// XOR to N-1); same-class escape pairings are `[℘⊻]`.
     pub(crate) fn aligned_xor(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
+            // Undefined propagates first.
             if self.is_undefined() {
                 return *self;
             }
             if other.is_undefined() {
                 return *other;
             }
-            if self.is_infinite()
-                || other.is_infinite()
-                || (self.exploded() && other.exploded())
-                || (self.vanished() && other.vanished())
-            {
-                return Self {
-                    fraction: XOR.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+            // Zero is the identity.
             if self.is_zero() {
                 return *other;
             }
             if other.is_zero() {
                 return *self;
             }
-            if self.vanished() {
-                if self.is_negative() {
-                    return other.not_scalar();
-                }
-                return *other;
+            // Infinity (all-ones) inverts the other operand.
+            if self.is_infinite() {
+                return other.not_scalar();
             }
-            if other.vanished() {
+            if other.is_infinite() {
+                return self.not_scalar();
+            }
+            // Escape-with-normal or same-class escapes: ambiguous → [℘⊻].
+            if (self.exploded() && other.exploded())
+                || (self.vanished() && other.vanished())
+                || self.is_normal()
+                || other.is_normal()
+            {
+                return Self {
+                    fraction: XOR.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Remaining case: one is vanished, the other is exploded. XOR always
+            // yields exploded with sign = sign(exploded) XOR sign(vanished).
+            if self.exploded() {
                 if other.is_negative() {
                     return self.not_scalar();
                 }
                 return *self;
             }
-            if self.is_normal() {
-                if self.is_negative() {
-                    return other.not_scalar();
-                }
-                return *other;
+            if self.is_negative() {
+                return other.not_scalar();
             }
-            if other.is_normal() {
-                if other.is_negative() {
-                    return self.not_scalar();
-                }
-                return *self;
-            }
-            return Self {
-                fraction: XOR.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
+            return *other;
         }
         self.bitwise_normal(other, BitwiseOp::Xor)
     }
@@ -259,13 +247,19 @@ where
             };
         }
         let leading = result.leading_same();
-        let offset = small
-            .exponent
-            .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-        if big.exponent.is_negative() && !offset.is_negative() {
+        let delta: isize = Self::fraction_bits().wrapping_sub(leading);
+        let delta_e: E = delta.as_();
+        let offset = small.exponent.wrapping_add(&delta_e);
+        // Underflow happens two ways: offset lands exactly on the AMBIGUOUS_EXPONENT
+        // slot (reserved), or it wraps past MIN through the negative/positive sign.
+        let one_e: E = 1u8.as_();
+        let underflowed = delta.is_negative() && offset.wrapping_sub(&one_e) > small.exponent;
+        if underflowed {
+            // Result magnitude smaller than MIN_EXP permits.
+            // Produce vanished (N-2) with the result's sign, not exploded (N-1).
             return Self {
                 fraction: result
-                    .w_shl(leading.wrapping_sub(1))
+                    .w_shl(leading.wrapping_sub(2))
                     .w_shr(Self::fraction_bits())
                     .deflate(),
                 exponent: Self::ambiguous_exponent(),

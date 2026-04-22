@@ -193,17 +193,17 @@ pub const GENERAL: Undefined = Undefined {
 pub const AND: Undefined = Undefined {
     prefix: -0x20,
     symbol: "℘&",
-    description: "Logical AND with escaped value",
+    description: "AND with escaped value",
 };
 pub const OR: Undefined = Undefined {
     prefix: 0x1E,
     symbol: "℘|",
-    description: "Logical OR with escaped value",
+    description: "OR with escaped value",
 };
 pub const XOR: Undefined = Undefined {
     prefix: -0x1F,
     symbol: "℘⊻",
-    description: "Logical XOR with escaped value",
+    description: "XOR with escaped value",
 };
 pub const VANISHED_PLUS_VANISHED: Undefined = Undefined {
     prefix: 0x1D,

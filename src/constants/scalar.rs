@@ -124,9 +124,7 @@ macro_rules! impl_scalar_constants {
     pub const VANISHED_POS: Self = Self { fraction: ((-(<$f>::MIN >> 1)) >> 1), exponent: <$e>::MIN };
     pub const VANISHED_NEG: Self = Self { fraction: (<$f>::MIN >> 1), exponent: <$e>::MIN };
 
-    // All hex constants below are stored fractions derived from basecalc (MPFR), floored to 128 bits.
-    // The shift >> (128 - FRACTION_BITS) truncates to the target fraction width. (SA cast)
-    // Negative variants use wrapping_neg on the stored fraction.
+    // All hex constants below are stored fractions derived from basecalc (MPFR), floored to 128 bits. The shift >> (128 - FRACTION_BITS) truncates to the target fraction width (SA cast). Negative variants use wrapping_neg on the stored fraction.
 
     // --- Pi family (π/4 fraction shared across power-of-2 multiples) ---
     pub const PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 2 };

@@ -181,10 +181,16 @@ where
             let result_exploded = self.exploded() || other.exploded();
             let leading = product.leading_same();
             let n: isize = if result_exploded { 1 } else { 2 };
-            let fraction = product
-                .w_shl(leading.wrapping_sub(n))
-                .w_shr(Self::fraction_bits())
-                .deflate();
+            let shift = leading.wrapping_sub(n);
+            // Negative shift means product's top bit is above the target
+            // N-level — fold into a single `shr` instead of `shl(negative)`.
+            let fraction = if shift >= 0 {
+                product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
+            } else {
+                product
+                    .w_shr(Self::fraction_bits().wrapping_sub(shift))
+                    .deflate()
+            };
             return Self {
                 fraction,
                 exponent: Self::ambiguous_exponent(),
@@ -212,53 +218,98 @@ where
             };
         }
 
-        let product = self
+        // x86 implementation note:
+        // Why this code is NOT signless
+        // Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog.
+        // Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps.
+        // The wrap happens to be INVISIBLE for the main-path byte extraction (shift = FRAC - leading ≤ FRAC, so the 2^W wrap correction is 0 mod 2^FRAC), which lets us keep signed arithmetic + arith shr = floor for that path. But for exploded/vanished (shift > FRAC), the wrap correction doesn't vanish mod 2^FRAC, so we reluctantly fall back to the magnitude-dance (compute |p|, logical shr, XOR a sign-flip mask). Those paths represent "too big/small to represent normally" so the magnitude precision is already lossy — rounding mode is moot there.
+        // In Verilog all of this dissolves: hardware arith shr is free, register width is whatever we declare, and signed/unsigned interpretation is just wire routing. The code below is overhead paid for x86 ISA quirks, not inherent algorithmic cost.
+        let p_signed = self
             .fraction
             .inflate(true)
             .w_mul(other.fraction.inflate(true));
+        let fb = Self::fraction_bits();
+        let sum = self.exponent.wrapping_add(&other.exponent);
+
+        // u_product = |p_signed|. LLVM compiles this conditional to `neg + cmov`
+        // (branchless at asm level) — no wider bit-ops formulation beats that.
         let expect_negative = self.is_negative() != other.is_negative();
-        let leading = if expect_negative {
-            product.w_leading_ones()
+        let u_product = if expect_negative {
+            p_signed.w_neg()
         } else {
-            product.w_leading_zeros()
+            p_signed
+        };
+        let leading = u_product.w_leading_zeros();
+
+        // Exploded/vanished extract: u_product (magnitude) >> k logical, then XOR
+        // with class-appropriate sign-flip mask if neg_bit. Magnitude-based so
+        // wrap doesn't bite. Rounding mode here doesn't matter.
+        let exploded_flip = Self::pos_one_exploded() ^ Self::neg_one_exploded();
+        let vanished_flip = Self::pos_one_vanished() ^ Self::neg_one_vanished();
+        let extract_escaped = |k: isize, flip: F| -> F {
+            let pos = if k >= 0 {
+                u_product.w_shr_logical(k).deflate()
+            } else {
+                u_product.w_shl(k.wrapping_neg()).deflate()
+            };
+            if expect_negative {
+                pos ^ flip
+            } else {
+                pos
+            }
         };
 
-        let sum = self.exponent.wrapping_add(&other.exponent);
+        // Exponent overflow (both inputs positive-exp, sum wrapped negative
+        // including AMBIGUOUS) → exploded.
         if !self.exponent.is_negative() && !other.exponent.is_negative() && sum.is_negative() {
-            let fraction = product
-                .w_shl(leading.wrapping_sub(1))
-                .w_shr(Self::fraction_bits())
-                .deflate();
+            let k = fb.wrapping_sub(leading).wrapping_add(1);
             return Self {
-                fraction,
+                fraction: extract_escaped(k, exploded_flip),
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        // Exponent underflow → vanished.
         if self.exponent.is_negative() && other.exponent.is_negative() && !sum.is_negative() {
-            let shift = leading.wrapping_sub(2);
-            let fraction = if shift >= 0 {
-                product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
-            } else {
-                product.w_shr(Self::fraction_bits().wrapping_sub(shift)).deflate()
-            };
+            let k = fb.wrapping_sub(leading).wrapping_add(2);
             return Self {
-                fraction,
+                fraction: extract_escaped(k, vanished_flip),
                 exponent: Self::ambiguous_exponent(),
             };
         }
+
+        // Main path.
         let adj: E = (leading as isize).as_();
         let exponent = sum.wrapping_sub(&adj);
-        let fraction = if exponent == Self::ambiguous_exponent() {
-            product
-                .w_shl(leading.wrapping_sub(2))
-                .w_shr(Self::fraction_bits())
-                .deflate()
+        // Tail underflow: exponent landed on AMBIGUOUS → vanished.
+        if exponent == Self::ambiguous_exponent() {
+            let k = fb.wrapping_sub(leading).wrapping_add(2);
+            return Self {
+                fraction: extract_escaped(k, vanished_flip),
+                exponent,
+            };
+        }
+
+        // Main path: signed arith shr of p_signed. For k <= FRAC (always true here since k_main = FRAC - leading ≤ FRAC), the wrap correction vanishes mod 2^FRAC, so the byte is correct. Arith shr = floor rounding.
+        let k_main = fb.wrapping_sub(leading);
+        let fraction = if k_main >= 0 {
+            p_signed.w_shr(k_main).deflate()
         } else {
-            product
-                .w_shl(leading)
-                .w_shr(Self::fraction_bits())
-                .deflate()
+            p_signed.w_shl(k_main.wrapping_neg()).deflate()
         };
+        // Boundary: signed extract of magnitude 2^(FRAC-1) (= POS_ONE_NORMAL) with negative result lands at the asymmetric two's complement edge. Reroute to NEG_ONE_NORMAL at exp-1 (with AMBIGUOUS check).
+        if expect_negative && fraction == Self::pos_one_normal() {
+            let exp_m1 = exponent.wrapping_sub(&1u8.as_());
+            if exp_m1 == Self::ambiguous_exponent() {
+                return Self {
+                    fraction: Self::neg_one_vanished(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            return Self {
+                fraction: Self::neg_one_normal(),
+                exponent: exp_m1,
+            };
+        }
         Self { fraction, exponent }
     }
 }

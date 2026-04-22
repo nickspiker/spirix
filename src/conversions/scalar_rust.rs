@@ -532,9 +532,7 @@ fn into(self) -> $i {
     let frac_bits = Scalar::<F, E>::fraction_bits();
     let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
 
-    // Early saturation: if exp is so large that the integer part can't
-    // possibly fit in target, short-circuit. Upper bound on |value| is
-    // roughly 2^(exp+1), so bail when exp >= target_bits - 1.
+    // Early saturation: if exp is so large that the integer part can't possibly fit in target, short-circuit. Upper bound on |value| is roughly 2^(exp+1), so bail when exp >= target_bits - 1.
     if exp >= target_bits {
         if self.is_negative() { return <$i>::MIN; }
         return <$i>::MAX;
@@ -1196,11 +1194,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn to_f32_subnormals() {
-        // f32 subnormals have known precision loss in the spirix from_f32 path:
-        // the exponent encoding for subnormals uses raw_exp - 119 (same as normals)
-        // rather than the correct 1 - 127 = -126, causing an off-by-1 in the exponent.
-        // The round-trip through S44 is therefore lossy for subnormals — acceptable.
-        // We just verify to_f32 doesn't panic and returns something non-negative for positive inputs.
+        // f32 subnormals have known precision loss in the spirix from_f32 path: the exponent encoding for subnormals uses raw_exp - 119 (same as normals) rather than the correct 1 - 127 = -126, causing an off-by-1 in the exponent. The round-trip through S44 is therefore lossy for subnormals — acceptable. We just verify to_f32 doesn't panic and returns something non-negative for positive inputs.
 
         // Smallest positive subnormal
         let v = f32::from_bits(1u32);
@@ -1325,10 +1319,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_infinity() {
-        // from_f64 is a const fn for normal finite values only.
-        // Infinity/NaN inputs will decode as very large exponents (overflow), but
-        // the key guarantee is they do not panic and produce *some* S44 value.
-        // For the runtime path, use S44::from(f64_val).
+        // from_f64 is a const fn for normal finite values only. Infinity/NaN inputs will decode as very large exponents (overflow), but the key guarantee is they do not panic and produce *some* S44 value. For the runtime path, use S44::from(f64_val).
         let pos = S44::from_f64(f64::INFINITY);
         // raw_exp = 2047 → exp = 2047-1012 = 1035; frac_u = 0 (mantissa=0) → vanish path
         // Result is implementation-defined for special inputs; just verify it doesn't panic
@@ -1437,9 +1428,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_subnormals() {
-        // f64 subnormals: raw_exp = 0, exponent decoding gives very negative S44 exponent.
-        // S44 i16 exponent range is huge, so tiny subnormals may be representable
-        // or may underflow — either result is valid; just verify no panic.
+        // f64 subnormals: raw_exp = 0, exponent decoding gives very negative S44 exponent. S44 i16 exponent range is huge, so tiny subnormals may be representable or may underflow — either result is valid; just verify no panic.
         let tiny = f64::from_bits(1u64); // smallest positive subnormal ≈ 5e-324
         let s = S44::from_f64(tiny);
         let back = s.to_f64();
@@ -1450,11 +1439,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_scaled_ieee_min_times_random() {
-        // Cover a range of magnitudes from tiny to max to exercise the full exponent
-        // range of from_f64. Values that are within normal f64 range should round-trip
-        // within S44 precision (~3 significant decimal digits). Values at the f64
-        // extremes (MAX, MIN) may overflow back to ±infinity — that's acceptable since
-        // the i16::MIN fraction encoding adds +1 to the exponent in to_f64.
+        // Cover a range of magnitudes from tiny to max to exercise the full exponent range of from_f64. Values that are within normal f64 range should round-trip within S44 precision (~3 significant decimal digits). Values at the f64 extremes (MAX, MIN) may overflow back to ±infinity — that's acceptable since the i16::MIN fraction encoding adds +1 to the exponent in to_f64.
         let test_values: &[(f64, bool)] = &[
             (f64::MIN_POSITIVE * 1.0, false),
             (f64::MIN_POSITIVE * 1e10, false),
@@ -1505,10 +1490,7 @@ mod tests_scalar_ieee {
     }
 
     // ── Into<f32> / Into<f64> via generic trait ───────────────────────────────
-    // Note: Rust doesn't support trait specialisation, so the generic powi-based
-    // Into<f32> / Into<f64> impls are still used for S44. These tests verify that
-    // both the inherent to_f32()/to_f64() methods and the generic Into trait
-    // produce consistent results (within 2 ULP, allowing for different rounding).
+    // Note: Rust doesn't support trait specialisation, so the generic powi-based Into<f32> / Into<f64> impls are still used for S44. These tests verify that both the inherent to_f32()/to_f64() methods and the generic Into trait produce consistent results (within 2 ULP, allowing for different rounding).
 
     #[test]
     fn into_f32_agrees_with_to_f32() {

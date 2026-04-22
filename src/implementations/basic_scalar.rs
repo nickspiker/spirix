@@ -1094,10 +1094,7 @@ where
                 return false;
             }
 
-            // For contiguous integers, we need the value to be representable exactly
-            // This is already guaranteed by is_integer(), so we just need to check
-            // if it's within the contiguous range. For left-aligned format,
-            // contiguous integers should have reasonable magnitudes.
+            // For contiguous integers, we need the value to be representable exactly. This is already guaranteed by is_integer(), so we just need to check if it's within the contiguous range. For left-aligned format, contiguous integers should have reasonable magnitudes.
             return true;
         }
 
@@ -1132,9 +1129,7 @@ where
             self.fraction = !self.fraction; // escaped: flip sign via NOT
             return;
         }
-        // Negation: general case is wrapping_neg on stored. Power-of-2 boundaries
-        // (pos_one_normal ↔ neg_one_normal) require exponent adjustment since
-        // negating 2^k gives -2^k which must shift normalization by one.
+        // Negation: general case is wrapping_neg on stored. Power-of-2 boundaries (pos_one_normal ↔ neg_one_normal) require exponent adjustment since negating 2^k gives -2^k which must shift normalization by one.
         if self.fraction == Self::pos_one_normal() {
             self.exponent = self.exponent.wrapping_sub(&E::one());
             if self.exponent == Self::ambiguous_exponent() {
@@ -1143,8 +1138,14 @@ where
                 self.fraction = Self::neg_one_normal();
             }
         } else if self.fraction == Self::neg_one_normal() {
-            self.fraction = Self::pos_one_normal();
             self.exponent = self.exponent.wrapping_add(&E::one());
+            if self.exponent == Self::ambiguous_exponent() {
+                // Overflow: NEG_ONE at MAX_EXP negated is +2^(MAX_EXP+1) which
+                // is beyond representable normal range → exploded.
+                self.fraction = Self::pos_one_exploded();
+            } else {
+                self.fraction = Self::pos_one_normal();
+            }
         } else {
             self.fraction = self.fraction.wrapping_neg();
         }

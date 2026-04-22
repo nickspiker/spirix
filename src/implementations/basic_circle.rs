@@ -216,8 +216,10 @@ where
     /// Circle value per component: `c * 2^(exp - FRAC + 1)`.
     /// Scalar value:              `inflate(c) * 2^(exp - FRAC)`.
     ///
-    /// So `scalar_inflate = 2 * circle_stored` (in a wider signed type to avoid
-    /// overflow), then normalize to N-1 and deflate to Scalar's stored format.
+    /// For normals, `scalar_stored = circle << leading_same(circle)` in F-space:
+    /// the shift absorbs both the N-1 normalization (leading_same - 1 bits) and
+    /// the sign-convention flip (+1 bit = the `<< 1` inverse of the forward
+    /// Scalar→Circle transform).
     fn extract_component(&self, c: F) -> Scalar<F, E> {
         // Escape-class handling — Circle's class determines Scalar's class.
         if self.is_undefined() {
@@ -232,22 +234,31 @@ where
         if self.is_infinite() {
             return Scalar::<F, E>::INFINITY;
         }
+        // Escape classes share bit patterns between Scalar and Circle (escapes
+        // carry no normal sign bit), so the fraction copies through directly.
+        if self.exploded() || self.vanished() {
+            if c == F::zero() {
+                return Scalar::<F, E>::ZERO;
+            }
+            return Scalar {
+                fraction: c,
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
+            };
+        }
         // Zero sub-component of a non-zero Circle: becomes Scalar ZERO.
         if c == F::zero() {
             return Scalar::<F, E>::ZERO;
         }
 
-        // Normal translation: inflate (sign-extend) × 2, normalize N-1, deflate.
-        let raw = c.inflate(false).w_shl(1isize);
-        let leading_same = raw.leading_same();
-        let frac_bits = Scalar::<F, E>::fraction_bits();
-        let wide_bits = frac_bits.wrapping_shl(1);
-        let shift = leading_same.wrapping_sub(wide_bits.wrapping_sub(frac_bits));
-        let normalized = raw.w_shl(shift);
-        let stored = normalized.deflate();
-        let shift_e: E = shift.as_();
+        // Normal translation: single shift by leading_same in F-space.
+        let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
+        let stored: F = c << leading;
+        let shift_e: E = (leading - 1isize).as_();
         let new_exp = self.exponent.wrapping_sub(&shift_e);
-        Scalar { fraction: stored, exponent: new_exp }
+        Scalar {
+            fraction: stored,
+            exponent: new_exp,
+        }
     }
 
     #[inline]

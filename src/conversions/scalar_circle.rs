@@ -117,6 +117,7 @@ where
     /// assert!(z.i() > 0);   // Sign is also preserved
     /// ```
     pub(crate) fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
+        // Undefined propagates: first undefined wins.
         if real.is_undefined() {
             return Circle {
                 real: real.fraction,
@@ -131,37 +132,14 @@ where
                 exponent: imaginary.exponent,
             };
         }
-        if real.is_zero() && imaginary.is_zero() {
-            return Circle::<F, E>::ZERO;
-        }
-        if real.is_zero() {
-            let imag_c: F = imaginary
-                .fraction
-                .inflate(imaginary.is_normal())
-                .w_shr(1isize)
-                .deflate();
-            return Circle {
-                real: 0.as_(),
-                imaginary: imag_c,
-                exponent: imaginary.exponent,
-            };
-        }
-        if imaginary.is_zero() {
-            let real_c: F = real
-                .fraction
-                .inflate(real.is_normal())
-                .w_shr(1isize)
-                .deflate();
-            return Circle {
-                real: real_c,
-                imaginary: 0.as_(),
-                exponent: real.exponent,
-            };
-        }
+        // Infinity beats all other classes.
         if real.is_infinite() || imaginary.is_infinite() {
             return Circle::<F, E>::INFINITY;
         }
-        if real.vanished() && imaginary.vanished() || real.exploded() || imaginary.exploded() {
+        // Both exploded or both vanished → magnitude indeterminate.
+        if (real.exploded() && imaginary.exploded())
+            || (real.vanished() && imaginary.vanished())
+        {
             let prefix: F = INDETERMINATE.prefix.sa();
             return Circle {
                 real: prefix,
@@ -169,27 +147,80 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if real.vanished() {
+        // Escape patterns are identical between Scalar and Circle (escapes carry no normal sign bit), so their fractions copy through without translation. Single exploded: preserve on its axis, other axis = 0. Circle::exploded checks !is_normal() && is_n1(), so exponent must be ambiguous.
+        if real.exploded() {
+            return Circle {
+                real: real.fraction,
+                imaginary: 0.as_(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if imaginary.exploded() {
             return Circle {
                 real: 0.as_(),
                 imaginary: imaginary.fraction,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        // Vanished paired with normal: vanished is negligible, drop it.
+        if real.vanished() && imaginary.is_normal() {
+            let imag_c: F = (imaginary.fraction >> 1isize) ^ F::min_value();
+            return Circle {
+                real: 0.as_(),
+                imaginary: imag_c,
                 exponent: imaginary.exponent,
             };
         }
-        if imaginary.vanished() {
+        if imaginary.vanished() && real.is_normal() {
+            let real_c: F = (real.fraction >> 1isize) ^ F::min_value();
             return Circle {
-                real: real.fraction,
+                real: real_c,
                 imaginary: 0.as_(),
                 exponent: real.exponent,
             };
         }
-        // Normal case: translate each Scalar into Circle format (inflate>>1),
-        // then align exponents (shift smaller component's fraction right).
-        // Scalar format: value = inflate * 2^(exp - FRAC).
-        // Circle format: value = stored * 2^(exp - FRAC + 1) = (inflate/2) * 2^(exp - FRAC + 1).
-        // So: circle_stored = scalar_inflate >> 1, same exp.
-        let real_c: F = real.fraction.inflate(true).w_shr(1isize).deflate();
-        let imag_c: F = imaginary.fraction.inflate(true).w_shr(1isize).deflate();
+        // Vanished paired with zero: preserve vanished state.
+        if real.vanished() {
+            return Circle {
+                real: real.fraction,
+                imaginary: 0.as_(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if imaginary.vanished() {
+            return Circle {
+                real: 0.as_(),
+                imaginary: imaginary.fraction,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        // Both zero.
+        if real.is_zero() && imaginary.is_zero() {
+            return Circle::<F, E>::ZERO;
+        }
+        // Zero + normal: place normal on its axis.
+        if real.is_zero() {
+            let imag_c: F = (imaginary.fraction >> 1isize) ^ F::min_value();
+            return Circle {
+                real: 0.as_(),
+                imaginary: imag_c,
+                exponent: imaginary.exponent,
+            };
+        }
+        if imaginary.is_zero() {
+            let real_c: F = (real.fraction >> 1isize) ^ F::min_value();
+            return Circle {
+                real: real_c,
+                imaginary: 0.as_(),
+                exponent: real.exponent,
+            };
+        }
+        // Normal case: translate Scalar→Circle, then align exponents.
+        // Scalar fraction s carries implicit sign (~MSB); Circle carries explicit
+        // (MSB). For same value: circle = (s >> 1) XOR MSB_MASK — arithmetic
+        // shift halves the magnitude, XOR flips the sign convention.
+        let real_c: F = (real.fraction >> 1isize) ^ F::min_value();
+        let imag_c: F = (imaginary.fraction >> 1isize) ^ F::min_value();
         let exp_diff = real.exponent.wrapping_sub(&imaginary.exponent);
         if exp_diff == 0.as_() {
             return Circle {
