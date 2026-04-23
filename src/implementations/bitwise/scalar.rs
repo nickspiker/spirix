@@ -314,18 +314,32 @@ where
             return *self;
         }
         let new_exp = self.exponent.wrapping_add(shift);
-        if !shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
+        // Input sign in N0 normal: stored MSB=1 → positive, MSB=0 → negative.
+        let neg = !self.fraction.is_negative();
+        // Overflow: both non-negative, sum wrapped negative → true sum > MAX_EXP → Exploded.
+        let overflowed =
+            !shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative();
+        if overflowed {
             return Self {
-                fraction: self.fraction,
+                fraction: if neg {
+                    Self::neg_one_exploded()
+                } else {
+                    Self::pos_one_exploded()
+                },
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if shift.is_negative()
-            && self.exponent.is_negative()
-            && !(new_exp.wrapping_sub(&E::one())).is_negative()
-        {
+        // Underflow: either AMBIGUOUS landing (no wrap) or both-negative wrap
+        // to non-negative. Both mean true sum ≤ AMBIGUOUS → Vanished.
+        let underflowed = new_exp == Self::ambiguous_exponent()
+            || (shift.is_negative() && self.exponent.is_negative() && !new_exp.is_negative());
+        if underflowed {
             return Self {
-                fraction: self.fraction >> 1isize,
+                fraction: if neg {
+                    Self::neg_one_vanished()
+                } else {
+                    Self::pos_one_vanished()
+                },
                 exponent: Self::ambiguous_exponent(),
             };
         }
@@ -340,18 +354,30 @@ where
             return *self;
         }
         let new_exp = self.exponent.wrapping_sub(shift);
-        if shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
+        let neg = !self.fraction.is_negative();
+        // Overflow: shift negative, self.exp non-negative, diff wrapped negative → true diff > MAX_EXP → Exploded.
+        let overflowed =
+            shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative();
+        if overflowed {
             return Self {
-                fraction: self.fraction,
+                fraction: if neg {
+                    Self::neg_one_exploded()
+                } else {
+                    Self::pos_one_exploded()
+                },
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if !shift.is_negative()
-            && self.exponent.is_negative()
-            && !(new_exp.wrapping_sub(&E::one())).is_negative()
-        {
+        // Underflow: either AMBIGUOUS landing or shift≥0/self<0 wrap.
+        let underflowed = new_exp == Self::ambiguous_exponent()
+            || (!shift.is_negative() && self.exponent.is_negative() && !new_exp.is_negative());
+        if underflowed {
             return Self {
-                fraction: self.fraction >> 1isize,
+                fraction: if neg {
+                    Self::neg_one_vanished()
+                } else {
+                    Self::pos_one_vanished()
+                },
                 exponent: Self::ambiguous_exponent(),
             };
         }
