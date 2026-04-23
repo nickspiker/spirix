@@ -273,6 +273,18 @@ where
     /// ```
     pub(crate) fn compare(&self, other: &Scalar<F, E>) -> Option<Ordering> {
         if self.is_normal() && other.is_normal() {
+            // Different signs: positive > negative regardless of exponents.
+            // Without this, cross-sign + different-exp pairs misdirect through
+            // the cmp.reverse() branch (e.g. +exp=5 vs -exp=10 returns Less).
+            if self.is_negative() != other.is_negative() {
+                return Some(if self.is_negative() {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                });
+            }
+            // Same sign: larger exponent = larger magnitude; for negatives
+            // that means smaller value, so reverse.
             if self.exponent != other.exponent {
                 let cmp = self.exponent.cmp(&other.exponent);
                 return Some(if self.is_negative() {
@@ -281,6 +293,10 @@ where
                     cmp
                 });
             }
+            // Same sign, same exponent: N0 stored fraction ordering (unsigned
+            // compare on stored bits) is the value ordering, cross-sign or
+            // not, because N0 positive stored bits ≥ 0x80 > any negative
+            // stored bits ≤ 0x7F.
             return Some(self.fraction.cmp_unsigned(&other.fraction));
         }
         if self.is_undefined() || self.is_infinite() || other.is_undefined() || other.is_infinite()
