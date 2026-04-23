@@ -1419,7 +1419,10 @@ where
     /// ```
     pub fn ceil(&self) -> Self {
         let f = self.floor();
-        if f.fraction == self.fraction {
+        // "Already integer" means floor equals self exactly, not just that the
+        // fraction bits coincide — NEG_ONE's stored fraction (0x00) matches
+        // any neg_one_normal-shaped self at any exponent.
+        if f.fraction == self.fraction && f.exponent == self.exponent {
             f
         } else {
             f + Self::ONE
@@ -1494,11 +1497,20 @@ where
             }
             return *self;
         }
-        let f = self.floor();
-        if f.fraction == self.fraction {
-            return f;
-        } // already integer
         let e: isize = self.exponent.as_();
+        // exp < 0: |value| ≤ 2^exp ≤ 0.5. For exp < -1, |value| < 0.5 strictly
+        // → 0. At exp = -1, the only exact tie is value = -0.5 (neg_one at
+        // exp=-1); banker's rounds it to 0 too. So exp < 0 always rounds to 0.
+        // Short-circuit here to keep guard_pos within the shift range for the
+        // main algorithm below.
+        if e < 0 {
+            return Self::ZERO;
+        }
+        let f = self.floor();
+        // Already integer: check both fraction and exponent match.
+        if f.fraction == self.fraction && f.exponent == self.exponent {
+            return f;
+        }
         if e >= Self::fraction_bits() {
             return f;
         }
@@ -1512,8 +1524,19 @@ where
         if sticky != F::zero() {
             return f + Self::ONE;
         } // > 0.5, ceil
-          // Exactly 0.5: banker's — round to even. Check integer LSB.
-        let int_lsb = (self.fraction >> (guard_pos + 1)) & F::one();
+          // Exactly 0.5: banker's — round to even. Need int_lsb at position
+          // (FRAC - e). For e = 0 that's bit FRAC (one past stored MSB) — in
+          // N0 that's the implicit sign bit, which is !stored.MSB: positive
+          // (stored MSB=1) → int_lsb=0 (even); negative (MSB=0) → int_lsb=1.
+        let int_lsb = if e == 0 {
+            if !self.fraction.is_negative() {
+                F::one()
+            } else {
+                F::zero()
+            }
+        } else {
+            (self.fraction >> guard_pos.wrapping_add(1)) & F::one()
+        };
         if int_lsb != F::zero() {
             f + Self::ONE
         } else {
