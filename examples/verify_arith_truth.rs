@@ -1,4 +1,4 @@
-//! Exhaustive F3E3 verification of +, -, × against their README truth tables.
+//! Exhaustive F3E3 verification of +, -, ×, /, % against their README truth tables.
 use spirix::*;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -24,14 +24,14 @@ fn name(c: Class) -> &'static str {
 }
 
 #[derive(Copy, Clone)]
-enum Op { Add, Sub, Mul }
+enum Op { Add, Sub, Mul, Div, Mod }
 
 fn op_name(o: Op) -> &'static str {
-    match o { Op::Add => "+", Op::Sub => "-", Op::Mul => "×" }
+    match o { Op::Add => "+", Op::Sub => "-", Op::Mul => "×", Op::Div => "/", Op::Mod => "%" }
 }
 
 fn apply(o: Op, a: S, b: S) -> S {
-    match o { Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b }
+    match o { Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b, Op::Div => a / b, Op::Mod => a % b }
 }
 
 fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
@@ -73,6 +73,55 @@ fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
             (Exploded, Infinity) | (Infinity, Exploded) => { s.insert(Infinity); }
             (Infinity, Infinity)             => { s.insert(Infinity); }
         },
+        // Division truth table from README. Convention: in run_op, a=row, b=col,
+        // and the operation computed is `b OP a` (col is first operand). So for
+        // division the match reads (a /* denominator */, b /* numerator */).
+        Op::Div => match (a /* denom */, b /* numer */) {
+            (Undefined, _) | (_, Undefined)  => { s.insert(Undefined); }
+            // Indeterminate: 0/0, ↓/↓, ↑/↑, ∞/∞
+            (Zero, Zero) | (Vanished, Vanished) | (Exploded, Exploded) | (Infinity, Infinity) => { s.insert(Undefined); }
+            // X / 0 = ∞ for any non-zero X.
+            (Zero, _)                        => { s.insert(Infinity); }
+            // X / ∞ = 0 for any non-infinity X.
+            (Infinity, _)                    => { s.insert(Zero); }
+            // 0 / X = 0 for any non-zero X (denom non-zero, handled above).
+            (_, Zero)                        => { s.insert(Zero); }
+            // ∞ / X = ∞ for any non-infinity X.
+            (_, Infinity)                    => { s.insert(Infinity); }
+            // Remaining: denom is Vanished/Normal/Exploded, numer is Vanished/Normal/Exploded.
+            (Vanished, Normal)               => { s.insert(Exploded); } // finite/tiny = huge
+            (Vanished, Exploded)             => { s.insert(Exploded); } // huge/tiny = huge
+            (Normal, Vanished)               => { s.insert(Vanished); } // tiny/finite = tiny
+            (Normal, Normal)                 => { s.insert(Normal); s.insert(Vanished); s.insert(Exploded); }
+            (Normal, Exploded)               => { s.insert(Exploded); }
+            (Exploded, Vanished)             => { s.insert(Vanished); } // tiny/huge = tiny
+            (Exploded, Normal)               => { s.insert(Vanished); } // finite/huge = tiny
+        },
+        // Modulus truth table from README. Same convention as Div: in run_op,
+        // a=row, b=col, and the operation computed is `b OP a`. For %, the
+        // row is the PERIOD (divisor) and col is the NUMERATOR. Cell entries
+        // with `X / Y` notation (sign-dependent) contribute both to the set.
+        Op::Mod => match (a /* period */, b /* numer */) {
+            (Undefined, _) | (_, Undefined)  => { s.insert(Undefined); }
+            // Row [0] (period=Zero): always 0. Also col [0] numer=Zero → 0.
+            (Zero, _) | (_, Zero)            => { s.insert(Zero); }
+            // Row [↓] (period=Vanished): all undefined (after Zero handled).
+            (Vanished, _)                    => { s.insert(Undefined); }
+            // Row [∞] (period=Infinity): all undefined (after Zero handled).
+            (Infinity, _)                    => { s.insert(Undefined); }
+            // Transfinite numerator (col [↑] or [∞]) with Normal/Exploded
+            // period (Vanished/Infinity handled above) → rule 3: undefined.
+            (Normal, Exploded) | (Normal, Infinity)
+            | (Exploded, Exploded) | (Exploded, Infinity) => { s.insert(Undefined); }
+            // Row [#] (period=Normal): Vanished numer → [↓] or [#] depending
+            // on signs. Normal numer → [0], [↓], [#] depending on magnitudes.
+            (Normal, Vanished)               => { s.insert(Vanished); s.insert(Normal); }
+            (Normal, Normal)                 => { s.insert(Zero); s.insert(Vanished); s.insert(Normal); }
+            // Row [↑] (period=Exploded): Vanished numer → [↓] / [↑] signs.
+            // Normal numer → [#] / [℘%⬆] signs.
+            (Exploded, Vanished)             => { s.insert(Vanished); s.insert(Exploded); }
+            (Exploded, Normal)               => { s.insert(Normal); s.insert(Undefined); }
+        },
     }
     s
 }
@@ -95,6 +144,7 @@ fn reps() -> Vec<(Class, Vec<S>)> {
 fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
     let mut mismatches: BTreeMap<(Class, Class), BTreeSet<Class>> = BTreeMap::new();
     let mut observed: BTreeMap<(Class, Class), BTreeSet<Class>> = BTreeMap::new();
+    let mut first_bad: BTreeMap<(Class, Class, Class), (S, S, S)> = BTreeMap::new();
     let mut total = 0usize;
     let mut fails = 0usize;
     for (ca, va) in reps {
@@ -112,6 +162,7 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
                     if !exp.contains(&rc) {
                         fails += 1;
                         mismatches.entry((*ca, *cb)).or_default().insert(rc);
+                        first_bad.entry((*ca, *cb, rc)).or_insert((*b, *a, r));
                     }
                 }
             }
@@ -124,6 +175,21 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
         let got_s: Vec<_> = got.iter().map(|c| name(*c)).collect();
         println!("  OUT-OF-SET {} {} {} — expected {:?}, also got {:?}",
                  name(*ca), op_name(o), name(*cb), exp_s, got_s);
+        for rc in got {
+            if let Some((lhs, rhs, res)) = first_bad.get(&(*ca, *cb, *rc)) {
+                let lb = unsafe { std::mem::transmute::<S, [i8; 2]>(*lhs) };
+                let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(*rhs) };
+                let rs = unsafe { std::mem::transmute::<S, [i8; 2]>(*res) };
+                let lf: f64 = (*lhs).into();
+                let rf: f64 = (*rhs).into();
+                let res_f: f64 = (*res).into();
+                println!("    -> got {}: lhs=[{:#04x},{}]={} rhs=[{:#04x},{}]={} result=[{:#04x},{}]={}",
+                    name(*rc),
+                    lb[0] as u8, lb[1], lf,
+                    rb[0] as u8, rb[1], rf,
+                    rs[0] as u8, rs[1], res_f);
+            }
+        }
     }
     let mut any_missing = false;
     for (ca, _) in reps {
@@ -145,7 +211,7 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
 
 fn main() {
     let reps = reps();
-    for op in [Op::Add, Op::Sub, Op::Mul] {
+    for op in [Op::Add, Op::Sub, Op::Mul, Op::Div, Op::Mod] {
         run_op(op, &reps);
     }
 }

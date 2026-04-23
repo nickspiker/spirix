@@ -221,6 +221,10 @@ where
             }
             // Diff signs: result = a + b. Inlined add (skips abnormal checks — we already know both are normal — and the result can't underflow to zero: |a+b| = |b|-|a| > 0 since |a|<|b|).
             let exp_diff_ba = modulus.exponent.wrapping_sub(&self.exponent);
+            // Overflow in E (true diff > E::MAX): a utterly negligible vs b → result ≈ b.
+            if exp_diff_ba.is_negative() {
+                return *modulus;
+            }
             let shift_ba: isize = exp_diff_ba.saturate();
             if shift_ba >= Self::fraction_bits() {
                 // a is negligible at b's precision: result = b.
@@ -233,17 +237,29 @@ where
             let offset = self
                 .exponent
                 .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-            if modulus.exponent.is_negative() && !offset.is_negative() {
+            // Underflow: either wrap-around (mod.exp negative, offset wrapped to non-negative) or exact AMBIGUOUS landing. Both mean true offset ≤ AMBIGUOUS → vanished.
+            let underflowed = (modulus.exponent.is_negative() && !offset.is_negative())
+                || offset == Self::ambiguous_exponent();
+            // Folded net shift (shl(L).shr(fb) as one signed shift) to sidestep Rust's shift-overflow semantics when L == wide_bits.
+            let fb = Self::fraction_bits();
+            let shl_amount = if underflowed {
+                leading.wrapping_sub(2).wrapping_sub(fb)
+            } else {
+                leading.wrapping_sub(fb)
+            };
+            let canonical = if shl_amount >= 0 {
+                sum.w_shl(shl_amount)
+            } else {
+                sum.w_shr(shl_amount.wrapping_neg())
+            };
+            if underflowed {
                 return Self {
-                    fraction: sum
-                        .w_shl(leading.wrapping_sub(1))
-                        .w_shr(Self::fraction_bits())
-                        .deflate(),
+                    fraction: canonical.deflate(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
             return Self {
-                fraction: sum.w_shl(leading).w_shr(Self::fraction_bits()).deflate(),
+                fraction: canonical.deflate(),
                 exponent: offset,
             };
         }
@@ -251,22 +267,26 @@ where
         let exp_diff_e = self.exponent.wrapping_sub(&modulus.exponent);
         let exp_diff: isize = exp_diff_e.saturate();
 
-        // Exponent gap too wide for an exact remainder in 2*FRAC bits. For very large a relative to b, the remainder isn't representable without a wider intermediate. Match FPGA semantics: return ZERO. (Limit is FRAC-1 to avoid signed overflow on the left shift below.)
-        if exp_diff >= Self::fraction_bits() {
-            return Self::ZERO;
-        }
-
         // Inflate both fractions to wide effective values, take magnitudes.
         let a_wide = self.fraction.inflate(true);
         let b_wide = modulus.fraction.inflate(true);
         let a_mag = if a_neg { a_wide.w_neg() } else { a_wide };
         let b_mag = if b_neg { b_wide.w_neg() } else { b_wide };
 
-        // Align a's magnitude to b's exponent by shifting left.
-        let a_aligned = a_mag.w_shl(exp_diff);
-
-        // Integer modulo via unsigned arithmetic on the bit pattern. (After abs+shift, both magnitudes are positive; unsigned interpretation gives the correct remainder even if signed view overflows.)
-        let r_mag = a_aligned.w_rem_unsigned(b_mag);
+        // Compute (a_mag << exp_diff) mod b_mag via chunked iterative reduction
+        // — the direct shift would overflow for exp_diff ≥ FRAC, so we shift in
+        // chunks of ≤ FRAC bits and reduce modulo b_mag after each. Unsigned
+        // interpretation keeps arithmetic correct even when signed view wraps.
+        // Invariant: rem ∈ [0, b_mag) after every iteration.
+        let fb = Self::fraction_bits();
+        let mut rem = a_mag.w_rem_unsigned(b_mag);
+        let mut remaining = exp_diff;
+        while remaining > 0 {
+            let chunk = remaining.min(fb);
+            rem = rem.w_shl(chunk).w_rem_unsigned(b_mag);
+            remaining -= chunk;
+        }
+        let r_mag = rem;
 
         if r_mag.w_is_zero() {
             return Self::ZERO;
@@ -298,22 +318,30 @@ where
         let leading = result_wide.leading_same();
         let offset = modulus
             .exponent
-            .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
+            .wrapping_add(&(fb.wrapping_sub(leading)).as_());
 
-        if modulus.exponent.is_negative() && !offset.is_negative() {
+        // Underflow: wrap-around (mod.exp negative, offset wrapped to non-negative) or exact AMBIGUOUS landing. Vanished uses N-2 normalization.
+        let underflowed = (modulus.exponent.is_negative() && !offset.is_negative())
+            || offset == Self::ambiguous_exponent();
+        // Folded net shift (shl(L).shr(fb) as one signed shift) to sidestep Rust's shift-overflow semantics when L == wide_bits.
+        let shl_amount = if underflowed {
+            leading.wrapping_sub(2).wrapping_sub(fb)
+        } else {
+            leading.wrapping_sub(fb)
+        };
+        let canonical = if shl_amount >= 0 {
+            result_wide.w_shl(shl_amount)
+        } else {
+            result_wide.w_shr(shl_amount.wrapping_neg())
+        };
+        if underflowed {
             return Self {
-                fraction: result_wide
-                    .w_shl(leading.wrapping_sub(1))
-                    .w_shr(Self::fraction_bits())
-                    .deflate(),
+                fraction: canonical.deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
         Self {
-            fraction: result_wide
-                .w_shl(leading)
-                .w_shr(Self::fraction_bits())
-                .deflate(),
+            fraction: canonical.deflate(),
             exponent: offset,
         }
     }

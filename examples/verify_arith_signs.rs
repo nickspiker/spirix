@@ -8,18 +8,36 @@ use std::collections::BTreeMap;
 type S = ScalarF3E3;
 
 #[derive(Copy, Clone, Debug)]
-enum Op { Add, Sub, Mul }
+enum Op { Add, Sub, Mul, Div, Mod }
 
 fn op_name(o: Op) -> &'static str {
-    match o { Op::Add => "+", Op::Sub => "-", Op::Mul => "*" }
+    match o { Op::Add => "+", Op::Sub => "-", Op::Mul => "*", Op::Div => "/", Op::Mod => "%" }
 }
 
 fn spirix_op(o: Op, a: S, b: S) -> S {
-    match o { Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b }
+    match o { Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b, Op::Div => a / b, Op::Mod => a % b }
 }
 
 fn f64_op(o: Op, a: f64, b: f64) -> f64 {
-    match o { Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b }
+    match o {
+        Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b, Op::Div => a / b,
+        // Spirix % is floored (sign of divisor); Rust % is truncating (sign of
+        // dividend). Compute floored to match: a - floor(a/b) * b.
+        Op::Mod => a - (a / b).floor() * b,
+    }
+}
+
+// Exact f64 floor_mod for the cases f64 arithmetic can handle.
+// For |a/b| anywhere near 2^52, f64's ULP at that magnitude is ~0.5 to 1,
+// which is enough to misplace the true value relative to an integer boundary
+// and flip the sign of a near-zero floor_mod result. Use a much tighter
+// bound so the rounding error on a/b stays far from 0.5 ULP of any integer.
+// 2^30 gives ULP ≈ 2^-22, safely under any integer-boundary concern.
+fn f64_floor_mod_reliable(a: f64, b: f64) -> Option<f64> {
+    if b == 0.0 || a.is_nan() || b.is_nan() { return None; }
+    let ratio = (a / b).abs();
+    if !ratio.is_finite() || ratio >= (1u64 << 30) as f64 { return None; }
+    Some(a - (a / b).floor() * b)
 }
 
 fn run(o: Op) {
@@ -39,7 +57,14 @@ fn run(o: Op) {
                     let r = spirix_op(o, s1, s2);
                     let a_f64: f64 = s1.into();
                     let b_f64: f64 = s2.into();
-                    let rf = f64_op(o, a_f64, b_f64);
+                    let rf = if matches!(o, Op::Mod) {
+                        match f64_floor_mod_reliable(a_f64, b_f64) {
+                            Some(v) => v,
+                            None => continue,
+                        }
+                    } else {
+                        f64_op(o, a_f64, b_f64)
+                    };
                     // Skip if f64 result is 0 or NaN (sign undefined).
                     if rf == 0.0 || rf.is_nan() { continue; }
                     // Skip if spirix says undefined or zero (no meaningful sign to compare).
@@ -78,7 +103,7 @@ fn run(o: Op) {
 }
 
 fn main() {
-    for op in [Op::Add, Op::Sub, Op::Mul] {
+    for op in [Op::Add, Op::Sub, Op::Mul, Op::Div, Op::Mod] {
         run(op);
     }
 }
