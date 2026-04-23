@@ -178,25 +178,29 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Extracts the high byte (first 8 bits) from the fraction.  
-    ///  
-    /// This forms a behavioral prefix that indicates the value's classification:  
-    ///  
-    /// N0: Zero and Infinity  
-    /// □□□□□□□□  Zero `[0]`  
-    /// ■■■■■■■■  Infinity `[∞]`  
-    ///  
-    /// N1: Normal and Exploded Values  
-    /// □■xxxxxx  Positive `[+#]`  
-    /// ■□xxxxxx  Negative `[-#]`  
-    ///  
-    /// N2: Vanishing Values
-    /// □□■xxxxx  Positive effectively zero `[+↓]`  
-    /// ■■□xxxxx  Negative effectively zero `[-↓]`  
-    ///  
-    /// N3 - N-7: Undefined  
-    /// □□□■xxxx | ■■■□xxxx `[℘?]`  
-    ///  
+    /// Extracts the high byte (first 8 bits) from the fraction.
+    ///
+    /// This forms a behavioral prefix that indicates the value's classification. Normal values use the N0 convention (no MSB sign bit; sign via ~MSB); escaped and singular patterns carry their shape in the high bits and are tagged by AMBIGUOUS_EXPONENT.
+    ///
+    /// Singular (with AMBIGUOUS_EXPONENT)
+    /// □□□□□□□□  Zero `[0]`
+    /// ■■■■■■■■  Infinity `[∞]`
+    ///
+    /// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent)
+    /// ■xxxxxxx  Positive `[+#]`
+    /// □xxxxxxx  Negative `[-#]`
+    ///
+    /// Exploded (N-1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+    /// □■xxxxxx  Positive `[+↑]`
+    /// ■□xxxxxx  Negative `[-↑]`
+    ///
+    /// Vanished (N-2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+    /// □□■xxxxx  Positive `[+↓]`
+    /// ■■□xxxxx  Negative `[-↓]`
+    ///
+    /// Undefined (N-3+ with AMBIGUOUS_EXPONENT)
+    /// □□□■xxxx | ■■■□xxxx `[℘?]`
+    ///
     /// The prefix is used by methods to determine the Scalar's state and behavior in operations.
     #[inline]
     pub(crate) fn prefix(&self) -> i8 {

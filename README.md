@@ -125,16 +125,16 @@ value = (real + imaginary × i) × 2^exponent
 
 ### Normal Values [+#], [-#]
 
-Normal values have definite magnitudes and participate fully in all arithmetic operations:
+Normal values have definite magnitudes and participate fully in all arithmetic operations. They use the N0 storage convention: there is **no separate sign bit** at the MSB. Sign is encoded by the implicit complement of the MSB — stored MSB=1 reads as positive, stored MSB=0 reads as negative.
 
 ```
-□■xxxxxx... - Positive normal numbers  
-■□xxxxxx... - Negative normal numbers  
+■xxxxxxx... - Positive normal numbers (stored MSB=1, implicit "0" above it → +)
+□xxxxxxx... - Negative normal numbers (stored MSB=0, implicit "1" above it → -)
 ```
 
 Normal numbers have:
 - A non-ambiguous exponent
-- A normalized fraction in the N-1 level
+- A stored fraction whose MSB encodes sign by the ~MSB convention
 - A definite magnitude
 
 ### Zero [0]
@@ -144,7 +144,7 @@ Zero is represented with a unique bit pattern in the fraction:
 ```
 □□□□□□□□... - Zero
 ```
-All zeros. Zero is ambiguous, thus has exponent equal to AMBIGIOUS_EXPONENT
+All zeros, with exponent equal to AMBIGUOUS_EXPONENT. (The fraction bits coincide with the boundary case of the negative-normal range; the ambiguous exponent is what distinguishes Zero.)
 
 ### Infinity [∞]
 
@@ -153,11 +153,11 @@ Infinity is represented with a unique bit pattern in the fraction:
 ```
 ■■■■■■■■... - Infinity
 ```
-All ones. Infinity is ambiguous, thus has exponent equal to AMBIGIOUS_EXPONENT
+All ones, with exponent equal to AMBIGUOUS_EXPONENT.
 
 ### Escaped Values [↑], [↓]
 
-When values exceed the representable range, they become "escaped" values:
+When values exceed the representable range, they become "escaped" values. Unlike normal values, escaped patterns do carry an explicit sign bit at the MSB:
 
 - **Exploded** values [↑]: Numbers too large to represent with current exponent range
   ```

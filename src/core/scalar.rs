@@ -21,26 +21,30 @@ use crate::Integer;
 /// - Singular Infinity `[∞]`
 /// - Undefined states `[℘]`
 ///
-/// ## Normalization Levels
+/// ## Storage Layout
 ///
-/// The bit patterns in the fraction follow these normalization levels:
+/// Normal values use the N0 convention: there is no explicit sign bit at the MSB. Sign is encoded by the implicit complement of the MSB — a stored MSB of 1 reads as positive, MSB of 0 reads as negative. Escaped (exploded / vanished) and singular (zero / infinity) patterns carry their classifying shape in the high bits and are tagged by AMBIGUOUS_EXPONENT.
 ///
 /// ```txt
 /// Position: 01234567...
 ///
-/// N0: Zero and Infinity
+/// Singular: Zero and Infinity (with AMBIGUOUS_EXPONENT)
 /// □□□□□□□□  Zero [0]
 /// ■■■■■■■■  Infinity [∞]
 ///
-/// N1: Normal and Exploded Values
-/// □■xxxxxx  Positive normal [+#] or exploded [+↑] (with AMBIGUOUS_EXPONENT)
-/// ■□xxxxxx  Negative normal [-#] or exploded [-↑] (with AMBIGUOUS_EXPONENT)
+/// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent)
+/// ■xxxxxxx  Positive normal [+#]
+/// □xxxxxxx  Negative normal [-#]
 ///
-/// N2: Vanishing Values
+/// Exploded (N-1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// □■xxxxxx  Positive exploded [+↑]
+/// ■□xxxxxx  Negative exploded [-↑]
+///
+/// Vanished (N-2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
 /// □□■xxxxx  Positive vanished [+↓] (approaching but not equal to 0)
 /// ■■□xxxxx  Negative vanished [-↓] (approaching but not equal to 0)
 ///
-/// N3+: Undefined States
+/// Undefined (N-3+ with AMBIGUOUS_EXPONENT)
 /// □□□xxxxx | ■■■xxxxx  Specific undefined states
 /// ```
 ///

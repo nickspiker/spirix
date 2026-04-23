@@ -20,24 +20,27 @@ use crate::Integer;
 /// - Singular Infinity `[∞]`
 /// - Undefined states `[℘]`
 ///
-/// ## Normalization Levels
+/// ## Storage Layout
 ///
-/// The bit patterns in the real and imaginary components follow these normalization levels:
+/// Real and imaginary components share the Scalar storage convention. Normal values use N0: no explicit sign bit at the MSB — sign is encoded by the implicit complement of the MSB (stored MSB=1 → positive, MSB=0 → negative). Escaped and singular patterns are tagged by AMBIGUOUS_EXPONENT.
 ///
 /// ```txt
 /// Position: 01234567...
 ///
-/// N0: Zero and Infinity
+/// Singular (with AMBIGUOUS_EXPONENT)
 /// □□□□□□□□  Zero [0]
 /// ■■■■■■■■  Infinity [∞]
 ///
-/// N1: Normal and Exploded Values
-/// □■xxxxxx | ■□xxxxxx  Normal [#,#] or exploded [↑]
+/// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent)
+/// ■xxxxxxx | □xxxxxxx  Positive / negative normal [#]
 ///
-/// N2: Vanishing Values
-/// □□■xxxxx | ■■□xxxxx Vanished [↓]
+/// Exploded (N-1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// □■xxxxxx | ■□xxxxxx  Positive / negative exploded [↑]
 ///
-/// N3+: Undefined States
+/// Vanished (N-2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// □□■xxxxx | ■■□xxxxx  Positive / negative vanished [↓]
+///
+/// Undefined (N-3+ with AMBIGUOUS_EXPONENT)
 /// □□□xxxxx | ■■■xxxxx
 /// ```
 ///
