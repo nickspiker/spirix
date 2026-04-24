@@ -1,7 +1,6 @@
 // Exhaustive testbench for spirix_add (parameterized).
 // Uses F5E4 (5-bit frac, 4-bit exp) for full enumeration.
-// Gold model at DUT precision (FRAC+2 internal bits): single-path add
-// with banker's rounding and rounding overflow correction.
+// Gold model at DUT precision (FRAC+2 internal bits): single-path add with banker's rounding and rounding overflow correction.
 
 `timescale 1ns/1ps
 module tb;

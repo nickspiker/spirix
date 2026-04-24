@@ -2,8 +2,7 @@ use approx::assert_relative_eq;
 use spirix::*;
 
 // Integration tests for cross-type operations and real-world scenarios
-// These tests verify that different precision configurations work together
-// and that complex operation chains preserve mathematical correctness
+// These tests verify that different precision configurations work together and that complex operation chains preserve mathematical correctness
 
 #[cfg(test)]
 mod cross_precision_operations {

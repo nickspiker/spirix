@@ -308,8 +308,7 @@ fn test_conversion_error_handling() {
     let vanished = ScalarF5E3::MIN_POS / ScalarF5E3::from(10.0);
 
     // Conversion of undefined values
-    // Note: The behavior of converting undefined to f32 is implementation-defined
-    // but should not panic or cause undefined behavior
+    // Note: The behavior of converting undefined to f32 is implementation-defined but should not panic or cause undefined behavior
     let undefined_as_f32: f32 = undefined.into();
     assert!(undefined_as_f32.is_nan() || undefined_as_f32.is_infinite());
 

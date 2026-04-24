@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 
-// Minimal testbench: simulate just the PRNG + blake3 + XOR-fold + compare
-// to verify the harness logic is correct in simulation.
+// Minimal testbench: simulate just the PRNG + blake3 + XOR-fold + compare to verify the harness logic is correct in simulation.
 module top_ntsc_tb;
 
     reg clk = 0;

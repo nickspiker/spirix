@@ -6,8 +6,7 @@
 // Translation copyright released under same BSD-3-Clause terms.
 //
 // Implements the BLAKE3 compression function ONLY.
-// Tree structure, chunking, padding, and root finalization are
-// the caller's responsibility.
+// Tree structure, chunking, padding, and root finalization are the caller's responsibility.
 //
 // Port description:
 //   i_chain    [255:0]  Chaining value: 8 x 32-bit words, word 0 in [31:0]

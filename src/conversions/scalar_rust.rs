@@ -101,8 +101,7 @@ where
             let base = base_i64 as f64;
             let exponent: i32 = self.exponent.saturate();
             let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
-            // Adjust the f64 bit-exponent of `base` directly to avoid precision loss
-            // from powi() multiplication chains at extreme exponents.
+            // Adjust the f64 bit-exponent of `base` directly to avoid precision loss from powi() multiplication chains at extreme exponents.
             if base == 0.0 { return 0.0; }
             let bits = base.to_bits();
             let sign = bits & 0x8000_0000_0000_0000;
@@ -1171,8 +1170,7 @@ mod tests_scalar_ieee {
         let back = S44::from_f32(v).to_f32();
         assert!(f32_close(v, back), "MIN_POSITIVE round-trip: {v} → {back}");
 
-        // f32::MAX (largest finite). S44 i16 exponent can hold 128, so this is representable
-        // with 15-bit fraction precision (loses 8 bits). Should produce a close large value.
+        // f32::MAX (largest finite). S44 i16 exponent can hold 128, so this is representable with 15-bit fraction precision (loses 8 bits). Should produce a close large value.
         let back_max = S44::from_f32(f32::MAX).to_f32();
         assert!(
             back_max.is_finite() && back_max > 0.0,
@@ -1256,8 +1254,7 @@ mod tests_scalar_ieee {
         assert!(S44::from(f32::NAN).to_f64().is_nan());
         assert!(S44::from(f32::INFINITY).to_f64().is_infinite());
         assert!(S44::from(f32::NEG_INFINITY).to_f64().is_infinite()); // sign lost
-        // Spirix ZERO is signless — both ±0.0 map to the same ZERO, round-tripping
-        // to +0.0. Sign is intentionally not preserved.
+        // Spirix ZERO is signless — both ±0.0 map to the same ZERO, round-tripping to +0.0. Sign is intentionally not preserved.
         assert_eq!(S44::from(0.0_f32).to_f64().to_bits(), 0u64);
         assert_eq!(S44::from(-0.0_f32).to_f64().to_bits(), 0u64);
     }

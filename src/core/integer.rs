@@ -22,8 +22,7 @@ impl Integer for i64 {}
 impl Integer for i128 {}
 
 // Internal traits and implementations
-// These traits are not part of the public API and are used internally
-// for type conversions and bit manipulations.
+// These traits are not part of the public API and are used internally for type conversions and bit manipulations.
 
 /// # FullInt Trait
 ///

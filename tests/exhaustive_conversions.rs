@@ -174,8 +174,7 @@ fn const_ln_two_close_to_ln_two() {
 /// f64 → Scalar → f64 should round-trip within ULP for representable values.
 #[test]
 fn f64_roundtrip_reasonable_values() {
-    // Note: f64 subnormals (smaller than ~1e-38) underflow F6E3's i8 exponent range
-    // and are correctly mapped to vanished — test those separately.
+    // Note: f64 subnormals (smaller than ~1e-38) underflow F6E3's i8 exponent range and are correctly mapped to vanished — test those separately.
     let cases: &[f64] = &[
         0.0, 1.0, -1.0, 0.5, -0.5, 2.0, -2.0,
         3.14159265358979, -3.14159265358979,

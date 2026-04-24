@@ -559,16 +559,14 @@ where
         self.sinh() / self.cosh()
     }
     // pub fn erf(&self) -> Self {
-    //     // Handle special cases first
-    //     if !self.is_normal() {
+    // // Handle special cases first if !self.is_normal() {
     //         if self.exploded() {
     //             return Self {
     //                 fraction: GENERAL.prefix.sa(),
     //                 exponent: Self::ambiguous_exponent(),
     //             };
     //         }
-    //         // Zero returns zero
-    //         if self.is_zero() {
+    // // Zero returns zero if self.is_zero() {
     //             return Self::ZERO;
     //         }
     //         return *self;
@@ -641,8 +639,7 @@ where
     //         delta = c * d;
     //         f = f * delta;
 
-    //         // Check for convergence
-    //         if (delta - Self::ONE).magnitude() < Self::POS_NORMAL_EPSILON
+    // // Check for convergence if (delta - Self::ONE).magnitude() < Self::POS_NORMAL_EPSILON
     //             || j > (Self::fraction_bits() >> 1)
     //         {
     //             break;

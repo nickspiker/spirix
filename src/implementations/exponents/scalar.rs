@@ -371,8 +371,7 @@ where
         };
 
         // Newton: x_{n+1} = (x_n + S/x_n) / 2.
-        // Converges monotonically, but can oscillate between floor and ceil
-        // at the last ULP. Track previous to detect the 2-cycle.
+        // Converges monotonically, but can oscillate between floor and ceil at the last ULP. Track previous to detect the 2-cycle.
         let mut prev = guess;
         loop {
             let next = (guess + *self / guess) >> 1u8;

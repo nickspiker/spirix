@@ -200,8 +200,7 @@ where
         if sign == 0 {
             return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
         }
-        // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent
-        // because its magnitude straddles the boundary between exp buckets.
+        // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent because its magnitude straddles the boundary between exp buckets.
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),

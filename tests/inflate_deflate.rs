@@ -10,9 +10,7 @@
 
 #[test]
 fn inflate_deflate_i8_exhaustive() {
-    // We can't call inflate/deflate directly (pub(crate)), but we can verify
-    // the mathematical properties by computing what inflate should produce
-    // and checking it matches the specification.
+    // We can't call inflate/deflate directly (pub(crate)), but we can verify the mathematical properties by computing what inflate should produce and checking it matches the specification.
     for stored in i8::MIN..=i8::MAX {
         let s = stored as u8;
         let sign_bit = ((!stored) >> 7) & 1; // ~MSB

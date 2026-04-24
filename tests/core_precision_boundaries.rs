@@ -110,8 +110,7 @@ macro_rules! test_precision_boundaries_for_type {
                 let third = $scalar_type::ONE / $scalar_type::from(3);
                 let reconstructed = third * $scalar_type::from(3);
 
-                // Due to finite precision, this might not equal exactly 1
-                // but the result should be normal and close
+                // Due to finite precision, this might not equal exactly 1 but the result should be normal and close
                 if reconstructed.is_normal() {
                     let diff = reconstructed - one;
                     let abs_diff = if diff.is_negative() { -diff } else { diff };

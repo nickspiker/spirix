@@ -1,5 +1,4 @@
-// Registered wrapper for HardFloat add — gives nextpnr a real clock path
-// so it can report actual Fmax through the combinational logic.
+// Registered wrapper for HardFloat add — gives nextpnr a real clock path so it can report actual Fmax through the combinational logic.
 
 `include "HardFloat_consts.vi"
 `include "HardFloat_specialize.vi"

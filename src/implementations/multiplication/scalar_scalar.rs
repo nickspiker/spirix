@@ -231,8 +231,7 @@ where
         let fb = Self::fraction_bits();
         let sum = self.exponent.wrapping_add(&other.exponent);
 
-        // u_product = |p_signed|. LLVM compiles this conditional to `neg + cmov`
-        // (branchless at asm level) — no wider bit-ops formulation beats that.
+        // u_product = |p_signed|. LLVM compiles this conditional to `neg + cmov` (branchless at asm level) — no wider bit-ops formulation beats that.
         let expect_negative = self.is_negative() != other.is_negative();
         let u_product = if expect_negative {
             p_signed.w_neg()
@@ -241,9 +240,7 @@ where
         };
         let leading = u_product.w_leading_zeros();
 
-        // Exploded/vanished extract: u_product (magnitude) >> k logical, then XOR
-        // with class-appropriate sign-flip mask if neg_bit. Magnitude-based so
-        // wrap doesn't bite. Rounding mode here doesn't matter.
+        // Exploded/vanished extract: u_product (magnitude) >> k logical, then XOR with class-appropriate sign-flip mask if neg_bit. Magnitude-based so wrap doesn't bite. Rounding mode here doesn't matter.
         let exploded_flip = Self::pos_one_exploded() ^ Self::neg_one_exploded();
         let vanished_flip = Self::pos_one_vanished() ^ Self::neg_one_vanished();
         let extract_escaped = |k: isize, flip: F| -> F {
@@ -259,8 +256,7 @@ where
             }
         };
 
-        // Exponent overflow (both inputs positive-exp, sum wrapped negative
-        // including AMBIGUOUS) → exploded.
+        // Exponent overflow (both inputs positive-exp, sum wrapped negative including AMBIGUOUS) → exploded.
         if !self.exponent.is_negative() && !other.exponent.is_negative() && sum.is_negative() {
             let k = fb.wrapping_sub(leading).wrapping_add(1);
             return Self {
