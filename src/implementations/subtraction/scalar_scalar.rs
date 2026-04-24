@@ -135,6 +135,16 @@ where
             if scalar.is_undefined() {
                 return *scalar;
             }
+            // Zero is the exact identity for subtraction: X - [0] = X and
+            // [0] - X = -X. Checked before the transfinite branches so
+            // [↑]-[0], [0]-[↑], [∞]-[0], [0]-[∞] produce the right-hand side
+            // (possibly negated) instead of a transfinite-minus-finite undefined.
+            if scalar.is_zero() {
+                return *self;
+            }
+            if self.is_zero() {
+                return -scalar;
+            }
             if self.is_transfinite() && scalar.is_transfinite() {
                 return Self {
                     fraction: TRANSFINITE_MINUS_TRANSFINITE.prefix.sa(),
@@ -158,12 +168,6 @@ where
                     fraction: FINITE_MINUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
-            }
-            if self.is_zero() {
-                return -scalar;
-            }
-            if scalar.is_zero() {
-                return *self;
             }
             if self.vanished() {
                 return -scalar;

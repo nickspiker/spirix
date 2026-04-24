@@ -289,29 +289,31 @@ always cancels to `[0]`.
 
 Adding two normals can land anywhere in `[0]`, `[↓]`, `[#]`, or `[↑]` depending
 on magnitudes and signs. Transfinite + anything-finite is an indeterminate form
-(`[℘ +⬆]`), and two transfinites collide into `[℘ ⬆+⬆]`.
+(`[℘ +⬆]`), and two transfinites collide into `[℘ ⬆+⬆]`. Zero is the exact
+additive identity, so the zero cells pass the other operand through unchanged.
 
 | + | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 |---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [↓] | [#] | [℘⬆+] | [℘⬆+] | [℘?] |
+| **[0]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 | **[↓]** | [↓] | [℘↓+↓] | [#] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
 | **[#]** | [#] | [#] | [0], [#], [↓], [↑] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
-| **[↑]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
-| **[∞]** | [℘ +⬆] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
+| **[↑]** | [↑] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
+| **[∞]** | [∞] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
 | **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
 
 #### Subtraction
 
 Mirror of addition, but cancellation is now common: `[#] - [#]` can reach any
 class from `[0]` up through `[↑]`. Transfinite cases match addition's pattern.
+Zero cells pass the other operand (negated on the right-hand side) through unchanged.
 
 | - | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 |---|-----|-----|-----|-----|-----|------|
-| **[0]** | [0] | [↓] | [#] | [℘⬆-] | [℘⬆-] | [℘?] |
+| **[0]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 | **[↓]** | [↓] | [℘↓-↓] | [#] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
 | **[#]** | [#], [↓], [↑] | [#], [↓], [↑] | [0], [#], [↓], [↑] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
-| **[↑]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
-| **[∞]** | [℘ -⬆] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
+| **[↑]** | [↑] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
+| **[∞]** | [∞] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
 | **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
 
 #### Multiplication

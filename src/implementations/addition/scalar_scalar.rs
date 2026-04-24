@@ -195,6 +195,16 @@ where
         if scalar.is_undefined() {
             return *scalar;
         }
+        // Zero is the exact additive identity: X + [0] = [0] + X = X for every X,
+        // including transfinite. Checked before the transfinite branches so
+        // [↑]+[0], [0]+[↑], [∞]+[0], [0]+[∞] pass the non-zero operand through
+        // instead of producing a transfinite-plus-finite undefined.
+        if self.is_zero() {
+            return *scalar;
+        }
+        if scalar.is_zero() {
+            return *self;
+        }
         if self.is_transfinite() && scalar.is_transfinite() {
             return Self {
                 fraction: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
@@ -218,12 +228,6 @@ where
                 fraction: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
-        }
-        if self.is_zero() {
-            return *scalar;
-        }
-        if scalar.is_zero() {
-            return *self;
         }
         if self.vanished() {
             return *scalar;
