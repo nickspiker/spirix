@@ -100,7 +100,8 @@ where
             };
             let base = base_i64 as f64;
             let exponent: i32 = self.exponent.saturate();
-            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
+            // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1). +1 compensates the ruler shift.
+            let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             // Adjust the f64 bit-exponent of `base` directly to avoid precision loss from powi() multiplication chains at extreme exponents.
             if base == 0.0 { return 0.0; }
             let bits = base.to_bits();
@@ -235,7 +236,8 @@ where
             };
             let base = base_i32 as f32;
             let exponent: i32 = self.exponent.saturate();
-            let scale_exp = exponent as i64 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
+            // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1).
+            let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             if base == 0.0 { return 0.0; }
             let bits = base.to_bits();
             let sign = bits & 0x8000_0000;
@@ -525,14 +527,14 @@ fn into(self) -> $i {
         return 0;
     }
 
-    // Normal path: value = inflate(stored) * 2^(exp - FRAC_BITS).
+    // Normal path (v0.1): value = inflate(stored) * 2^(exp - FRAC_BITS + 1).
     // Compute in I256 to handle any F width (including i128 stored).
     let exp: isize = self.exponent.saturate();
     let frac_bits = Scalar::<F, E>::fraction_bits();
     let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
 
-    // Early saturation: if exp is so large that the integer part can't possibly fit in target, short-circuit. Upper bound on |value| is roughly 2^(exp+1), so bail when exp >= target_bits - 1.
-    if exp >= target_bits {
+    // Early saturation: if exp is so large that the integer part can't possibly fit in target, short-circuit. Upper bound on |value| is roughly 2^(exp+2) under the new ruler, so bail when exp >= target_bits - 1.
+    if exp >= target_bits - 1 {
         if self.is_negative() { return <$i>::MIN; }
         return <$i>::MAX;
     }
@@ -542,8 +544,8 @@ fn into(self) -> $i {
     let mask: I256 = I256::from(-1i128) << frac_bits;
     let effective: I256 = stored_wide ^ mask;
 
-    // Scale by 2^(exp - FRAC_BITS).
-    let shift = exp.wrapping_sub(frac_bits);
+    // Scale by 2^(exp - FRAC_BITS + 1) — the +1 is the ruler shift.
+    let shift = exp.wrapping_sub(frac_bits).wrapping_add(1);
     let scaled: I256 = if shift >= 0 {
         effective << shift
     } else {

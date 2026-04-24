@@ -103,72 +103,75 @@ macro_rules! impl_scalar_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Scalar<$f, $e> {
-    pub const MAX: Self = Self { fraction: -1, exponent: <$e>::MAX };
-    pub const MIN: Self = Self { fraction: 0, exponent: <$e>::MAX };
-    pub const MIN_POS: Self = Self { fraction: <$f>::MIN, exponent: (<$e>::MIN + 1) };
-    pub const MAX_NEG: Self = Self { fraction: !<$f>::MIN, exponent: (<$e>::MIN + 1) };
-    pub const POS_NORMAL_EPSILON: Self = Self { fraction: <$f>::MIN, exponent: (1isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e };
-    pub const NEG_NORMAL_EPSILON: Self = Self { fraction: 0, exponent: (-(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e };
-    pub const MAX_CONTIGUOUS: Self = Self { fraction: -1, exponent: ((core::mem::size_of::<$f>() * 8) as isize) as $e };
-    pub const MIN_CONTIGUOUS: Self = Self { fraction: 0 + 1, exponent: ((core::mem::size_of::<$f>() * 8) as isize) as $e };
-    pub const ZERO: Self = Self { fraction: 0, exponent: <$e>::MIN };
-    pub const INFINITY: Self = Self { fraction: -1, exponent: <$e>::MIN };
-    pub const ONE: Self = Self { fraction: <$f>::MIN, exponent: 1 };
-    pub const NEG_ONE: Self = Self { fraction: 0, exponent: 0 };
-    pub const EFFECTIVELY_POS_ONE: Self = Self { fraction: -1, exponent: 0 };
-    pub const EFFECTIVELY_NEG_ONE: Self = Self { fraction: 0 + 1, exponent: 0 };
-    pub const TWO: Self = Self { fraction: <$f>::MIN, exponent: 2 };
-    pub const HALF: Self = Self { fraction: <$f>::MIN, exponent: 0 };
-    pub const EXPLODED_POS: Self = Self { fraction: (-(<$f>::MIN >> 1)), exponent: <$e>::MIN };
-    pub const EXPLODED_NEG: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MIN };
-    pub const VANISHED_POS: Self = Self { fraction: ((-(<$f>::MIN >> 1)) >> 1), exponent: <$e>::MIN };
-    pub const VANISHED_NEG: Self = Self { fraction: (<$f>::MIN >> 1), exponent: <$e>::MIN };
+    // v0.1 encoding: AMBIG at E::MAX; ruler exp=0 → [1, 2).
+    // All singular states live at exp = E::MAX (was E::MIN).
+    // All positive anchor constants have exp decreased by 1 (ruler shift).
+    pub const MAX: Self = Self { fraction: -1, exponent: (<$e>::MAX - 1) };
+    pub const MIN: Self = Self { fraction: 0, exponent: (<$e>::MAX - 1) };
+    pub const MIN_POS: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MIN };
+    pub const MAX_NEG: Self = Self { fraction: !<$f>::MIN, exponent: <$e>::MIN };
+    pub const POS_NORMAL_EPSILON: Self = Self { fraction: <$f>::MIN, exponent: (0isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e };
+    pub const NEG_NORMAL_EPSILON: Self = Self { fraction: 0, exponent: ((-1isize).wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e };
+    pub const MAX_CONTIGUOUS: Self = Self { fraction: -1, exponent: (((core::mem::size_of::<$f>() * 8) as isize).wrapping_sub(1)) as $e };
+    pub const MIN_CONTIGUOUS: Self = Self { fraction: 0 + 1, exponent: (((core::mem::size_of::<$f>() * 8) as isize).wrapping_sub(1)) as $e };
+    pub const ZERO: Self = Self { fraction: 0, exponent: <$e>::MAX };
+    pub const INFINITY: Self = Self { fraction: -1, exponent: <$e>::MAX };
+    pub const ONE: Self = Self { fraction: <$f>::MIN, exponent: 0 };
+    pub const NEG_ONE: Self = Self { fraction: 0, exponent: -1 };
+    pub const EFFECTIVELY_POS_ONE: Self = Self { fraction: -1, exponent: -1 };
+    pub const EFFECTIVELY_NEG_ONE: Self = Self { fraction: 0 + 1, exponent: -1 };
+    pub const TWO: Self = Self { fraction: <$f>::MIN, exponent: 1 };
+    pub const HALF: Self = Self { fraction: <$f>::MIN, exponent: -1 };
+    pub const EXPLODED_POS: Self = Self { fraction: (-(<$f>::MIN >> 1)), exponent: <$e>::MAX };
+    pub const EXPLODED_NEG: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MAX };
+    pub const VANISHED_POS: Self = Self { fraction: ((-(<$f>::MIN >> 1)) >> 1), exponent: <$e>::MAX };
+    pub const VANISHED_NEG: Self = Self { fraction: (<$f>::MIN >> 1), exponent: <$e>::MAX };
 
-    // All hex constants below are stored fractions derived from basecalc (MPFR), floored to 128 bits. The shift >> (128 - FRACTION_BITS) truncates to the target fraction width (SA cast). Negative variants use wrapping_neg on the stored fraction.
+    // All hex constants below are stored fractions derived from basecalc (MPFR), floored to 128 bits. The shift >> (128 - FRACTION_BITS) truncates to the target fraction width (SA cast). Negative variants use wrapping_neg on the stored fraction. v0.1: every transcendental exponent decreased by 1 for the ruler shift.
 
     // --- Pi family (π/4 fraction shared across power-of-2 multiples) ---
-    pub const PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 2 };
-    pub const NEG_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 2 };
-    pub const TAU: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 3 };
-    pub const NEG_TAU: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 3 };
+    pub const PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
+    pub const NEG_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
+    pub const TAU: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 2 };
+    pub const NEG_TAU: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 2 };
     pub const TWO_PI: Self = Self::TAU;
-    pub const HALF_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const NEG_HALF_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const FOURTH_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
-    pub const NEG_FOURTH_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
-    pub const EIGHTH_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const HALF_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const NEG_HALF_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const FOURTH_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const NEG_FOURTH_PI: Self = Self { fraction: (-(0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128) >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const EIGHTH_PI: Self = Self { fraction: (0xC90FDAA22168C234C4C6628B80DC1CD1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -2 };
 
     // --- Pi/3 family ---
-    pub const THIRD_PI: Self = Self { fraction: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const SIXTH_PI: Self = Self { fraction: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const THIRD_PI: Self = Self { fraction: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const SIXTH_PI: Self = Self { fraction: (0x860A91C16B9B2C232DD99707AB3D688Bu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
 
     // --- 1/π family ---
-    pub const ONE_OVER_PI: Self = Self { fraction: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
-    pub const TWO_OVER_PI: Self = Self { fraction: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const ONE_OVER_PI: Self = Self { fraction: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -2 };
+    pub const TWO_OVER_PI: Self = Self { fraction: (0xA2F9836E4E441529FC2757D1F534DDC0u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
 
     // --- √π family ---
-    pub const SQRT_PI: Self = Self { fraction: (0xE2DFC48DA77B553CE1D82906AEDC9C1Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const ONE_OVER_SQRT_PI: Self = Self { fraction: (0x906EBA8214DB688D71D48A7F6BFEC344u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
-    pub const TWO_OVER_SQRT_PI: Self = Self { fraction: (0x906EBA8214DB688D71D48A7F6BFEC344u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const ONE_OVER_SQRT_TAU: Self = Self { fraction: (0xCC42299EA1B284687E59E2805D5C717Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const SQRT_PI: Self = Self { fraction: (0xE2DFC48DA77B553CE1D82906AEDC9C1Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const ONE_OVER_SQRT_PI: Self = Self { fraction: (0x906EBA8214DB688D71D48A7F6BFEC344u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const TWO_OVER_SQRT_PI: Self = Self { fraction: (0x906EBA8214DB688D71D48A7F6BFEC344u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const ONE_OVER_SQRT_TAU: Self = Self { fraction: (0xCC42299EA1B284687E59E2805D5C717Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -2 };
 
     // --- e family ---
-    pub const E: Self = Self { fraction: (0xADF85458A2BB4A9AAFDC5620273D3CF1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 2 };
-    pub const LN_TWO: Self = Self { fraction: (0xB17217F7D1CF79ABC9E3B39803F2F6AFu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
-    pub const LB_E: Self = Self { fraction: (0xB8AA3B295C17F0BBBE87FED0691D3E88u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
+    pub const E: Self = Self { fraction: (0xADF85458A2BB4A9AAFDC5620273D3CF1u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
+    pub const LN_TWO: Self = Self { fraction: (0xB17217F7D1CF79ABC9E3B39803F2F6AFu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const LB_E: Self = Self { fraction: (0xB8AA3B295C17F0BBBE87FED0691D3E88u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
 
     // --- √2 family ---
-    pub const SQRT_TWO: Self = Self { fraction: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const ONE_OVER_SQRT_TWO: Self = Self { fraction: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const SQRT_TWO: Self = Self { fraction: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const ONE_OVER_SQRT_TWO: Self = Self { fraction: (0xB504F333F9DE6484597D89B3754ABE9Fu128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
 
     // --- √3 family ---
-    pub const SQRT_THREE: Self = Self { fraction: (0xDDB3D742C265539D92BA16B83C5C1DC4u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const ONE_OVER_SQRT_THREE: Self = Self { fraction: (0x93CD3A2C8198E2690C7C0F257D92BE83u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const SQRT_THREE: Self = Self { fraction: (0xDDB3D742C265539D92BA16B83C5C1DC4u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const ONE_OVER_SQRT_THREE: Self = Self { fraction: (0x93CD3A2C8198E2690C7C0F257D92BE83u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
 
     // --- Other constants ---
-    pub const EULER_GAMMA: Self = Self { fraction: (0x93C467E37DB0C7A4D1BE3F810152CB56u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
-    pub const PHI: Self = Self { fraction: (0xCF1BBCDCBFA53E0AF9CE60302E76E41Au128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 1 };
-    pub const CATALAN: Self = Self { fraction: (0xEA7CB89F409AE845215822E37D32D0C6u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const EULER_GAMMA: Self = Self { fraction: (0x93C467E37DB0C7A4D1BE3F810152CB56u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
+    pub const PHI: Self = Self { fraction: (0xCF1BBCDCBFA53E0AF9CE60302E76E41Au128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: 0 };
+    pub const CATALAN: Self = Self { fraction: (0xEA7CB89F409AE845215822E37D32D0C6u128 as i128 >> (128isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize)))) as $f, exponent: -1 };
 }
 
         impl ScalarConstants for Scalar<$f, $e> {
@@ -295,17 +298,24 @@ impl<F: Integer, E: Integer> Scalar<F, E> {
     }
 
     // --- Exponent ---
+    //
+    // AMBIGUOUS = E::MAX. Overflow past (E::MAX - 1) wraps UP to E::MAX;
+    // underflow past E::MIN also wraps (through the two's-complement circle)
+    // to E::MAX. Both saturation directions collapse to the same sentinel
+    // without a branch — the detection is a single `new_exp == E::MAX` test.
+    //
+    // This frees E::MIN for use as a normal exponent (no +1 guard needed).
     #[inline]
     pub(crate) fn ambiguous_exponent() -> E {
-        E::min_value()
-    }
-    #[inline]
-    pub(crate) fn max_exponent() -> E {
         E::max_value()
     }
     #[inline]
+    pub(crate) fn max_exponent() -> E {
+        E::max_value() - E::one()
+    }
+    #[inline]
     pub(crate) fn min_exponent() -> E {
-        E::min_value() + E::one()
+        E::min_value()
     }
     #[inline]
     pub(crate) fn exponent_bits() -> isize {

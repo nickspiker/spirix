@@ -1375,7 +1375,8 @@ where
             return *self;
         }
 
-        if self.exponent <= E::zero() {
+        // v0.1 ruler: value in [1, 2) at exp=0. Value < 1 when exp < 0.
+        if self.exponent < E::zero() {
             if self.is_negative() {
                 let result = Self::NEG_ONE;
                 return result;
@@ -1384,11 +1385,14 @@ where
             return result;
         }
         let mut result = *self;
-        if result.exponent >= Self::fraction_bits().as_() {
+        // Already an integer when all FRAC bits are in the integer part.
+        // v0.1 ruler: exp ≥ FRAC - 1 means integer part uses all bits.
+        if result.exponent >= Self::fraction_bits().wrapping_sub(1).as_() {
             return result;
         }
         let e: isize = result.exponent.as_();
-        let frac_bits = Self::fraction_bits().wrapping_sub(e);
+        // v0.1 ruler: fractional bit count = FRAC - exp - 1.
+        let frac_bits = Self::fraction_bits().wrapping_sub(e).wrapping_sub(1);
         let mask: F = !((F::one() << frac_bits).wrapping_sub(&F::one()));
         result.fraction = result.fraction & mask;
         result
@@ -1531,12 +1535,10 @@ where
             return *self;
         }
         let e: isize = self.exponent.as_();
-        // exp < 0: |value| ≤ 2^exp ≤ 0.5. For exp < -1, |value| < 0.5 strictly
-        // → 0. At exp = -1, the only exact tie is value = -0.5 (neg_one at
-        // exp=-1); banker's rounds it to 0 too. So exp < 0 always rounds to 0.
-        // Short-circuit here to keep guard_pos within the shift range for the
-        // main algorithm below.
-        if e < 0 {
+        // v0.1 ruler: exp < -1 means |value| < 0.5 — round to 0. At exp=-1
+        // (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds
+        // 0.5 → 0 (even).
+        if e < -1 {
             return Self::ZERO;
         }
         let f = self.floor();
@@ -1544,10 +1546,12 @@ where
         if f.fraction == self.fraction && f.exponent == self.exponent {
             return f;
         }
-        if e >= Self::fraction_bits() {
+        // v0.1 ruler: already integer when exp >= FRAC - 1.
+        if e >= Self::fraction_bits().wrapping_sub(1) {
             return f;
         }
-        let guard_pos = Self::fraction_bits().wrapping_sub(e).wrapping_sub(1);
+        // v0.1 ruler: guard bit (0.5 position) at FRAC - e - 2.
+        let guard_pos = Self::fraction_bits().wrapping_sub(e).wrapping_sub(2);
         let guard = (self.fraction >> guard_pos) & F::one();
         if guard == F::zero() {
             return f;
@@ -1557,19 +1561,11 @@ where
         if sticky != F::zero() {
             return f + Self::ONE;
         } // > 0.5, ceil
-          // Exactly 0.5: banker's — round to even. Need int_lsb at position
-          // (FRAC - e). For e = 0 that's bit FRAC (one past stored MSB) — in
-          // N0 that's the implicit sign bit, which is !stored.MSB: positive
-          // (stored MSB=1) → int_lsb=0 (even); negative (MSB=0) → int_lsb=1.
-        let int_lsb = if e == 0 {
-            if !self.fraction.is_negative() {
-                F::one()
-            } else {
-                F::zero()
-            }
-        } else {
-            (self.fraction >> guard_pos.wrapping_add(1)) & F::one()
-        };
+          // Exactly 0.5: banker's — round to even.
+          // v0.1 ruler: int_lsb at position guard_pos + 1 = FRAC - e - 1, always
+          // a real stored bit (no implicit-sign-bit special case needed since
+          // e=0 now spans [1,2) and has FRAC-1 as an actual integer ones bit).
+        let int_lsb = (self.fraction >> guard_pos.wrapping_add(1)) & F::one();
         if int_lsb != F::zero() {
             f + Self::ONE
         } else {

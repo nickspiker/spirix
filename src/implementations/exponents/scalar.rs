@@ -72,13 +72,14 @@ where
             return self.scalar_multiply_scalar(self);
         }
         // NEG_ONE_NORMAL has inflate = -2^FRAC; squaring overflows the wide type.
-        // Handle via exponent arithmetic: (-1 * 2^e)² = 1 * 2^(2e+1).
+        // v0.1 ruler: neg_one_normal @ e represents -2^(e+1), so (val)² = 2^(2e+2).
+        // Needs 2e+2 in the result exp (was 2e+1 under old ruler — +1 ruler offset).
         if self.fraction == Self::neg_one_normal() {
             let mut exp = self.exponent.wrapping_add(&self.exponent);
             if self.exponent.is_negative() && !exp.is_negative() {
                 return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
             }
-            exp = exp.wrapping_add(&E::one());
+            exp = exp.wrapping_add(&E::one()).wrapping_add(&E::one());
             if !self.exponent.is_negative() && exp.is_negative() {
                 return Self { fraction: Self::pos_one_exploded(), exponent: Self::ambiguous_exponent() };
             }
@@ -88,7 +89,8 @@ where
         let inflated = self.fraction.inflate(true);
         let product = inflated.w_mul(inflated);
         let leading = product.w_leading_zeros();
-        let sum = self.exponent.wrapping_add(&self.exponent);
+        // v0.1 ruler: +1 per multiplication (same as mul).
+        let sum = self.exponent.wrapping_add(&self.exponent).wrapping_add(&1u8.as_());
         let self_neg = self.exponent.is_negative();
         let sum_neg = sum.is_negative();
         if !self_neg && sum_neg {
@@ -152,20 +154,20 @@ where
             };
         }
 
-        // Exponent: even e → e/2, odd e → (e+1)/2.
-        // Arithmetic right shift floors, adding odd bit corrects to ceiling division.
+        // v0.1 ruler: result_exp = floor(self_exp / 2) for both parities. Under
+        // old ruler the odd case needed +1 because of the +1 per-operand offset
+        // in that ruler's interpretation; v0.1's ruler absorbs that difference.
         let odd: usize = (self.exponent & E::one()).as_();
-        let result_exp = (self.exponent >> 1usize) + odd.as_();
+        let result_exp = self.exponent >> 1usize;
 
         // Subtractive restoring binary sqrt on inflated unsigned value.
-        // Even exponent: radicand = eff << FRAC,     result is FRAC bits.
-        // Odd exponent:  radicand = eff << (FRAC+1), result is FRAC+1 bits → >>1.
+        // v0.1 ruler: radicand shift is (FRAC-1)+odd (was FRAC+odd under old).
         // Bit pairs extracted on the fly from eff — keeps everything double-wide.
         let fraction = match Self::fraction_bits() {
             8 => {
                 let s: i8 = self.fraction.as_();
                 let eff: u16 = s.inflate(true) as u16;
-                let shift: usize = 8 + odd;
+                let shift: usize = 7 + odd;
                 let mut rem: u16 = 0;
                 let mut root: u16 = 0;
                 for i in (0..=8).rev() {
@@ -186,15 +188,14 @@ where
                         root <<= 1;
                     }
                 }
-                if odd != 0 {
-                    root >>= 1;
-                }
+                // v0.1 ruler: shift = (FRAC-1)+odd, root already at FRAC-bit scale, no halving.
+                let _ = odd;
                 (root as u8 as i8).as_()
             }
             16 => {
                 let s: i16 = self.fraction.as_();
                 let eff: u32 = s.inflate(true) as u32;
-                let shift: usize = 16 + odd;
+                let shift: usize = 15 + odd;
                 let mut rem: u32 = 0;
                 let mut root: u32 = 0;
                 for i in (0..=16).rev() {
@@ -215,15 +216,14 @@ where
                         root <<= 1;
                     }
                 }
-                if odd != 0 {
-                    root >>= 1;
-                }
+                // v0.1 ruler: shift = (FRAC-1)+odd, root already at FRAC-bit scale, no halving.
+                let _ = odd;
                 (root as u16 as i16).as_()
             }
             32 => {
                 let s: i32 = self.fraction.as_();
                 let eff: u64 = s.inflate(true) as u64;
-                let shift: usize = 32 + odd;
+                let shift: usize = 31 + odd;
                 let mut rem: u64 = 0;
                 let mut root: u64 = 0;
                 for i in (0..=32).rev() {
@@ -244,15 +244,14 @@ where
                         root <<= 1;
                     }
                 }
-                if odd != 0 {
-                    root >>= 1;
-                }
+                // v0.1 ruler: shift = (FRAC-1)+odd, root already at FRAC-bit scale, no halving.
+                let _ = odd;
                 (root as u32 as i32).as_()
             }
             64 => {
                 let s: i64 = self.fraction.as_();
                 let eff: u128 = s.inflate(true) as u128;
-                let shift: usize = 64 + odd;
+                let shift: usize = 63 + odd;
                 let mut rem: u128 = 0;
                 let mut root: u128 = 0;
                 for i in (0..=64).rev() {
@@ -273,15 +272,14 @@ where
                         root <<= 1;
                     }
                 }
-                if odd != 0 {
-                    root >>= 1;
-                }
+                // v0.1 ruler: shift = (FRAC-1)+odd, root already at FRAC-bit scale, no halving.
+                let _ = odd;
                 (root as u64 as i64).as_()
             }
             128 => {
                 let s: i128 = self.fraction.as_();
                 let eff: I256 = s.inflate(true);
-                let shift: usize = 128 + odd;
+                let shift: usize = 127 + odd;
                 let zero = I256::from(0i128);
                 let one = I256::from(1i128);
                 let three = I256::from(3i128);
@@ -434,14 +432,13 @@ where
             };
         }
 
-        // Integer part (characteristic) = exp - 1. Since x in normal form has effective
-        // fraction m in [0.5, 1), value = m * 2^exp, so lb(x) = lb(m) + exp, and
-        // lb(m) in [-1, 0), so floor(lb(x)) = exp - 1.
-        let characteristic = self.exponent.wrapping_sub(&E::one());
+        // v0.1 ruler: x in normal form has m in [1, 2) at exp=0, so value = m * 2^exp,
+        // lb(x) = lb(m) + exp, lb(m) in [0, 1), floor(lb(x)) = exp.
+        let characteristic = self.exponent;
 
-        // Normalize x to be in [1, 2) for the bit-by-bit loop.
+        // Normalize x to [1, 2), which under v0.1 is exp=0.
         let mut x = *self;
-        x.exponent = E::one();
+        x.exponent = E::zero();
 
         // Build fractional bits directly into u128 — each iteration is ~1 OR + 1 shift.
         // Bit (FRAC-1) = 0.5 contribution, bit (FRAC-2) = 0.25, etc.
@@ -449,7 +446,8 @@ where
         let mut rotor: u128 = 1u128 << (Self::fraction_bits().wrapping_sub(1) as u32);
         while rotor != 0 {
             x = x.square();
-            if x.exponent > E::one() {
+            // v0.1 ruler: x in [2, 4) after squaring means exp > 0 (not > 1).
+            if x.exponent > E::zero() {
                 raw_frac |= rotor;
                 x.exponent = x.exponent.wrapping_sub(&E::one());
             }
@@ -472,9 +470,12 @@ where
                 128 => (normalized_u as i128).as_(),
                 _ => unreachable!(),
             };
+            // v0.1 ruler: raw_frac has bit (FRAC-1) = 0.5 contribution; converting
+            // to Scalar needs exp = -lz - 1 (was -lz under old ruler) to keep
+            // the same value meaning.
             Self {
                 fraction: stored,
-                exponent: (0isize).wrapping_sub(lz).as_(),
+                exponent: (0isize).wrapping_sub(lz).wrapping_sub(1).as_(),
             }
         };
 

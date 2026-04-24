@@ -229,7 +229,11 @@ where
             .inflate(true)
             .w_mul(other.fraction.inflate(true));
         let fb = Self::fraction_bits();
-        let sum = self.exponent.wrapping_add(&other.exponent);
+        // v0.1 ruler: value = inflate × 2^(exp - FRAC + 1). The +1 accumulates
+        // per multiplication — each operand's effective magnitude is 2× relative
+        // to `inflate × 2^(exp-FRAC)`, so their product carries 4×, compensated
+        // by adding 1 to the running exp.
+        let sum = self.exponent.wrapping_add(&other.exponent).wrapping_add(&1u8.as_());
 
         // u_product = |p_signed|. LLVM compiles this conditional to `neg + cmov` (branchless at asm level) — no wider bit-ops formulation beats that.
         let expect_negative = self.is_negative() != other.is_negative();

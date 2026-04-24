@@ -328,7 +328,12 @@ impl<F: Integer, E: Integer> Circle<F, E> {
         (core::mem::size_of::<F>() * 8) as isize
     }
 
-    // --- Exponent (same as Scalar) ---
+    // --- Exponent ---
+    // NOTE: Circle still uses the old v0.0.x encoding (AMBIG=E::MIN, ruler
+    // exp=0→[0.5,1)). Scalar migrated to v0.1 encoding. Circle migration
+    // will follow in a separate pass; until then its sentinel + ruler stay
+    // on the legacy convention to avoid internal inconsistency with its own
+    // (unmigrated) constants.
     #[inline]
     pub(crate) fn ambiguous_exponent() -> E {
         E::min_value()
