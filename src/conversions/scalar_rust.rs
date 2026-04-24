@@ -713,21 +713,23 @@ macro_rules! impl_into_uint {
             return 0;
         }
 
-        // Normal positive path: value = inflate(stored) * 2^(exp - FRAC_BITS).
+        // Normal positive path (v0.1): value = inflate(stored) * 2^(exp - FRAC_BITS + 1).
         let exp: isize = self.exponent.saturate();
         let frac_bits = Scalar::<F, E>::fraction_bits();
         let target_bits = (core::mem::size_of::<$u>() as isize).wrapping_shl(3);
 
-        // Unsigned can hold one more bit than signed of the same width,
-        // so we saturate at exp >= target_bits + 1.
-        if exp >= target_bits.wrapping_add(1) {
+        // v0.1 ruler shift: value formula has an extra +1 in the exponent,
+        // so effective magnitude is 2× larger at the same stored bits. Saturate
+        // one exp bucket earlier than under the old ruler.
+        if exp >= target_bits {
             return <$u>::MAX;
         }
 
         let stored_wide: I256 = self.fraction.into();
         let mask: I256 = I256::from(-1i128) << frac_bits;
         let effective: I256 = stored_wide ^ mask;
-        let shift = exp.wrapping_sub(frac_bits);
+        // v0.1: shift = exp - FRAC + 1 (was exp - FRAC under old ruler).
+        let shift = exp.wrapping_sub(frac_bits).wrapping_add(1);
         let scaled: I256 = if shift >= 0 {
             effective << shift
         } else {
