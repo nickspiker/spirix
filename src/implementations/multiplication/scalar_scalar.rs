@@ -197,27 +197,29 @@ where
             };
         }
 
+        // Fast-path the neg_one_normal × neg_one_normal case. Both operands
+        // inflate to -2^FRAC; their product = 2^(2*FRAC) overflows the signed
+        // 2*FRAC-bit Wide and wraps to 0, destroying the magnitude needed for
+        // downstream extraction. Compute via exponent arithmetic instead.
+        // v0.1 ruler: neg_one_normal @ e represents -2^(e+1); product = 2^(e_a+e_b+2).
         if self.fraction == Self::neg_one_normal() && other.fraction == Self::neg_one_normal() {
-            let mut exp = self.exponent.wrapping_add(&other.exponent);
-            if self.exponent.is_negative() && other.exponent.is_negative() && !exp.is_negative() {
-                return Self {
-                    fraction: Self::pos_one_vanished(),
-                    exponent: Self::ambiguous_exponent(),
-                };
+            let sum = self.exponent.wrapping_add(&other.exponent);
+            let self_e_neg = self.exponent.is_negative();
+            let other_e_neg = other.exponent.is_negative();
+            // Both negative exps + wrap to non-neg sum = underflow.
+            if self_e_neg && other_e_neg && !sum.is_negative() {
+                return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
             }
-            exp = exp.wrapping_add(&E::one());
-            if !self.exponent.is_negative() && !other.exponent.is_negative() && exp.is_negative() {
-                return Self {
-                    fraction: Self::pos_one_exploded(),
-                    exponent: Self::ambiguous_exponent(),
-                };
+            // v0.1 per-mul +1 plus the exponent-arithmetic +1 = +2 adjustment.
+            let exp = sum.wrapping_add(&1u8.as_()).wrapping_add(&1u8.as_());
+            // Overflow: exp landed on AMBIG (exactly E::MAX) or wrapped past.
+            // With two non-negative exps the wrap lands in negative territory;
+            // mixed-sign exps can still push exp up to exactly AMBIG.
+            if exp == Self::ambiguous_exponent() || (!self_e_neg && !other_e_neg && exp.is_negative()) {
+                return Self { fraction: Self::pos_one_exploded(), exponent: Self::ambiguous_exponent() };
             }
-            return Self {
-                fraction: Self::pos_one_normal(),
-                exponent: exp,
-            };
+            return Self { fraction: Self::pos_one_normal(), exponent: exp };
         }
-
         // x86 implementation note:
         // Why this code is NOT signless
         // Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog.
@@ -260,15 +262,20 @@ where
             }
         };
 
-        // Exponent overflow (both inputs positive-exp, sum wrapped negative including AMBIGUOUS) → exploded.
-        if !self.exponent.is_negative() && !other.exponent.is_negative() && sum.is_negative() {
+        // v0.1: Exponent overflow. Both inputs have non-negative exp means sum
+        // should be non-negative in [0, 2*(E::MAX-1)+1]. If sum landed on AMBIG
+        // (= E::MAX) or wrapped past to negative, it's overflow → exploded.
+        if !self.exponent.is_negative() && !other.exponent.is_negative()
+            && (sum == Self::ambiguous_exponent() || sum.is_negative())
+        {
             let k = fb.wrapping_sub(leading).wrapping_add(1);
             return Self {
                 fraction: extract_escaped(k, exploded_flip),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Exponent underflow → vanished.
+        // v0.1: Exponent underflow. Both negative inputs should give negative
+        // sum; wrap to non-negative (including AMBIG) is underflow → vanished.
         if self.exponent.is_negative() && other.exponent.is_negative() && !sum.is_negative() {
             let k = fb.wrapping_sub(leading).wrapping_add(2);
             return Self {
@@ -280,11 +287,19 @@ where
         // Main path.
         let adj: E = (leading as isize).as_();
         let exponent = sum.wrapping_sub(&adj);
-        // Tail underflow: exponent landed on AMBIGUOUS → vanished.
+        // v0.1: exponent landed on AMBIG (= E::MAX). Could be overflow
+        // (positive inputs overshot MAX_EXP by exactly 1) or underflow
+        // (negative inputs undershot MIN_EXP and wrapped). Classify by input
+        // exp signs: both negative → vanished; otherwise → exploded.
         if exponent == Self::ambiguous_exponent() {
-            let k = fb.wrapping_sub(leading).wrapping_add(2);
+            let both_neg = self.exponent.is_negative() && other.exponent.is_negative();
+            let (k, flip) = if both_neg {
+                (fb.wrapping_sub(leading).wrapping_add(2), vanished_flip)
+            } else {
+                (fb.wrapping_sub(leading).wrapping_add(1), exploded_flip)
+            };
             return Self {
-                fraction: extract_escaped(k, vanished_flip),
+                fraction: extract_escaped(k, flip),
                 exponent,
             };
         }

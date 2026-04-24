@@ -191,13 +191,15 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Landed exactly on AMBIGUOUS (= E::min_value(), one below MIN_EXP) → vanished.
+        // v0.1: Landed exactly on AMBIG (= E::MAX, one above MAX_EXP). Under
+        // the new sentinel location this is an OVERFLOW, not underflow — the
+        // division went past the valid normal range toward exploded.
         if exponent == Self::ambiguous_exponent() {
             return Self {
                 fraction: if result_neg {
-                    Self::neg_one_vanished()
+                    Self::neg_one_exploded()
                 } else {
-                    Self::pos_one_vanished()
+                    Self::pos_one_exploded()
                 },
                 exponent: Self::ambiguous_exponent(),
             };
