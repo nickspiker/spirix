@@ -213,25 +213,25 @@ where
         let leading = result.leading_same();
         let fb = Self::fraction_bits();
         let delta: isize = fb.wrapping_sub(leading);
-        let delta_e: E = delta.as_();
-        let offset = small.exponent.wrapping_add(&delta_e);
-        let one_e: E = 1u8.as_();
-        // Underflow: cancellation shrank magnitude past MIN_EXP → vanished (N-2).
-        let underflowed = delta.is_negative() && offset.wrapping_sub(&one_e) > small.exponent;
-        if underflowed {
-            return Self {
-                fraction: result.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-        // Overflow: borrow bumped magnitude past MAX_EXP → exploded (N-1).
-        let overflowed = delta > 0 && offset < small.exponent;
-        if overflowed {
+        // v0.1 ruler + AMBIG=E::MAX: widened-compare against normal-range bounds.
+        // |delta| ≤ FRAC so isize never overflows.
+        let small_exp_wide: isize = small.exponent.saturate();
+        let offset_wide: isize = small_exp_wide.wrapping_add(delta);
+        let max_exp_wide: isize = Self::max_exponent().saturate();
+        let min_exp_wide: isize = Self::min_exponent().saturate();
+        if offset_wide > max_exp_wide {
             return Self {
                 fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        if offset_wide < min_exp_wide {
+            return Self {
+                fraction: result.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        let offset: E = offset_wide.as_();
         // Main path extraction: `result << L >> FRAC` composed as a net shift of (L - FRAC). Writing it directly avoids the Rust shift-overflow semantics that bite when L == wide_bits (result = -1, full sign extension).
         let shl_amount = leading.wrapping_sub(fb);
         let canonical = if shl_amount >= 0 {
