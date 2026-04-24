@@ -1,0 +1,10 @@
+
+=== + (4261413122 pairs checked, 0 sign errors) ===
+
+=== - (4261413120 pairs checked, 0 sign errors) ===
+
+=== * (4261478400 pairs checked, 0 sign errors) ===
+
+=== / (4261478400 pairs checked, 0 sign errors) ===
+
+=== % (2590783819 pairs checked, 0 sign errors) ===

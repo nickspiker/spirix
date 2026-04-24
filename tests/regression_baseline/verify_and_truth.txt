@@ -1,0 +1,4 @@
+Tested 4294967296 pairs, 0 class-mismatch(es).
+
+Coverage check (table lists classes but test didn't observe them):
+  (none — every class listed in the table was produced by at least one sample)

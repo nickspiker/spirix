@@ -1,0 +1,4 @@
+=== scalar negation exhaustive F3E3 verification ===
+  default vs unified: 0 mismatches / 65536
+  class transitions : 0 mismatches / 65536
+  -(-x) == x        : 0 unexpected / 65536 (plus 2 expected class-escapes at normal-range boundaries)

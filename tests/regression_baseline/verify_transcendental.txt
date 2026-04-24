@@ -1,0 +1,15 @@
+=== sqrt (32640 inputs, 0 gross sign errors, 0 gross class errors) ===
+=== exp (34369 inputs, 0 gross sign errors, 0 gross class errors) ===
+=== ln (32640 inputs, 0 gross sign errors, 0 gross class errors) ===
+=== sin (41259 inputs, 67 gross sign errors, 6441 gross class errors) ===
+  [0x80,9]=2.56e2 -> spirix=[0x07,-128]=NaN expected=-9.992080341070627e-1
+  [0x80,10]=5.12e2 -> spirix=[0x07,-128]=NaN expected=7.951849401287635e-2
+  [0x80,11]=1.024e3 -> spirix=[0x07,-128]=NaN expected=-1.5853338004399595e-1
+  [0x80,12]=2.048e3 -> spirix=[0x07,-128]=NaN expected=-3.1305701279012343e-1
+  [0x80,13]=4.096e3 -> spirix=[0x07,-128]=NaN expected=-5.946419876082146e-1
+=== cos (41259 inputs, 194 gross sign errors, 15946 gross class errors) ===
+  [0x80,-64]=2.710505431213761e-20 -> spirix=[0x1b,-128]=NaN expected=1e0
+  [0x80,9]=2.56e2 -> spirix=[0xf8,-128]=NaN expected=-3.979075993115771e-2
+  [0x80,10]=5.12e2 -> spirix=[0xf8,-128]=NaN expected=-9.96833390848202e-1
+  [0x80,11]=1.024e3 -> spirix=[0xf8,-128]=NaN expected=9.873536182198484e-1
+  [0x80,12]=2.048e3 -> spirix=[0xf8,-128]=NaN expected=9.497343348236519e-1

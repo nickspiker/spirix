@@ -1,0 +1,8 @@
+
+=== + (4261478400 pairs tested, 0 class-sign errors) ===
+
+=== - (4261478400 pairs tested, 0 class-sign errors) ===
+
+=== * (4261478400 pairs tested, 0 class-sign errors) ===
+
+=== / (4261478400 pairs tested, 0 class-sign errors) ===

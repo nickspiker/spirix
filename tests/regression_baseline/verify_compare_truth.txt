@@ -1,0 +1,3 @@
+=== compare() (4261608961 pairs checked, 0 ordering mismatches, 0 reflex failures) ===
+  skipped (spirix None): 0
+  skipped (f64 None, spirix Some): 0

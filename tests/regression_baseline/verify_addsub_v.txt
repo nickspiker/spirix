@@ -1,0 +1,3 @@
+=== spirix_addsub Verilog model vs Rust on F3E3 (4.29B pairs each) ===
+  + mismatches: 0
+  - mismatches: 0

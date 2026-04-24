@@ -1,0 +1,36 @@
+
+=== + (4294967296 pairs, 258 mismatches) ===
+  OUT-OF-SET [0] + [↑] — expected ["[℘?]"], also got ["[↑]"]
+    -> got [↑]: lhs=[0x80,-128]=-inf rhs=[0x00,-128]=0 result=[0x80,-128]=-inf
+  OUT-OF-SET [0] + [∞] — expected ["[℘?]"], also got ["[∞]"]
+    -> got [∞]: lhs=[0xff,-128]=NaN rhs=[0x00,-128]=0 result=[0xff,-128]=NaN
+  OUT-OF-SET [↑] + [0] — expected ["[℘?]"], also got ["[↑]"]
+    -> got [↑]: lhs=[0x00,-128]=0 rhs=[0x80,-128]=-inf result=[0x80,-128]=-inf
+  OUT-OF-SET [∞] + [0] — expected ["[℘?]"], also got ["[∞]"]
+    -> got [∞]: lhs=[0x00,-128]=0 rhs=[0xff,-128]=NaN result=[0xff,-128]=NaN
+  Coverage gaps:
+    [0] + [↑] — expected ["[℘?]"], missing ["[℘?]"]
+    [0] + [∞] — expected ["[℘?]"], missing ["[℘?]"]
+    [↑] + [0] — expected ["[℘?]"], missing ["[℘?]"]
+    [∞] + [0] — expected ["[℘?]"], missing ["[℘?]"]
+
+=== - (4294967296 pairs, 258 mismatches) ===
+  OUT-OF-SET [0] - [↑] — expected ["[℘?]"], also got ["[↑]"]
+    -> got [↑]: lhs=[0x80,-128]=-inf rhs=[0x00,-128]=0 result=[0x80,-128]=-inf
+  OUT-OF-SET [0] - [∞] — expected ["[℘?]"], also got ["[∞]"]
+    -> got [∞]: lhs=[0xff,-128]=NaN rhs=[0x00,-128]=0 result=[0xff,-128]=NaN
+  OUT-OF-SET [↑] - [0] — expected ["[℘?]"], also got ["[↑]"]
+    -> got [↑]: lhs=[0x00,-128]=0 rhs=[0x80,-128]=-inf result=[0x40,-128]=inf
+  OUT-OF-SET [∞] - [0] — expected ["[℘?]"], also got ["[∞]"]
+    -> got [∞]: lhs=[0x00,-128]=0 rhs=[0xff,-128]=NaN result=[0xff,-128]=NaN
+  Coverage gaps:
+    [0] - [↑] — expected ["[℘?]"], missing ["[℘?]"]
+    [0] - [∞] — expected ["[℘?]"], missing ["[℘?]"]
+    [↑] - [0] — expected ["[℘?]"], missing ["[℘?]"]
+    [∞] - [0] — expected ["[℘?]"], missing ["[℘?]"]
+
+=== × (4294967296 pairs, 0 mismatches) ===
+
+=== / (4294967296 pairs, 0 mismatches) ===
+
+=== % (4294967296 pairs, 0 mismatches) ===

@@ -1,0 +1,4 @@
+=== floor (65280 normal inputs, 0 mismatches) ===
+=== ceil (65280 normal inputs, 0 mismatches) ===
+=== round (65280 normal inputs, 0 mismatches) ===
+=== frac (65280 normal inputs, 0 mismatches) ===

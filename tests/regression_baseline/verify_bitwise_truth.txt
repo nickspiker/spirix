@@ -1,0 +1,8 @@
+
+=== & (4294967296 pairs, 0 mismatches) ===
+
+=== | (4294967296 pairs, 0 mismatches) ===
+
+=== ⊻ (4294967296 pairs, 0 mismatches) ===
+
+=== ~ (65536 inputs, 0 class mismatches, 0 sign mismatches) ===
