@@ -365,6 +365,26 @@ undefined sub-states differ.
 Single-argument ops. Signed classes split into `[+X]` / `[-X]` rows when the op
 treats them differently.
 
+#### Negation (`-x`)
+
+Sign flips for any value that has one. Signless classes (`[0]`, `[∞]`, `[℘?]`)
+pass through unchanged — there's no sign to flip. Normal values can escape
+their class at the exponent boundaries: negating `pos_one_normal` at `MIN_EXP`
+drops the result to `neg_one_vanished` (the extra exp step falls below valid
+range); negating `neg_one_normal` at `MAX_EXP` bumps to `pos_one_exploded`.
+
+| Input | Output |
+|-------|--------|
+| `[0]` | `[0]` |
+| `[+↓]` | `[-↓]` |
+| `[-↓]` | `[+↓]` |
+| `[+#]` | `[-#]` or `[-↓]` (pos_one_normal at MIN_EXP escapes to vanished) |
+| `[-#]` | `[+#]` or `[+↑]` (neg_one_normal at MAX_EXP escapes to exploded) |
+| `[+↑]` | `[-↑]` |
+| `[-↑]` | `[+↑]` |
+| `[∞]` | `[∞]` |
+| `[℘?]` | `[℘?]` |
+
 #### Square Root
 
 Negative input has no real square root (`[℘√-]`). Escaped inputs can't commit to
