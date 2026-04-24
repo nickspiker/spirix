@@ -58,66 +58,6 @@ impl_circle_new! {
     i128, i128
 }
 
-/// Circle format constants — derived from PrimInt, no extra trait bounds needed.
-/// Explicit sign in MSB, N-1 normalization.
-impl<F: Integer, E: Integer> Circle<F, E> {
-    // --- Fraction format (explicit sign) ---
-    #[inline]
-    pub(crate) fn pos_one_normal() -> F {
-        -(F::min_value() >> 1usize)
-    }
-    #[inline]
-    pub(crate) fn neg_one_normal() -> F {
-        F::min_value()
-    }
-    #[inline]
-    pub(crate) fn max_fraction() -> F {
-        F::max_value()
-    }
-    #[inline]
-    pub(crate) fn min_fraction() -> F {
-        F::min_value()
-    }
-    #[inline]
-    pub(crate) fn pos_one_exploded() -> F {
-        -(F::min_value() >> 1usize) >> 1usize
-    }
-    #[inline]
-    pub(crate) fn neg_one_exploded() -> F {
-        F::min_value() >> 1usize
-    }
-    #[inline]
-    pub(crate) fn pos_one_vanished() -> F {
-        -(F::min_value() >> 1usize) >> 2usize
-    }
-    #[inline]
-    pub(crate) fn neg_one_vanished() -> F {
-        F::min_value() >> 2usize
-    }
-    #[inline]
-    pub(crate) fn fraction_bits() -> isize {
-        (core::mem::size_of::<F>() * 8) as isize
-    }
-
-    // --- Exponent (same as Scalar) ---
-    #[inline]
-    pub(crate) fn ambiguous_exponent() -> E {
-        E::min_value()
-    }
-    #[inline]
-    pub(crate) fn max_exponent() -> E {
-        E::max_value()
-    }
-    #[inline]
-    pub(crate) fn min_exponent() -> E {
-        E::min_value() + E::one()
-    }
-    #[inline]
-    pub(crate) fn exponent_bits() -> isize {
-        (core::mem::size_of::<E>() * 8) as isize
-    }
-}
-
 #[allow(private_bounds)]
 impl<
         F: Integer

@@ -61,66 +61,6 @@ impl_scalar_new! {
     i128, i128
 }
 
-/// Scalar format constants — derived from PrimInt, no extra trait bounds needed.
-/// These replace ScalarFractionConstants and ExponentConstants with functions
-/// that the compiler constant-folds to the same assembly.
-impl<F: Integer, E: Integer> Scalar<F, E> {
-    // --- Fraction format (implicit sign via ~MSB) ---
-    #[inline]
-    pub(crate) fn pos_one_normal() -> F {
-        F::min_value()
-    }
-    #[inline]
-    pub(crate) fn neg_one_normal() -> F {
-        F::zero()
-    }
-    #[inline]
-    pub(crate) fn max_fraction() -> F {
-        -F::one()
-    }
-    #[inline]
-    pub(crate) fn min_fraction() -> F {
-        F::zero()
-    }
-    #[inline]
-    pub(crate) fn pos_one_exploded() -> F {
-        -(F::min_value() >> 1usize)
-    }
-    #[inline]
-    pub(crate) fn neg_one_exploded() -> F {
-        F::min_value()
-    }
-    #[inline]
-    pub(crate) fn pos_one_vanished() -> F {
-        -(F::min_value() >> 1usize) >> 1usize
-    }
-    #[inline]
-    pub(crate) fn neg_one_vanished() -> F {
-        F::min_value() >> 1usize
-    }
-    #[inline]
-    pub(crate) fn fraction_bits() -> isize {
-        (core::mem::size_of::<F>() * 8) as isize
-    }
-
-    // --- Exponent ---
-    #[inline]
-    pub(crate) fn ambiguous_exponent() -> E {
-        E::min_value()
-    }
-    #[inline]
-    pub(crate) fn max_exponent() -> E {
-        E::max_value()
-    }
-    #[inline]
-    pub(crate) fn min_exponent() -> E {
-        E::min_value() + E::one()
-    }
-    #[inline]
-    pub(crate) fn exponent_bits() -> isize {
-        (core::mem::size_of::<E>() * 8) as isize
-    }
-}
 
 #[allow(private_bounds)]
 impl<

@@ -1,4 +1,4 @@
-use crate::Circle;
+use crate::{Circle, Integer};
 pub trait CircleConstants {
     /// Maximum finite value that can be represented by this type of Circle.
     const MAX: Self;
@@ -285,3 +285,64 @@ impl_circle_constants!(
    i64, i128;
    i128, i128
 );
+
+/// Circle format constants — the encoding's structural anchor points.
+/// Explicit sign in MSB, N-1 normalization. The compiler constant-folds these
+/// at every call site, so they read as `fn` but cost nothing at runtime.
+impl<F: Integer, E: Integer> Circle<F, E> {
+    // --- Fraction format (explicit sign) ---
+    #[inline]
+    pub(crate) fn pos_one_normal() -> F {
+        -(F::min_value() >> 1usize)
+    }
+    #[inline]
+    pub(crate) fn neg_one_normal() -> F {
+        F::min_value()
+    }
+    #[inline]
+    pub(crate) fn max_fraction() -> F {
+        F::max_value()
+    }
+    #[inline]
+    pub(crate) fn min_fraction() -> F {
+        F::min_value()
+    }
+    #[inline]
+    pub(crate) fn pos_one_exploded() -> F {
+        -(F::min_value() >> 1usize) >> 1usize
+    }
+    #[inline]
+    pub(crate) fn neg_one_exploded() -> F {
+        F::min_value() >> 1usize
+    }
+    #[inline]
+    pub(crate) fn pos_one_vanished() -> F {
+        -(F::min_value() >> 1usize) >> 2usize
+    }
+    #[inline]
+    pub(crate) fn neg_one_vanished() -> F {
+        F::min_value() >> 2usize
+    }
+    #[inline]
+    pub(crate) fn fraction_bits() -> isize {
+        (core::mem::size_of::<F>() * 8) as isize
+    }
+
+    // --- Exponent (same as Scalar) ---
+    #[inline]
+    pub(crate) fn ambiguous_exponent() -> E {
+        E::min_value()
+    }
+    #[inline]
+    pub(crate) fn max_exponent() -> E {
+        E::max_value()
+    }
+    #[inline]
+    pub(crate) fn min_exponent() -> E {
+        E::min_value() + E::one()
+    }
+    #[inline]
+    pub(crate) fn exponent_bits() -> isize {
+        (core::mem::size_of::<E>() * 8) as isize
+    }
+}
