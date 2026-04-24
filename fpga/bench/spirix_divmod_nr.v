@@ -603,8 +603,7 @@ module spirix_divmod_nr #(
     wire s5_rem_sticky = |s5_r_exact[WIDE-1:0];
 
     // --- Q_lo extraction for modulo (runs parallel to remainder correction) ---
-    // These depend only on s4 exponent registers, not on Q_exact, so they run
-    // in parallel with the ±4 delta correction and add zero critical path.
+    // These depend only on s4 exponent registers, not on Q_exact, so they run in parallel with the ±4 delta correction and add zero critical path.
     // Q_lo = bottom (F-d) bits of Q_exact — the only gate on Q_exact's path
     // is a single AND, adding ~0.5ns.
     wire signed [EXP_BITS:0] s5_d_comb = s4_a_exp_adj_r - s4_b_exp_adj_r;
@@ -721,8 +720,7 @@ module spirix_divmod_nr #(
 
     // --- Modulo path (stage 6): DSP multiply + add only ---
     // Q_lo, shift amounts, and flags were pre-computed in stage 5 and registered.
-    // Stage 6 computes M = Q_lo * abs_b + R_exact, then registers everything
-    // for the barrel shift + correction in stage 7.
+    // Stage 6 computes M = Q_lo * abs_b + R_exact, then registers everything for the barrel shift + correction in stage 7.
 
     // Sign info for floored modulo (just aliases for registered values)
     wire s6_signs_differ = s5_sign_r;  // a_sign XOR b_sign

@@ -32,11 +32,11 @@ module spirix_multiply #(
     // Exponent calc width (needs room for a_exp + b_exp + 1 - lm1)
     localparam ECW = EXP_BITS + 2;
 
-    // Undefined prefix constants (top 8 bits of fraction, zero-padded)
-    // UPAD avoids negative repeat count for FRAC < 8 (constants wrong but unused at small FRAC)
+    // Undefined prefix constants — match src/core/undefined.rs exactly.
+    // UPAD avoids negative repeat count for FRAC < 8.
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hE6, {UPAD{1'b0}}}; // -0x1A TRANSFINITE_MULTIPLY_NEGLIGIBLE
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h19, {UPAD{1'b0}}}; //  0x19 NEGLIGIBLE_MULTIPLY_TRANSFINITE
 
     // ========== State detection =================================================
 

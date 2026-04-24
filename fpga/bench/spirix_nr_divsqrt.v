@@ -26,8 +26,7 @@
 //
 // Multiplier port (directly usable by external multiply op when idle):
 //   mul_a, mul_b: operand outputs. mul_prod: product input.
-//   When !busy, mul_a/mul_b hold the values from the last operation
-//   and can be overridden externally for a standalone multiply.
+// When !busy, mul_a/mul_b hold the values from the last operation and can be overridden externally for a standalone multiply.
 
 module spirix_nr_divsqrt #(
     parameter FRAC_BITS = 32,
@@ -70,8 +69,7 @@ module spirix_nr_divsqrt #(
     localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL     = $signed({8'hFE, {(FRAC_BITS-8){1'b0}}});
 
     // NR iteration count: LUT gives ~10 bits, each iteration doubles.
-    // Sqrt has 3 truncation points per iter (vs 2 for divide), so needs
-    // more conservative threshold. Use 1 iter only for F≤12.
+    // Sqrt has 3 truncation points per iter (vs 2 for divide), so needs more conservative threshold. Use 1 iter only for F≤12.
     localparam NR_ITERS = (FRAC_BITS <= 12) ? 1 :
                           (FRAC_BITS <= 26) ? 2 :
                           (FRAC_BITS <= 54) ? 3 : 4;

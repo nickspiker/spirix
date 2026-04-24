@@ -15,8 +15,7 @@
 // d < 0: passthrough a (same signs) or barrel-shift subtract (diff signs).
 // d > ACTIVE_FRAC: returns (0, AMBIG) — insufficient precision.
 //
-// Width-dependent iteration count: matches divide_iter/sqrt_iter precision
-// per active width (8/16/32/64-bit fractions → FRAC+1 / FRAC+2 iterations).
+// Width-dependent iteration count: matches divide_iter/sqrt_iter precision per active width (8/16/32/64-bit fractions → FRAC+1 / FRAC+2 iterations).
 // Banker's rounding at active-width boundary.
 //
 // Interface:

@@ -69,9 +69,10 @@ module spirix_sqrt_iter #(
     // Edge case constants
     localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIGUOUS_EXP[EXP_BITS-1:0];
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
-    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_NEG    = $signed({8'hF6, {UPAD{1'b0}}});
-    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_EXPLOD = $signed({8'h08, {UPAD{1'b0}}});
-    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_VANISH = $signed({8'hF7, {UPAD{1'b0}}});
+    // Undefined prefix constants — match src/core/undefined.rs L6 Roots.
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_NEG    = $signed({8'h02, {UPAD{1'b0}}}); //  0x02 SQRT_NEGATIVE
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_EXPLOD = $signed({8'hFC, {UPAD{1'b0}}}); // -0x04 SQRT_EXPLODED
+    localparam signed [FRAC_BITS-1:0] UNDEF_SQRT_VANISH = $signed({8'h03, {UPAD{1'b0}}}); //  0x03 SQRT_VANISHED
 
     // Input state classification (combinational)
     wire a_is_ambig = (a_exp == AMBIG_E);

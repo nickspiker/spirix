@@ -40,10 +40,10 @@ module spirix_multiply_pipe2 #(
     localparam signed [EXP_BITS:0] MAX_EXP = (1 <<< (EXP_BITS - 1)) - 1;
     localparam signed [EXP_BITS:0] MIN_EXP = -(1 <<< (EXP_BITS - 1)) + 1;
 
-    // Undefined prefix constants
+    // Undefined prefix constants — match src/core/undefined.rs.
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hE6, {UPAD{1'b0}}}; // -0x1A TRANSFINITE_MULTIPLY_NEGLIGIBLE
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h19, {UPAD{1'b0}}}; //  0x19 NEGLIGIBLE_MULTIPLY_TRANSFINITE
 
     // =========================================================================
     // Edge case detection (combinational, stage 0)

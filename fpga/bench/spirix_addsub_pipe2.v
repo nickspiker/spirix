@@ -1,11 +1,9 @@
 // spirix_addsub_pipe2 — 2-stage pipelined add/subtract for Spirix scalars
 //
-// Computes a + b (sub=0) or a - b (sub=1) on N1-normalized signed fractions
-// with signed exponents. Fully parameterized. Latency: 2 cycles.
+// Computes a + b (sub=0) or a - b (sub=1) on N1-normalized signed fractions with signed exponents. Fully parameterized. Latency: 2 cycles.
 // Throughput: 1 result per clock.
 //
-// Architecture: close/far split with one shared barrel shifter, split
-// across two pipeline stages.
+// Architecture: close/far split with one shared barrel shifter, split across two pipeline stages.
 //
 //   Stage 1 (Prepare + Barrel):
 //       Swap: exp subtract, |diff|, mux big/small.
@@ -25,8 +23,7 @@
 //
 // Subtraction: XOR + carry-in on existing adders. After the exponent-based
 // swap, b may land in either the big or small position. negate_small and
-// negate_big track which operand holds b. The close path adder in stage 1
-// and the far path adder in stage 2 both use the same pattern:
+// negate_big track which operand holds b. The close path adder in stage 1 and the far path adder in stage 2 both use the same pattern:
 //   (A ^ {N{negate_A}}) + (B ^ {N{negate_B}}) + sub
 // On ECP5, the XOR folds into the LUT4 feeding the CCU2C carry chain.
 //

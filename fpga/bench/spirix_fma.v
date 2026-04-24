@@ -4,13 +4,11 @@
 // Purely combinational. Uses DSP for the multiply.
 //
 // Architecture: pre-aligned FMA. The exponent difference and C alignment
-// are computed from the raw product exponent (a_exp + b_exp) IN PARALLEL
-// with the DSP multiply. The DSP result feeds directly into the close/far
+// are computed from the raw product exponent (a_exp + b_exp) IN PARALLEL with the DSP multiply. The DSP result feeds directly into the close/far
 // addsub without intermediate normalization.
 //
 // The product is N1 or N2 (N1*N1 produces at most 1 redundant sign bit).
-// The close-path threshold is widened to |raw_diff| <= 2 (was 1) to cover
-// the 1-bit exponent uncertainty. The far-path bounded normalize is
+// The close-path threshold is widened to |raw_diff| <= 2 (was 1) to cover the 1-bit exponent uncertainty. The far-path bounded normalize is
 // widened to 0-3 bits (was 0-2) to absorb the extra redundant bit.
 //
 // Critical path improvement:
@@ -50,20 +48,20 @@ module spirix_fma #(
     localparam signed [FRAC_BITS-1:0] POS_SMALL = {2'b00, 1'b1, {(FRAC_BITS-3){1'b0}}};
     localparam signed [FRAC_BITS-1:0] NEG_SMALL = {2'b11, {(FRAC_BITS-2){1'b0}}};
 
-    // Undefined prefix constants
+    // Undefined prefix constants — match src/core/undefined.rs.
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
     // Multiply prefixes
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hEF, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h10, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_MUL_NEG = {8'hE6, {UPAD{1'b0}}}; // -0x1A
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_MUL_TF = {8'h19, {UPAD{1'b0}}}; //  0x19
     // Add prefixes
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF  = {8'h1F, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF  = {8'hE0, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1E, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE1, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h18, {UPAD{1'b0}}};
-    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE7, {UPAD{1'b0}}};
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF   = {8'h1A, {UPAD{1'b0}}}; //  0x1A TRANSFINITE_PLUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF   = {8'hE5, {UPAD{1'b0}}}; // -0x1B TRANSFINITE_MINUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1D, {UPAD{1'b0}}}; //  0x1D VANISHED_PLUS_VANISHED
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE2, {UPAD{1'b0}}}; // -0x1E VANISHED_MINUS_VANISHED
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}}; //  0x1C TRANSFINITE_PLUS_FINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}}; // -0x1D TRANSFINITE_MINUS_FINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h1B, {UPAD{1'b0}}}; //  0x1B FINITE_PLUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE4, {UPAD{1'b0}}}; // -0x1C FINITE_MINUS_TRANSFINITE
 
     // =========================================================================
     // Edge case detection — Multiply (a*b) then Add (product + c)

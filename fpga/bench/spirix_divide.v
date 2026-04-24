@@ -63,9 +63,10 @@ module spirix_divide #(
     localparam signed [FRAC_BITS-1:0] ALL_ONES = {FRAC_BITS{1'b1}};  // = -1 = infinity frac
     localparam signed [EXP_BITS-1:0]  AMBIG_E  = AMBIG_EXP[EXP_BITS-1:0];
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
-    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'hE9, {UPAD{1'b0}}});
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'h16, {UPAD{1'b0}}});
-    localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL      = $signed({8'hFE, {UPAD{1'b0}}});
+    // Undefined prefix constants — match src/core/undefined.rs.
+    localparam signed [FRAC_BITS-1:0] UNDEF_NEG_DIV_NEG = $signed({8'h18, {UPAD{1'b0}}}); //  0x18 NEGLIGIBLE_DIVIDE_NEGLIGIBLE
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_DIV_TF   = $signed({8'hE7, {UPAD{1'b0}}}); // -0x19 TRANSFINITE_DIVIDE_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_GENERAL     = $signed({8'h1F, {UPAD{1'b0}}}); //  0x1F GENERAL
 
     // Input state classification (combinational)
     wire a_is_ambig = (a_exp == AMBIG_E);
