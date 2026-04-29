@@ -1,6 +1,4 @@
-//! Exhaustive F3E3 verification: add/sub/mul/div class against f64 gold.
-//! Flags suspicious bugs: cases where spirix claims exploded when f64 says tiny,
-//! or claims vanished when f64 says huge, etc.
+//! Exhaustive F3E3 verification: add/sub/mul/div class against f64 gold. Flags suspicious bugs: cases where spirix claims exploded when f64 says tiny, or claims vanished when f64 says huge, etc.
 
 use spirix::*;
 use std::collections::BTreeMap;
@@ -41,15 +39,13 @@ fn f64_op(o: Op, a: f64, b: f64) -> f64 {
     match o { Op::Add => a + b, Op::Sub => a - b, Op::Mul => a * b, Op::Div => a / b }
 }
 
-/// What class SHOULD spirix return given the f64 result magnitude?
-/// Returns None when both magnitudes are acceptable (e.g. at a boundary).
+/// What class SHOULD spirix return given the f64 result magnitude? Returns None when both magnitudes are acceptable (e.g. at a boundary).
 fn expected_class_from_f64(r: f64) -> Option<Class> {
     if r.is_nan() { return Some(Class::Undefined); }
     if r.is_infinite() { return Some(Class::Infinity); }
     let abs = r.abs();
     if abs == 0.0 { return Some(Class::Zero); }
-    // F3E3 normal range: 2^MIN_EXP (≈ 5.9e-39) to 2^MAX_EXP (≈ 1.7e38). We use safe
-    // margins that both directions can land in [↓] or [↑] only if clearly outside.
+    // F3E3 normal range: 2^MIN_EXP (≈ 5.9e-39) to 2^MAX_EXP (≈ 1.7e38). We use safe margins that both directions can land in [↓] or [↑] only if clearly outside.
     const MIN_NORMAL: f64 = 1e-38;   // below this, expect vanished
     const MAX_NORMAL: f64 = 1e38;    // above this, expect exploded
     if abs < MIN_NORMAL { return Some(Class::Vanished); }
@@ -85,8 +81,7 @@ fn run(o: Op) {
                         Some(c) => c, None => continue,
                     };
 
-                    // The bug pattern: spirix says exploded when f64 says vanished/zero
-                    // (tiny real result misclassified as huge). Or the reverse.
+                    // The bug pattern: spirix says exploded when f64 says vanished/zero (tiny real result misclassified as huge). Or the reverse.
                     let suspicious = (spirix_result == Class::Exploded
                                       && (expected == Class::Vanished || expected == Class::Zero))
                                    || (spirix_result == Class::Vanished

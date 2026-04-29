@@ -65,9 +65,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs complex number multiplication between two Circles, handling special cases according to mathematical principles.
-    /// For normal Circles, this follows standard complex multiplication formula (a+b·i)(c+d·i) = (a·c-b·d) + (a·d+b·c)·i.
-    /// Vanished and exploded Circles are multiplied without any exponent handling to maintain orientation and to follow the multiplication rule.
+    /// Performs complex number multiplication between two Circles, handling special cases according to mathematical principles. For normal Circles, this follows standard complex multiplication formula (a+b·i)(c+d·i) = (a·c-b·d) + (a·d+b·c)·i. Vanished and exploded Circles are multiplied without any exponent handling to maintain orientation and to follow the multiplication rule.
     ///
     /// Multiplication process:
     /// 0. Checks for and handles undefined Circles

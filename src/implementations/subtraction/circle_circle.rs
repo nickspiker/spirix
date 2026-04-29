@@ -65,8 +65,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs subtraction between two Circles, handling special cases according to mathematical principles. The operation subtracts both the real and imaginary components separately while maintaining fractional alignment and adjusting exponent accordingly.
-    /// Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
+    /// Performs subtraction between two Circles, handling special cases according to mathematical principles. The operation subtracts both the real and imaginary components separately while maintaining fractional alignment and adjusting exponent accordingly. Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
     ///
     /// Subtraction process:
     /// 0. Checks for any escaped (vanished, exploded or undefined) Circles and handles these first
@@ -97,8 +96,8 @@ where
     ///
     /// // Subtracting finite Circles
     /// let a = Circle::<i32, i8>::from((3.5, 4));
-    /// let b = CircleF5E3::from((1, 2));     
-    /// let diff = a - b;                    
+    /// let b = CircleF5E3::from((1, 2));
+    /// let diff = a - b;
     /// assert!(diff.r() == 2.5);
     /// assert!(diff.i() == 2);
     ///

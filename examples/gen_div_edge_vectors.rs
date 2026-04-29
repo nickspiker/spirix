@@ -1,6 +1,4 @@
-/// Generate div edge-case test vectors for F3E3 (FRAC=8, EXP=8).
-/// Mirrors the Verilog iterative divide edge case chain.
-/// Output: hex file with lines "a_frac a_exp b_frac b_exp r_frac r_exp"
+/// Generate div edge-case test vectors for F3E3 (FRAC=8, EXP=8). Mirrors the Verilog iterative divide edge case chain. Output: hex file with lines "a_frac a_exp b_frac b_exp r_frac r_exp"
 use spirix::Scalar;
 
 const AMBIG: i8 = -128;

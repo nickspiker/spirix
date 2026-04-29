@@ -63,10 +63,7 @@ where
 {
     /// Mathematical complex modulus operation for Scalar with Circle
     ///
-    /// Performs complex modulus using the mathematical formula:
-    /// For scalar s and complex number (a + bi), calculates:
-    /// real = (s * a) % (a² + b²)
-    /// imag = (s * b) % (a² + b²)
+    /// Performs complex modulus using the mathematical formula: For scalar s and complex number (a + bi), calculates: real = (s * a) % (a² + b²) imag = (s * b) % (a² + b²)
     ///
     /// Returns UNDEFINED if:
     /// - Either number is escaped
@@ -132,9 +129,7 @@ where
     }
     /// Component-wise modulo operation for Scalar with Circle
     ///
-    /// Performs modulo separately on real and imaginary components:
-    /// s ‰ (a + bi) = (s % a) + (s % b)i
-    /// scalar.modulo(circle);
+    /// Performs modulo separately on real and imaginary components: s ‰ (a + bi) = (s % a) + (s % b)i scalar.modulo(circle);
     ///
     /// Returns UNDEFINED if:
     /// - Either number is escaped

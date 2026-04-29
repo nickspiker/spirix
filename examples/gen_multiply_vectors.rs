@@ -1,5 +1,4 @@
-/// Generate test vectors for minimal multiply core validation.
-/// Outputs: a_frac a_exp b_frac b_exp result_frac result_exp (hex, signed)
+/// Generate test vectors for minimal multiply core validation. Outputs: a_frac a_exp b_frac b_exp result_frac result_exp (hex, signed)
 use spirix::{Scalar, ScalarF3E3};
 
 fn main() {

@@ -1,6 +1,4 @@
-//! Hunt for the remaining div truth-table failures. Scan ALL F3E3 pairs and
-//! print the first few where class is expected Exploded but spirix returns Zero
-//! (and symmetric for Vanished → Zero).
+//! Hunt for the remaining div truth-table failures. Scan ALL F3E3 pairs and print the first few where class is expected Exploded but spirix returns Zero (and symmetric for Vanished → Zero).
 use spirix::*;
 
 type S = ScalarF3E3;
@@ -25,8 +23,7 @@ fn show(label: &str, s: S) {
 }
 
 fn main() {
-    // Enumerate all F3E3 normal × normal pairs and look for div results where a is Normal, b is Vanished-class, result should be Exploded but isn't.
-    // Also Normal / Exploded → expected Vanished, but result is Zero.
+    // Enumerate all F3E3 normal × normal pairs and look for div results where a is Normal, b is Vanished-class, result should be Exploded but isn't. Also Normal / Exploded → expected Vanished, but result is Zero.
     let mut miss_norm_van_nonxpl = 0;
     let mut miss_norm_xpl_nonvan = 0;
     let mut shown = 0;

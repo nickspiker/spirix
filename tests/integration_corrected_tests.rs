@@ -334,8 +334,7 @@ mod bitwise_operations {
         assert!(and_result.is_normal());
         let and_val: i32 = and_result.into();
 
-        // The library does bitwise operations on the internal representation
-        // not the mathematical value, so we can't predict exact results
+        // The library does bitwise operations on the internal representation not the mathematical value, so we can't predict exact results
         // Just verify it doesn't crash and produces a valid number
         assert!(and_val >= 0); // Should be a valid positive result
         println!("Bitwise AND result: {}", and_val);

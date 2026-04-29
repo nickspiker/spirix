@@ -63,18 +63,15 @@ where
 {
     /// Mathematical modulus operation for Circle complex numbers
     ///
-    /// Performs complex modulus using the mathematical formula derived from complex division:
-    /// (a + bi) % (c + di) = ((ac + bd) + (bc - ad)i) % (c² + d²)
+    /// Performs complex modulus using the mathematical formula derived from complex division: (a + bi) % (c + di) = ((ac + bd) + (bc - ad)i) % (c² + d²)
     ///
-    /// Note: This is NOT simply applying the magnitude-based scalar modulus.
-    /// For magnitude-based modulus, use cincle % scalar
+    /// Note: This is NOT simply applying the magnitude-based scalar modulus. For magnitude-based modulus, use cincle % scalar
     /// Instead, it's based on the principles of complex division followed by modulus:
     /// - Complex division gives us: (a + bi)/(c + di) = (ac + bd)/(c² + d²) + (bc - ad)/(c² + d²)i
     /// - For modulus, we extract the remainder after division
     /// - This approach preserves the algebraic properties expected of modular arithmetic in the complex plane
     ///
-    /// Returns UNDEFINED if either Circle escaped or both are negligible.
-    /// Handles special cases for pure real and pure imaginary Circles.
+    /// Returns UNDEFINED if either Circle escaped or both are negligible. Handles special cases for pure real and pure imaginary Circles.
     pub(crate) fn circle_modulus_circle(&self, denominator: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !denominator.is_normal() {
             if self.is_undefined() {
@@ -132,12 +129,9 @@ where
 
     /// Component-wise modulo operation for Circle complex numbers
     ///
-    /// Performs modulo separately on real and imaginary components:
-    /// (a + bi) ‰ (c + di) = (a % c) + (b % d)i
-    /// circle.modulo(circle);
+    /// Performs modulo separately on real and imaginary components: (a + bi) ‰ (c + di) = (a % c) + (b % d)i circle.modulo(circle);
     ///
-    /// Returns UNDEFINED if either Circle escaped or both are negligible.
-    /// Handles ambiguous cases for pure real and pure imaginary numbers.
+    /// Returns UNDEFINED if either Circle escaped or both are negligible. Handles ambiguous cases for pure real and pure imaginary numbers.
     ///
     /// This operation is useful for coordinate-based or grid-aligned calculations.
     pub(crate) fn circle_modulo_circle(&self, denominator: &Circle<F, E>) -> Circle<F, E> {

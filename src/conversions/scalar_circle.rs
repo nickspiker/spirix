@@ -7,9 +7,7 @@ use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 /// # Scalar to Circle Conversions
 ///
-/// This module provides implementations for creating Circle complex number values
-/// from Scalar real number values. It handles combining separate real and imaginary
-/// components while maintaining proper normalization and handling special cases.
+/// This module provides implementations for creating Circle complex number values from Scalar real number values. It handles combining separate real and imaginary components while maintaining proper normalization and handling special cases.
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -69,8 +67,7 @@ where
 {
     /// # Create a Circle from Components
     ///
-    /// Constructs a Circle from separate real and imaginary Scalar components,
-    /// handling complex normalization requirements and special state preservation.
+    /// Constructs a Circle from separate real and imaginary Scalar components, handling complex normalization requirements and special state preservation.
     ///
     /// ## How Component Combination Works
     ///
@@ -215,10 +212,7 @@ where
                 exponent: real.exponent,
             };
         }
-        // Normal case: translate Scalar→Circle, then align exponents.
-        // Scalar fraction s carries implicit sign (~MSB); Circle carries explicit
-        // (MSB). For same value: circle = (s >> 1) XOR MSB_MASK — arithmetic
-        // shift halves the magnitude, XOR flips the sign convention.
+        // Normal case: translate Scalar→Circle, then align exponents. Scalar fraction s carries implicit sign (~MSB); Circle carries explicit (MSB). For same value: circle = (s >> 1) XOR MSB_MASK — arithmetic shift halves the magnitude, XOR flips the sign convention.
         let real_c: F = (real.fraction >> 1isize) ^ F::min_value();
         let imag_c: F = (imaginary.fraction >> 1isize) ^ F::min_value();
         let exp_diff = real.exponent.wrapping_sub(&imaginary.exponent);

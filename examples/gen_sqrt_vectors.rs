@@ -1,5 +1,4 @@
-/// Generate test vectors for minimal sqrt core validation.
-/// Outputs: a_frac a_exp result_frac result_exp (hex, signed)
+/// Generate test vectors for minimal sqrt core validation. Outputs: a_frac a_exp result_frac result_exp (hex, signed)
 use spirix::Scalar;
 
 fn main() {

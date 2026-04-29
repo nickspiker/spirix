@@ -65,8 +65,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs addition between a Scalar and a Circle, adding the Scalar value to the real component of the Circle while leaving the imaginary component unchanged (except for normalization).
-    /// Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
+    /// Performs addition between a Scalar and a Circle, adding the Scalar value to the real component of the Circle while leaving the imaginary component unchanged (except for normalization). Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
     ///
     /// Addition process:
     /// 0. Checks for any escaped (vanished, exploded, infinity, or undefined) values and handles these first

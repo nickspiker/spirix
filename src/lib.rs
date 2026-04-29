@@ -1,6 +1,5 @@
 #![no_std]
-// src/
-// │
+// src/ │
 // ├── core/                    Core types and traits
 // │   ├── circle.rs            Circle<F, E> complex number type
 // │   ├── circle_aliases.rs    Circle type aliases (F3E3-F7E7)
@@ -8,8 +7,7 @@
 // │   ├── mod.rs               Module exports
 // │   ├── scalar.rs            Scalar<F, E> real number type
 // │   ├── scalar_aliases.rs    Scalar type aliases (F3E3-F7E7)
-// │   └── undefined.rs         Undefined value prefixes and patterns
-// │
+// │   └── undefined.rs         Undefined value prefixes and patterns │
 // ├── conversions/             Type conversion implementations
 // │   ├── circle_circle.rs     Circle conversion traits
 // │   ├── circle_rust.rs       Circle to primitive conversions
@@ -19,15 +17,13 @@
 // │   ├── rust_scalar.rs       Primitive to Scalar conversions
 // │   ├── scalar_circle.rs     Scalar to Circle conversions
 // │   ├── scalar_rust.rs       Scalar to primitive conversions
-// │   └── scalar_scalar.rs     Scalar to Scalar conversions
-// │
+// │   └── scalar_scalar.rs     Scalar to Scalar conversions │
 // ├── constants/               Constant values and implementations
 // │   ├── circle.rs            Circle constants (i, π, roots)
 // │   ├── exponent.rs          Exponent component constants
 // │   ├── fraction.rs          Fraction component constants
 // │   ├── mod.rs               Constants exports
-// │   └── scalar.rs            Scalar constants (π, e, roots)
-// │
+// │   └── scalar.rs            Scalar constants (π, e, roots) │
 // ├── implementations/         Mathematical operations
 // │   ├── addition/            Addition operations
 // │   │   ├── circle_circle.rs Circle + Circle
@@ -93,8 +89,7 @@
 // │   ├── basic_scalar.rs      Core Scalar operations
 // │   ├── comparison.rs        Ordering operations (<, >, ==)
 // │   ├── mod.rs               Implementation exports
-// │   └── random.rs            Random number generation
-// │
+// │   └── random.rs            Random number generation │
 // ├── operators/               Type interaction traits
 // │   ├── circle.rs            Circle-specific operations
 // │   ├── circle_circle.rs     Circle-Circle operations
@@ -106,16 +101,14 @@
 // │   ├── scalar.rs            Scalar-specific operations
 // │   ├── scalar_circle.rs     Scalar-Circle operations
 // │   ├── scalar_rust.rs       Scalar-to-primitive ops
-// │   └── scalar_scalar.rs     Scalar-Scalar operations
-// │
+// │   └── scalar_scalar.rs     Scalar-Scalar operations │
 // ├── tensor/                  Tensor operations and neural networks
 // │   ├── autograd.rs          Automatic differentiation
 // │   ├── mod.rs               Tensor exports
 // │   ├── nn.rs                Neural network layers
 // │   ├── ops.rs               Tensor operations
 // │   ├── optim.rs             Optimization algorithms
-// │   └── tensor.rs            Core Tensor type
-// │
+// │   └── tensor.rs            Core Tensor type │
 // └── lib.rs                   Library root and exports (this file)
 
 //! # Spirix
@@ -185,8 +178,7 @@
 //!
 //! ### 1. Infinity and Zero Identities
 //!
-//! Spirix implements mathematical identities in accordance with Riemann sphere principles,
-//! with proper handling of Infinity and Zero:
+//! Spirix implements mathematical identities in accordance with Riemann sphere principles, with proper handling of Infinity and Zero:
 //!
 //! ```rust
 //! use spirix::{Scalar, ScalarF5E3};
@@ -407,8 +399,7 @@
 //! (a + b*i).modulo(c + d*i) = (a % c) + (b % d)*i
 //! ```
 //!
-//! Both operations handle special cases (undefined, exploded, vanished) appropriately,
-//! preserving mathematical consistency throughout numerical space.
+//! Both operations handle special cases (undefined, exploded, vanished) appropriately, preserving mathematical consistency throughout numerical space.
 //!
 //! ### 7. Circles!
 //!
@@ -613,8 +604,7 @@ pub use crate::operators::{Clamp, Logarithm, Max, Min, Power};
 
 /// Compile-time `ScalarF4E4` literal from an f32 expression.
 ///
-/// `sf!(0.0031308)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary.
-/// The argument must be a normal finite non-zero f32 literal or simple const expression.
+/// `sf!(0.0031308)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary. The argument must be a normal finite non-zero f32 literal or simple const expression.
 #[macro_export]
 macro_rules! sf {
     ($e:expr) => {
@@ -624,9 +614,7 @@ macro_rules! sf {
 
 /// Compile-time `ScalarF4E4` literal from an f64 expression.
 ///
-/// `sd!(1.0/3.0)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary.
-/// Provides higher precision than `sf!` for constants with more than 7 significant digits.
-/// The argument must be a normal finite non-zero f64 literal or simple const expression.
+/// `sd!(1.0/3.0)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary. Provides higher precision than `sf!` for constants with more than 7 significant digits. The argument must be a normal finite non-zero f64 literal or simple const expression.
 #[macro_export]
 macro_rules! sd {
     ($e:expr) => {

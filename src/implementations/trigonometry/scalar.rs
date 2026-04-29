@@ -558,120 +558,55 @@ where
 
         self.sinh() / self.cosh()
     }
-    // pub fn erf(&self) -> Self {
-    // // Handle special cases first if !self.is_normal() {
-    //         if self.exploded() {
-    //             return Self {
-    //                 fraction: GENERAL.prefix.sa(),
-    //                 exponent: Self::ambiguous_exponent(),
-    //             };
-    //         }
-    // // Zero returns zero if self.is_zero() {
-    //             return Self::ZERO;
-    //         }
-    //         return *self;
-    //     }
+    // pub fn erf(&self) -> Self { // Handle special cases first if !self.is_normal() { if self.exploded() { return Self { fraction: GENERAL.prefix.sa(), exponent: Self::ambiguous_exponent(), }; } // Zero returns zero if self.is_zero() { return Self::ZERO; } return *self; }
 
-    //     return self.erf_continued_fraction();
-    // }
+    // return self.erf_continued_fraction(); }
 
-    // // Taylor series implementation for small |x|
-    // fn erf_taylor_series(&self) -> Self {
-    //     let x = *self;
-    //     let x_squared = x.square();
-    //     let two_over_sqrt_pi = Self::TWO / Self::PI.sqrt();
+    // // Taylor series implementation for small |x| fn erf_taylor_series(&self) -> Self { let x = *self; let x_squared = x.square(); let two_over_sqrt_pi = Self::TWO / Self::PI.sqrt();
 
-    //     let mut sum = x;
-    //     let mut prev_sum;
-    //     let mut term = x;
-    //     let mut n = Self::ZERO;
+    // let mut sum = x; let mut prev_sum; let mut term = x; let mut n = Self::ZERO;
 
-    //     loop {
-    //         prev_sum = sum;
-    //         n = n + Self::ONE;
+    // loop { prev_sum = sum; n = n + Self::ONE;
 
-    //         // Term: (-1)^n * x^(2n+1) / (n! * (2n+1))
-    //         term = term * x_squared * (-Self::ONE);
-    //         term = term / (n * (n + n + Self::ONE));
+    // // Term: (-1)^n * x^(2n+1) / (n! * (2n+1)) term = term * x_squared * (-Self::ONE); term = term / (n * (n + n + Self::ONE));
 
     //         sum = sum + term;
 
-    //         if sum == prev_sum || n > Self::fraction_bits() {
-    //             break;
-    //         }
-    //     }
+    // if sum == prev_sum || n > Self::fraction_bits() { break; } }
 
-    //     two_over_sqrt_pi * sum
-    // }
+    // two_over_sqrt_pi * sum }
 
-    // // Continued fraction implementation for medium |x|
-    // fn erf_continued_fraction(&self) -> Self {
-    //     let x = *self;
-    //     let two_x_over_sqrt_pi = (Self::TWO * x) / Self::PI.sqrt();
-    //     let x_squared = x.square();
+    // // Continued fraction implementation for medium |x| fn erf_continued_fraction(&self) -> Self { let x = *self; let two_x_over_sqrt_pi = (Self::TWO * x) / Self::PI.sqrt(); let x_squared = x.square();
 
-    //     // Compute using Lentz's algorithm
-    //     let tiny = Self::from(1e-20);
-    //     let mut f = Self::ONE;
-    //     let mut c = f;
-    //     let mut d = Self::ZERO;
+    // // Compute using Lentz's algorithm let tiny = Self::from(1e-20); let mut f = Self::ONE; let mut c = f; let mut d = Self::ZERO;
 
-    //     let mut j = Self::ONE;
-    //     let mut delta;
+    // let mut j = Self::ONE; let mut delta;
 
-    //     // Initialize values for continued fraction expansion
-    //     // 1 + 2x²/(3 + 4x²/(5 + 6x²/(7 + ...)))
-    //     loop {
-    //         let a = j + j - Self::ONE;
-    //         let b = (j + j) * x_squared;
+    // // Initialize values for continued fraction expansion // 1 + 2x²/(3 + 4x²/(5 + 6x²/(7 + ...))) loop { let a = j + j - Self::ONE; let b = (j + j) * x_squared;
 
-    //         d = a + b * d;
-    //         if d.is_negligible() {
-    //             d = tiny;
-    //         }
+    // d = a + b * d; if d.is_negligible() { d = tiny; }
 
-    //         c = a + b / c;
-    //         if c.is_negligible() {
-    //             c = tiny;
-    //         }
+    // c = a + b / c; if c.is_negligible() { c = tiny; }
 
-    //         d = Self::ONE / d;
-    //         delta = c * d;
-    //         f = f * delta;
+    // d = Self::ONE / d; delta = c * d; f = f * delta;
 
     // // Check for convergence if (delta - Self::ONE).magnitude() < Self::POS_NORMAL_EPSILON
-    //             || j > (Self::fraction_bits() >> 1)
-    //         {
-    //             break;
-    //         }
+    // || j > (Self::fraction_bits() >> 1) { break; }
 
-    //         j = j + Self::ONE;
-    //     }
+    // j = j + Self::ONE; }
 
-    //     two_x_over_sqrt_pi / f
-    // }
+    // two_x_over_sqrt_pi / f }
 
-    // // Asymptotic approximation for large |x|
-    // fn erf_asymptotic(&self) -> Self {
-    //     let x = *self;
-    //     let abs_x = x.magnitude();
-    //     let sign = x.sign();
+    // // Asymptotic approximation for large |x| fn erf_asymptotic(&self) -> Self { let x = *self; let abs_x = x.magnitude(); let sign = x.sign();
 
-    //     // For large x: erf(x) ≈ 1 - e^(-x²)/(x√π) * (1 - 1/(2x²) + ...)
-    //     let x_squared = x.square();
-    //     let exp_neg_x_squared = (-x_squared).exp();
-    //     let inv_x_sqrt_pi = Self::ONE / (abs_x * Self::PI.sqrt());
+    // // For large x: erf(x) ≈ 1 - e^(-x²)/(x√π) * (1 - 1/(2x²) + ...) let x_squared = x.square(); let exp_neg_x_squared = (-x_squared).exp(); let inv_x_sqrt_pi = Self::ONE / (abs_x * Self::PI.sqrt());
 
     //     let correction = exp_neg_x_squared
     //         * inv_x_sqrt_pi
     //         * (Self::ONE - Self::ONE / (Self::TWO * x_squared) + 3 / (4 * x_squared.square()));
 
     //     if sign.is_positive() {
-    //         Self::ONE - correction
-    //     } else {
-    //         -Self::ONE + correction
-    //     }
-    // }
+    // Self::ONE - correction } else { -Self::ONE + correction } }
 }
 
 #[cfg(feature = "alloc")]

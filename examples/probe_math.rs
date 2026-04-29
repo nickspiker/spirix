@@ -1,5 +1,4 @@
-//! Quick sanity probes for trig, exponents, and statistics on N0 scalars.
-//! Not exhaustive — just "do the basics produce sane results?"
+//! Quick sanity probes for trig, exponents, and statistics on N0 scalars. Not exhaustive — just "do the basics produce sane results?"
 use spirix::*;
 
 fn p<T: std::fmt::Display>(label: &str, v: T) {

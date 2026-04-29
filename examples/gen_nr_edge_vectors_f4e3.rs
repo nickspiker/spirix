@@ -1,8 +1,4 @@
-/// Generate F4E3 edge case test vectors for NR div/sqrt validation.
-/// Tests: undefined passthrough, zero, infinity, negative sqrt,
-/// exploded, vanished, and all cross-combinations.
-/// Output lines: mode a_frac a_exp b_frac b_exp result_frac result_exp (hex)
-/// mode: 0=divide, 1=sqrt
+/// Generate F4E3 edge case test vectors for NR div/sqrt validation. Tests: undefined passthrough, zero, infinity, negative sqrt, exploded, vanished, and all cross-combinations. Output lines: mode a_frac a_exp b_frac b_exp result_frac result_exp (hex) mode: 0=divide, 1=sqrt
 use spirix::Scalar;
 
 fn emit_div(a_frac: i16, a_exp: i8, b_frac: i16, b_exp: i8) {

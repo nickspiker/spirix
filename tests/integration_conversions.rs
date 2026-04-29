@@ -142,8 +142,7 @@ mod scalar_conversions {
         assert!(zero_f3e3.is_zero());
         assert!(zero_f7e7.is_zero());
 
-        // Exploded values convert to f32 infinity, which creates Spirix infinity
-        // (a distinct state from exploded). The key property is it's not normal.
+        // Exploded values convert to f32 infinity, which creates Spirix infinity (a distinct state from exploded). The key property is it's not normal.
         let exploded_f7e7: ScalarF7E7 = ScalarF7E7::MAX * 2.0;
         assert!(exploded_f7e7.exploded());
 
@@ -269,8 +268,7 @@ mod circle_conversions {
         assert!(zero_f3e3.is_zero());
         assert!(zero_f7e7.is_zero());
 
-        // Complex numbers with exploded components: exploded converts to f32 infinity,
-        // which creates a non-normal Circle (infinity state, not exploded).
+        // Complex numbers with exploded components: exploded converts to f32 infinity, which creates a non-normal Circle (infinity state, not exploded).
         let exploded_scalar: ScalarF5E3 = ScalarF5E3::MAX * 2.0;
         assert!(exploded_scalar.exploded());
 
@@ -331,8 +329,7 @@ mod conversion_matrices {
 
     #[test]
     fn test_scalar_conversion_matrix() {
-        // Test a representative sample of scalar conversions
-        // (Testing all 625 combinations would be excessive)
+        // Test a representative sample of scalar conversions (Testing all 625 combinations would be excessive)
 
         // Low precision conversions
         test_scalar_conversion!(ScalarF3E3, ScalarF3E4);

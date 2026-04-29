@@ -12,21 +12,13 @@ pub trait CircleConstants {
     const POS_NORMAL_EPSILON: Self;
     /// Granularity between -1 and -2
     const NEG_NORMAL_EPSILON: Self;
-    /// The maximum value that maintains integer contiguity with its neighboring values.
-    /// This is one less than MAX_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a+1!=a).
+    /// The maximum value that maintains integer contiguity with its neighboring values. This is one less than MAX_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a+1!=a).
     const MAX_CONTIGUOUS: Self;
-    /// The minimum value that maintains integer contiguity with its neighboring values.
-    /// This is one more than MIN_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a-1!=a).
+    /// The minimum value that maintains integer contiguity with its neighboring values. This is one more than MIN_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a-1!=a).
     const MIN_CONTIGUOUS: Self;
     /// Actual Zero, the real deal. Exploded * 0 = 0
     const ZERO: Self;
-    /// Mathematical infinity - the result of division by Zero (1/0).
-    /// Unlike IEEE-754's signed infinities, this represents a singular infinity
-    /// where the sign is indeterminate. Represented by all fraction bits set (11111111)
-    /// with an ambiguous exponent, creating symmetry with ZERO (00000000).
-    /// Used for results where magnitude is infinite and direction is ambiguous.
+    /// Mathematical infinity - the result of division by Zero (1/0). Unlike IEEE-754's signed infinities, this represents a singular infinity where the sign is indeterminate. Represented by all fraction bits set (11111111) with an ambiguous exponent, creating symmetry with ZERO (00000000). Used for results where magnitude is infinite and direction is ambiguous.
     const INFINITY: Self;
     /// Exactly one.
     const ONE: Self;
@@ -119,17 +111,13 @@ macro_rules! impl_circle_constants {
         imaginary: 0,
         exponent: (1isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e,
     };
-    /// The maximum value that maintains integer contiguity with its neighboring values.
-    /// This is one less than MAX_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a+1!=a).
+    /// The maximum value that maintains integer contiguity with its neighboring values. This is one less than MAX_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a+1!=a).
     pub const MAX_CONTIGUOUS: Self = Self {
         real: <$f>::MAX.wrapping_sub(1),
         imaginary: 0,
         exponent: ((((core::mem::size_of::<$e>() * 8) as isize)).wrapping_add(((core::mem::size_of::<$e>() * 8) as isize)).wrapping_sub(1)) as $e,
     };
-    /// The minimum value that maintains integer contiguity with its neighboring values.
-    /// This is one more than MIN_FRACTION to ensure the value connects to both its
-    /// predecessor and successor in the representable sequence (a-1!=a).
+    /// The minimum value that maintains integer contiguity with its neighboring values. This is one more than MIN_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a-1!=a).
     pub const MIN_CONTIGUOUS: Self = Self {
         real: <$f>::MIN.wrapping_add(1),
         imaginary: 0,
@@ -141,11 +129,7 @@ macro_rules! impl_circle_constants {
         imaginary: 0,
         exponent: <$e>::MIN,
     };
-    /// Mathematical infinity - the result of division by Zero (1/0).
-    /// Unlike IEEE-754's signed infinities, this represents a singular infinity
-    /// where the sign is indeterminate. Represented by all fraction bits set (11111111)
-    /// with an ambiguous exponent, creating symmetry with ZERO (00000000).
-    /// Used for results where magnitude is infinite and direction is ambiguous.
+    /// Mathematical infinity - the result of division by Zero (1/0). Unlike IEEE-754's signed infinities, this represents a singular infinity where the sign is indeterminate. Represented by all fraction bits set (11111111) with an ambiguous exponent, creating symmetry with ZERO (00000000). Used for results where magnitude is infinite and direction is ambiguous.
     pub const INFINITY: Self = Self {
         real: -1,
         imaginary: -1,
@@ -286,9 +270,7 @@ impl_circle_constants!(
    i128, i128
 );
 
-/// Circle format constants — the encoding's structural anchor points.
-/// Explicit sign in MSB, N-1 normalization. The compiler constant-folds these
-/// at every call site, so they read as `fn` but cost nothing at runtime.
+/// Circle format constants — the encoding's structural anchor points. Explicit sign in MSB, N-1 normalization. The compiler constant-folds these at every call site, so they read as `fn` but cost nothing at runtime.
 impl<F: Integer, E: Integer> Circle<F, E> {
     // --- Fraction format (explicit sign) ---
     #[inline]
@@ -328,12 +310,7 @@ impl<F: Integer, E: Integer> Circle<F, E> {
         (core::mem::size_of::<F>() * 8) as isize
     }
 
-    // --- Exponent ---
-    // NOTE: Circle still uses the old v0.0.x encoding (AMBIG=E::MIN, ruler
-    // exp=0→[0.5,1)). Scalar migrated to v0.1 encoding. Circle migration
-    // will follow in a separate pass; until then its sentinel + ruler stay
-    // on the legacy convention to avoid internal inconsistency with its own
-    // (unmigrated) constants.
+    // --- Exponent --- NOTE: Circle still uses the old v0.0.x encoding (AMBIG=E::MIN, ruler exp=0→[0.5,1)). Scalar migrated to v0.1 encoding. Circle migration will follow in a separate pass; until then its sentinel + ruler stay on the legacy convention to avoid internal inconsistency with its own (unmigrated) constants.
     #[inline]
     pub(crate) fn ambiguous_exponent() -> E {
         E::min_value()

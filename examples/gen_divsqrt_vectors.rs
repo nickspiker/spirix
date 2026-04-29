@@ -1,11 +1,9 @@
 /// Generate test vectors for spirix_alu_divsqrt — all 16 frac×exp width combos.
 ///
-/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp"
-/// op: 0=DIV, 1=SQRT, 2=MOD
+/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp" op: 0=DIV, 1=SQRT, 2=MOD
 /// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 ///
-/// Edge case outputs match the HARDWARE convention (UNDEF_GENERAL for non-normal
-/// cases that Rust would compute Euclidean), not the Rust model.
+/// Edge case outputs match the HARDWARE convention (UNDEF_GENERAL for non-normal cases that Rust would compute Euclidean), not the Rust model.
 use spirix::Scalar;
 
 struct Rng(u64);
@@ -153,8 +151,7 @@ macro_rules! gen_width {
 
             // Normal mod: exact restoring-divider algorithm (matches hardware)
             //
-            // All magnitude values use the hardware's 64-bit register layout:
-            // abs_X = a_frac[62:0] (63 bits, MSB at bit 62, bit 63 always 0)
+            // All magnitude values use the hardware's 64-bit register layout: abs_X = a_frac[62:0] (63 bits, MSB at bit 62, bit 63 always 0)
             // This mirrors the Verilog's MAG = MAX_FRAC-1 = 63 bit abs extraction.
             let sign_a = a.fraction < (0 as $f);
             let sign_b = b.fraction < (0 as $f);
@@ -163,8 +160,7 @@ macro_rules! gen_width {
             let a_is_neg_one = a.fraction == <$f>::MIN;
             let b_is_neg_one = b.fraction == <$f>::MIN;
 
-            // Hardware: abs_a = a_is_neg_one ? POS_HALF[62:0] :
-            //   (a_frac[63] ? (~a_frac[62:0]+1) : a_frac[62:0])
+            // Hardware: abs_a = a_is_neg_one ? POS_HALF[62:0] : (a_frac[63] ? (~a_frac[62:0]+1) : a_frac[62:0])
             // In u64: bit 63 = 0, magnitude in bits 62:0
             let pos_half_64: u64 = 1u64 << 62; // always 0x4000000000000000
             let neg_one_64: u64 = 1u64 << 63;  // always 0x8000000000000000
@@ -208,8 +204,7 @@ macro_rules! gen_width {
                 if mod_mag == 0 {
                     return S::ZERO;
                 }
-                // CLZ on 63-bit value (bit 62 is MSB)
-                // u64 leading_zeros counts from bit 63, so hw_clz = u64_clz - 1
+                // CLZ on 63-bit value (bit 62 is MSB) u64 leading_zeros counts from bit 63, so hw_clz = u64_clz - 1
                 let rust_clz = mod_mag.leading_zeros();
                 let hw_clz = rust_clz - 1; // since bit 63 is always 0
                 // Normalize: shift so MSB is at bit 62

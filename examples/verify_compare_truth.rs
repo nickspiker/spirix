@@ -1,17 +1,13 @@
 //! Exhaustive F3E3 verification of compare()/==/</<=/>/>=.
 //!
-//! For every pair (a, b) of F3E3 values, computes Spirix's ordering and
-//! compares to an f64 oracle. Also checks PartialOrd/PartialEq consistency
-//! (reflexivity, anti-symmetry, transitivity within a sample).
+//! For every pair (a, b) of F3E3 values, computes Spirix's ordering and compares to an f64 oracle. Also checks PartialOrd/PartialEq consistency (reflexivity, anti-symmetry, transitivity within a sample).
 use spirix::*;
 use std::cmp::Ordering;
 
 type S = ScalarF3E3;
 
 fn classify_orderable(s: S) -> bool {
-    // compare() returns None for any input involving undefined/infinity,
-    // and for same-sign same-class escaped pairs. Most "normal" pairs plus
-    // mixed-class finite pairs should yield Some(_).
+    // compare() returns None for any input involving undefined/infinity, and for same-sign same-class escaped pairs. Most "normal" pairs plus mixed-class finite pairs should yield Some(_).
     !s.is_undefined() && !s.is_infinite()
 }
 
@@ -39,10 +35,7 @@ fn main() {
         let self_cmp = a.partial_cmp(a);
         if classify_orderable(*a) {
             if self_cmp != Some(Ordering::Equal) {
-                // Escaped (van/exp) compared to itself: the current design
-                // returns None for same-sign same-class pairs, which includes
-                // same-value escaped comparisons. That's consistent with "the
-                // value is magnitude-unknown, so we can't assert equality."
+                // Escaped (van/exp) compared to itself: the current design returns None for same-sign same-class pairs, which includes same-value escaped comparisons. That's consistent with "the value is magnitude-unknown, so we can't assert equality."
                 // Only flag reflexivity failure for normal/zero.
                 if a.is_normal() || a.is_zero() {
                     reflex_errors += 1;
@@ -53,8 +46,7 @@ fn main() {
             let spirix_cmp = a.partial_cmp(b);
             let af: f64 = (*a).into();
             let bf: f64 = (*b).into();
-            // f64 oracle is unreliable when f64 loses the magnitude (e.g.
-            // very small subnormals → 0, very large → inf). Skip those.
+            // f64 oracle is unreliable when f64 loses the magnitude (e.g. very small subnormals → 0, very large → inf). Skip those.
             if af == 0.0 && !a.is_zero() { continue; }
             if bf == 0.0 && !b.is_zero() { continue; }
             if !af.is_finite() || !bf.is_finite() { continue; }
@@ -73,8 +65,7 @@ fn main() {
                     skipped_unorderable += 1;
                 }
                 (Some(_), None) => {
-                    // Spirix ordered, f64 didn't (f64 NaN). This could be a
-                    // case where f64 lost info we still have.
+                    // Spirix ordered, f64 didn't (f64 NaN). This could be a case where f64 lost info we still have.
                     skipped_orderable += 1;
                 }
             }

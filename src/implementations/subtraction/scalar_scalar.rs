@@ -64,8 +64,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs subtraction between two Scalars, handling special cases according to mathematical principles.
-    /// Returns a finite Scalar unless the result exceeds representable range, in which case it may return an exploded or vanished Scalar.
+    /// Performs subtraction between two Scalars, handling special cases according to mathematical principles. Returns a finite Scalar unless the result exceeds representable range, in which case it may return an exploded or vanished Scalar.
     ///
     /// Subtraction process:
     /// 0. Checks for any escaped Scalars (vanished, exploded or undefined) and handles these cases
@@ -135,10 +134,7 @@ where
             if scalar.is_undefined() {
                 return *scalar;
             }
-            // Zero is the exact identity for subtraction: X - [0] = X and
-            // [0] - X = -X. Checked before the transfinite branches so
-            // [↑]-[0], [0]-[↑], [∞]-[0], [0]-[∞] produce the right-hand side
-            // (possibly negated) instead of a transfinite-minus-finite undefined.
+            // Zero is the exact identity for subtraction: X - [0] = X and [0] - X = -X. Checked before the transfinite branches so [↑]-[0], [0]-[↑], [∞]-[0], [0]-[∞] produce the right-hand side (possibly negated) instead of a transfinite-minus-finite undefined.
             if scalar.is_zero() {
                 return *self;
             }
@@ -197,8 +193,7 @@ where
 
         let big_f = big.fraction.inflate(true).w_shl(shift);
         let small_f = small.fraction.inflate(true);
-        // Pure two's complement subtract. With shift<=FRAC-2 both operands fit
-        // with room to spare, so signed wrap cannot occur regardless of sign.
+        // Pure two's complement subtract. With shift<=FRAC-2 both operands fit with room to spare, so signed wrap cannot occur regardless of sign.
         let result = if big_is_self {
             big_f.w_sub(small_f)
         } else {

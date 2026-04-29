@@ -1,15 +1,12 @@
 /// IEEE 754 f32 vs Spirix F4E4 comparison
 ///
-/// For each operation we run N random trials, converting inputs to both f32
-/// and ScalarF4E4, perform the operation, convert results back to f64 for
-/// comparison, and report error statistics.
+/// For each operation we run N random trials, converting inputs to both f32 and ScalarF4E4, perform the operation, convert results back to f64 for comparison, and report error statistics.
 ///
 /// Operations covered:
 ///   Mandated by IEEE 754:  + - * / sqrt %
 ///   Libm (f32 reference):  powf logf (for fun)
 ///
-/// Run with:
-///   cargo run --example ieee_comparison --release
+/// Run with: cargo run --example ieee_comparison --release
 use spirix::ScalarF4E4;
 
 const N: usize = 100_000;

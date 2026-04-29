@@ -8,8 +8,7 @@ use core::ops::{Add, Mul, Sub};
 
 /// A multi-dimensional array of Spirix scalars
 ///
-/// Shape is stored as Vec<usize> for dynamic dimensions.
-/// Data is stored in row-major order (C-style).
+/// Shape is stored as Vec<usize> for dynamic dimensions. Data is stored in row-major order (C-style).
 #[derive(Debug, Clone)]
 pub struct Tensor<T> {
     /// Flattened data in row-major order

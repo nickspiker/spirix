@@ -1,5 +1,4 @@
-/// Bit-accurate Rust port of spirix_fma.v (FRAC=25, EXP=8)
-/// compared against f64 reference (exact for f32 operands).
+/// Bit-accurate Rust port of spirix_fma.v (FRAC=25, EXP=8) compared against f64 reference (exact for f32 operands).
 ///
 /// Run with:  cargo run --example fma_f32 --release
 
@@ -130,9 +129,7 @@ fn spirix_fma(
     let negate_small = sub && prod_is_big;
     let negate_big = sub && !prod_is_big;
 
-    // Negligible bypass — only when c is big (already FRAC-wide, no rounding needed).
-    // When product is big, it needs rounding from PROD_BITS to FRAC, so let the
-    // far path handle it.
+    // Negligible bypass — only when c is big (already FRAC-wide, no rounding needed). When product is big, it needs rounding from PROD_BITS to FRAC, so let the far path handle it.
     if negligible && !negate_big && !prod_is_big {
         return (c_frac, big_exp as i8);
     }
@@ -286,8 +283,7 @@ fn round_and_output(
     };
 
     // Exponent: big_exp + 2 - leading + rovf
-    // The +2 comes from the <<< 2 extension, same as addsub.
-    // Width of INT_BITS doesn't matter — we always extract top FRAC_BITS.
+    // The +2 comes from the <<< 2 extension, same as addsub. Width of INT_BITS doesn't matter — we always extract top FRAC_BITS.
     let exp_wide = (big_exp as i32) + 2 - (leading as i32) + if rovf_pos { 1 } else { 0 }
         - if rovf_neg { 1 } else { 0 };
     let out_exp = exp_wide as i8;

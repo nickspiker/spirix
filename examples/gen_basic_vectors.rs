@@ -91,8 +91,7 @@ macro_rules! gen_width {
             (<$f>::MIN >> 1).wrapping_add(1 as $f), // just past N1 boundary neg
         ];
 
-        // --- Part 1: Unary ops (NEG, ABS, SIGN) use only a; b = dummy ---
-        // For unary ops, test across all edge values + sample normals
+        // --- Part 1: Unary ops (NEG, ABS, SIGN) use only a; b = dummy --- For unary ops, test across all edge values + sample normals
         let dummy = S::new(0 as $f, ambig);  // b is irrelevant
 
         for op in 0u8..3 {
@@ -129,9 +128,7 @@ macro_rules! gen_width {
             }
         }
 
-        // --- Part 2: Shift ops (SHL, SHR) ---
-        // Shift amount = b.exponent; b.fraction is irrelevant.
-        // Test: edge a × various shifts, normal a × boundary/overflow shifts.
+        // --- Part 2: Shift ops (SHL, SHR) --- Shift amount = b.exponent; b.fraction is irrelevant. Test: edge a × various shifts, normal a × boundary/overflow shifts.
         for op in 3u8..5 {
             // Edge a values: should passthrough regardless of shift
             for &(af, ae) in &edge_values {

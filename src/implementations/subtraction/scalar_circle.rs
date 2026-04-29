@@ -65,10 +65,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs subtraction between a Scalar and a Circle, with the Scalar value becoming the real component
-    /// and the negative of the Circle's imaginary component becoming the imaginary component of the result.
-    /// Returns a finite Circle unless the result exceeds representable range, in which case it may
-    /// return an exploded or vanished Circle.
+    /// Performs subtraction between a Scalar and a Circle, with the Scalar value becoming the real component and the negative of the Circle's imaginary component becoming the imaginary component of the result. Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
     ///
     /// Subtraction process:
     /// 0. Checks for any escaped (vanished, exploded or undefined) values and handles these first

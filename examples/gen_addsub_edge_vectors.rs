@@ -1,6 +1,4 @@
-/// Generate exhaustive add/sub edge-case test vectors for F3E3 (FRAC=8, EXP=8).
-/// Covers all pairs where at least one input has AMBIG exponent.
-/// Output: hex file with lines "a_frac a_exp b_frac b_exp sub r_frac r_exp"
+/// Generate exhaustive add/sub edge-case test vectors for F3E3 (FRAC=8, EXP=8). Covers all pairs where at least one input has AMBIG exponent. Output: hex file with lines "a_frac a_exp b_frac b_exp sub r_frac r_exp"
 use spirix::Scalar;
 
 fn main() {

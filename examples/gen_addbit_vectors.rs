@@ -1,12 +1,9 @@
 /// Generate test vectors for spirix_alu_addbit — all 16 frac×exp width combos.
 ///
-/// Input distribution per width:
-///   25% edge cases (at least one input is non-normal)
-///   75% normal×normal (N1 fracs, mixed exponent proximity)
+/// Input distribution per width: 25% edge cases (at least one input is non-normal) 75% normal×normal (N1 fracs, mixed exponent proximity)
 ///
 /// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp"
-/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
-/// Op: 0=ADD 1=SUB 2=AND 3=OR 4=XOR
+/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG. Op: 0=ADD 1=SUB 2=AND 3=OR 4=XOR
 use spirix::Scalar;
 
 /// Simple deterministic PRNG (xorshift64)
@@ -55,10 +52,7 @@ macro_rules! gen_width {
         };
 
         let compute = |op: u8, a: S, b: S| -> S {
-            // F6 (64-bit frac): pre-align operands to match hardware barrel
-            // truncation. Verilog shifts small RIGHT (drops bits); Rust uses
-            // i128 and shifts big LEFT (no loss). Pre-truncating the small
-            // operand makes both paths produce identical results.
+            // F6 (64-bit frac): pre-align operands to match hardware barrel truncation. Verilog shifts small RIGHT (drops bits); Rust uses i128 and shifts big LEFT (no loss). Pre-truncating the small operand makes both paths produce identical results.
             let (pa, pb) = if $fw == 3 && a.exponent != ambig && b.exponent != ambig {
                 let ae = a.exponent as i128;
                 let be = b.exponent as i128;
@@ -199,9 +193,7 @@ macro_rules! gen_width {
             }
         }
 
-        // --- Part 3: Normal power-of-two pairs ---
-        // POS_HALF and NEG_ONE fractions trigger special negate handling in SUB.
-        // These are never hit by PRNG (too specific) so test them explicitly.
+        // --- Part 3: Normal power-of-two pairs --- POS_HALF and NEG_ONE fractions trigger special negate handling in SUB. These are never hit by PRNG (too specific) so test them explicitly.
         let po2_fracs: Vec<$f> = vec![
             (1 as $f) << (fbits - 2),              // POS_HALF (fraction of ONE, HALF, TWO)
             <$f>::MIN,                              // NEG_ONE fraction

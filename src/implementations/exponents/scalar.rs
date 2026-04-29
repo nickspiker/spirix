@@ -63,17 +63,13 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Squares this Scalar. Specialized for a² to avoid the double abnormal check,
-    /// double inflate, sign comparison, and leading_ones branch of multiply(a, a).
-    /// Result is always positive, so leading_zeros is the only normalization needed.
+    /// Squares this Scalar. Specialized for a² to avoid the double abnormal check, double inflate, sign comparison, and leading_ones branch of multiply(a, a). Result is always positive, so leading_zeros is the only normalization needed.
     pub fn square(&self) -> Self {
         if !self.is_normal() {
             // Edge cases delegate to multiplication (same tables, same logic).
             return self.scalar_multiply_scalar(self);
         }
-        // NEG_ONE_NORMAL has inflate = -2^FRAC; squaring overflows the wide type.
-        // v0.1 ruler: neg_one_normal @ e represents -2^(e+1), so (val)² = 2^(2e+2).
-        // Needs 2e+2 in the result exp (was 2e+1 under old ruler — +1 ruler offset).
+        // NEG_ONE_NORMAL has inflate = -2^FRAC; squaring overflows the wide type. v0.1 ruler: neg_one_normal @ e represents -2^(e+1), so (val)² = 2^(2e+2). Needs 2e+2 in the result exp (was 2e+1 under old ruler — +1 ruler offset).
         if self.fraction == Self::neg_one_normal() {
             let mut exp = self.exponent.wrapping_add(&self.exponent);
             if self.exponent.is_negative() && !exp.is_negative() {
@@ -126,9 +122,7 @@ where
         };
         Self { fraction, exponent }
     }
-    /// Square root — restoring binary, bit-exact floor.
-    /// Subtractive method on inflated unsigned value, 1 bit per iteration.
-    /// Matches hardware spirix_sqrt_iter. Double-wide types only, no multiply.
+    /// Square root — restoring binary, bit-exact floor. Subtractive method on inflated unsigned value, 1 bit per iteration. Matches hardware spirix_sqrt_iter. Double-wide types only, no multiply.
     pub fn sqrt(&self) -> Self {
         if !self.is_normal() {
             if self.is_undefined() || self.is_uniform() {
@@ -154,15 +148,11 @@ where
             };
         }
 
-        // v0.1 ruler: result_exp = floor(self_exp / 2) for both parities. Under
-        // old ruler the odd case needed +1 because of the +1 per-operand offset
-        // in that ruler's interpretation; v0.1's ruler absorbs that difference.
+        // v0.1 ruler: result_exp = floor(self_exp / 2) for both parities. Under old ruler the odd case needed +1 because of the +1 per-operand offset in that ruler's interpretation; v0.1's ruler absorbs that difference.
         let odd: usize = (self.exponent & E::one()).as_();
         let result_exp = self.exponent >> 1usize;
 
-        // Subtractive restoring binary sqrt on inflated unsigned value.
-        // v0.1 ruler: radicand shift is (FRAC-1)+odd (was FRAC+odd under old).
-        // Bit pairs extracted on the fly from eff — keeps everything double-wide.
+        // Subtractive restoring binary sqrt on inflated unsigned value. v0.1 ruler: radicand shift is (FRAC-1)+odd (was FRAC+odd under old). Bit pairs extracted on the fly from eff — keeps everything double-wide.
         let fraction = match Self::fraction_bits() {
             8 => {
                 let s: i8 = self.fraction.as_();
@@ -328,11 +318,7 @@ where
         }
     }
 
-    /// Square root via LUT-seeded Newton-Raphson — nearest, NOT floor.
-    /// Rounds to the representable value whose square is closest to self.
-    /// Can differ from sqrt() by 1 ULP where floor and nearest disagree.
-    /// SQRT_LUT seeds 8 bits, Newton doubles per step (~2 iters for F5E3).
-    /// Oscillation between floor/ceil detected and resolved by closest-square.
+    /// Square root via LUT-seeded Newton-Raphson — nearest, NOT floor. Rounds to the representable value whose square is closest to self. Can differ from sqrt() by 1 ULP where floor and nearest disagree. SQRT_LUT seeds 8 bits, Newton doubles per step (~2 iters for F5E3). Oscillation between floor/ceil detected and resolved by closest-square.
     pub fn sqrt_newton(&self) -> Self {
         if !self.is_normal() {
             if self.is_undefined() || self.is_uniform() {
@@ -368,8 +354,7 @@ where
             exponent: result_exp,
         };
 
-        // Newton: x_{n+1} = (x_n + S/x_n) / 2.
-        // Converges monotonically, but can oscillate between floor and ceil at the last ULP. Track previous to detect the 2-cycle.
+        // Newton: x_{n+1} = (x_n + S/x_n) / 2. Converges monotonically, but can oscillate between floor and ceil at the last ULP. Track previous to detect the 2-cycle.
         let mut prev = guess;
         loop {
             let next = (guess + *self / guess) >> 1u8;
@@ -432,16 +417,14 @@ where
             };
         }
 
-        // v0.1 ruler: x in normal form has m in [1, 2) at exp=0, so value = m * 2^exp,
-        // lb(x) = lb(m) + exp, lb(m) in [0, 1), floor(lb(x)) = exp.
+        // v0.1 ruler: x in normal form has m in [1, 2) at exp=0, so value = m * 2^exp, lb(x) = lb(m) + exp, lb(m) in [0, 1), floor(lb(x)) = exp.
         let characteristic = self.exponent;
 
         // Normalize x to [1, 2), which under v0.1 is exp=0.
         let mut x = *self;
         x.exponent = E::zero();
 
-        // Build fractional bits directly into u128 — each iteration is ~1 OR + 1 shift.
-        // Bit (FRAC-1) = 0.5 contribution, bit (FRAC-2) = 0.25, etc.
+        // Build fractional bits directly into u128 — each iteration is ~1 OR + 1 shift. Bit (FRAC-1) = 0.5 contribution, bit (FRAC-2) = 0.25, etc.
         let mut raw_frac: u128 = 0;
         let mut rotor: u128 = 1u128 << (Self::fraction_bits().wrapping_sub(1) as u32);
         while rotor != 0 {
@@ -470,9 +453,7 @@ where
                 128 => (normalized_u as i128).as_(),
                 _ => unreachable!(),
             };
-            // v0.1 ruler: raw_frac has bit (FRAC-1) = 0.5 contribution; converting
-            // to Scalar needs exp = -lz - 1 (was -lz under old ruler) to keep
-            // the same value meaning.
+            // v0.1 ruler: raw_frac has bit (FRAC-1) = 0.5 contribution; converting to Scalar needs exp = -lz - 1 (was -lz under old ruler) to keep the same value meaning.
             Self {
                 fraction: stored,
                 exponent: (0isize).wrapping_sub(lz).wrapping_sub(1).as_(),
@@ -499,8 +480,7 @@ where
     ///
     /// # Description
     ///
-    /// Calculates the exponential function e^x thru a combination of range reduction and Taylor series expansion.
-    /// This implementation uses argument reduction by separating integer and fractional parts to improve convergence speed and numerical stability.
+    /// Calculates the exponential function e^x thru a combination of range reduction and Taylor series expansion. This implementation uses argument reduction by separating integer and fractional parts to improve convergence speed and numerical stability.
     ///
     /// Calculation process:
     /// 0. Checks for ambiguous values (undefined, exploded, vanished, Zero) and handles accordinly
@@ -632,8 +612,7 @@ where
     ///
     /// # Description
     ///
-    /// Calculates the binary exponential function 2^x by leveraging the natural exponential function.
-    /// Uses the mathematical identity: 2^x = e^(x * ln(2))
+    /// Calculates the binary exponential function 2^x by leveraging the natural exponential function. Uses the mathematical identity: 2^x = e^(x * ln(2))
     ///
     /// Computation process:
     /// 1. Multiplies input by ln(2) (natural logarithm of 2)

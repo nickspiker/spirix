@@ -10,8 +10,7 @@ use crate::Integer;
 ///
 /// ## Representation
 ///
-/// Circles use a normalized representation where components share the same exponent:
-/// `(real + imaginary*i) * 2^exponent` for normal numbers, with specific bit patterns for:
+/// Circles use a normalized representation where components share the same exponent: `(real + imaginary*i) * 2^exponent` for normal numbers, with specific bit patterns for:
 ///
 /// - Normal finite numbers `[#]` (with positive and negative components)
 /// - Exploded values `[↑]` (numbers too large to represent)
@@ -95,7 +94,6 @@ pub struct Circle<F: Integer, E: Integer> {
     /// The imaginary component representing the imaginary part of the complex number.
     pub imaginary: F,
 
-    /// The shared exponent component determining the scale of both components.
-    /// When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
+    /// The shared exponent component determining the scale of both components. When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
     pub exponent: E,
 }

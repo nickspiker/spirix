@@ -8,8 +8,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 
 /// # Circle to `Complex<f64>` Conversion
 ///
-/// Implements conversion from Circle to the standard library's `Complex<f64>` type,
-/// mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
+/// Implements conversion from Circle to the standard library's `Complex<f64>` type, mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
 impl<
         F: Integer
             + FullInt
@@ -80,8 +79,7 @@ where
     /// - Infinite and Zero values are coerced to positive infinity and positive zero, respectively.
     /// # Notes
     ///
-    /// The conversion process scales the fraction components by dividing by
-    /// 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
+    /// The conversion process scales the fraction components by dividing by 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
     fn into(self) -> Complex<f64> {
         if !self.is_normal() {
             if self.is_undefined() {
@@ -136,8 +134,7 @@ where
 
 /// # Circle to `Complex<f32>` Conversion
 ///
-/// Implements conversion from Circle to the standard library's `Complex<f32>` type,
-/// mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
+/// Implements conversion from Circle to the standard library's `Complex<f32>` type, mapping Spirix's states to appropriate IEEE-754 floating-point equivalents.
 impl<
         F: Integer
             + FullInt
@@ -208,8 +205,7 @@ where
     /// - Infinite and Zero values are coerced to positive infinity and positive zero, respectively.
     /// # Notes
     ///
-    /// The conversion process scales the fraction components by dividing by
-    /// 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
+    /// The conversion process scales the fraction components by dividing by 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
     fn into(self) -> Complex<f32> {
         if !self.is_normal() {
             if self.is_undefined() {
@@ -333,8 +329,7 @@ where
     /// - Infinite and Zero values are coerced to positive infinity and positive zero, respectively.
     /// # Notes
     ///
-    /// The conversion process scales the fraction components by dividing by
-    /// 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
+    /// The conversion process scales the fraction components by dividing by 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
     fn into(self) -> Complex<f64> {
         (&self).into()
     }
@@ -410,8 +405,7 @@ where
     /// - Infinite and Zero values are coerced to positive infinity and positive zero, respectively.
     /// # Notes
     ///
-    /// The conversion process scales the fraction components by dividing by
-    /// 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
+    /// The conversion process scales the fraction components by dividing by 2^(FRACTION_BITS-1) before applying the exponent scaling to maintain normalization alignment.
     fn into(self) -> Complex<f32> {
         (&self).into()
     }

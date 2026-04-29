@@ -1,8 +1,6 @@
 /// Generate test vectors for spirix_cmp, spirix_neg, spirix_floor, spirix_abs.
 ///
-/// Covers all 16 frac×exp width combos (F3-F6 × E3-E6).
-/// Output: hex file with lines:
-///   op fw ew a_frac a_exp b_frac b_exp r_frac r_exp
+/// Covers all 16 frac×exp width combos (F3-F6 × E3-E6). Output: hex file with lines: op fw ew a_frac a_exp b_frac b_exp r_frac r_exp
 ///
 /// Op: 05=CMP 06=NEG 07=FLOOR 08=ABS
 /// CMP encodes flags in r_frac: bit0=lt, bit1=eq, bit2=gt, bit3=unord

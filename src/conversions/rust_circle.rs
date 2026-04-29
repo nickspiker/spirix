@@ -9,13 +9,11 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 
 /// # Convert Values to Complex Numbers
 ///
-/// The `IntoCircle` trait provides a consistent way to convert various types into
-/// Spirix's `Circle<F, E>` complex number type.
+/// The `IntoCircle` trait provides a consistent way to convert various types into Spirix's `Circle<F, E>` complex number type.
 ///
 /// ## What This Trait Does
 ///
-/// This trait defines the interface for converting different numeric types (both real and complex)
-/// into Spirix's two-component complex number representation with customizable precision.
+/// This trait defines the interface for converting different numeric types (both real and complex) into Spirix's two-component complex number representation with customizable precision.
 ///
 /// ## Implemented For
 ///
@@ -46,8 +44,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 ///
 /// ## Precision Handling
 ///
-/// When converting from IEEE-754 floating point types to Spirix's `Circle`,
-/// special care is taken to properly handle:
+/// When converting from IEEE-754 floating point types to Spirix's `Circle`, special care is taken to properly handle:
 ///
 /// - NaN values (converted to generic undefined)
 /// - Infinities (coerced to singular infinity)
@@ -55,8 +52,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 ///
 /// ## Conversion Between Number Systems
 ///
-/// Converting from standard IEEE-754 floating point to Spirix's number system
-/// involves several steps:
+/// Converting from standard IEEE-754 floating point to Spirix's number system involves several steps:
 ///
 /// 0. For real primitives:
 ///    - The real part is converted to a `Scalar`
@@ -77,8 +73,7 @@ pub trait IntoCircle<F: Integer, E: Integer> {
 
 /// Implementation for converting primitive types to Circle
 ///
-/// This allows any type R that can be converted to a Scalar to also be converted
-/// to a Circle. The resulting Circle will have a Zero imaginary component.
+/// This allows any type R that can be converted to a Scalar to also be converted to a Circle. The resulting Circle will have a Zero imaginary component.
 impl<
         F: Integer
             + FullInt
@@ -153,15 +148,12 @@ where
     /// ```
     fn from(value: R) -> Self {
         let scalar = Scalar::<F, E>::from(value);
-        // Translate Scalar format (implicit sign, FRAC bits) to Circle format
-        // (explicit sign, FRAC-1 bits): Circle stored = scalar_inflate >> 1.
+        // Translate Scalar format (implicit sign, FRAC bits) to Circle format (explicit sign, FRAC-1 bits): Circle stored = scalar_inflate >> 1.
         let is_normal = scalar.exponent != E::min_value();
         let circle_real: F = if is_normal {
             scalar.fraction.inflate(true).w_shr(1isize).deflate()
         } else {
-            // Escape classes: prefix bit patterns differ between formats.
-            // ZERO, INFINITY: same bit pattern (all 0s / all 1s).
-            // Others: translation via sign_extend >> 1 works (prefix shifts down by 1).
+            // Escape classes: prefix bit patterns differ between formats. ZERO, INFINITY: same bit pattern (all 0s / all 1s). Others: translation via sign_extend >> 1 works (prefix shifts down by 1).
             scalar.fraction.inflate(false).w_shr(1isize).deflate()
         };
         Self {
@@ -174,8 +166,7 @@ where
 
 /// Implementation for converting `Complex<f64>` to Circle
 ///
-/// This conversion handles IEEE-754 special values like NaN by converting them
-/// to appropriate undefined states in the Spirix number system.
+/// This conversion handles IEEE-754 special values like NaN by converting them to appropriate undefined states in the Spirix number system.
 impl<
         F: Integer
             + FullInt
@@ -274,8 +265,7 @@ where
 
 /// Implementation for converting `Complex<f32>` to Circle
 ///
-/// Similar to the f64 implementation, this handles IEEE-754 special values
-/// appropriately when converting to the Spirix number system.
+/// Similar to the f64 implementation, this handles IEEE-754 special values appropriately when converting to the Spirix number system.
 impl<
         F: Integer
             + FullInt
@@ -374,8 +364,7 @@ where
 
 /// Implementation for converting tuples to Circle
 ///
-/// This allows creating a Circle from a tuple (real, imaginary) where both
-/// components can be independently converted to Scalars.
+/// This allows creating a Circle from a tuple (real, imaginary) where both components can be independently converted to Scalars.
 impl<
         F: Integer
             + FullInt
@@ -439,8 +428,7 @@ where
 {
     /// # Create a Circle from a pair
     ///
-    /// Creates a Circle from a tuple of (real, imaginary) components, allowing
-    /// different types for each component.
+    /// Creates a Circle from a tuple of (real, imaginary) components, allowing different types for each component.
     ///
     /// ## Examples
     ///
@@ -474,8 +462,7 @@ where
 
 /// Implementation for converting references to `Complex<f64>` to Circle
 ///
-/// This provides a convenient way to convert a reference to a `Complex<f64>`
-/// without taking ownership.
+/// This provides a convenient way to convert a reference to a `Complex<f64>` without taking ownership.
 impl<
         F: Integer
             + FullInt
@@ -562,8 +549,7 @@ where
 
 /// Implementation for converting references to `Complex<f32>` to Circle
 ///
-/// This provides a convenient way to convert a reference to a `Complex<f32>`
-/// without taking ownership.
+/// This provides a convenient way to convert a reference to a `Complex<f32>` without taking ownership.
 impl<
         F: Integer
             + FullInt

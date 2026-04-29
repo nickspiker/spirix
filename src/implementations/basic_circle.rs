@@ -10,8 +10,7 @@ macro_rules! impl_circle_new {
 impl Circle<$f, $e> {
     /// Creates a new Circle from raw real, imaginary and exponent integers.
     ///
-    /// This is a low-level constructor that directly sets the internal state.
-    /// For normal number creation, use `from()` which handles:
+    /// This is a low-level constructor that directly sets the internal state. For normal number creation, use `from()` which handles:
     /// - Proper normalization of components
     /// - Exponent adjustment
     /// - Special value handling
@@ -156,9 +155,7 @@ where
     /// Circle value per component: `c * 2^(exp - FRAC + 1)`.
     /// Scalar value:              `inflate(c) * 2^(exp - FRAC)`.
     ///
-    /// For normals, `scalar_stored = circle << leading_same(circle)` in F-space:
-    /// the shift absorbs both the N-1 normalization (leading_same - 1 bits) and
-    /// the sign-convention flip (+1 bit = the `<< 1` inverse of the forward
+    /// For normals, `scalar_stored = circle << leading_same(circle)` in F-space: the shift absorbs both the N-1 normalization (leading_same - 1 bits) and the sign-convention flip (+1 bit = the `<< 1` inverse of the forward
     /// Scalar→Circle transform).
     fn extract_component(&self, c: F) -> Scalar<F, E> {
         // Escape-class handling — Circle's class determines Scalar's class.
@@ -174,8 +171,7 @@ where
         if self.is_infinite() {
             return Scalar::<F, E>::INFINITY;
         }
-        // Escape classes share bit patterns between Scalar and Circle (escapes
-        // carry no normal sign bit), so the fraction copies through directly.
+        // Escape classes share bit patterns between Scalar and Circle (escapes carry no normal sign bit), so the fraction copies through directly.
         if self.exploded() || self.vanished() {
             if c == F::zero() {
                 return Scalar::<F, E>::ZERO;
@@ -363,8 +359,7 @@ where
         }
 
         // Check if top 3 bits are equal by pushing 5 bits off
-        // ↓↓↓                ↓↓↓
-        // □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
+        // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
         let top_three = prefix >> 5;
         // Then rotate and compare.  If uniform, they will be equal
         top_three == top_three.rotate_right(1)
@@ -419,8 +414,7 @@ where
     ///
     /// # Description
     ///
-    /// Negligible values have effectively zero magnitude.
-    /// This includes both actual Zero and vanished values that have become so small they no longer meaningfully contribute to addition or subtraction operations.
+    /// Negligible values have effectively zero magnitude. This includes both actual Zero and vanished values that have become so small they no longer meaningfully contribute to addition or subtraction operations.
     ///
     /// # Returns
     ///
@@ -842,8 +836,7 @@ where
             if prefix == prefix_i {
                 // Test for undefined, Zero and Infinity
                 // Check if top 3 bits are equal by pushing 5 bits off
-                // ↓↓↓                ↓↓↓
-                // □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
+                // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
                 let top_three = prefix >> 5;
                 // Then rotate and compare.  If uniform, they will be equal
                 // True for undefined, Zero and Infinity
@@ -1054,8 +1047,7 @@ where
     ///
     /// # Description
     ///
-    /// Computes the magnitude of this Circle as a Scalar.
-    /// For a complex number a + b*i, the magnitude is √(a² + b²).
+    /// Computes the magnitude of this Circle as a Scalar. For a complex number a + b*i, the magnitude is √(a² + b²).
     ///
     /// # Returns
     ///
@@ -1297,17 +1289,16 @@ where
         return result / result.magnitude();
     }
 
-    /// Normalizes this Scalar by shifting the fraction left until the most significant bit is in the N-1 position, adjusting the exponent accordingly.  
-    /// Sign is placed in N-0.  
-    ///  
-    /// If shifting would cause a small number to vanish, marks the number as ambiguous and normalizes it to N-2.  
-    ///  
-    /// 01234567...  
-    ///  
-    /// □■xxxxxx... - Normal positive numbers  
-    ///  
-    /// ■□xxxxxx... - Normal negative numbers  
-    ///  
+    /// Normalizes this Scalar by shifting the fraction left until the most significant bit is in the N-1 position, adjusting the exponent accordingly. Sign is placed in N-0.
+    ///
+    /// If shifting would cause a small number to vanish, marks the number as ambiguous and normalizes it to N-2.
+    ///
+    /// 01234567...
+    ///
+    /// □■xxxxxx... - Normal positive numbers
+    ///
+    /// ■□xxxxxx... - Normal negative numbers
+    ///
     /// - Normalizes all scalars!
     pub(crate) fn normalize(&mut self) {
         let shift_r = self.real.leading_ones().max(self.real.leading_zeros());
@@ -1344,13 +1335,9 @@ where
         }
     }
 
-    /// Normalizes a vanished Scalar by shifting its fraction to the N-2 position.  
-    /// Sign bits occupy N-0 and N-1, exponent is not touched
-    ///  
-    /// Example bit positions:
-    /// 01234567...  
-    /// □□■xxxxx... - Vanished positive numbers  
-    /// ■■□xxxxx... - Vanished negative numbers  
+    /// Normalizes a vanished Scalar by shifting its fraction to the N-2 position. Sign bits occupy N-0 and N-1, exponent is not touched
+    ///
+    /// Example bit positions: 01234567... □□■xxxxx... - Vanished positive numbers ■■□xxxxx... - Vanished negative numbers
     pub(crate) fn normalize_vanished(&mut self) {
         let shift_r = self.real.leading_ones().max(self.real.leading_zeros());
         let shift_i = self
@@ -1368,12 +1355,9 @@ where
         }
     }
 
-    /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.  
-    ///  
-    /// Example bit positions:
-    /// 01234567...
-    /// □■xxxxxx... - Exploded positive numbers  
-    /// ■□xxxxxx... - Exploded negative numbers  
+    /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.
+    ///
+    /// Example bit positions: 01234567... □■xxxxxx... - Exploded positive numbers ■□xxxxxx... - Exploded negative numbers
     pub(crate) fn normalize_exploded(&mut self) {
         let shift_r = self.real.leading_ones().max(self.real.leading_zeros());
         let shift_i = self

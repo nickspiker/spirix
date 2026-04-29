@@ -144,8 +144,7 @@ where
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            // IEEE ±0.0 are both mathematically zero (they compare equal).
-            // The sign bit is informational, not part of the value.
+            // IEEE ±0.0 are both mathematically zero (they compare equal). The sign bit is informational, not part of the value.
             return Self::ZERO;
         }
 
@@ -159,9 +158,7 @@ where
         // Count significant bits of the mantissa magnitude.
         let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 64isize.wrapping_sub(leading);
-        // spirix_exp = ieee_scale + significant_bits.
-        // For subnormals (raw_exp=0), IEEE uses effective exp=1 — compensate.
-        // v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
+        // spirix_exp = ieee_scale + significant_bits. For subnormals (raw_exp=0), IEEE uses effective exp=1 — compensate. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp };
         let spirix_exp: i16 = eff_exp
             .wrapping_sub(1076)
@@ -332,8 +329,7 @@ where
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            // IEEE ±0.0 are both mathematically zero (they compare equal).
-            // The sign bit is informational, not part of the value.
+            // IEEE ±0.0 are both mathematically zero (they compare equal). The sign bit is informational, not part of the value.
             return Self::ZERO;
         }
 
@@ -345,8 +341,7 @@ where
 
         let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 32isize.wrapping_sub(leading);
-        // For subnormals (raw_exp=0), IEEE uses effective exp=1.
-        // v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
+        // For subnormals (raw_exp=0), IEEE uses effective exp=1. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp as i16 };
         let spirix_exp: i16 = eff_exp
             .wrapping_sub(151)
@@ -433,8 +428,7 @@ macro_rules! impl_from_int {
             {
                 /// # Convert Integers to Scalar
                 ///
-                /// The following implementations allow converting any Rust integer type to a Scalar.
-                /// This includes:
+                /// The following implementations allow converting any Rust integer type to a Scalar. This includes:
                 /// - Signed integers (i8, i16, i32, i64, i128, isize)
                 /// - Unsigned integers (u8, u16, u32, u64, u128, usize)
                 /// - References to these types
@@ -513,8 +507,7 @@ macro_rules! impl_from_int {
                         return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
                     }
 
-                    // Negation: power-of-2 boundary requires exponent shift.
-                    //   {pos_one_normal, e} negated → {neg_one_normal, e-1}
+                    // Negation: power-of-2 boundary requires exponent shift. {pos_one_normal, e} negated → {neg_one_normal, e-1}
                     //   general stored s → {-s, e}  (safe: fraction_pos != F::min_value() here)
                     if fraction_pos == Self::pos_one_normal() {
                         Self {
@@ -559,8 +552,7 @@ macro_rules! impl_from_int {
             {
                 /// # Convert Integers to Scalar
                 ///
-                /// The following implementations allow converting any Rust integer type to a Scalar.
-                /// This includes:
+                /// The following implementations allow converting any Rust integer type to a Scalar. This includes:
                 /// - Signed integers (i8, i16, i32, i64, i128, isize)
                 /// - Unsigned integers (u8, u16, u32, u64, u128, usize)
                 /// - References to these types
@@ -620,8 +612,7 @@ macro_rules! impl_from_int {
             {
                 /// # Convert Integers to Scalar
                 ///
-                /// The following implementations allow converting any Rust integer type to a Scalar.
-                /// This includes:
+                /// The following implementations allow converting any Rust integer type to a Scalar. This includes:
                 /// - Signed integers (i8, i16, i32, i64, i128, isize)
                 /// - Unsigned integers (u8, u16, u32, u64, u128, usize)
                 /// - References to these types
@@ -689,8 +680,7 @@ macro_rules! impl_from_uint {
             {
                 /// # Convert Integers to Scalar
                 ///
-                /// The following implementations allow converting any Rust integer type to a Scalar.
-                /// This includes:
+                /// The following implementations allow converting any Rust integer type to a Scalar. This includes:
                 /// - Signed integers (i8, i16, i32, i64, i128, isize)
                 /// - Unsigned integers (u8, u16, u32, u64, u128, usize)
                 /// - References to these types
@@ -732,8 +722,7 @@ macro_rules! impl_from_uint {
                         };
                     }
 
-                    // Position MSB at bit FRAC-1 of stored. For positive-only u-types,
-                    // the result fraction has stored MSB=1 → represents positive in new format.
+                    // Position MSB at bit FRAC-1 of stored. For positive-only u-types, the result fraction has stored MSB=1 → represents positive in new format.
                     let shift = (Self::fraction_bits() as isize).wrapping_sub(significant_bits);
                     let fraction: F = if shift < 0 {
                         (value >> shift.wrapping_neg()).as_()
@@ -774,8 +763,7 @@ macro_rules! impl_from_uint {
             {
                 /// # Convert Integers to Scalar
                 ///
-                /// The following implementations allow converting any Rust integer type to a Scalar.
-                /// This includes:
+                /// The following implementations allow converting any Rust integer type to a Scalar. This includes:
                 /// - Signed integers (i8, i16, i32, i64, i128, isize)
                 /// - Unsigned integers (u8, u16, u32, u64, u128, usize)
                 /// - References to these types
@@ -835,8 +823,7 @@ macro_rules! impl_from_uint {
             {
                 /// # Convert Integers to Scalar
                 ///
-                /// The following implementations allow converting any Rust integer type to a Scalar.
-                /// This includes:
+                /// The following implementations allow converting any Rust integer type to a Scalar. This includes:
                 /// - Signed integers (i8, i16, i32, i64, i128, isize)
                 /// - Unsigned integers (u8, u16, u32, u64, u128, usize)
                 /// - References to these types
@@ -875,8 +862,7 @@ impl Scalar<i16, i16> {
     /// Convert a normal (finite, non-zero, non-NaN) f32 literal to `Scalar<i16,i16>` at
     /// compile time.  Panics at compile time if called with NaN, infinity, or zero.
     ///
-    /// Use this for compile-time constants — e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308)`.
-    /// For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`.
+    /// Use this for compile-time constants — e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308)`. For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`.
     #[inline(always)]
     pub const fn from_f32(v: f32) -> Self {
         // Decode IEEE 754 binary32 using pure integer ops (all const-stable).
@@ -912,9 +898,7 @@ impl Scalar<i16, i16> {
 
         let leading = abs_mantissa.leading_zeros() as i16;
         let significant: i16 = 32 - leading;
-        // spirix_exp = ieee_scale + significant. For subnormals (raw_exp=0), IEEE uses
-        // effective exp=1 (not 0), so we add 1 to compensate.
-        // v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
+        // spirix_exp = ieee_scale + significant. For subnormals (raw_exp=0), IEEE uses effective exp=1 (not 0), so we add 1 to compensate. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp = if raw_exp == 0 { 1 } else { raw_exp };
         let spirix_exp: i16 = eff_exp - 151 + significant;
 

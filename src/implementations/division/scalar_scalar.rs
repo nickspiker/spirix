@@ -162,9 +162,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // diff is exact. Add adj = -shift under v0.1 ruler (was 1 - shift under
-        // old ruler). The -1 drop matches the per-division ruler offset (each
-        // operand's effective magnitude is 2×, canceling under division).
+        // diff is exact. Add adj = -shift under v0.1 ruler (was 1 - shift under old ruler). The -1 drop matches the per-division ruler offset (each operand's effective magnitude is 2×, canceling under division).
         let adj: E = (0isize.wrapping_sub(shift)).as_();
         let adj_neg = adj.is_negative();
         let exponent = diff.wrapping_add(&adj);
@@ -191,9 +189,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // v0.1: Landed exactly on AMBIG (= E::MAX, one above MAX_EXP). Under
-        // the new sentinel location this is an OVERFLOW, not underflow — the
-        // division went past the valid normal range toward exploded.
+        // v0.1: Landed exactly on AMBIG (= E::MAX, one above MAX_EXP). Under the new sentinel location this is an OVERFLOW, not underflow — the division went past the valid normal range toward exploded.
         if exponent == Self::ambiguous_exponent() {
             return Self {
                 fraction: if result_neg {

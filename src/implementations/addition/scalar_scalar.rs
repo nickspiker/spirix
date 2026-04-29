@@ -143,7 +143,7 @@ where
 
             let shift: isize = exp_diff.saturate();
             // x86 implementation note: Spirix's signless design wants to drop small only when shift ≥ FRAC. But Wide = 2*FRAC bits, and the inflated form reaches 2^FRAC magnitude at the ±1.0 boundary, so big_f<<shift + small_f needs 2*FRAC+2 bits in the worst case — one bit more than Rust/x86 provides at any power-of-2 width. Tightening the threshold to FRAC-1 guarantees the sum fits in the signed 2*FRAC-bit intermediate, letting us use pure two's-complement arithmetic with no sign branching. Cost: dropping small at shift == FRAC-1 loses ≤1 ULP of its contribution. In Verilog this tightening is unnecessary — we just declare a 2*FRAC+2-bit intermediate and keep full precision.
-            if shift >= Self::fraction_bits().wrapping_sub(1) {
+            if shift > Self::fraction_bits() {
                 return *big;
             }
             let big_f = big.fraction.inflate(true).w_shl(shift);
@@ -158,8 +158,7 @@ where
             let leading = result.leading_same();
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading);
-            // v0.1 ruler + AMBIG=E::MAX: compute offset in a wider signed type
-            // (isize) and compare directly against the normal-range bounds.
+            // v0.1 ruler + AMBIG=E::MAX: compute offset in a wider signed type (isize) and compare directly against the normal-range bounds.
             // No wrap games — bounded by |delta| ≤ FRAC so isize never overflows.
             let small_exp_wide: isize = small.exponent.saturate();
             let offset_wide: isize = small_exp_wide.wrapping_add(delta);
@@ -196,10 +195,7 @@ where
         if scalar.is_undefined() {
             return *scalar;
         }
-        // Zero is the exact additive identity: X + [0] = [0] + X = X for every X,
-        // including transfinite. Checked before the transfinite branches so
-        // [↑]+[0], [0]+[↑], [∞]+[0], [0]+[∞] pass the non-zero operand through
-        // instead of producing a transfinite-plus-finite undefined.
+        // Zero is the exact additive identity: X + [0] = [0] + X = X for every X, including transfinite. Checked before the transfinite branches so [↑]+[0], [0]+[↑], [∞]+[0], [0]+[∞] pass the non-zero operand through instead of producing a transfinite-plus-finite undefined.
         if self.is_zero() {
             return *scalar;
         }

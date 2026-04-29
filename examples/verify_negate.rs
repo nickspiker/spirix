@@ -1,8 +1,7 @@
 //! Exhaustive F3E3 verification of scalar negation:
 //! 1. The unified `-x` path and the branchy specialized path agree bit-exactly.
 //! 2. Class transitions match the README truth table.
-//! 3. `-(-x) == x` (negate-negate is identity) for all inputs, including the
-//!    boundary cases that escape or re-enter normal.
+//! 3. `-(-x) == x` (negate-negate is identity) for all inputs, including the boundary cases that escape or re-enter normal.
 use spirix::*;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -87,9 +86,7 @@ fn main() {
         }
     }
 
-    // Check 1: default (branchy) vs unified pipeline — bit-exact agreement.
-    // `-x` calls the default `scalar_negate`; the unified variant is opt-in
-    // via `scalar_negate_unified`.
+    // Check 1: default (branchy) vs unified pipeline — bit-exact agreement. `-x` calls the default `scalar_negate`; the unified variant is opt-in via `scalar_negate_unified`.
     let mut default_vs_unified_mismatches = 0usize;
     let mut first_mismatch: Option<(S, S, S)> = None;
     for x in &all {
@@ -120,14 +117,7 @@ fn main() {
         }
     }
 
-    // Check 3: double-negation identity `-(-x) == x`.
-    // Two inputs unavoidably lose information: pos_one_normal@MIN_EXP and
-    // neg_one_normal@MAX_EXP escape the normal range on first negation
-    // (to neg_one_vanished / pos_one_exploded respectively), and the escape
-    // classes have ambiguous magnitude — the second negation returns a valid
-    // opposite-signed escape but can't recover the original exact exponent.
-    // That's not a bug, it's the class-escape semantics. Expected escapes
-    // are counted separately from unexpected identity failures.
+    // Check 3: double-negation identity `-(-x) == x`. Two inputs unavoidably lose information: pos_one_normal@MIN_EXP and neg_one_normal@MAX_EXP escape the normal range on first negation (to neg_one_vanished / pos_one_exploded respectively), and the escape classes have ambiguous magnitude — the second negation returns a valid opposite-signed escape but can't recover the original exact exponent. That's not a bug, it's the class-escape semantics. Expected escapes are counted separately from unexpected identity failures.
     let mut expected_escapes = 0usize;
     let mut unexpected_identity = 0usize;
     let mut first_unexpected: Option<(S, S)> = None;

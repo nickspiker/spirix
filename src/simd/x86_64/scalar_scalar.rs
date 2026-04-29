@@ -5,8 +5,7 @@ use core::arch::x86_64::*;
 
 /// Pack 15× i16 values into 17-bit slots (255 bits total)
 ///
-/// Takes 15 i16 values and packs them into a 256-bit register where each value
-/// occupies 17 bits (16 data bits + 1 bit for overflow/carry space).
+/// Takes 15 i16 values and packs them into a 256-bit register where each value occupies 17 bits (16 data bits + 1 bit for overflow/carry space).
 ///
 /// Bit layout: [val0: 0-16][val1: 17-33][val2: 34-50]...[val14: 238-254][unused: 255]
 #[allow(dead_code)]
@@ -15,8 +14,7 @@ unsafe fn pack_15_i16_to_17bit(values: &[i16; 15]) -> __m256i {
     // Convert i16 to i32 for easier bit manipulation
     let mut packed = [0u32; 8];
 
-    // Pack values: each 17-bit value spans into u32 chunks
-    // val0: bits 0-16
+    // Pack values: each 17-bit value spans into u32 chunks val0: bits 0-16
     packed[0] |= values[0] as u32 & 0x1FFFF;
     // val1: bits 17-33 (spans packed[0] and packed[1])
     packed[0] |= (values[1] as u32 & 0x7FFF) << 17;
@@ -34,8 +32,7 @@ unsafe fn pack_15_i16_to_17bit(values: &[i16; 15]) -> __m256i {
 
 /// Unpack 15× 17-bit values from a 256-bit register back to i16
 ///
-/// Extracts 15 values from 17-bit slots and converts back to i16.
-/// Inverse of pack_15_i16_to_17bit().
+/// Extracts 15 values from 17-bit slots and converts back to i16. Inverse of pack_15_i16_to_17bit().
 #[allow(dead_code)]
 #[inline]
 unsafe fn unpack_17bit_to_15_i16(packed: __m256i) -> [i16; 15] {
@@ -79,8 +76,7 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
 
     // Now we have:
     // - a_frac: 8× i32 sign-extended fractions from a
-    // - a_exp: 8× i32 sign-extended exponents from a
-    // Same for b
+    // - a_exp: 8× i32 sign-extended exponents from a Same for b
 
     // Step 1: Compare exponents to determine which fraction needs shifting
     let exp_diff = _mm256_sub_epi32(a_exp, b_exp);
@@ -155,11 +151,7 @@ pub unsafe fn scalar_subtract_batch_avx2_15op_shift(
             b_fracs[j] = b[idx + j].fraction;
         }
 
-        // TODO: Pack into 17-bit format and subtract
-        // let a_packed = pack_15_i16_to_17bit(&a_fracs);
-        // let b_packed = pack_15_i16_to_17bit(&b_fracs);
-        // let result_packed = subtract_packed_17bit(a_packed, b_packed);
-        // let result_fracs = unpack_17bit_to_15_i16(result_packed);
+        // TODO: Pack into 17-bit format and subtract let a_packed = pack_15_i16_to_17bit(&a_fracs); let b_packed = pack_15_i16_to_17bit(&b_fracs); let result_packed = subtract_packed_17bit(a_packed, b_packed); let result_fracs = unpack_17bit_to_15_i16(result_packed);
 
         // Fallback to scalar for now
         for j in 0..15 {

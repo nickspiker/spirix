@@ -263,8 +263,7 @@ fn test_zero_and_infinity_special_cases() {
     // 1/0 = ∞ in Spirix (only 0/0 = ℘)
     assert!((normal / zero).is_infinite());
 
-    // Infinity operations
-    // ∞ + finite = ℘ (transfinite plus finite is undefined in Spirix)
+    // Infinity operations ∞ + finite = ℘ (transfinite plus finite is undefined in Spirix)
     assert!((infinity + normal).is_undefined());
     // ∞ * finite = ∞ (multiplication preserves infinity)
     assert!((infinity * normal).is_infinite());

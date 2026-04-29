@@ -67,9 +67,7 @@ where
     ///
     /// Returns the unique value `r` such that `numerator ≡ r (mod period)`, where `r` is the canonical representative of the numerator's congruence class with sign following the period.
     ///
-    /// `⬆` denotes *transfinite* (either exploded `[↑]` or infinite `[∞]`).
-    /// Undefined prefixes collapse both into one tag since the distinction
-    /// isn't preserved in the stored undefined class.
+    /// `⬆` denotes *transfinite* (either exploded `[↑]` or infinite `[∞]`). Undefined prefixes collapse both into one tag since the distinction isn't preserved in the stored undefined class.
     ///
     /// # Special Cases (first matching rule wins, in order):
     ///
@@ -273,11 +271,7 @@ where
         let a_mag = if a_neg { a_wide.w_neg() } else { a_wide };
         let b_mag = if b_neg { b_wide.w_neg() } else { b_wide };
 
-        // Compute (a_mag << exp_diff) mod b_mag via chunked iterative reduction
-        // — the direct shift would overflow for exp_diff ≥ FRAC, so we shift in
-        // chunks of ≤ FRAC bits and reduce modulo b_mag after each. Unsigned
-        // interpretation keeps arithmetic correct even when signed view wraps.
-        // Invariant: rem ∈ [0, b_mag) after every iteration.
+        // Compute (a_mag << exp_diff) mod b_mag via chunked iterative reduction — the direct shift would overflow for exp_diff ≥ FRAC, so we shift in chunks of ≤ FRAC bits and reduce modulo b_mag after each. Unsigned interpretation keeps arithmetic correct even when signed view wraps. Invariant: rem ∈ [0, b_mag) after every iteration.
         let fb = Self::fraction_bits();
         let mut rem = a_mag.w_rem_unsigned(b_mag);
         let mut remaining = exp_diff;

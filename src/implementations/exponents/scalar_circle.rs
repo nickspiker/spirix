@@ -63,8 +63,7 @@ where
 {
     /// Raises a scalar to a complex power.
     ///
-    /// Implements s^z (scalar raised to complex power) using the formula:
-    /// s^z = exp(z * ln(s))
+    /// Implements s^z (scalar raised to complex power) using the formula: s^z = exp(z * ln(s))
     ///
     /// # Special Cases:
     /// - Undefined or escaped values return appropriate undefined states
@@ -153,8 +152,7 @@ where
     }
     /// Computes the logarithm of a scalar with a complex base.
     ///
-    /// Implements log_z(s) (logarithm of scalar s with complex base z) using:
-    /// log_z(s) = ln(s) / ln(z)
+    /// Implements log_z(s) (logarithm of scalar s with complex base z) using: log_z(s) = ln(s) / ln(z)
     ///
     /// # Special Cases:
     /// - Undefined or escaped values return appropriate undefined states

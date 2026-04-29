@@ -127,8 +127,7 @@ where
 
     /// Computes the logarithm of a complex number with a complex base.
     ///
-    /// Implements log_b(z) (logarithm of complex z with complex base b) using:
-    /// log_b(z) = ln(z) / ln(b)
+    /// Implements log_b(z) (logarithm of complex z with complex base b) using: log_b(z) = ln(z) / ln(b)
     ///
     /// # Special Cases:
     /// - Undefined or escaped values return appropriate undefined states

@@ -110,11 +110,9 @@ where
     }
     /// Component-wise modulo operation for Circle with Scalar
     ///
-    /// Performs modulo of each component against the scalar value:
-    /// (a + bi) ‰ s = (a % s) + (b % s)i
+    /// Performs modulo of each component against the scalar value: (a + bi) ‰ s = (a % s) + (b % s)i
     ///
-    /// Returns UNDEFINED if either number is escaped or both are effectively zero.
-    /// Useful for grid-aligned or periodic calculations against a fixed value.
+    /// Returns UNDEFINED if either number is escaped or both are effectively zero. Useful for grid-aligned or periodic calculations against a fixed value.
     pub(crate) fn circle_modulo_scalar(&self, denominator: &Scalar<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !denominator.is_normal() {
             if self.is_undefined() {

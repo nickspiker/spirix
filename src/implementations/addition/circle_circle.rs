@@ -65,8 +65,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs addition between two Circles, handling special cases according to mathematical principles.
-    /// Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
+    /// Performs addition between two Circles, handling special cases according to mathematical principles. Returns a finite Circle unless the result exceeds representable range, in which case it may return an exploded or vanished Circle.
     ///
     /// Addition process:
     /// 0. Checks for any abnormal Circles (Zeros, vanished, exploded or undefined) and handles these cases
@@ -94,8 +93,8 @@ where
     ///
     /// // Adding finite Circles
     /// let a = Circle::<i32, i8>::from((3, 4.5));
-    /// let b = CircleF5E3::from((1, 2));       
-    /// let sum = a + b;                        
+    /// let b = CircleF5E3::from((1, 2));
+    /// let sum = a + b;
     /// assert!(sum.r() == 4);
     /// assert!(sum.i() == 6.5);
     ///

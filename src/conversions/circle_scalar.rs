@@ -50,8 +50,7 @@ pub trait IntoScalars<F: Integer, E: Integer> {
     ///
     /// # Returns
     ///
-    /// A tuple of Scalars `(real, imaginary)` containing the real
-    /// and imaginary components
+    /// A tuple of Scalars `(real, imaginary)` containing the real and imaginary components
     fn into_scalars(&self) -> (Scalar<F, E>, Scalar<F, E>);
 }
 
@@ -117,8 +116,7 @@ where
 
 /// Implementation for mutable Circle references
 ///
-/// Allows converting a mutable reference to a Circle into its
-/// real and imaginary Scalar components without consuming the original.
+/// Allows converting a mutable reference to a Circle into its real and imaginary Scalar components without consuming the original.
 impl<F: Integer, E: Integer> IntoScalars<F, E> for &mut Circle<F, E>
 where
     F: Integer
@@ -181,8 +179,7 @@ where
 
 /// Implementation for immutable Circle references
 ///
-/// Allows converting an immutable reference to a Circle into its
-/// real and imaginary Scalar components without consuming the original.
+/// Allows converting an immutable reference to a Circle into its real and imaginary Scalar components without consuming the original.
 impl<F: Integer, E: Integer> IntoScalars<F, E> for &Circle<F, E>
 where
     F: Integer

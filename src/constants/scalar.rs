@@ -12,11 +12,9 @@ pub trait ScalarConstants {
     const POS_NORMAL_EPSILON: Self;
     /// Granularity between -1 and -2
     const NEG_NORMAL_EPSILON: Self;
-    /// The maximum value that maintains integer contiguity with its neighboring values.
-    /// This is one less than MAX_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a+1!=a).
+    /// The maximum value that maintains integer contiguity with its neighboring values. This is one less than MAX_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a+1!=a).
     const MAX_CONTIGUOUS: Self;
-    /// The minimum value that maintains integer contiguity with its neighboring values.
-    /// This is one more than MIN_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a-1!=a).
+    /// The minimum value that maintains integer contiguity with its neighboring values. This is one more than MIN_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a-1!=a).
     const MIN_CONTIGUOUS: Self;
     /// Actual Zero, the real deal. Exploded * 0 = 0
     const ZERO: Self;
@@ -103,9 +101,7 @@ macro_rules! impl_scalar_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Scalar<$f, $e> {
-    // v0.1 encoding: AMBIG at E::MAX; ruler exp=0 → [1, 2).
-    // All singular states live at exp = E::MAX (was E::MIN).
-    // All positive anchor constants have exp decreased by 1 (ruler shift).
+    // v0.1 encoding: AMBIG at E::MAX; ruler exp=0 → [1, 2). All singular states live at exp = E::MAX (was E::MIN). All positive anchor constants have exp decreased by 1 (ruler shift).
     pub const MAX: Self = Self { fraction: -1, exponent: (<$e>::MAX - 1) };
     pub const MIN: Self = Self { fraction: 0, exponent: (<$e>::MAX - 1) };
     pub const MIN_POS: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MIN };
@@ -255,9 +251,7 @@ impl_scalar_constants!(
    i128, i128
 );
 
-/// Scalar format constants — the encoding's structural anchor points. The
-/// compiler constant-folds these at every call site, so they read as `fn` but
-/// cost nothing at runtime.
+/// Scalar format constants — the encoding's structural anchor points. The compiler constant-folds these at every call site, so they read as `fn` but cost nothing at runtime.
 impl<F: Integer, E: Integer> Scalar<F, E> {
     // --- Fraction format (implicit sign via ~MSB) ---
     #[inline]
@@ -299,10 +293,7 @@ impl<F: Integer, E: Integer> Scalar<F, E> {
 
     // --- Exponent ---
     //
-    // AMBIGUOUS = E::MAX. Overflow past (E::MAX - 1) wraps UP to E::MAX;
-    // underflow past E::MIN also wraps (through the two's-complement circle)
-    // to E::MAX. Both saturation directions collapse to the same sentinel
-    // without a branch — the detection is a single `new_exp == E::MAX` test.
+    // AMBIGUOUS = E::MAX. Overflow past (E::MAX - 1) wraps UP to E::MAX; underflow past E::MIN also wraps (through the two's-complement circle) to E::MAX. Both saturation directions collapse to the same sentinel without a branch — the detection is a single `new_exp == E::MAX` test.
     //
     // This frees E::MIN for use as a normal exponent (no +1 guard needed).
     #[inline]

@@ -1,5 +1,4 @@
-//! Scalar → Scalar conversion tests across all width combinations.
-//! Uses F7E7 as gold standard. Special focus on F3E7 and F7E3 corner cases.
+//! Scalar → Scalar conversion tests across all width combinations. Uses F7E7 as gold standard. Special focus on F3E7 and F7E3 corner cases.
 
 use spirix::*;
 
@@ -12,8 +11,7 @@ type S37 = Scalar<i8, i128>;   // F3E7 — small fraction, huge exp
 type S77 = Scalar<i128, i128>; // F7E7 — gold
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Special class preservation across widths
-// ─────────────────────────────────────────────────────────────────────────────
+// Special class preservation across widths ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn zero_preserved_widening() {
@@ -96,8 +94,7 @@ fn undefined_preserved() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Normal value round trips (widen then narrow should preserve)
-// ─────────────────────────────────────────────────────────────────────────────
+// Normal value round trips (widen then narrow should preserve) ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn integer_widening_then_narrowing_preserves() {
@@ -129,8 +126,7 @@ fn f64_via_widening() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F3E7 corner: tiny fraction, huge exponent range
-// ─────────────────────────────────────────────────────────────────────────────
+// F3E7 corner: tiny fraction, huge exponent range ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn f3e7_construction() {
@@ -157,8 +153,7 @@ fn f3e7_from_int() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F7E3 corner: huge fraction, small exponent
-// ─────────────────────────────────────────────────────────────────────────────
+// F7E3 corner: huge fraction, small exponent ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn f7e3_high_precision() {
@@ -177,8 +172,7 @@ fn f7e3_widening_to_f7e7_preserves_precision() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// All 5×5 width combinations × constants
-// ─────────────────────────────────────────────────────────────────────────────
+// All 5×5 width combinations × constants ─────────────────────────────────────────────────────────────────────────────
 
 macro_rules! crosswidth_zero_inf {
     ($src:ty, $dst:ty, $tag:literal) => {
@@ -221,8 +215,7 @@ fn all_widths_zero_inf_pairs() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sign preservation under conversion
-// ─────────────────────────────────────────────────────────────────────────────
+// Sign preservation under conversion ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn sign_preserved_widening() {
@@ -243,8 +236,7 @@ fn sign_preserved_narrowing() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Unsigned int conversions
-// ─────────────────────────────────────────────────────────────────────────────
+// Unsigned int conversions ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn into_unsigned_positive() {
@@ -284,8 +276,7 @@ fn into_signed_negative() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Saturation: extreme exponent values
-// ─────────────────────────────────────────────────────────────────────────────
+// Saturation: extreme exponent values ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn into_int_saturation_huge_positive() {
@@ -302,9 +293,7 @@ fn into_int_saturation_huge_negative() {
     assert_eq!(i32_v, i32::MIN, "very negative → i32 should saturate to MIN");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// f32 round trip
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── f32 round trip ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn f32_roundtrip_powers_of_2() {
@@ -316,9 +305,7 @@ fn f32_roundtrip_powers_of_2() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// f64 → F3E3 → f64 ULP analysis
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── f64 → F3E3 → f64 ULP analysis ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn f64_to_f3e3_precision() {

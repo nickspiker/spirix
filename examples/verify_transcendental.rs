@@ -1,8 +1,4 @@
-//! F3E3 sanity check of sqrt / exp / ln / sin / cos against f64 oracle.
-//! Not exhaustive (transcendentals are inherently approximate and F3E3's
-//! 8-bit fraction leaves only ~1/256 resolution, so bit-exact matches aren't
-//! expected), but catches gross class/sign regressions across all normal
-//! inputs in the range where f64 can serve as an oracle.
+//! F3E3 sanity check of sqrt / exp / ln / sin / cos against f64 oracle. Not exhaustive (transcendentals are inherently approximate and F3E3's 8-bit fraction leaves only ~1/256 resolution, so bit-exact matches aren't expected), but catches gross class/sign regressions across all normal inputs in the range where f64 can serve as an oracle.
 use spirix::*;
 
 type S = ScalarF3E3;
@@ -58,8 +54,7 @@ fn main() {
                 let r = spirix_op(op, s);
                 let _rf: f64 = r.into();
                 total += 1;
-                // Gross sign check: only if expected is clearly nonzero and
-                // spirix result is normal/representable.
+                // Gross sign check: only if expected is clearly nonzero and spirix result is normal/representable.
                 if expected.abs() > 1e-3 && r.is_normal() {
                     let spirix_sign = r.is_negative();
                     let oracle_sign = expected < 0.0;
@@ -71,8 +66,7 @@ fn main() {
                         continue;
                     }
                 }
-                // Gross class check: f64 says a regular nonzero finite,
-                // but spirix says undefined/infinity.
+                // Gross class check: f64 says a regular nonzero finite, but spirix says undefined/infinity.
                 if expected.abs() > 1e-3 && expected.abs() < 1e30 {
                     if r.is_undefined() || r.is_infinite() {
                         gross_class += 1;

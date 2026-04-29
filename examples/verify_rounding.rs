@@ -47,17 +47,11 @@ fn main() {
                 if !af.is_finite() || (af == 0.0 && !s.is_zero()) { continue; }
                 let expected = f64_op(op, af);
                 let rf: f64 = r.into();
-                // Both values should match within f64 precision, except for
-                // cases where Spirix has to quantize (r is vanished/normal, but
-                // f64 can represent exact intermediate).
+                // Both values should match within f64 precision, except for cases where Spirix has to quantize (r is vanished/normal, but f64 can represent exact intermediate).
                 let ok = if rf.is_nan() || expected.is_nan() {
                     rf.is_nan() == expected.is_nan()
                 } else {
-                    // F3E3 has 8-bit fraction → ULP ≈ |value|·2^-8. Allow a
-                    // few ULP of slack plus a small absolute floor for values
-                    // near zero. frac() in particular can round to exactly 1
-                    // when self is a tiny fraction above an integer below in
-                    // magnitude — that's F3E3 quantization, not a bug.
+                    // F3E3 has 8-bit fraction → ULP ≈ |value|·2^-8. Allow a few ULP of slack plus a small absolute floor for values near zero. frac() in particular can round to exactly 1 when self is a tiny fraction above an integer below in magnitude — that's F3E3 quantization, not a bug.
                     let tol = af.abs().max(expected.abs()).max(1.0) / 128.0;
                     (rf - expected).abs() <= tol
                 };

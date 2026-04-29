@@ -67,8 +67,7 @@ where
     ///
     /// # Description
     ///
-    /// This method determines if two Circle values represent exactly the same complex number.
-    /// Unlike Scalar comparison which provides ordering, Circle comparison only tests for equality since complex numbers do not have a natural total ordering relationship.
+    /// This method determines if two Circle values represent exactly the same complex number. Unlike Scalar comparison which provides ordering, Circle comparison only tests for equality since complex numbers do not have a natural total ordering relationship.
     ///
     /// For Circle values to be considered equal, they must have identical representations in both their real and imaginary components, as well as matching exponents when normal.
     ///
@@ -204,8 +203,7 @@ where
     ///
     /// # Description
     ///
-    /// This method implements a total ordering for Scalar values that can be compared, while returning `None` for values that have no defined ordering relationship.
-    /// The comparison follows Spirix's mathematical ordering principles where values are arranged in a continuous spectrum from negative exploded to positive exploded.
+    /// This method implements a total ordering for Scalar values that can be compared, while returning `None` for values that have no defined ordering relationship. The comparison follows Spirix's mathematical ordering principles where values are arranged in a continuous spectrum from negative exploded to positive exploded.
     ///
     /// # Ordering Hierarchy
     ///
@@ -273,9 +271,7 @@ where
     /// ```
     pub(crate) fn compare(&self, other: &Scalar<F, E>) -> Option<Ordering> {
         if self.is_normal() && other.is_normal() {
-            // Different signs: positive > negative regardless of exponents.
-            // Without this, cross-sign + different-exp pairs misdirect through
-            // the cmp.reverse() branch (e.g. +exp=5 vs -exp=10 returns Less).
+            // Different signs: positive > negative regardless of exponents. Without this, cross-sign + different-exp pairs misdirect through the cmp.reverse() branch (e.g. +exp=5 vs -exp=10 returns Less).
             if self.is_negative() != other.is_negative() {
                 return Some(if self.is_negative() {
                     Ordering::Less
@@ -283,8 +279,7 @@ where
                     Ordering::Greater
                 });
             }
-            // Same sign: larger exponent = larger magnitude; for negatives
-            // that means smaller value, so reverse.
+            // Same sign: larger exponent = larger magnitude; for negatives that means smaller value, so reverse.
             if self.exponent != other.exponent {
                 let cmp = self.exponent.cmp(&other.exponent);
                 return Some(if self.is_negative() {
@@ -293,10 +288,7 @@ where
                     cmp
                 });
             }
-            // Same sign, same exponent: N0 stored fraction ordering (unsigned
-            // compare on stored bits) is the value ordering, cross-sign or
-            // not, because N0 positive stored bits ≥ 0x80 > any negative
-            // stored bits ≤ 0x7F.
+            // Same sign, same exponent: N0 stored fraction ordering (unsigned compare on stored bits) is the value ordering, cross-sign or not, because N0 positive stored bits ≥ 0x80 > any negative stored bits ≤ 0x7F.
             return Some(self.fraction.cmp_unsigned(&other.fraction));
         }
         if self.is_undefined() || self.is_infinite() || other.is_undefined() || other.is_infinite()

@@ -73,9 +73,7 @@ fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
             (Exploded, Infinity) | (Infinity, Exploded) => { s.insert(Infinity); }
             (Infinity, Infinity)             => { s.insert(Infinity); }
         },
-        // Division truth table from README. Convention: in run_op, a=row, b=col,
-        // and the operation computed is `b OP a` (col is first operand). So for
-        // division the match reads (a /* denominator */, b /* numerator */).
+        // Division truth table from README. Convention: in run_op, a=row, b=col, and the operation computed is `b OP a` (col is first operand). So for division the match reads (a /* denominator */, b /* numerator */).
         Op::Div => match (a /* denom */, b /* numer */) {
             (Undefined, _) | (_, Undefined)  => { s.insert(Undefined); }
             // Indeterminate: 0/0, ↓/↓, ↑/↑, ∞/∞
@@ -97,10 +95,7 @@ fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
             (Exploded, Vanished)             => { s.insert(Vanished); } // tiny/huge = tiny
             (Exploded, Normal)               => { s.insert(Vanished); } // finite/huge = tiny
         },
-        // Modulus truth table from README. Same convention as Div: in run_op,
-        // a=row, b=col, and the operation computed is `b OP a`. For %, the
-        // row is the PERIOD (divisor) and col is the NUMERATOR. Cell entries
-        // with `X / Y` notation (sign-dependent) contribute both to the set.
+        // Modulus truth table from README. Same convention as Div: in run_op, a=row, b=col, and the operation computed is `b OP a`. For %, the row is the PERIOD (divisor) and col is the NUMERATOR. Cell entries with `X / Y` notation (sign-dependent) contribute both to the set.
         Op::Mod => match (a /* period */, b /* numer */) {
             (Undefined, _) | (_, Undefined)  => { s.insert(Undefined); }
             // Row [0] (period=Zero): always 0. Also col [0] numer=Zero → 0.
@@ -109,16 +104,13 @@ fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
             (Vanished, _)                    => { s.insert(Undefined); }
             // Row [∞] (period=Infinity): all undefined (after Zero handled).
             (Infinity, _)                    => { s.insert(Undefined); }
-            // Transfinite numerator (col [↑] or [∞]) with Normal/Exploded
-            // period (Vanished/Infinity handled above) → rule 3: undefined.
+            // Transfinite numerator (col [↑] or [∞]) with Normal/Exploded period (Vanished/Infinity handled above) → rule 3: undefined.
             (Normal, Exploded) | (Normal, Infinity)
             | (Exploded, Exploded) | (Exploded, Infinity) => { s.insert(Undefined); }
-            // Row [#] (period=Normal): Vanished numer → [↓] or [#] depending
-            // on signs. Normal numer → [0], [↓], [#] depending on magnitudes.
+            // Row [#] (period=Normal): Vanished numer → [↓] or [#] depending on signs. Normal numer → [0], [↓], [#] depending on magnitudes.
             (Normal, Vanished)               => { s.insert(Vanished); s.insert(Normal); }
             (Normal, Normal)                 => { s.insert(Zero); s.insert(Vanished); s.insert(Normal); }
-            // Row [↑] (period=Exploded): Vanished numer → [↓] / [↑] signs.
-            // Normal numer → [#] / [℘%⬆] signs.
+            // Row [↑] (period=Exploded): Vanished numer → [↓] / [↑] signs. Normal numer → [#] / [℘%⬆] signs.
             (Exploded, Vanished)             => { s.insert(Vanished); s.insert(Exploded); }
             (Exploded, Normal)               => { s.insert(Normal); s.insert(Undefined); }
         },
@@ -154,8 +146,7 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
             for a in va {
                 for b in vb {
                     total += 1;
-                    // Table convention is `col OP row`: col is first operand.
-                    // Here ca=row, cb=col, so compute b OP a (col first, row second).
+                    // Table convention is `col OP row`: col is first operand. Here ca=row, cb=col, so compute b OP a (col first, row second).
                     let r = apply(o, *b, *a);
                     let rc = classify(r);
                     seen.insert(rc);

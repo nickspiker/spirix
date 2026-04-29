@@ -1,7 +1,4 @@
-//! Audit the `exp_diff >= FRAC` truncation boundary in scalar_modulus_scalar.
-//! The code currently returns ZERO when a.exp - b.exp >= FRAC because the shift
-//! wouldn't fit in 2*FRAC-bit wide. This audits how often that short-circuit
-//! produces 0 when the true floor-mod is non-zero.
+//! Audit the `exp_diff >= FRAC` truncation boundary in scalar_modulus_scalar. The code currently returns ZERO when a.exp - b.exp >= FRAC because the shift wouldn't fit in 2*FRAC-bit wide. This audits how often that short-circuit produces 0 when the true floor-mod is non-zero.
 use spirix::*;
 
 type S = ScalarF3E3;
@@ -52,8 +49,7 @@ fn main() {
                         }
                     } else {
                         ec_nonzero += 1;
-                        // For large exp_diff the current code returns ZERO,
-                        // so reaching here means we're already past the fix.
+                        // For large exp_diff the current code returns ZERO, so reaching here means we're already past the fix.
                         let diff = (spirix_f64 - true_mod).abs();
                         let tol = b_f64.abs() * 1e-10;
                         if diff > tol {

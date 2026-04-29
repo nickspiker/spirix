@@ -64,12 +64,11 @@ where
     ///
     /// # Description
     ///
-    /// Performs multiplication between two Scalars, handling special cases according to mathematical principles.
-    /// For normal values, this produces the expected mathematical product. Special states follow special rules to maintain mathematical continuity even when results exceed representable ranges.
+    /// Performs multiplication between two Scalars, handling special cases according to mathematical principles. For normal values, this produces the expected mathematical product. Special states follow special rules to maintain mathematical continuity even when results exceed representable ranges.
     ///
     /// Multiplication process:
-    /// 0. Checks for escaped values (undefined, exploded, vanished) and applies special case handling  
-    /// 1. Uses wider integer types for fraction multiplication as product lands in the high half  
+    /// 0. Checks for escaped values (undefined, exploded, vanished) and applies special case handling
+    /// 1. Uses wider integer types for fraction multiplication as product lands in the high half
     /// ```txt
     ///    □□□□□□□ ■■■■■■■ = Multiplier
     ///    □□□□□□□ ■■■■■■■ = Multiplicand
@@ -77,10 +76,10 @@ where
     ///    ■■■■■■■ □□□□□□□ = Intermediate 2x-bit product space
     ///        ↘↘↘↘↘↘↘
     ///            ■■■■■■■ = High half kept, low bits discarded to floor
-    /// 2. Calculates leading Zeros/Ones to determine normalization shift and exponent nudge  
-    /// 3. Adds exponents and adjusts by normalization shift (exponent_result = self.exponent + other.exponent - shift)  
-    /// 4. Handles special cases where exponent exceeds MAX_EXPONENT (explode) or falls below MIN_EXPONENT (vanish)  
-    /// 5. For escaped values, preserves sign and phase information while following mathematical convention  
+    /// 2. Calculates leading Zeros/Ones to determine normalization shift and exponent nudge
+    /// 3. Adds exponents and adjusts by normalization shift (exponent_result = self.exponent + other.exponent - shift)
+    /// 4. Handles special cases where exponent exceeds MAX_EXPONENT (explode) or falls below MIN_EXPONENT (vanish)
+    /// 5. For escaped values, preserves sign and phase information while following mathematical convention
     ///
     /// # Returns
     ///
@@ -99,42 +98,19 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E4};
     ///
-    /// // Multiplying finite Scalars
-    /// let eight = Scalar::<i64, i16>::from(8);
-    /// let eigth = ScalarF6E4::ONE / 8;
-    /// assert!(eight * eigth == 1); // Restores unity thru multiplicative inverse
+    /// // Multiplying finite Scalars let eight = Scalar::<i64, i16>::from(8); let eigth = ScalarF6E4::ONE / 8; assert!(eight * eigth == 1); // Restores unity thru multiplicative inverse
     ///
-    /// // Multiplying near boundaries
-    /// let large = ScalarF6E4::from(64) * ScalarF6E4::MAX_NEG;
-    /// let small = ScalarF6E4::from(1) / large;
-    /// assert!(large * small == 1);
+    /// // Multiplying near boundaries let large = ScalarF6E4::from(64) * ScalarF6E4::MAX_NEG; let small = ScalarF6E4::from(1) / large; assert!(large * small == 1);
     ///
-    /// // Multiplication preserves sign according to mathematical rule
-    /// let negative = ScalarF6E4::from(-1.5);
-    /// assert!((eight * negative).is_negative()); // Positive × Negative = Negative
-    /// assert!((negative * negative).is_positive()); // Negative × Negative = Positive
+    /// // Multiplication preserves sign according to mathematical rule let negative = ScalarF6E4::from(-1.5); assert!((eight * negative).is_negative()); // Positive × Negative = Negative assert!((negative * negative).is_positive()); // Negative × Negative = Positive
     ///
-    /// // Vanished values maintain sign thru multiplication
-    /// let tiny = ScalarF6E4::MIN_POS / ScalarF6E4::from(11);
-    /// assert!(tiny.vanished());
-    /// let neg_tiny = tiny * ScalarF6E4::NEG_ONE;
-    /// assert!(neg_tiny.vanished() && neg_tiny.is_negative());
+    /// // Vanished values maintain sign thru multiplication let tiny = ScalarF6E4::MIN_POS / ScalarF6E4::from(11); assert!(tiny.vanished()); let neg_tiny = tiny * ScalarF6E4::NEG_ONE; assert!(neg_tiny.vanished() && neg_tiny.is_negative());
     ///
-    /// // Exploded values interact consistently with finite values
-    /// let huge = ScalarF6E4::MAX * 42;
-    /// assert!(huge.exploded());
-    /// assert!((1 / huge).vanished()); // Inverse of exploded is vanished
-    /// assert!(((-1) / huge).is_negative()); // Signs are propogated following multiplication rule
-    /// assert!((huge * ScalarF6E4::NEG_ONE).exploded());
-    /// assert!((huge * -1).is_negative());
+    /// // Exploded values interact consistently with finite values let huge = ScalarF6E4::MAX * 42; assert!(huge.exploded()); assert!((1 / huge).vanished()); // Inverse of exploded is vanished assert!(((-1) / huge).is_negative()); // Signs are propogated following multiplication rule assert!((huge * ScalarF6E4::NEG_ONE).exploded()); assert!((huge * -1).is_negative());
     ///
-    /// // Multiplying by zero always produces zero, even with escaped values
-    /// assert!((huge * 0).is_zero());
-    /// assert!((tiny * 0).is_zero());
+    /// // Multiplying by zero always produces zero, even with escaped values assert!((huge * 0).is_zero()); assert!((tiny * 0).is_zero());
     ///
-    /// // Vanished × Exploded yields an undefined state (magnitude indeterminate)
-    /// let undefined_product = tiny * huge;
-    /// assert!(undefined_product.is_undefined());
+    /// // Vanished × Exploded yields an undefined state (magnitude indeterminate) let undefined_product = tiny * huge; assert!(undefined_product.is_undefined());
     /// ```
     pub(crate) fn scalar_multiply_scalar(&self, other: &Self) -> Self {
         if !self.is_normal() || !other.is_normal() {
@@ -197,19 +173,13 @@ where
             };
         }
 
-        // Widen all exponent arithmetic to isize up front — bounded by FRAC
-        // and by E's integer width, isize never overflows at any supported
-        // width. Lets us check against max_exponent()/min_exponent() with a
-        // single compare instead of wrap-sign-trick branches.
+        // Widen all exponent arithmetic to isize up front — bounded by FRAC and by E's integer width, isize never overflows at any supported width. Lets us check against max_exponent()/min_exponent() with a single compare instead of wrap-sign-trick branches.
         let ea_wide: isize = self.exponent.saturate();
         let eb_wide: isize = other.exponent.saturate();
         let max_e: isize = Self::max_exponent().saturate();
         let min_e: isize = Self::min_exponent().saturate();
 
-        // Fast-path neg_one_normal × neg_one_normal: both inflate to -2^FRAC,
-        // their product = 2^(2*FRAC) overflows the 2*FRAC-bit Wide and wraps
-        // to 0. Compute via exponent arithmetic only. v0.1 ruler: result
-        // exp = e_a + e_b + 2 (per-op +1 plus +1 from -2^(e+1) × -2^(e+1)).
+        // Fast-path neg_one_normal × neg_one_normal: both inflate to -2^FRAC, their product = 2^(2*FRAC) overflows the 2*FRAC-bit Wide and wraps to 0. Compute via exponent arithmetic only. v0.1 ruler: result exp = e_a + e_b + 2 (per-op +1 plus +1 from -2^(e+1) × -2^(e+1)).
         if self.fraction == Self::neg_one_normal() && other.fraction == Self::neg_one_normal() {
             let exp_wide = ea_wide.wrapping_add(eb_wide).wrapping_add(2);
             if exp_wide > max_e {
@@ -220,12 +190,9 @@ where
             }
             return Self { fraction: Self::pos_one_normal(), exponent: exp_wide.as_() };
         }
-        // x86 implementation note:
-        // Why this code is NOT signless
-        // Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog.
-        // Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps.
-        // The wrap happens to be INVISIBLE for the main-path byte extraction (shift = FRAC - leading ≤ FRAC, so the 2^W wrap correction is 0 mod 2^FRAC), which lets us keep signed arithmetic + arith shr = floor for that path. But for exploded/vanished (shift > FRAC), the wrap correction doesn't vanish mod 2^FRAC, so we reluctantly fall back to the magnitude-dance (compute |p|, logical shr, XOR a sign-flip mask). Those paths represent "too big/small to represent normally" so the magnitude precision is already lossy — rounding mode is moot there.
-        // In Verilog all of this dissolves: hardware arith shr is free, register width is whatever we declare, and signed/unsigned interpretation is just wire routing. The code below is overhead paid for x86 ISA quirks, not inherent algorithmic cost.
+        // x86 implementation note: Why this code is NOT signless
+        // Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog. Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps.
+        // The wrap happens to be INVISIBLE for the main-path byte extraction (shift = FRAC - leading ≤ FRAC, so the 2^W wrap correction is 0 mod 2^FRAC), which lets us keep signed arithmetic + arith shr = floor for that path. But for exploded/vanished (shift > FRAC), the wrap correction doesn't vanish mod 2^FRAC, so we reluctantly fall back to the magnitude-dance (compute |p|, logical shr, XOR a sign-flip mask). Those paths represent "too big/small to represent normally" so the magnitude precision is already lossy — rounding mode is moot there. In Verilog all of this dissolves: hardware arith shr is free, register width is whatever we declare, and signed/unsigned interpretation is just wire routing. The code below is overhead paid for x86 ISA quirks, not inherent algorithmic cost.
         let p_signed = self
             .fraction
             .inflate(true)
@@ -257,9 +224,7 @@ where
             }
         };
 
-        // v0.1 widened wrap detection: result_exp = e_a + e_b + 1 - leading.
-        // Single compare against max_e / min_e catches overflow and underflow
-        // (including the tail cases where exp would land on AMBIG).
+        // v0.1 widened wrap detection: result_exp = e_a + e_b + 1 - leading. Single compare against max_e / min_e catches overflow and underflow (including the tail cases where exp would land on AMBIG).
         let exp_wide: isize = ea_wide
             .wrapping_add(eb_wide)
             .wrapping_add(1)

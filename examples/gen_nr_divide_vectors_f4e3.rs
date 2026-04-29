@@ -1,5 +1,4 @@
-/// Generate F4E3 (i16, i8) test vectors for NR divide core validation.
-/// Outputs: a_frac a_exp b_frac b_exp result_frac result_exp (hex, signed)
+/// Generate F4E3 (i16, i8) test vectors for NR divide core validation. Outputs: a_frac a_exp b_frac b_exp result_frac result_exp (hex, signed)
 use spirix::Scalar;
 
 fn main() {

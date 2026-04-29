@@ -1,8 +1,6 @@
 //! Circle ↔ Scalar boundary conversion tests — full truth table coverage.
 //!
-//! Circle keeps explicit-sign N-1 format; Scalar uses implicit-sign via ~MSB.
-//! These tests verify every value class transitions correctly across the
-//! boundary, plus spot checks on asymmetric-magnitude normalization.
+//! Circle keeps explicit-sign N-1 format; Scalar uses implicit-sign via ~MSB. These tests verify every value class transitions correctly across the boundary, plus spot checks on asymmetric-magnitude normalization.
 
 use spirix::*;
 
@@ -57,8 +55,7 @@ fn check_extraction(label: &str, c: C, expected_r: &[Class], expected_i: &[Class
 use Class::*;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Circle → Scalar class truth table (via .r() and .i())
-// ─────────────────────────────────────────────────────────────────────────────
+// Circle → Scalar class truth table (via .r() and .i()) ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn circle_zero_extracts_to_zeros() {
@@ -115,8 +112,7 @@ fn circle_undefined_extracts_to_undefined() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Scalar → Circle class truth table (via from_ri / from((r, i)))
-// ─────────────────────────────────────────────────────────────────────────────
+// Scalar → Circle class truth table (via from_ri / from((r, i))) ─────────────────────────────────────────────────────────────────────────────
 
 // Representatives for each Scalar class
 fn reps() -> [(&'static str, Class, S); 9] {
@@ -227,8 +223,7 @@ fn from_ri_exploded_or_vanished_collapses_to_undefined() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Offset magnitudes — normalization stress (the motivating cases)
-// ─────────────────────────────────────────────────────────────────────────────
+// Offset magnitudes — normalization stress (the motivating cases) ─────────────────────────────────────────────────────────────────────────────
 
 fn close(a: f64, b: f64, rel: f64) -> bool {
     if a == b { return true; }
@@ -286,8 +281,7 @@ fn offset_all_four_sign_quadrants() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Round-trip stability: Circle → Scalars → Circle → Scalars
-// ─────────────────────────────────────────────────────────────────────────────
+// Round-trip stability: Circle → Scalars → Circle → Scalars ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn round_trip_stability() {

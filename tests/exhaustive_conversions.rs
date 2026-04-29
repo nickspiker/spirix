@@ -1,8 +1,6 @@
 //! Exhaustive conversion tests — every i8 value, every constant, every edge.
 //!
-//! Strategy: F3E3 (Scalar<i8, i8>) is small enough to enumerate all 256 stored
-//! fractions × all 256 exponents (= 65,536 Scalars). For larger widths we sample
-//! constants, powers of 2, primes, and the constants of the type.
+//! Strategy: F3E3 (Scalar<i8, i8>) is small enough to enumerate all 256 stored fractions × all 256 exponents (= 65,536 Scalars). For larger widths we sample constants, powers of 2, primes, and the constants of the type.
 
 use spirix::*;
 
@@ -13,8 +11,7 @@ type S64 = Scalar<i64, i8>;
 type S128 = Scalar<i128, i8>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Integer round trips
-// ─────────────────────────────────────────────────────────────────────────────
+// Integer round trips ─────────────────────────────────────────────────────────────────────────────
 
 /// Every i8 value must round-trip through Scalar<i8, i8>.
 #[test]
@@ -43,8 +40,7 @@ fn int_roundtrip_all_widths() {
         let r32: i32 = S32::from(v).into();
         let r64: i32 = {let x: i64 = S64::from(v as i64).into(); x as i32};
         let r128: i32 = {let x: i64 = S128::from(v as i64).into(); x as i32};
-        // F3E3 has only ~6 bits of fraction precision so it can't hold values >127 or <-128 exactly anyway.
-        // For [-128, 127], everything should round-trip exactly at all widths.
+        // F3E3 has only ~6 bits of fraction precision so it can't hold values >127 or <-128 exactly anyway. For [-128, 127], everything should round-trip exactly at all widths.
         assert_eq!(r16, v, "i16 width round-trip failed for {}", v);
         assert_eq!(r32, v, "i32 width round-trip failed for {}", v);
         assert_eq!(r64, v, "i64 width round-trip failed for {}", v);
@@ -68,8 +64,7 @@ fn negative_ints_have_negative_value() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Powers of 2 (positive and negative)
-// ─────────────────────────────────────────────────────────────────────────────
+// Powers of 2 (positive and negative) ─────────────────────────────────────────────────────────────────────────────
 
 /// All powers of 2 from 2^-10 to 2^10 round-trip through f64 exactly.
 #[test]
@@ -115,8 +110,7 @@ fn powers_of_2_all_widths() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants: ZERO, ONE, NEG_ONE, MAX, MIN, MIN_POS, MAX_NEG, INFINITY, etc.
-// ─────────────────────────────────────────────────────────────────────────────
+// Constants: ZERO, ONE, NEG_ONE, MAX, MIN, MIN_POS, MAX_NEG, INFINITY, etc. ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn const_zero_is_zero() {
@@ -167,9 +161,7 @@ fn const_ln_two_close_to_ln_two() {
     assert!(err < 1e-15, "LN_TWO = {} (err {:.2e})", l, err);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// f64 round trips
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────── f64 round trips ─────────────────────────────────────────────────────────────────────────────
 
 /// f64 → Scalar → f64 should round-trip within ULP for representable values.
 #[test]
@@ -211,8 +203,7 @@ fn ieee_specials() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Primes — distinct from powers, catch normalization bugs
-// ─────────────────────────────────────────────────────────────────────────────
+// Primes — distinct from powers, catch normalization bugs ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn primes_roundtrip_all_widths() {
@@ -245,8 +236,7 @@ fn negative_primes_roundtrip() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Exhaustive F3E3 sweep — every (stored, exponent) pair to f64
-// ─────────────────────────────────────────────────────────────────────────────
+// Exhaustive F3E3 sweep — every (stored, exponent) pair to f64 ─────────────────────────────────────────────────────────────────────────────
 
 /// Every Scalar<i8,i8> converts to f64 without panicking. (Sanity check.)
 #[test]
@@ -271,8 +261,7 @@ fn f3e3_exhaustive_to_f64_no_panic() {
               finite_count, zero_count, inf_count, nan_count);
 }
 
-/// Round-trip property: every "normal" F3E3 Scalar should give the same Scalar
-/// when converted f64→Scalar (within precision).
+/// Round-trip property: every "normal" F3E3 Scalar should give the same Scalar when converted f64→Scalar (within precision).
 #[test]
 fn f3e3_normal_roundtrip_via_f64() {
     let mut fail = 0;
@@ -299,8 +288,7 @@ fn f3e3_normal_roundtrip_via_f64() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Edge cases — extreme exponents and boundary fractions
-// ─────────────────────────────────────────────────────────────────────────────
+// Edge cases — extreme exponents and boundary fractions ─────────────────────────────────────────────────────────────────────────────
 
 #[test]
 fn min_max_constants_non_panic() {

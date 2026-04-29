@@ -62,17 +62,13 @@ where
 {
     /// Bitwise AND of two Scalars, aligned at the binary point.
     ///
-    /// Two's complement AND extended to numbers with exponents: line the operands
-    /// up at their binary points, AND the bit patterns, renormalize. Class-level
-    /// behaviour follows from the boolean identities of zero and infinity, which
-    /// are alignment-independent:
+    /// Two's complement AND extended to numbers with exponents: line the operands up at their binary points, AND the bit patterns, renormalize. Class-level behaviour follows from the boolean identities of zero and infinity, which are alignment-independent:
     ///
     /// - `[0] & X = [0]` — zero is the absorber (all-zeros erases every bit).
     /// - `[∞] & X = X` — infinity is the identity (all-ones leaves bits alone).
     /// - `[℘?] & X = [℘?]` — undefined propagates first to preserve the error cause.
     ///
-    /// Escape operands (`[↓]`, `[↑]`) paired with a normal can't align their
-    /// ambiguous exponent with a real one, so those pairings resolve to `[℘&]`.
+    /// Escape operands (`[↓]`, `[↑]`) paired with a normal can't align their ambiguous exponent with a real one, so those pairings resolve to `[℘&]`.
     pub(crate) fn aligned_and(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
             if self.is_undefined() {
@@ -161,10 +157,7 @@ where
 
     /// Bitwise XOR of two Scalars, aligned at the binary point.
     ///
-    /// `[0]` is the identity; `[∞]` inverts (NOT). Both are alignment-independent.
-    /// Escape operands (`[↓]`, `[↑]`) paired with a normal produce `[℘⊻]` because
-    /// ambiguous exponents can't align with real ones. At the shared ambiguous
-    /// frame, `[↓] ⊻ [↑]` collapses to `[↑]` (opposite-rank bit patterns always
+    /// `[0]` is the identity; `[∞]` inverts (NOT). Both are alignment-independent. Escape operands (`[↓]`, `[↑]`) paired with a normal produce `[℘⊻]` because ambiguous exponents can't align with real ones. At the shared ambiguous frame, `[↓] ⊻ [↑]` collapses to `[↑]` (opposite-rank bit patterns always
     /// XOR to N-1); same-class escape pairings are `[℘⊻]`.
     pub(crate) fn aligned_xor(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
@@ -200,8 +193,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            // Remaining case: one is vanished, the other is exploded. XOR always
-            // yields exploded with sign = sign(exploded) XOR sign(vanished).
+            // Remaining case: one is vanished, the other is exploded. XOR always yields exploded with sign = sign(exploded) XOR sign(vanished).
             if self.exploded() {
                 if other.is_negative() {
                     return self.not_scalar();
@@ -216,8 +208,7 @@ where
         self.bitwise_normal(other, BitwiseOp::Xor)
     }
 
-    /// Generic normal-path bitwise operation. Inflates both operands, aligns by exponent,
-    /// applies the op in wide effective space, then normalizes and deflates.
+    /// Generic normal-path bitwise operation. Inflates both operands, aligns by exponent, applies the op in wide effective space, then normalizes and deflates.
     fn bitwise_normal(&self, other: &Scalar<F, E>, op: BitwiseOp) -> Scalar<F, E> {
         let (big, small) = if self.exponent > other.exponent {
             (self, other)
@@ -250,13 +241,11 @@ where
         let delta: isize = Self::fraction_bits().wrapping_sub(leading);
         let delta_e: E = delta.as_();
         let offset = small.exponent.wrapping_add(&delta_e);
-        // Underflow happens two ways: offset lands exactly on the AMBIGUOUS_EXPONENT
-        // slot (reserved), or it wraps past MIN through the negative/positive sign.
+        // Underflow happens two ways: offset lands exactly on the AMBIGUOUS_EXPONENT slot (reserved), or it wraps past MIN through the negative/positive sign.
         let one_e: E = 1u8.as_();
         let underflowed = delta.is_negative() && offset.wrapping_sub(&one_e) > small.exponent;
         if underflowed {
-            // Result magnitude smaller than MIN_EXP permits.
-            // Produce vanished (N-2) with the result's sign, not exploded (N-1).
+            // Result magnitude smaller than MIN_EXP permits. Produce vanished (N-2) with the result's sign, not exploded (N-1).
             return Self {
                 fraction: result
                     .w_shl(leading.wrapping_sub(2))
@@ -271,8 +260,7 @@ where
         }
     }
 
-    /// Bitwise result when operands don't overlap after alignment. Sign of `small`
-    /// determines whether the high bits are all-ones (negative) or all-zeros (positive).
+    /// Bitwise result when operands don't overlap after alignment. Sign of `small` determines whether the high bits are all-ones (negative) or all-zeros (positive).
     fn bitwise_no_overlap(big: &Scalar<F, E>, small: &Scalar<F, E>, op: BitwiseOp) -> Scalar<F, E> {
         match op {
             BitwiseOp::And => {
@@ -329,8 +317,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Underflow: either AMBIGUOUS landing (no wrap) or both-negative wrap
-        // to non-negative. Both mean true sum ≤ AMBIGUOUS → Vanished.
+        // Underflow: either AMBIGUOUS landing (no wrap) or both-negative wrap to non-negative. Both mean true sum ≤ AMBIGUOUS → Vanished.
         let underflowed = new_exp == Self::ambiguous_exponent()
             || (shift.is_negative() && self.exponent.is_negative() && !new_exp.is_negative());
         if underflowed {

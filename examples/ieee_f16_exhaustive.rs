@@ -4,11 +4,9 @@
 ///   IEEE:   f16 → f32 → op → f32 → f16
 ///   Spirix: f16 → f32 → F4E3 → op → F4E3 → f32 → f16
 ///
-/// Any difference is purely the arithmetic, since both paths eat the same
-/// conversion losses at the endpoints.
+/// Any difference is purely the arithmetic, since both paths eat the same conversion losses at the endpoints.
 ///
-/// Run with:
-///   cargo run --example ieee_f16_exhaustive --release
+/// Run with: cargo run --example ieee_f16_exhaustive --release
 use spirix::ScalarF4E4;
 
 // ── f16 ↔ f32 conversion ──────────────────────────────────────────────────

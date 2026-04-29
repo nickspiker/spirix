@@ -65,8 +65,7 @@ where
     ///
     /// # Description
     ///
-    /// Performs multiplication between a Circle and a Scalar, scaling both real and imaginary components by the Scalar value while preserving the orientation of the Circle.
-    /// For normal values, this multiplies each component of the Circle by the Scalar, following standard complex-real multiplication formula: (a+b·i)·c = (a·c) + (b·c)·i.
+    /// Performs multiplication between a Circle and a Scalar, scaling both real and imaginary components by the Scalar value while preserving the orientation of the Circle. For normal values, this multiplies each component of the Circle by the Scalar, following standard complex-real multiplication formula: (a+b·i)·c = (a·c) + (b·c)·i.
     ///
     /// Multiplication process:
     /// 0. Checks for and handle undefined states
@@ -78,7 +77,7 @@ where
     ///    a·c → ■■■■■■■ □□□□□□□ = Intermediate product for real part
     ///              ↘↘↘↘↘↘↘
     ///    Real →        ■■■■■■■ = High bits kept for real component
-    ///    
+    ///
     ///    b   →         ■■■■■■■ = self.imaginary
     ///    c   →         ■■■■■■■ = scalar.fraction
     ///                  ⤪⤪⤪⤪⤪⤪ Multiply!

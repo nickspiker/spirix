@@ -1,14 +1,10 @@
 /// Generate edge-case test vectors for spirix_alu_unified (F3E3).
 ///
-/// Tests all 13 ops across all combinations of input categories:
-///   zero, infinity, exploded+, exploded-, vanished+, vanished-,
-///   undefined, normal+, normal-, pos_half, neg_one, pos_small, neg_small
+/// Tests all 13 ops across all combinations of input categories: zero, infinity, exploded+, exploded-, vanished+, vanished-, undefined, normal+, normal-, pos_half, neg_one, pos_small, neg_small
 ///
-/// Output: hex file with lines "op a_frac a_exp b_frac b_exp r_frac r_exp [cmp_flags]"
-/// where cmp_flags = "lt eq gt un" (4 hex digits, only for CMP op)
+/// Output: hex file with lines "op a_frac a_exp b_frac b_exp r_frac r_exp [cmp_flags]" where cmp_flags = "lt eq gt un" (4 hex digits, only for CMP op)
 ///
-/// For MSB-aligned 64-bit output, F3E3 values are left-shifted:
-///   frac_msb = (frac as u8) << 56, exp_msb = (exp as u8) << 56
+/// For MSB-aligned 64-bit output, F3E3 values are left-shifted: frac_msb = (frac as u8) << 56, exp_msb = (exp as u8) << 56
 use spirix::Scalar;
 use std::cmp::Ordering;
 
@@ -17,8 +13,7 @@ type S = Scalar<i8, i8>;
 const AMBIG: i8 = -128;
 
 fn main() {
-    // Build representative values for each category.
-    // Each entry: (name, frac, exp)
+    // Build representative values for each category. Each entry: (name, frac, exp)
     let categories: Vec<(&str, i8, i8)> = vec![
         // Special states (exp = AMBIG)
         ("zero", 0, AMBIG),
@@ -33,10 +28,7 @@ fn main() {
         ("pos_half", 64, 0),  // +0.5 * 2^0
         ("neg_one", -128, 1), // -1.0 * 2^1 (note: NEG_ONE frac at normal exp)
         ("pos_small", 32, 0), // smallest N1... wait, 32=0x20 is N2
-        // Actually for i8: POS_HALF=0x40=64, N1 means bit[7]!=bit[6]
-        // 64 = 0b01000000 → bit7=0, bit6=1 → N1 ✓
-        // -65 = 0b10111111 → bit7=1, bit6=0 → N1 ✓
-        // -128 = 0b10000000 → bit7=1, bit6=0 → N1 ✓ (but this is NEG_ONE)
+        // Actually for i8: POS_HALF=0x40=64, N1 means bit[7]!=bit[6] 64 = 0b01000000 → bit7=0, bit6=1 → N1 ✓ -65 = 0b10111111 → bit7=1, bit6=0 → N1 ✓ -128 = 0b10000000 → bit7=1, bit6=0 → N1 ✓ (but this is NEG_ONE)
 
         // More normal values
         ("norm+_1", 64, 1),       // +0.5 * 2^1

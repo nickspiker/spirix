@@ -1,9 +1,6 @@
-/// Bit-accurate Rust port of spirix_add_unified.v (FRAC=25, EXP=8)
-/// compared against native f32 addition (IEEE 754 binary32, RNE).
+/// Bit-accurate Rust port of spirix_add_unified.v (FRAC=25, EXP=8) compared against native f32 addition (IEEE 754 binary32, RNE).
 ///
-/// Converts f32 pairs → Spirix N1 format, adds with the Verilog algorithm
-/// (close/far split, shared barrel, banker's rounding), converts back to f32,
-/// and checks against hardware f32 addition.
+/// Converts f32 pairs → Spirix N1 format, adds with the Verilog algorithm (close/far split, shared barrel, banker's rounding), converts back to f32, and checks against hardware f32 addition.
 ///
 /// Run with:  cargo run --example ieee_add_f32 --release
 
@@ -14,9 +11,7 @@ const AMB_EXP: i8 = i8::MIN; // -128
 
 // ── f32 ↔ Spirix conversion (lossless for normal f32) ──────────────────────
 
-/// Convert a normal, finite, nonzero f32 to Spirix N1 (i32 frac, i8 exp).
-/// f32 significand is 24 bits (1 implicit + 23 stored).
-/// Spirix FRAC=25: sign + 24 magnitude bits → exact match.
+/// Convert a normal, finite, nonzero f32 to Spirix N1 (i32 frac, i8 exp). f32 significand is 24 bits (1 implicit + 23 stored). Spirix FRAC=25: sign + 24 magnitude bits → exact match.
 fn f32_to_spirix(v: f32) -> (i32, i8) {
     let bits = v.to_bits();
     let sign = (bits >> 31) != 0;
@@ -31,8 +26,7 @@ fn f32_to_spirix(v: f32) -> (i32, i8) {
     // IEEE significand = 1.mantissa = (2^23 + mantissa)
     let sig = (1 << 23) | mantissa; // 24-bit unsigned, in [2^23, 2^24-1]
 
-    // Spirix fraction: signed 25-bit, N1 = top 2 bits differ
-    // positive: 01xxx...x, negative: two's complement
+    // Spirix fraction: signed 25-bit, N1 = top 2 bits differ positive: 01xxx...x, negative: two's complement
     let frac: i32 = if sign { -sig } else { sig };
 
     // Spirix exponent: value = frac * 2^(exp - 24)
@@ -110,8 +104,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
     let big_ext = (big_frac as i64) << 2;
     let small_ext = (small_frac as i64) << 2;
 
-    // We use i64 throughout to avoid overflow in intermediate calculations.
-    // The Verilog uses INT_BITS=28 bit wires; we mask to 28 bits where needed.
+    // We use i64 throughout to avoid overflow in intermediate calculations. The Verilog uses INT_BITS=28 bit wires; we mask to 28 bits where needed.
 
     // Mask to simulate INT_BITS-bit signed arithmetic
     let mask = (1i64 << INT_BITS) - 1; // 0x0FFF_FFFF (28 bits)
@@ -146,9 +139,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
         }
 
         // CLZ: count leading redundant sign bits
-        // In Verilog we use XOR-adjacent. In Rust, simpler:
-        // For a signed INT_BITS-bit number, leading = max(leading_zeros, leading_ones)
-        // after masking to INT_BITS bits.
+        // In Verilog we use XOR-adjacent. In Rust, simpler: For a signed INT_BITS-bit number, leading = max(leading_zeros, leading_ones) after masking to INT_BITS bits.
         let ubits = (close_sum & mask) as u32;
         let top_bit = (close_sum >> (INT_BITS - 1)) & 1;
 

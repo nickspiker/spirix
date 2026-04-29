@@ -1,7 +1,4 @@
-//! Exhaustive F3E3 verification of << and >> against their expected truth
-//! table and sign-preservation rules. Shift by integer is "adjust exponent",
-//! which can keep a Normal in-range, push it to Exploded (overflow), or drop
-//! it to Vanished (underflow). Non-normals pass through unchanged.
+//! Exhaustive F3E3 verification of << and >> against their expected truth table and sign-preservation rules. Shift by integer is "adjust exponent", which can keep a Normal in-range, push it to Exploded (overflow), or drop it to Vanished (underflow). Non-normals pass through unchanged.
 use spirix::*;
 use std::collections::BTreeMap;
 
@@ -37,8 +34,7 @@ fn apply(o: Op, a: S, n: i32) -> S {
     match o { Op::Shl => a << n, Op::Shr => a >> n }
 }
 
-// Expected class for Normal input shifted by true_delta (the unbounded
-// exponent change: +n for <<, -n for >>). F3E3 has MIN_EXP=-127, MAX_EXP=127.
+// Expected class for Normal input shifted by true_delta (the unbounded exponent change: +n for <<, -n for >>). F3E3 has MIN_EXP=-127, MAX_EXP=127.
 const MIN_EXP: i32 = -127;
 const MAX_EXP: i32 = 127;
 
@@ -60,9 +56,7 @@ fn expected_class(o: Op, ca: Class, self_exp: i32, n: i32) -> Class {
 }
 
 fn main() {
-    // Enumerate shift counts spanning i8 (native E on F3E3) so we hit every
-    // overflow/underflow corner. We test via the `i32` overload which
-    // saturate()s into E.
+    // Enumerate shift counts spanning i8 (native E on F3E3) so we hit every overflow/underflow corner. We test via the `i32` overload which saturate()s into E.
     let shifts: Vec<i32> = (-128..=127).collect();
 
     for op in [Op::Shl, Op::Shr] {
@@ -85,9 +79,7 @@ fn main() {
                         class_fails += 1;
                         class_bad.entry((ca, exp_rc)).or_insert((s, n, r));
                     }
-                    // Sign-preservation check: for any input that has a sign
-                    // (not Zero/Infinity/Undefined) and output that has one,
-                    // shift must preserve sign.
+                    // Sign-preservation check: for any input that has a sign (not Zero/Infinity/Undefined) and output that has one, shift must preserve sign.
                     let input_has_sign = matches!(ca, Class::Vanished | Class::Normal | Class::Exploded);
                     let output_has_sign = matches!(rc, Class::Vanished | Class::Normal | Class::Exploded);
                     if input_has_sign && output_has_sign {

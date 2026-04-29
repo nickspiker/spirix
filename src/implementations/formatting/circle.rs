@@ -1,12 +1,10 @@
 //! Circle Display and Debug formatting implementations.
 //!
-//! This module implements `Display` and `Debug` traits for `Circle<F, E>` types,
-//! providing flexible complex number formatting in any base (2-36) with any number of digits.
+//! This module implements `Display` and `Debug` traits for `Circle<F, E>` types, providing flexible complex number formatting in any base (2-36) with any number of digits.
 //!
 //! # Key Design Principle
 //!
-//! **All digit extraction uses Spirix arithmetic directly** - just like the Scalar formatter,
-//! the Circle formatter does NOT convert numbers to u8 or use bitmasks. Instead, it:
+//! **All digit extraction uses Spirix arithmetic directly** - just like the Scalar formatter, the Circle formatter does NOT convert numbers to u8 or use bitmasks. Instead, it:
 //! 1. Formats each component (real and imaginary) using the same Spirix arithmetic as Scalar
 //! 2. Uses `floor()` to separate integer and fractional parts
 //! 3. Uses division and multiplication by the base to extract individual digits
@@ -14,8 +12,7 @@
 //!
 //! # Circle Format
 //!
-//! Circle values are displayed as `⦇real,imaginary⦈` where both real and imaginary
-//! components are formatted using the same algorithm as Scalar formatting.
+//! Circle values are displayed as `⦇real,imaginary⦈` where both real and imaginary components are formatted using the same algorithm as Scalar formatting.
 //!
 //! # Examples
 //!
@@ -111,8 +108,7 @@ where
     /// # Format Parameters
     ///
     /// - **Precision** (`.N`): Specifies the base (2-36). Default is 10.
-    /// - **Width** (`:N`): Specifies how many digits to display per component. Default is
-    ///   calculated from the fraction bits as `log_base(2^fraction_bits)`.
+    /// - **Width** (`:N`): Specifies how many digits to display per component. Default is calculated from the fraction bits as `log_base(2^fraction_bits)`.
     ///
     /// # Examples
     ///
@@ -311,10 +307,7 @@ where
 {
     /// Core formatting function that converts a Circle to a string representation.
     ///
-    /// This function formats both the real and imaginary components using the same
-    /// **Spirix arithmetic** approach as `Scalar::format_scalar()`. It does NOT
-    /// convert numbers to u8 or use bitmasks - instead, it extracts digits one at a time
-    /// using division, multiplication, floor, and subtraction operations.
+    /// This function formats both the real and imaginary components using the same **Spirix arithmetic** approach as `Scalar::format_scalar()`. It does NOT convert numbers to u8 or use bitmasks - instead, it extracts digits one at a time using division, multiplication, floor, and subtraction operations.
     ///
     /// # Algorithm
     ///
@@ -331,14 +324,11 @@ where
     ///
     /// # Returns
     ///
-    /// A string with the format `⦇real,imaginary⦈` for normal values, or special
-    /// symbols for non-normal values.
+    /// A string with the format `⦇real,imaginary⦈` for normal values, or special symbols for non-normal values.
     ///
     /// # Key Point
     ///
-    /// Just like Scalar formatting, this uses `to_u8()` ONLY for converting
-    /// already-extracted single digits (0-35) to characters. All digit extraction
-    /// is done using Spirix division and multiplication.
+    /// Just like Scalar formatting, this uses `to_u8()` ONLY for converting already-extracted single digits (0-35) to characters. All digit extraction is done using Spirix division and multiplication.
     fn format_circle(&self, base: u8, digits: isize) -> String {
         if !self.is_normal() {
             if self.is_undefined() {
@@ -649,8 +639,7 @@ where
 
     /// Formats large complex numbers in scientific notation.
     ///
-    /// Used when either component's magnitude is greater than or equal to `base^digits`.
-    /// Both components are scaled by the same exponent to maintain their relative magnitudes.
+    /// Used when either component's magnitude is greater than or equal to `base^digits`. Both components are scaled by the same exponent to maintain their relative magnitudes.
     ///
     /// # Algorithm
     ///
@@ -662,9 +651,7 @@ where
     ///
     /// # Unified Scaling
     ///
-    /// Unlike formatting two separate Scalars, Circle uses a single shared exponent
-    /// based on the larger component. This ensures the relative magnitudes of real
-    /// and imaginary parts are preserved in the output.
+    /// Unlike formatting two separate Scalars, Circle uses a single shared exponent based on the larger component. This ensures the relative magnitudes of real and imaginary parts are preserved in the output.
     ///
     /// # Output Format
     ///
@@ -821,8 +808,7 @@ where
 
     /// Formats tiny complex numbers in scientific notation.
     ///
-    /// Used when both components have magnitude less than `base^-4`.
-    /// Like `format_scientific_big()`, uses unified scaling for both components.
+    /// Used when both components have magnitude less than `base^-4`. Like `format_scientific_big()`, uses unified scaling for both components.
     ///
     /// # Algorithm
     ///
@@ -835,8 +821,7 @@ where
     ///
     /// # Unified Scaling
     ///
-    /// Both components share the same negative exponent to preserve their relative
-    /// magnitudes in the output, just like `format_scientific_big()`.
+    /// Both components share the same negative exponent to preserve their relative magnitudes in the output, just like `format_scientific_big()`.
     ///
     /// # Output Format
     ///
@@ -983,9 +968,7 @@ where
 
     /// Formats the Circle as plain binary for debug output (`{:?}`).
     ///
-    /// Shows the raw bit representation of both fraction components and the shared exponent.
-    /// Unlike display formatting which uses arithmetic, debug formatting directly inspects
-    /// the bits using `rotate_left()`.
+    /// Shows the raw bit representation of both fraction components and the shared exponent. Unlike display formatting which uses arithmetic, debug formatting directly inspects the bits using `rotate_left()`.
     ///
     /// # Output Format
     ///
@@ -1055,8 +1038,7 @@ where
 
     /// Formats the Circle with colours and special characters for debug output (`{:#?}`).
     ///
-    /// Similar to `format_debug_plain()`, but with ANSI colour codes and Unicode characters
-    /// that indicate each component's state visually.
+    /// Similar to `format_debug_plain()`, but with ANSI colour codes and Unicode characters that indicate each component's state visually.
     ///
     /// # Visual Elements
     ///

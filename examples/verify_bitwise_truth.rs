@@ -139,9 +139,7 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
     }
 }
 
-// NOT is unary — separate from the binary Op enum. Per README: class map is
-// Zero↔Infinity, all others preserve class with sign-flip on preserved
-// classes (Vanished/Normal/Exploded).
+// NOT is unary — separate from the binary Op enum. Per README: class map is Zero↔Infinity, all others preserve class with sign-flip on preserved classes (Vanished/Normal/Exploded).
 fn not_expected_class(c: Class) -> Class {
     match c {
         Class::Zero => Class::Infinity,
@@ -170,9 +168,7 @@ fn run_not(reps: &[(Class, Vec<S>)]) {
                 class_fails += 1;
                 class_mismatch_samples.entry(*ca).or_insert((*a, r));
             }
-            // Sign-flip check: only meaningful on preserved classes where both
-            // input and output have a defined sign (not Zero/Infinity which are
-            // signless, not Undefined which has no sign contract).
+            // Sign-flip check: only meaningful on preserved classes where both input and output have a defined sign (not Zero/Infinity which are signless, not Undefined which has no sign contract).
             if matches!(*ca, Class::Vanished | Class::Normal | Class::Exploded)
                 && rc == expected_class
             {

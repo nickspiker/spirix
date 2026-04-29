@@ -4,8 +4,7 @@
 //!
 //! ## Feature Detection
 //!
-//! Functions are marked with `#[target_feature(enable = "...")]` and require
-//! `unsafe` to call. The parent module handles runtime feature detection.
+//! Functions are marked with `#[target_feature(enable = "...")]` and require `unsafe` to call. The parent module handles runtime feature detection.
 //!
 //! ## Implementation Strategy
 //!

@@ -1,7 +1,6 @@
 //! Neural network layers
 //!
-//! Clean implementations using Spirix tensors.
-//! No IEEE-754 baggage, just straightforward math.
+//! Clean implementations using Spirix tensors. No IEEE-754 baggage, just straightforward math.
 
 use super::ops::{matmul, relu};
 use super::tensor::Tensor;
@@ -9,8 +8,7 @@ use core::ops::{Add, Mul};
 
 /// Linear (fully connected) layer
 ///
-/// y = W·x + b
-/// where W is (output_size, input_size) and b is (output_size,)
+/// y = W·x + b where W is (output_size, input_size) and b is (output_size,)
 pub struct Linear<T> {
     /// Weight matrix (output_size × input_size)
     pub weights: Tensor<T>,
@@ -90,8 +88,7 @@ mod tests {
 
     #[test]
     fn test_linear_layer() {
-        // Weight matrix (2×3): [[1, 2, 3],
-        //                       [4, 5, 6]]
+        // Weight matrix (2×3): [[1, 2, 3], [4, 5, 6]]
         let weights = Tensor::new(
             vec![
                 ScalarF4E4::from(1.0),
@@ -122,9 +119,7 @@ mod tests {
         // Forward pass
         let output = layer.forward(&input, ScalarF4E4::ZERO);
 
-        // Expected: [1*1 + 2*2 + 3*3 + 0.5, 4*1 + 5*2 + 6*3 + 1.0]
-        //         = [1 + 4 + 9 + 0.5, 4 + 10 + 18 + 1.0]
-        //         = [14.5, 33.0]
+        // Expected: [1*1 + 2*2 + 3*3 + 0.5, 4*1 + 5*2 + 6*3 + 1.0] = [1 + 4 + 9 + 0.5, 4 + 10 + 18 + 1.0] = [14.5, 33.0]
         assert!((output.data[0].to_f64() - 14.5).abs() < 0.1);
         assert!((output.data[1].to_f64() - 33.0).abs() < 0.1);
     }

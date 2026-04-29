@@ -1,6 +1,4 @@
-//! Verify `aligned_and` against the README truth table, class-level.
-//! Uses F3E3 with representative values from each class + every normal value
-//! in the "clean middle" of the exponent range.
+//! Verify `aligned_and` against the README truth table, class-level. Uses F3E3 with representative values from each class + every normal value in the "clean middle" of the exponent range.
 
 use spirix::*;
 use std::collections::{BTreeMap, BTreeSet};

@@ -1,12 +1,10 @@
 //! Scalar Display and Debug formatting implementations.
 //!
-//! This module implements `Display` and `Debug` traits for `Scalar<F, E>` types,
-//! providing flexible number formatting in any base (2-36) with any number of digits.
+//! This module implements `Display` and `Debug` traits for `Scalar<F, E>` types, providing flexible number formatting in any base (2-36) with any number of digits.
 //!
 //! # Key Design Principle
 //!
-//! **All digit extraction uses Spirix arithmetic directly** - the formatter does NOT convert
-//! numbers to u8 or use bitmasks. Instead, it extracts each digit by:
+//! **All digit extraction uses Spirix arithmetic directly** - the formatter does NOT convert numbers to u8 or use bitmasks. Instead, it extracts each digit by:
 //! 1. Using `floor()` to separate integer and fractional parts
 //! 2. Using division and multiplication by the base to extract individual digits
 //! 3. Using `to_u8()` only for the final character conversion of already-extracted single digits
@@ -115,8 +113,7 @@ where
     /// # Format Parameters
     ///
     /// - **Precision** (`.N`): Specifies the base (2-36). Default is 10.
-    /// - **Width** (`:N`): Specifies how many digits to display. Default is calculated
-    ///   from the fraction bits as `log_base(2^fraction_bits)`.
+    /// - **Width** (`:N`): Specifies how many digits to display. Default is calculated from the fraction bits as `log_base(2^fraction_bits)`.
     ///
     /// # Examples
     ///
@@ -316,9 +313,7 @@ where
 {
     /// Core formatting function that converts a Scalar to a string representation.
     ///
-    /// This function uses **Spirix arithmetic exclusively** to extract digits - it does NOT
-    /// convert the entire number to u8 or use bitmasks. The formatter can handle any base
-    /// (2-36) and any number of digits because it works with the Spirix number directly.
+    /// This function uses **Spirix arithmetic exclusively** to extract digits - it does NOT convert the entire number to u8 or use bitmasks. The formatter can handle any base (2-36) and any number of digits because it works with the Spirix number directly.
     ///
     /// # Algorithm
     ///
@@ -337,13 +332,11 @@ where
     ///
     /// # Returns
     ///
-    /// A string with the format `⦉[+/-]digits⦊` for normal values, or special symbols
-    /// for non-normal values (∞, ↑, ↓, etc.).
+    /// A string with the format `⦉[+/-]digits⦊` for normal values, or special symbols for non-normal values (∞, ↑, ↓, etc.).
     ///
     /// # Important Note
     ///
-    /// The `to_u8()` call is ONLY used for converting already-extracted single digits
-    /// (0-35) to their character representation. The actual digit extraction uses
+    /// The `to_u8()` call is ONLY used for converting already-extracted single digits (0-35) to their character representation. The actual digit extraction uses
     /// Spirix division and multiplication, which works for any base and precision.
     fn format_scalar(&self, base: u8, digits: isize) -> String {
         if !self.is_normal() {
@@ -503,9 +496,7 @@ where
     ///
     /// # Key Point
     ///
-    /// This function demonstrates that **digit extraction works for any base** because
-    /// it uses Spirix division and multiplication, not bitmasks or u8 conversions.
-    /// The `to_u8()` is only called on individual digits (0-35), not on the full number.
+    /// This function demonstrates that **digit extraction works for any base** because it uses Spirix division and multiplication, not bitmasks or u8 conversions. The `to_u8()` is only called on individual digits (0-35), not on the full number.
     fn format_scientific_big(&self, base: u8, digits: isize) -> String {
         let base_scalar = Self::from(base);
 
@@ -610,9 +601,7 @@ where
     ///
     /// # Why This Works
     ///
-    /// The formatter handles arbitrary precision because it never converts the whole
-    /// number to a primitive type. It only extracts one digit at a time using Spirix
-    /// arithmetic (division/multiplication), then converts that single digit to a char.
+    /// The formatter handles arbitrary precision because it never converts the whole number to a primitive type. It only extracts one digit at a time using Spirix arithmetic (division/multiplication), then converts that single digit to a char.
     fn format_scientific_small(&self, base: u8, digits: isize) -> String {
         let base_scalar = Self::from(base);
 
@@ -710,9 +699,7 @@ where
 
     /// Formats the Scalar as plain binary for debug output (`{:?}`).
     ///
-    /// Shows the raw bit representation of the internal fraction and exponent components.
-    /// Unlike display formatting which extracts digits using arithmetic, debug formatting
-    /// directly inspects the bits using `rotate_left()` to examine each bit position.
+    /// Shows the raw bit representation of the internal fraction and exponent components. Unlike display formatting which extracts digits using arithmetic, debug formatting directly inspects the bits using `rotate_left()` to examine each bit position.
     ///
     /// # Output Format
     ///
@@ -758,8 +745,7 @@ where
 
     /// Formats the Scalar with colours and special characters for debug output (`{:#?}`).
     ///
-    /// Similar to `format_debug_plain()`, but with ANSI colour codes and special Unicode
-    /// characters that indicate the number's state visually.
+    /// Similar to `format_debug_plain()`, but with ANSI colour codes and special Unicode characters that indicate the number's state visually.
     ///
     /// # Visual Elements
     ///
@@ -842,8 +828,7 @@ where
 
     /// Selects the appropriate colour scheme based on the Scalar's state.
     ///
-    /// Used by `format_debug_fancy()` to choose the right colour for the fraction bits.
-    /// The exponent bits use a separate colour selection based on their sign.
+    /// Used by `format_debug_fancy()` to choose the right colour for the fraction bits. The exponent bits use a separate colour selection based on their sign.
     ///
     /// # Returns
     ///

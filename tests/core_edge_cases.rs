@@ -238,8 +238,7 @@ mod rube_goldberg_chains {
         let step5 = ScalarF7E7::from(step5_val).exp();
         assert!(step5.is_normal());
 
-        // The final result should be normal but significantly different from
-        // what we'd get if we did the entire calculation in F7E7
+        // The final result should be normal but significantly different from what we'd get if we did the entire calculation in F7E7
         let final_val: f32 = step5.into();
         assert!(final_val.is_finite());
     }

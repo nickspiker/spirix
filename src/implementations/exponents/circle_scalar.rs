@@ -173,8 +173,7 @@ where
     }
     /// Computes the logarithm of a complex number with a scalar base.
     ///
-    /// Implements c log s (logarithm of complex c with scalar base s) using:
-    /// c log s = ln(c) / ln(s)
+    /// Implements c log s (logarithm of complex c with scalar base s) using: c log s = ln(c) / ln(s)
     ///
     /// # Special Cases:
     /// - Undefined or escaped values return appropriate undefined states

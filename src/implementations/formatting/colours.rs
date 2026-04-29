@@ -1,7 +1,6 @@
 /// A colour scheme defining RGB values for formatting output.
 ///
-/// Used in debug formatting (`{:#?}`) to colourize the binary representation
-/// based on the number's state (normal, exploded, vanished, etc.).
+/// Used in debug formatting (`{:#?}`) to colourize the binary representation based on the number's state (normal, exploded, vanished, etc.).
 #[derive(Clone, Copy)]
 pub struct ColourScheme {
     /// RGB colour values (red, green, blue) in the range 0-255
@@ -10,8 +9,7 @@ pub struct ColourScheme {
 
 /// Colour palette for formatting Scalar and Circle values in debug mode.
 ///
-/// Each field represents a different number state with its associated RGB colour.
-/// These colours are applied when using alternate debug formatting (`{:#?}`).
+/// Each field represents a different number state with its associated RGB colour. These colours are applied when using alternate debug formatting (`{:#?}`).
 ///
 /// ## Colour Meanings
 ///
@@ -49,8 +47,7 @@ pub struct ScalarColours {
 /// Global colour palette used for all debug formatting.
 ///
 /// This constant defines the default colour scheme applied when formatting
-/// Scalar and Circle values with `{:#?}`. Terminal support for 24-bit RGB
-/// colours is required to see the colours properly.
+/// Scalar and Circle values with `{:#?}`. Terminal support for 24-bit RGB colours is required to see the colours properly.
 pub const COLOURS: ScalarColours = ScalarColours {
     normal_positive: ColourScheme {
         colour: [0xff, 0x80, 0x80],

@@ -1,6 +1,4 @@
-/// Test inflate/deflate via Scalar::new and internal methods.
-/// Since inflate/deflate are pub(crate), we test them indirectly
-/// through known Scalar construction patterns, or directly if exposed.
+/// Test inflate/deflate via Scalar::new and internal methods. Since inflate/deflate are pub(crate), we test them indirectly through known Scalar construction patterns, or directly if exposed.
 ///
 /// For now, we verify the mathematical properties:
 /// - inflate(stored).deflate() == stored (round-trip)
@@ -137,13 +135,11 @@ fn fraction_constants_i8() {
 fn is_integer_new_format() {
     use spirix::Scalar;
 
-    // 42 = stored 10101000 (-88), exponent 6
-    // effective = 168, value = 168/256 * 2^6 = 42.0
+    // 42 = stored 10101000 (-88), exponent 6 effective = 168, value = 168/256 * 2^6 = 42.0
     let forty_two = Scalar::<i8, i8>::new(-88, 6);
     assert!(forty_two.is_integer(), "42 should be integer");
 
-    // 42.5: stored 10101010 (-86), exponent 6
-    // effective = 170, value = 170/256 * 2^6 = 42.5
+    // 42.5: stored 10101010 (-86), exponent 6 effective = 170, value = 170/256 * 2^6 = 42.5
     let forty_two_point_five = Scalar::<i8, i8>::new(-86, 6);
     assert!(
         !forty_two_point_five.is_integer(),
@@ -166,14 +162,11 @@ fn is_integer_new_format() {
     let two = Scalar::<i8, i8>::TWO;
     assert!(two.is_integer(), "2 should be integer");
 
-    // -1.0: stored = 0, exponent = 0
-    // effective = -256, value = -256/256 * 2^0 = -1.0
+    // -1.0: stored = 0, exponent = 0 effective = -256, value = -256/256 * 2^0 = -1.0
     let neg_one = Scalar::<i8, i8>::NEG_ONE;
     assert!(neg_one.is_integer(), "-1 should be integer");
 
-    // 3.0: stored = 10010000 (-112), exponent 6... wait let me compute
-    // 3 = effective 192, value = 192/256 * 2^2 = 3.0
-    // stored = deflate(192) = 192 as i8 = -64
+    // 3.0: stored = 10010000 (-112), exponent 6... wait let me compute 3 = effective 192, value = 192/256 * 2^2 = 3.0 stored = deflate(192) = 192 as i8 = -64
     let three = Scalar::<i8, i8>::new(-64, 2);
     assert!(three.is_integer(), "3 should be integer");
 
@@ -662,8 +655,7 @@ fn multiplication_basic() {
     assert!((undef * one).is_undefined(), "[℘]*[#]=[℘]");
     assert!((undef * undef).is_undefined(), "[℘]*[℘]=[℘]");
 
-    // Sign preservation
-    // escaped * normal sign preservation:
+    // Sign preservation escaped * normal sign preservation:
     assert!(
         (neg_exploded * one).exploded() && (neg_exploded * one).is_negative(),
         "[-↑]*[#]=[-↑]"
@@ -747,8 +739,7 @@ fn multiply_f3e3_exhaustive() {
             let got: f64 = (&result).into();
 
             total += 1;
-            // F3E3 has 8 bits of fraction = ~2.4 decimal digits. 1 ULP ≈ 1/256 ≈ 0.004.
-            // Allow 2 ULP of error for truncation rounding.
+            // F3E3 has 8 bits of fraction = ~2.4 decimal digits. 1 ULP ≈ 1/256 ≈ 0.004. Allow 2 ULP of error for truncation rounding.
             let ulp = expected.abs() / 128.0; // 1 ULP at FRAC=8
             if (got - expected).abs() > ulp * 2.0 + 1e-10 {
                 if failures < 10 {

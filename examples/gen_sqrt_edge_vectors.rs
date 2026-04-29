@@ -1,6 +1,4 @@
-/// Generate sqrt edge-case test vectors for F3E3 (FRAC=8, EXP=8).
-/// Mirrors the Verilog iterative sqrt edge case chain.
-/// Output: hex file with lines "a_frac a_exp r_frac r_exp"
+/// Generate sqrt edge-case test vectors for F3E3 (FRAC=8, EXP=8). Mirrors the Verilog iterative sqrt edge case chain. Output: hex file with lines "a_frac a_exp r_frac r_exp"
 
 const AMBIG: i8 = -128;
 const UNDEF_SQRT_NEG: i8 = 0xF6u8 as i8;

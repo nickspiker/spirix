@@ -1,7 +1,6 @@
 //! Tensor operations for Spirix scalar types
 //!
-//! Clean, minimal tensor implementation with ZERO IEEE-754 baggage.
-//! All operations use Spirix scalars (no denormals, no NaN, no infinity).
+//! Clean, minimal tensor implementation with ZERO IEEE-754 baggage. All operations use Spirix scalars (no denormals, no NaN, no infinity).
 
 pub mod autograd;
 pub mod nn;

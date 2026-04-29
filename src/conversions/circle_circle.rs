@@ -6,9 +6,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 
 /// # Circle Type Conversion
 ///
-/// This implementation provides conversion between Circle types of different sizes.
-/// It maintains bitwise consistency when converting between different fraction
-/// and exponent sizes and preserving special states.
+/// This implementation provides conversion between Circle types of different sizes. It maintains bitwise consistency when converting between different fraction and exponent sizes and preserving special states.
 ///
 /// ## Implementation Details
 ///
@@ -18,9 +16,7 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 /// - Phase and orientation information is preserved
 /// - If the exponent cannot fit into the destination type, appropriate escaped states are used
 ///
-/// The left handed cast preserves the most significant bits during conversion,
-/// ensuring that phase information (like undefined prefixes) is maintained even when
-/// converting between different sizes.
+/// The left handed cast preserves the most significant bits during conversion, ensuring that phase information (like undefined prefixes) is maintained even when converting between different sizes.
 impl<
         FS: Integer
             + FullInt
@@ -141,15 +137,11 @@ where
     ///
     /// 0. Escaped values: Preserves escaped states (exploded, vanished, undefined)
     ///
-    /// 1. Normal values with representable exponents: Maintains normalization but may
-    ///    lose precision if the destination fraction type is smaller than the source
+    /// 1. Normal values with representable exponents: Maintains normalization but may lose precision if the destination fraction type is smaller than the source
     ///
-    /// 2. Values with exponents that exceed destination range: Converts to appropriate
-    ///    escaped states (exploded for large values, vanished for small values)
+    /// 2. Values with exponents that exceed destination range: Converts to appropriate escaped states (exploded for large values, vanished for small values)
     ///
-    /// The left handed cast preserves the most significant bits during conversion,
-    /// ensuring that phase information (like undefined prefixes) is maintained even when
-    /// converting between different sizes.
+    /// The left handed cast preserves the most significant bits during conversion, ensuring that phase information (like undefined prefixes) is maintained even when converting between different sizes.
     fn from(source: &Circle<FS, ES>) -> Self {
         let real = source.real.sa();
         let imaginary = source.imaginary.sa();

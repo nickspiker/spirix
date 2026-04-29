@@ -65,21 +65,16 @@ where
     ///
     /// # Description
     ///
-    /// Performs multiplication between a Scalar and a Circle, scaling both real and imaginary
-    /// components of the Circle by the Scalar value while preserving the Circle's orientation.
-    /// This follows the standard scalar-complex multiplication formula: s·(a+b·i) = (s·a) + (s·b)·i.
+    /// Performs multiplication between a Scalar and a Circle, scaling both real and imaginary components of the Circle by the Scalar value while preserving the Circle's orientation. This follows the standard scalar-complex multiplication formula: s·(a+b·i) = (s·a) + (s·b)·i.
     ///
-    /// The operation scales the magnitude of the complex number while preserving its angle in the
-    /// complex plane, equivalent to multiplying the magnitude by the absolute value of the Scalar
-    /// and adjusting the angle if the Scalar is negative (rotation by π radians).
+    /// The operation scales the magnitude of the complex number while preserving its angle in the complex plane, equivalent to multiplying the magnitude by the absolute value of the Scalar and adjusting the angle if the Scalar is negative (rotation by π radians).
     ///
     /// # Special Cases
     ///
     /// - If either value is undefined, returns the first undefined state encountered
     /// - If either value is zero, returns zero (multiplicative annihilation)
     /// - If a positive exploded Scalar multiplies a positive exploded Circle, returns an exploded Circle
-    /// - If a vanished Scalar multiplies an exploded Circle (or vice versa), returns an undefined state
-    ///   due to the magnitude being indeterminate
+    /// - If a vanished Scalar multiplies an exploded Circle (or vice versa), returns an undefined state due to the magnitude being indeterminate
     ///
     /// # Returns
     ///

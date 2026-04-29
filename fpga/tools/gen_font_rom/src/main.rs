@@ -1,13 +1,9 @@
 //! Font ROM and framebuffer bitmap generator for FPGA NTSC display.
 //!
-//! Modes:
-//!   gen_font_rom font <font.ttf> <output.mem> [size]
-//!       8×8 character ROM (128 chars × 8 bytes = 1024 bytes)
+//! Modes: gen_font_rom font <font.ttf> <output.mem> [size] 8×8 character ROM (128 chars × 8 bytes = 1024 bytes)
 //!
 //!   gen_font_rom bitmap <font.ttf> <output.mem> <width> <height> <text>
-//!       Full framebuffer bitmap, text centered, 1 bit/pixel packed into bytes.
-//!       Output: (width/8 * height) lines of 2-hex-digit values, row-major,
-//!       MSB = leftmost pixel.
+//! Full framebuffer bitmap, text centered, 1 bit/pixel packed into bytes. Output: (width/8 * height) lines of 2-hex-digit values, row-major, MSB = leftmost pixel.
 
 use fontdue::{Font, FontSettings};
 use spirix::ScalarF4E4;
@@ -43,8 +39,7 @@ fn load_font(path: &str) -> Font {
 }
 
 // ============================================================================
-// Mode: bitmap — render text into a full framebuffer
-// ============================================================================
+// Mode: bitmap — render text into a full framebuffer ============================================================================
 fn gen_bitmap(args: &[String]) {
     if args.len() < 5 {
         eprintln!("Usage: gen_font_rom bitmap <font.ttf> <output.mem> <width> <height> <text> [--flip] [--par <ratio>]");
@@ -188,11 +183,8 @@ fn gen_bitmap(args: &[String]) {
 }
 
 // ============================================================================
-// Mode: oled-grid — 4×4 labeled pass/fail overlay for SH1106 128×64 OLED
-// ============================================================================
-// Output: 1024 bytes in OLED page format (8 pages × 128 cols).
-// Each byte: bit 0 = top row of page, bit 7 = bottom row.
-// XOR'd with pass/fail bars in hardware for always-visible labels.
+// Mode: oled-grid — 4×4 labeled pass/fail overlay for SH1106 128×64 OLED ============================================================================
+// Output: 1024 bytes in OLED page format (8 pages × 128 cols). Each byte: bit 0 = top row of page, bit 7 = bottom row. XOR'd with pass/fail bars in hardware for always-visible labels.
 fn gen_oled_grid(args: &[String]) {
     if args.len() < 2 {
         eprintln!("Usage: gen_font_rom oled-grid <font.ttf> <output.mem>");
@@ -306,8 +298,7 @@ fn gen_oled_grid(args: &[String]) {
 }
 
 // ============================================================================
-// Mode: font — 8×8 character ROM
-// ============================================================================
+// Mode: font — 8×8 character ROM ============================================================================
 fn gen_font(args: &[String]) {
     if args.len() < 2 {
         eprintln!("Usage: gen_font_rom font <font.ttf> <output.mem> [size]");

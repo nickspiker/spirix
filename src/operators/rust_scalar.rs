@@ -492,8 +492,7 @@ macro_rules! impl_rust_power_scalar {
                 }
             }
 
-            // Same pattern for logarithm
-            // primitive.log(&Scalar)
+            // Same pattern for logarithm primitive.log(&Scalar)
             impl<
                 F: Integer
                     + FullInt

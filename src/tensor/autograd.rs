@@ -1,8 +1,6 @@
 //! Simple autograd for backpropagation
 //!
-//! Manual gradient computation for our small network.
-//! For production, we'd build a full computation graph,
-//! but for now, manual gradients are clean and explicit.
+//! Manual gradient computation for our small network. For production, we'd build a full computation graph, but for now, manual gradients are clean and explicit.
 
 use super::ops::{matmul, transpose};
 use super::tensor::Tensor;

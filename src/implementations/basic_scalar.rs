@@ -12,8 +12,7 @@ macro_rules! impl_scalar_new {
 impl Scalar<$f, $e> {
     /// Creates a new Scalar from raw fraction and exponent integers.
     ///
-    /// This is a low-level constructor that directly sets the internal state.
-    /// For normal number creation, use `from()` which handles:
+    /// This is a low-level constructor that directly sets the internal state. For normal number creation, use `from()` which handles:
     /// - Proper normalization of the fraction
     /// - Exponent calculation
     /// - Special value mapping
@@ -151,8 +150,7 @@ where
     ///
     /// # Description
     ///
-    /// Normal numbers have a definite magnitude and participate fully in all arithmetic operations.
-    /// Unlike Infinity, Zero, escaped, or undefined values, normal numbers occupy the "standard" region of numeric space where arithmetic behaves conventionally.
+    /// Normal numbers have a definite magnitude and participate fully in all arithmetic operations. Unlike Infinity, Zero, escaped, or undefined values, normal numbers occupy the "standard" region of numeric space where arithmetic behaves conventionally.
     ///
     /// # Returns
     ///
@@ -209,8 +207,7 @@ where
     ///
     /// # Description
     ///
-    /// Undefined Scalars represent operations that have no known or agreed upon mathematical result.
-    /// Spirix uses specific bit patterns to track various types of undefined states, maintaining "first cause" information.
+    /// Undefined Scalars represent operations that have no known or agreed upon mathematical result. Spirix uses specific bit patterns to track various types of undefined states, maintaining "first cause" information.
     ///
     /// Undefined states propagate thru operations, preserving the original undefined operation while allowing computation to continue.
     ///
@@ -262,8 +259,7 @@ where
     /// ```
     #[inline]
     pub fn is_undefined(&self) -> bool {
-        // Any stored fraction pattern is valid for a normal — prefix
-        // classification only applies when exponent == AMBIGUOUS.
+        // Any stored fraction pattern is valid for a normal — prefix classification only applies when exponent == AMBIGUOUS.
         if self.is_normal() {
             return false;
         }
@@ -274,8 +270,7 @@ where
 
         let prefix = self.prefix();
         // Check if top 3 bits are equal by pushing 5 bits off
-        // ↓↓↓                ↓↓↓
-        // □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
+        // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
         let top_three = prefix >> 5;
         // Then rotate and compare.  If uniform, they will be the same
         top_three == top_three.rotate_right(1)
@@ -310,8 +305,7 @@ where
     ///
     /// # Description
     ///
-    /// Negligible values have effectively zero magnitude.
-    /// This includes both actual Zero `[0]` and vanished values `[↓]` that have become so small they no longer meaningfully contribute to addition or subtraction.
+    /// Negligible values have effectively zero magnitude. This includes both actual Zero `[0]` and vanished values `[↓]` that have become so small they no longer meaningfully contribute to addition or subtraction.
     ///
     /// # Returns
     ///
@@ -375,8 +369,7 @@ where
         self.is_vanished()
     }
 
-    /// Returns true if this Scalar is an infinitesimal value `[↓]`
-    /// (close but not equal to Zero)
+    /// Returns true if this Scalar is an infinitesimal value `[↓]` (close but not equal to Zero)
     ///
     /// # Description
     ///
@@ -439,8 +432,7 @@ where
     ///
     /// # Description
     ///
-    /// Exploded values are numbers that have grown so large their magnitude can no longer be recorded, but they maintain their sign information.
-    /// They participate meaningfully in absolute operations like multiplication and division operations, but relative operations like addition and subtraction with exploded or infinite Scalars will produce undefined results.
+    /// Exploded values are numbers that have grown so large their magnitude can no longer be recorded, but they maintain their sign information. They participate meaningfully in absolute operations like multiplication and division operations, but relative operations like addition and subtraction with exploded or infinite Scalars will produce undefined results.
     ///
     /// # Returns
     ///
@@ -1055,26 +1047,17 @@ where
 
     /// Negates this Scalar in place. Default fast path.
     ///
-    /// Handles all cases by enumerated equality checks at boundaries, plain
-    /// `wrapping_neg` elsewhere. On a CPU with good branch prediction this
-    /// runs in ~3 cycles for the common non-boundary normal case — ~4-5×
-    /// faster than the unified pipeline variant. Negation is rare enough in
-    /// profiles that the constant-time-ish unified variant's uniformity
-    /// benefits don't outweigh the cycle count for software hot paths.
+    /// Handles all cases by enumerated equality checks at boundaries, plain `wrapping_neg` elsewhere. On a CPU with good branch prediction this runs in ~3 cycles for the common non-boundary normal case — ~4-5× faster than the unified pipeline variant. Negation is rare enough in profiles that the constant-time-ish unified variant's uniformity benefits don't outweigh the cycle count for software hot paths.
     ///
     /// Three classes of values, three behaviors:
     ///
     /// Signless (zero, infinity, undefined): no-op.
     ///
-    /// Escaped (exploded, vanished): canonical swap between the two poles at
-    /// each N-level.
+    /// Escaped (exploded, vanished): canonical swap between the two poles at each N-level.
     ///
-    /// Normal: `wrapping_neg` on the stored fraction, with pos_one ↔ neg_one
-    /// boundaries handled by shifting the exponent.
+    /// Normal: `wrapping_neg` on the stored fraction, with pos_one ↔ neg_one boundaries handled by shifting the exponent.
     ///
-    /// Produces the same result as [`Self::scalar_negate_unified`] — see that
-    /// method for when the unified pipeline variant is preferred (FPGA
-    /// targets, side-channel sensitivity, patent spec consistency).
+    /// Produces the same result as [`Self::scalar_negate_unified`] — see that method for when the unified pipeline variant is preferred (FPGA targets, side-channel sensitivity, patent spec consistency).
     pub(crate) fn scalar_negate(&mut self) {
         if !self.is_normal() {
             let top_three = self.prefix() >> 5;
@@ -1113,22 +1096,14 @@ where
         }
     }
 
-    /// Negates this Scalar in place using the unified inflate→negate→normalize
-    /// pipeline shared with add/sub/mul/div. Branch-free except for one
-    /// unavoidable signless check (zero/infinity/undefined have no sign and
-    /// must pass through unchanged).
+    /// Negates this Scalar in place using the unified inflate→negate→normalize pipeline shared with add/sub/mul/div. Branch-free except for one unavoidable signless check (zero/infinity/undefined have no sign and must pass through unchanged).
     ///
     /// Steps:
     /// 1. Inflate stored fraction to the wide signed representation.
     /// 2. `wrapping_neg` the inflated value.
-    /// 3. Re-normalize: count leading same bits, shift so the result lands at
-    ///    the class-appropriate normalization level (FRAC for normal, N-1 for
-    ///    exploded, N-2 for vanished), adjust exponent for normal, deflate
-    ///    back to stored form.
+    /// 3. Re-normalize: count leading same bits, shift so the result lands at the class-appropriate normalization level (FRAC for normal, N-1 for exploded, N-2 for vanished), adjust exponent for normal, deflate back to stored form.
     ///
-    /// ~5-7× more instructions than [`Self::scalar_negate`] on x86, but near-
-    /// constant timing (one `is_normal` branch, no input-dependent data
-    /// misprediction). Preferred when:
+    /// ~5-7× more instructions than [`Self::scalar_negate`] on x86, but near- constant timing (one `is_normal` branch, no input-dependent data misprediction). Preferred when:
     /// - targeting the FPGA as reference (inflate pipeline is already in hw);
     /// - side-channel resistance matters;
     /// - uniformity with the patent's no-special-case narrative matters.
@@ -1248,8 +1223,7 @@ where
     ///
     /// # Description
     ///
-    /// Creates a unit Scalar (magnitude 1) with the same sign as this Scalar.
-    /// This preserves the orientation while normalizing the magnitude.
+    /// Creates a unit Scalar (magnitude 1) with the same sign as this Scalar. This preserves the orientation while normalizing the magnitude.
     ///
     /// # Returns
     ///
@@ -1385,8 +1359,7 @@ where
             return result;
         }
         let mut result = *self;
-        // Already an integer when all FRAC bits are in the integer part.
-        // v0.1 ruler: exp ≥ FRAC - 1 means integer part uses all bits.
+        // Already an integer when all FRAC bits are in the integer part. v0.1 ruler: exp ≥ FRAC - 1 means integer part uses all bits.
         if result.exponent >= Self::fraction_bits().wrapping_sub(1).as_() {
             return result;
         }
@@ -1456,9 +1429,7 @@ where
     /// ```
     pub fn ceil(&self) -> Self {
         let f = self.floor();
-        // "Already integer" means floor equals self exactly, not just that the
-        // fraction bits coincide — NEG_ONE's stored fraction (0x00) matches
-        // any neg_one_normal-shaped self at any exponent.
+        // "Already integer" means floor equals self exactly, not just that the fraction bits coincide — NEG_ONE's stored fraction (0x00) matches any neg_one_normal-shaped self at any exponent.
         if f.fraction == self.fraction && f.exponent == self.exponent {
             f
         } else {
@@ -1470,8 +1441,7 @@ where
     ///
     /// # Description
     ///
-    /// Rounds this Scalar to the nearest integer value using banker's rounding.
-    /// Ties (exactly integer + 1/2) are rounded to the nearest even integer.
+    /// Rounds this Scalar to the nearest integer value using banker's rounding. Ties (exactly integer + 1/2) are rounded to the nearest even integer.
     ///
     /// # Returns
     ///
@@ -1536,8 +1506,7 @@ where
         }
         let e: isize = self.exponent.as_();
         // v0.1 ruler: exp < -1 means |value| < 0.5 — round to 0. At exp=-1
-        // (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds
-        // 0.5 → 0 (even).
+        // (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds 0.5 → 0 (even).
         if e < -1 {
             return Self::ZERO;
         }
@@ -1561,10 +1530,7 @@ where
         if sticky != F::zero() {
             return f + Self::ONE;
         } // > 0.5, ceil
-          // Exactly 0.5: banker's — round to even.
-          // v0.1 ruler: int_lsb at position guard_pos + 1 = FRAC - e - 1, always
-          // a real stored bit (no implicit-sign-bit special case needed since
-          // e=0 now spans [1,2) and has FRAC-1 as an actual integer ones bit).
+          // Exactly 0.5: banker's — round to even. v0.1 ruler: int_lsb at position guard_pos + 1 = FRAC - e - 1, always a real stored bit (no implicit-sign-bit special case needed since e=0 now spans [1,2) and has FRAC-1 as an actual integer ones bit).
         let int_lsb = (self.fraction >> guard_pos.wrapping_add(1)) & F::one();
         if int_lsb != F::zero() {
             f + Self::ONE
@@ -1578,8 +1544,7 @@ where
     /// # Description
     ///
     /// Extracts the fractional part of this Scalar by subtracting its floor, following the mathematical definition: frac(x) = x - ⌊x⌋
-    /// This returns a value in the range [0,1).
-    /// Future implementations will utilize bit masking and normalization
+    /// This returns a value in the range [0,1). Future implementations will utilize bit masking and normalization
     ///
     /// # Returns
     ///
@@ -1682,8 +1647,7 @@ where
     /// - `[0]` Zero
     /// - `[-↓]` Negative vanished
     /// - `[-#]` Negative normal
-    /// - `[-↑]` Negative exploded (least)
-    /// -
+    /// - `[-↑]` Negative exploded (least) -
     /// - `[℘?]` or `[∞]` Unordered!
     ///
     /// # Examples
@@ -1807,8 +1771,7 @@ where
     /// - `[0]` Zero
     /// - `[-↓]` Negative vanished
     /// - `[-#]` Negative normal
-    /// - `[-↑]` Negative exploded (least)
-    /// -
+    /// - `[-↑]` Negative exploded (least) -
     /// - `[℘?]` or `[∞]` Unordered!
     ///
     /// # Examples
@@ -2131,12 +2094,9 @@ where
         }
     }
     #[inline]
-    /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.  
-    ///  
-    /// Example bit positions:
-    /// 01234567...
-    /// □■xxxxxx... - Exploded positive numbers  
-    /// ■□xxxxxx... - Exploded negative numbers  
+    /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.
+    ///
+    /// Example bit positions: 01234567... □■xxxxxx... - Exploded positive numbers ■□xxxxxx... - Exploded negative numbers
     pub(crate) fn normalize_exploded(&mut self) {
         let shift = self
             .fraction
@@ -2146,13 +2106,9 @@ where
     }
 
     #[inline]
-    /// Normalizes a vanished Scalar by shifting its fraction to the N-2 position.  
-    /// Sign bits occupy N-0 and N-1, exponent is not touched
-    ///  
-    /// Example bit positions:
-    /// 01234567...  
-    /// □□■xxxxx... - Vanished positive numbers  
-    /// ■■□xxxxx... - Vanished negative numbers  
+    /// Normalizes a vanished Scalar by shifting its fraction to the N-2 position. Sign bits occupy N-0 and N-1, exponent is not touched
+    ///
+    /// Example bit positions: 01234567... □□■xxxxx... - Vanished positive numbers ■■□xxxxx... - Vanished negative numbers
     pub(crate) fn normalize_vanished(&mut self) {
         let shift = self
             .fraction

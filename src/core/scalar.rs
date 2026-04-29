@@ -11,8 +11,7 @@ use crate::Integer;
 ///
 /// ## Representation
 ///
-/// Scalars use a normalized representation where the value is calculated as:
-/// `fraction * 2^exponent` for normal numbers, with specific bit patterns for:
+/// Scalars use a normalized representation where the value is calculated as: `fraction * 2^exponent` for normal numbers, with specific bit patterns for:
 ///
 /// - Normal finite numbers `[#]` (positive and negative)
 /// - Exploded values `[↑]` (numbers too large to represent)
@@ -79,13 +78,9 @@ use crate::Integer;
 /// ```
 #[derive(Clone, Copy)]
 pub struct Scalar<F: Integer, E: Integer> {
-    /// The normalized fraction component representing the significand.
-    /// The fraction size determines the precision of the value.
-    /// The prefix bit pattern determines the number's state (normal, Zero, Infinity, exploded, vanished, undefined).
+    /// The normalized fraction component representing the significand. The fraction size determines the precision of the value. The prefix bit pattern determines the number's state (normal, Zero, Infinity, exploded, vanished, undefined).
     pub fraction: F,
 
-    /// The exponent component determining the scale of the value.
-    /// The exponent size determines the range of the value.
-    /// When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
+    /// The exponent component determining the scale of the value. The exponent size determines the range of the value. When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
     pub exponent: E,
 }

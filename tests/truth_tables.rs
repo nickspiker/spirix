@@ -1,6 +1,4 @@
-//! Exhaustive truth-table tests for basic arithmetic operations.
-//! Verifies every value-class combination produces the expected result class
-//! per the README truth tables (col OP row convention).
+//! Exhaustive truth-table tests for basic arithmetic operations. Verifies every value-class combination produces the expected result class per the README truth tables (col OP row convention).
 
 use spirix::*;
 
@@ -104,8 +102,7 @@ fn undefineds() -> Vec<S> {
 use Class::*;
 
 // ============================================================
-// Addition truth table (col + row)
-// ============================================================
+// Addition truth table (col + row) ============================================================
 #[test]
 fn addition_truth_table() {
     let z = S::ZERO;
@@ -168,8 +165,7 @@ fn addition_truth_table() {
 }
 
 // ============================================================
-// Subtraction truth table (col - row)
-// ============================================================
+// Subtraction truth table (col - row) ============================================================
 #[test]
 fn subtraction_truth_table() {
     let z = S::ZERO;
@@ -214,8 +210,7 @@ fn subtraction_truth_table() {
 }
 
 // ============================================================
-// Multiplication truth table (col × row)
-// ============================================================
+// Multiplication truth table (col × row) ============================================================
 #[test]
 fn multiplication_truth_table() {
     let z = S::ZERO;
@@ -273,8 +268,7 @@ fn multiplication_truth_table() {
 }
 
 // ============================================================
-// Division truth table (col ÷ row)
-// ============================================================
+// Division truth table (col ÷ row) ============================================================
 #[test]
 fn division_truth_table() {
     let z = S::ZERO;
@@ -286,9 +280,7 @@ fn division_truth_table() {
     let inf = S::INFINITY;
     let und = S::ZERO / S::ZERO;
 
-    // [0]÷[0] = [℘]
-    // (can't test directly since 0/0 IS our undefined source)
-    // [0]÷[#] = [0]
+    // [0]÷[0] = [℘] (can't test directly since 0/0 IS our undefined source) [0]÷[#] = [0]
     check("÷", z, np, z / np, &[Zero]);
     check("÷", z, nn, z / nn, &[Zero]);
     // [0]÷[↑] = [0]
@@ -328,8 +320,7 @@ fn division_truth_table() {
 }
 
 // ============================================================
-// Modulus truth table (col % row)
-// ============================================================
+// Modulus truth table (col % row) ============================================================
 #[test]
 fn modulus_truth_table() {
     let z = S::ZERO;
@@ -409,8 +400,7 @@ fn modulus_truth_table() {
 }
 
 // ============================================================
-// Unary operation truth tables: sqrt, lb, ln, exp, powb, square
-// ============================================================
+// Unary operation truth tables: sqrt, lb, ln, exp, powb, square ============================================================
 
 /// Verify the result class of a unary op matches the expected set.
 fn check_unary(op: &str, input_name: &str, x: S, result: S, expected: &[Class]) {
@@ -581,8 +571,7 @@ fn square_unary_truth_table() {
 }
 
 // ============================================================
-// Specific edge case: subtraction with MIN producing exploded
-// ============================================================
+// Specific edge case: subtraction with MIN producing exploded ============================================================
 #[test]
 fn subtraction_min_boundary_exploded() {
     // NEG_ONE at MIN_EXPONENT: negating requires exp+1 which wraps → exploded

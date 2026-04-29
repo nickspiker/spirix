@@ -1,6 +1,4 @@
-//! Exposes both scalar_negate variants at a concrete type so their asm is
-//! visible in the compiled binary. Not a real program — just monomorphization
-//! fodder for disassembly.
+//! Exposes both scalar_negate variants at a concrete type so their asm is visible in the compiled binary. Not a real program — just monomorphization fodder for disassembly.
 use spirix::ScalarF3E3;
 
 #[inline(never)]

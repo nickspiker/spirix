@@ -1,7 +1,6 @@
 //! Tensor operations
 //!
-//! Matrix multiply, transpose, activations, etc.
-//! All operations are clean - no IEEE-754 edge cases.
+//! Matrix multiply, transpose, activations, etc. All operations are clean - no IEEE-754 edge cases.
 
 use super::tensor::Tensor;
 use alloc::vec::Vec;
@@ -103,8 +102,7 @@ mod tests {
 
     #[test]
     fn test_matmul_2x2() {
-        // A = [[1, 2],
-        //      [3, 4]]
+        // A = [[1, 2], [3, 4]]
         let a = Tensor::new(
             vec![
                 ScalarF4E4::from(1.0),
@@ -115,8 +113,7 @@ mod tests {
             vec![2, 2],
         );
 
-        // B = [[5, 6],
-        //      [7, 8]]
+        // B = [[5, 6], [7, 8]]
         let b = Tensor::new(
             vec![
                 ScalarF4E4::from(5.0),
@@ -127,8 +124,7 @@ mod tests {
             vec![2, 2],
         );
 
-        // C = A × B = [[19, 22],
-        //              [43, 50]]
+        // C = A × B = [[19, 22], [43, 50]]
         let c = matmul(&a, &b, ScalarF4E4::ZERO);
 
         assert_eq!(c.data[0].to_f64(), 19.0); // 1*5 + 2*7
@@ -139,8 +135,7 @@ mod tests {
 
     #[test]
     fn test_transpose() {
-        // A = [[1, 2, 3],
-        //      [4, 5, 6]]
+        // A = [[1, 2, 3], [4, 5, 6]]
         let a = Tensor::new(
             vec![
                 ScalarF4E4::from(1.0),
@@ -153,9 +148,7 @@ mod tests {
             vec![2, 3],
         );
 
-        // A^T = [[1, 4],
-        //        [2, 5],
-        //        [3, 6]]
+        // A^T = [[1, 4], [2, 5], [3, 6]]
         let at = transpose(&a);
 
         assert_eq!(at.shape, vec![3, 2]);

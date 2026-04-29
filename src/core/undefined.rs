@@ -29,9 +29,7 @@
 //! □□□□□□□□ 0 Exactly Zero
 //! ■■■■■■■■ ∞ Singular Infinity
 //!```
-//! Note: For fraction sizes greater than 8 bits, extensions can be utilized for more undefined granularity or for future implementation improvements. For any undefined operations that include both exploded and infinite or negligible and zero the wider arrows are used.
-//! `⬆` = Transfinite, includes ↑ and ∞
-//! `⬇` = Negligible, includes ↓ and 0
+//! Note: For fraction sizes greater than 8 bits, extensions can be utilized for more undefined granularity or for future implementation improvements. For any undefined operations that include both exploded and infinite or negligible and zero the wider arrows are used. `⬆` = Transfinite, includes ↑ and ∞ `⬇` = Negligible, includes ↓ and 0
 //!
 //! - Undefined prefix allocations
 //! ```txt

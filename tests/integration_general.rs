@@ -246,8 +246,7 @@ mod chained_operations {
         // Start with high precision value
         let precise = ScalarF7E4::from(2.5);
 
-        // Chain operations using inverse pairs that should reconstruct the value:
-        // exp then ln, square then sqrt
+        // Chain operations using inverse pairs that should reconstruct the value: exp then ln, square then sqrt
         let result = precise.exp().ln().square().sqrt();
 
         if result.is_normal() {
@@ -351,8 +350,7 @@ mod real_world_scenarios {
         let iter_outside = mandelbrot_iteration(c_outside, 100);
         assert!(iter_outside < 10); // Should escape quickly
 
-        // Test boundary point - at F5E3 precision, this may or may not escape
-        // depending on rounding, so just verify it runs without panicking
+        // Test boundary point - at F5E3 precision, this may or may not escape depending on rounding, so just verify it runs without panicking
         let c_boundary = CircleF5E3::from((-0.75, 0.15));
         let iter_boundary = mandelbrot_iteration(c_boundary, 100);
         assert!(iter_boundary >= 1); // Should iterate at least once
@@ -482,8 +480,7 @@ mod precision_boundary_tests {
         assert!(bigger.is_normal() || bigger.exploded());
 
         // Operations near precision limits
-        // Note: 1e-10 is below F5E3 precision, so ONE - 1e-10 = ONE exactly.
-        // Use a larger epsilon that F5E3 can actually represent.
+        // Note: 1e-10 is below F5E3 precision, so ONE - 1e-10 = ONE exactly. Use a larger epsilon that F5E3 can actually represent.
         let almost_one = ScalarF5E3::ONE - ScalarF5E3::from(0.001);
         let sqrt_almost_one = almost_one.sqrt();
 

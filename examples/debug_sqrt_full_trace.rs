@@ -51,10 +51,7 @@ fn test_value(input_val: u8) {
     let mut bit = 1u32 << 15;
     println!("\nIterations (all 16):");
 
-    // Non-restoring: track remainder, NO MULTIPLICATION!
-    // Based on: (y + bit)² = y² + 2*y*bit + bit²
-    // delta = 2*y*bit + bit² = ((2*y) << bit_pos) + (bit << bit_pos)
-    //       = (2*y + bit) << bit_pos
+    // Non-restoring: track remainder, NO MULTIPLICATION! Based on: (y + bit)² = y² + 2*y*bit + bit² delta = 2*y*bit + bit² = ((2*y) << bit_pos) + (bit << bit_pos) = (2*y + bit) << bit_pos
     let mut remainder = x as u64;
     let mut y_squared: u64 = 0;
     let mut bit_pos = 15; // bit = 1 << bit_pos

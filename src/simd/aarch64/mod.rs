@@ -1,7 +1,6 @@
 //! ARM NEON SIMD implementations for Spirix (future)
 //!
-//! Placeholder for ARM NEON optimized implementations.
-//! Will provide feature parity with x86-64 AVX2/SSE implementations.
+//! Placeholder for ARM NEON optimized implementations. Will provide feature parity with x86-64 AVX2/SSE implementations.
 
 use crate::ScalarF4E4;
 
@@ -9,8 +8,7 @@ use crate::ScalarF4E4;
 ///
 /// # Safety
 ///
-/// Requires NEON support (standard on all ARM64).
-/// Processes 4× i32 fractions and 4× i16 exponents per iteration.
+/// Requires NEON support (standard on all ARM64). Processes 4× i32 fractions and 4× i16 exponents per iteration.
 #[target_feature(enable = "neon")]
 pub unsafe fn scalar_subtract_batch_neon(
     a: &[ScalarF4E4],

@@ -62,8 +62,7 @@ pub(crate) trait FullInt:
 ///
 /// Internal trait providing saturating conversion between integer types.
 ///
-/// Unlike standard Rust conversions that may panic or wrap on overflow,
-/// this trait ensures specific handling of out-of-range values:
+/// Unlike standard Rust conversions that may panic or wrap on overflow, this trait ensures specific handling of out-of-range values:
 /// - Returns the target type's maximum value if source is too large
 /// - Returns the target type's minimum value if source is too small
 /// - Preserves the value exactly when it fits within the target range
@@ -170,8 +169,7 @@ impl FullInt for u64 {}
 impl FullInt for u128 {}
 impl FullInt for usize {}
 
-/// Wide arithmetic operations for inflate/operate/deflate pipeline.
-/// Implemented per stored/wide pair: i8/i16, i16/i32, i32/i64, i64/i128, i128/I256.
+/// Wide arithmetic operations for inflate/operate/deflate pipeline. Implemented per stored/wide pair: i8/i16, i16/i32, i32/i64, i64/i128, i128/I256.
 pub trait WideOps: Sized + Copy {
     fn w_is_zero(&self) -> bool;
     fn w_is_negative(&self) -> bool;

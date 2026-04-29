@@ -1,11 +1,7 @@
-//! Exhaustive F3E3 verification of the Verilog spirix_addsub algorithm
-//! (ported here to Rust) against Rust's native scalar_add_scalar /
-//! scalar_subtract_scalar.
+//! Exhaustive F3E3 verification of the Verilog spirix_addsub algorithm (ported here to Rust) against Rust's native scalar_add_scalar / scalar_subtract_scalar.
 //!
-//! Purpose: prove the Verilog RTL matches the Rust reference for every one
-//! of the 65,536 × 65,536 × 2 (add + sub) pairs without needing to run
-//! iverilog on all of them.  A small spot-check in iverilog is enough once
-//! this passes.
+//! Purpose: prove the Verilog RTL matches the Rust reference for every one of the 65,536 × 65,536 × 2 (add + sub) pairs without needing to run
+//! iverilog on all of them.  A small spot-check in iverilog is enough once this passes.
 use spirix::*;
 
 type S = ScalarF3E3;
@@ -68,8 +64,7 @@ fn neg_normal(f: i8, e: i8) -> (i8, i8) {
 }
 
 fn neg_nonnormal(f: i8, e: i8) -> (i8, i8) {
-    // Rust scalar_negate: signless (zero/inf/undef) → no-op;
-    // escape poles → canonical swap; anything else → wrapping_neg.
+    // Rust scalar_negate: signless (zero/inf/undef) → no-op; escape poles → canonical swap; anything else → wrapping_neg.
     if frac_zero(f) || frac_neg1(f) || is_top3(f) { (f, e) }
     else if f == POS_ONE_EXPLODED { (NEG_ONE_EXPLODED, e) }
     else if f == NEG_ONE_EXPLODED { (POS_ONE_EXPLODED, e) }
@@ -115,9 +110,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
         // Edge-case priority (matches Rust + Verilog shortcut order).
         if a_undef { return (a_f, a_e); }
         if b_undef { return (b_f, b_e); }
-        // Zero early: X ± [0] = X, [0] ± X = ±X. Checked before transfinite so
-        // the 4 zero-plus-transfinite cells pass through instead of becoming
-        // transfinite-plus-finite undefined.
+        // Zero early: X ± [0] = X, [0] ± X = ±X. Checked before transfinite so the 4 zero-plus-transfinite cells pass through instead of becoming transfinite-plus-finite undefined.
         if a_zero { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
         let b_zero_ = is_zero(b_f, b_e);
         if b_zero_ { return (a_f, a_e); }

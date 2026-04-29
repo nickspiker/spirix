@@ -1,5 +1,4 @@
-//! Dumb-dumb sanity test across every scalar op after the v0.1 ruler flip.
-//! Just "do the basic expected values come back?"
+//! Dumb-dumb sanity test across every scalar op after the v0.1 ruler flip. Just "do the basic expected values come back?"
 use spirix::*;
 
 fn main() {
