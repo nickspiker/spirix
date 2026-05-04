@@ -1,0 +1,1727 @@
+\documentclass[12pt,letter]{article}
+
+\usepackage{geometry}
+\geometry{margin=2cm}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{setspace}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{fancyhdr}
+\usepackage{fontspec} 
+\usepackage{textcomp} 
+\usepackage{caption}
+\usepackage{fancyvrb}
+\usepackage{tikz}
+\usepackage{ragged2e}
+\usepackage[patch=none]{microtype}
+\usepackage{xstring}
+\usepackage{multirow}
+\usepackage{pdfpages}
+\usepackage{adjustbox}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fvextra}
+\usepackage{listings}
+\usepackage{unicode-math}
+\usetikzlibrary{arrows.meta, shapes.geometric, arrows, positioning, fit, calc}
+
+\titleformat{\section}{\normalfont\Large\bfseries}{}{0em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{}{0em}{}
+
+\setmainfont{Noto Sans}[
+Weight=Regular,
+Scale=1.0
+]
+\setmonofont{Space Mono}[Scale=0.9]
+
+\lstdefinestyle{rust}{
+basicstyle=\ttfamily\small,
+frame=single,
+breaklines=true,
+showstringspaces=false,
+showspaces=false,
+columns=fullflexible,
+keepspaces=true,
+alsoletter={\_},
+escapeinside={(*@}{@*)},
+mathescape=false,
+texcl=false,
+upquote=true,
+morecomment=[l]{;},
+morecomment=[l]{//},
+morecomment=[l]{///},
+escapechar=¡,
+tabsize=3
+}
+\renewcommand{\refname}{REFERENCES}
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\setlength{\parskip}{0.25cm}
+\newcommand{\patentfigure}[2]{
+  \begin{figure}[htbp]
+    \centering
+    #1
+    \caption{#2}
+    \label{fig:\thefigcounter}
+  \end{figure}
+  \stepcounter{figcounter}
+}
+
+\renewcommand{\lstlistingname}{Figure}
+\fvset{
+frame=single,
+fontsize=\small,
+commandchars=\\\{\},
+formatcom=\color{black}
+}
+\renewcommand{\thefigure}{\thefigcounter}
+\newcounter{paracounter}
+\setcounter{paracounter}{1}
+\newcommand{\ppara}[1]{
+\noindent\textbf{[\formatparanumber{\arabic{paracounter}}]} \begingroup\RaggedRight\sloppy\hbadness=10000 #1\par\endgroup%
+\stepcounter{paracounter}%
+}
+\newcommand{\formatparanumber}[1]{%
+\ifnum#1<10 000%
+\else\ifnum#1<100 00%
+\else\ifnum#1<1000 0%
+\fi\fi\fi#1%
+}
+
+\newcounter{figcounter}
+\setcounter{figcounter}{1}
+
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+
+\onehalfspacing
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{TWO'S COMPLEMENT FLOATING POINT ARITHMETIC SYSTEM}
+\fancyfoot[C]{Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\RaggedRight
+\sloppy
+\hbadness=10000
+\tolerance=10000
+\emergencystretch=3em
+
+\title{\textbf{TWO'S COMPLEMENT FLOATING POINT ARITHMETIC SYSTEM}}
+\author{Nick Spiker}
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+\begin{center}
+\vspace*{1cm}
+{\huge \textbf{TWO'S COMPLEMENT FLOATING POINT}\par}
+{\huge \textbf{ARITHMETIC SYSTEM}\par}
+\vspace{2cm}
+{\Large Provisional Patent Application\par}
+\vspace{2.5cm}
+{\Large Inventor: Nick Spiker\par}
+\vspace{1cm}
+{\Large \today\par}
+\end{center}
+\end{titlepage}
+\newpage
+
+\setcounter{page}{2}
+\section{ABSTRACT}
+
+The disclosed system presents a fundamental reimagining of floating-point arithmetic by employing two's complement representation thruout the entire calculation pipeline. Unlike IEEE-754 which employs sign-magnitude representation with a separate sign bit, the system uses left-aligned normalized fractions with unbiased exponents to create a continuous numerical framework for both real and complex numbers.
+
+The system maintains mathematical identities by implementing a unified approach to numerical states: normal values use standard exponents with N-1 normalized fractions, while all non-normal states (zero, infinity, escaped values, undefined conditions) share a single reserved exponent value. These ambiguous states are differentiated by distinct bit patterns in the fraction component - with escaped values (exploded or vanished) preserving phase information, and undefined states encoding their specific cause. This architecture preserves critical mathematical relationships that IEEE-754 violates, such as ensuring that $a\times b=0$ if and only if $a=0$ or $b=0$ (multiplicative identity) and that $a-b=0$ if and only if $a=b$ (subtractive identity), without requiring denormalized numbers.
+
+Implementation analysis reveals significant efficiency gains: common operations require substantially fewer instructions compared to IEEE-754 implementations. The system introduces direct bitwise operations on floating-point values thru exponent alignment, proper shift operations as exponent adjustments, and a unified approach to complex arithmetic using shared exponents. The parameterized design allows independent selection of fraction and exponent sizes to optimize for either precision or range according to application requirements.
+
+\newpage
+\section{TECHNICAL FIELD}
+
+The present invention relates to computer arithmetic operations, specifically floating-point arithmetic implemented using two's complement representation thruout the entire calculation pipeline.
+
+The system addresses fundamental challenges in numerical computing by eliminating separate sign bit handling and employing multiple normalization levels encoded in the most significant bits of fraction components. By maintaining two's complement properties thruout operations, the system significantly reduces branching complexity and preserves mathematical identities across the entire numerical spectrum.
+
+The invention provides precise tracking of numerical states beyond representable boundaries thru specific bit patterns, ensuring operations maintain proper arithmetic relationships at singularities like zero and infinity. The approach enables unified handling of both real and complex numbers, direct bitwise manipulations thru fraction alignment, and customizable precision/range trade-offs thru independent fraction and exponent sizing.
+
+\newpage
+
+\section{BACKGROUND}
+
+Floating-point arithmetic serves as a fundamental component of digital computing, providing a means to represent and manipulate real numbers within the constraints of finite hardware. Since 1985, the IEEE-754 standard has defined the predominant specifications for floating-point representation and operations across computing.
+
+The IEEE-754 standard employs a structure where floating-point numbers consist of three distinct components: a sign bit, an exponent field with bias, and a mantissa (significand) field with implied leading bit for normal values. This representation necessitates specialized handling for the sign bit separate from magnitude components, introducing conditional branches for most arithmetic operations.
+
+Several technical characteristics of the IEEE-754 approach present implementation challenges:
+
+The separate sign bit requires distinct processing paths for different sign combinations. For instance, adding values with the same sign employs addition logic followed by potential sign adjustment, while adding values with opposite signs requires subtraction logic, possible zero crossing detection, and conditional sign adjustment. These different paths significantly increase the complexity of hardware implementation and potential for pipeline stalls in modern processors.
+
+IEEE-754 defines several special values including positive and negative zero, positive and negative infinity, quiet NaN, and signaling NaN, each requiring explicit detection and specialized handling. When operations produce NaN results, information about what caused the invalid operation is not preserved.
+
+Certain mathematical properties face compromise in the IEEE-754 framework. For example, the multiplication of non-zero values can produce zero or infinity when underflow or overflow occurs, and values that are mathematically unequal may produce a difference of zero if their difference falls below representable magnitude. The latter historically has been addressed with subnormal (denormalized) numbers, which introduce additional performance and implementation complexities.
+
+\newpage
+Particularly problematic is IEEE-754's violation of fundamental mathematical identities, such as the multiplicative zero property. In standard mathematics, $a$ × $b$ = 0 if and only if at least one of $a$ or $b$ equals zero. However, in IEEE-754, when a value underflows past the smallest representable magnitude, it typically gets flushed to zero, causing non-zero values to produce zero when multiplied. This inconsistency can lead to unexpected algorithm behavior and numerical instabilities. Similarly, non-infinite values that overflow can produce infinity, breaking the identity that adding or multiplying finite values should produce non-infinite results.
+
+The fixed allocation of bits between exponent and mantissa in standard IEEE-754 formats such as binary32 and binary64 lacks adaptability for applications with divergent precision and range requirements.
+
+Alternative approaches to floating-point numbers have emerged to address various aspects of these limitations, but all maintain the separation between sign and magnitude, perpetuating the need for explicit sign testing and divergent execution paths for different sign combinations. None provide a comprehensive approach that unifies sign and magnitude thru two's complement representation thruout the entire calculation pipeline.
+
+\newpage
+
+\section{SUMMARY OF THE INVENTION}
+
+The present invention implements a floating-point arithmetic system that employs two's complement representation thruout the entire calculation pipeline. This approach redefines how numerical values are represented and manipulated in computing systems, addressing several technical challenges present in conventional implementations.
+
+The system represents numbers using two primary components: a normalized two's complement fraction and an unbiased two's complement exponent. Unlike systems that use a separate sign bit with magnitude representation, this approach leverages the inherent properties of two's complement arithmetic to simplify operations while expanding floating-point capabilities.
+
+The system implements the following technical mechanisms:
+
+A normalization scheme with multiple levels encoded in the leading bits of the fraction component. Normal numbers utilize N-1 normalization (patterns 01... or 10... in most significant bits) to retain sign information within the two's complement phase. The N-1 normalization retains one bit of sign information (0 for positive, 1 for negative) followed by an opposite bit, providing easy detection of fraction sign when desired.
+
+A single reserved exponent value (AMBIGUOUS\_EXPONENT) that identifies values outside normal representation, including escaped values ("exploded" when exceeding maximum magnitude or "vanished" when below minimum magnitude), Zero, Infinity, and multiple undefined states.
+
+Specific bit patterns within the fraction component that indicate different numerical states. These patterns are organized hierarchically, with Zero, Infinity, normal/exploded, vanished, and different categories of undefined values each having distinct patterns. This approach enables efficient state detection and tracking thruout calculations.
+
+A mechanism for preserving phase/orientation information when values exceed normal representation range. Unlike IEEE-754, which truncates to infinity or zero in overflow/underflow conditions, the system transitions to exploded or vanished states that maintain sign/directional information, allowing continued participation in absolute operations like multiplication and division.
+
+Independent selection of fraction and exponent sizes, enabling applications to configure precision and range characteristics according to specific requirements without requiring separate implementations.
+
+\newpage
+A unified representation for both real (Scalar) and complex (Circle) values, where complex numbers use real and imaginary fractions sharing a common exponent to maintain binary fraction alignment and simplify calculations.
+
+Direct bitwise operations on floating-point values thru exponent alignment before applying bitwise logic, preserving mathematical significance thruout operations. Bit shifts are implemented as checked exponent adjustments rather than direct bit manipulation.
+
+A mechanism that preserves operation cause in undefined states, providing specific bit patterns that indicate which operation led to the undefined result (e.g., division by zero vs. infinity minus one), enabling precise error tracing.
+
+By maintaining two's complement properties thruout the calculation pipeline, the system preserves mathematical identities without requiring special case handling, significantly reducing implementation complexity while improving numerical consistency across the entire representable range.
+
+\newpage
+
+\section{DEFINITIONS}
+As used herein, the following terms shall have the following meanings, unless the context clearly indicates otherwise:
+
+\ppara{\textbf{"Two's complement representation"} refers to a method of representing positive and negative integers where the most significant bit (leftmost) can be checked to determine the sign (0 for positive, 1 for negative). Negative values are encoded by taking the bit complement (logical NOT) of the absolute value and adding one. In this invention, left normalized two's complement representation is applied to floating-point components thruout the entire calculation pipeline, eliminating the sign dependent handling steps for all basic operations (add, subtract, multiply, divide).}
+
+\ppara{\textbf{"Scalar"} refers to a data type representing real numbers using two primary components: a left normalized two's complement fraction and an unbiased two's compliment exponent. Unlike traditional floating-point formats with separate sign bit, the Scalar's sign information is naturally encoded within the fraction.}
+
+\ppara{\textbf{"Circle"} refers to a data type representing complex numbers using three components: a real fraction, an imaginary fraction, and a shared exponent (all in left normalized two's complement representation). The shared exponent ensures that both components maintain relative magnitudes, simplifying complex arithmetic operations.}
+
+\ppara{\textbf{"Fraction"} refers to the component of a Scalar or Circle that stores the normalized significand in two's complement format. The size of the fraction determines the precision of the representation, and its most significant bits encode state information thru normalization levels. Fraction sizes are denoted in shorthand powers of two for convenience and indicated as F3, F4, F5, F6, or F7, corresponding to 8-bit (2³), 16-bit (2⁴), 32-bit (2⁵), 64-bit (2⁶), and 128-bit (2⁷) integer representations respectively.}
+
+\ppara{\textbf{"Exponent"} refers to the component of a Scalar or Circle that determines the scale of the value. The size of the exponent determines the representable range. Unlike traditional floating-point formats that use biased exponents, this invention uses unbiased two's complement exponents. Exponent sizes are denoted in powers of two and indicated as E3, E4, E5, E6, or E7, corresponding to 8-bit (2³), 16-bit (2⁴), 32-bit (2⁵), 64-bit (2⁶), and 128-bit (2⁷) integer representations respectively.}
+
+\ppara{\textbf{"FE Type alias"} refers to a shorthand notation for specifying both fraction and exponent bit sizes. For example, ScalarF5E4 represents a Scalar with 32-bit (2⁵) fraction and 16-bit (2⁴) exponent, equivalent to Scalar<i32, i16> in the Rust language.}
+
+\ppara{\textbf{"Phase"} or \textbf{"Orientation"} refers to sign information in Scalars or complex angle in Circles. This information is preserved when values escape normal representation, allowing continued absolute operations with mathematically consistent results.}
+
+\ppara{\textbf{"Normalization level"} or \textbf{"N-level"} refers to the leading same bit count in the fraction, which is used to encode the state of a value (normal, exploded, vanished, Zero, undefined, etc.). The invention implements multiple normalization levels (N-0, N-1, N-2, N-3, etc.) to represent different numerical states with unique bit patterns.}
+
+\ppara{\textbf{"Normal value"} refers to a Scalar or Circle with a non-zero known magnitude. The fraction(s) are normalized to level N-1 (with bit pattern 01... or 10... in the most significant positions) and an exponent within representable range (not ambiguous). Normal values can directly participate in all arithmetic operations.}
+
+\ppara{\textbf{"Ambiguous value"} refers to any value with an exponent equal to AMBIGUOUS\_EXPONENT that indicates the value may require special handling. This includes zero, infinity, exploded, vanished, and undefined states.}
+
+\ppara{\textbf{"AMBIGUOUS\_EXPONENT"} refers to the specific reserved exponent value (one followed by all zeros, e.g., 10000000...) that indicates an ambiguous state. It serves as a single consistent marker for all states outside normal representation.}
+
+ppara{\textbf{"Escaped value"} refers to a value that has exceeded normal representation range but maintains its phase/orientation information. Unlike IEEE-754, which truncates to infinity or zero, escaped values preserve directional information even though their magnitude is no longer representable. The system implements two types of escaped values: exploded (exceeding maximum magnitude) and vanished (below minimum magnitude).}
+
+\ppara{\textbf{"Exploded"} refers to a value that has exceeded the maximum representable magnitude but maintains its phase/orientation information. Exploded values are represented by a fraction with N-1 normalization and an ambiguous exponent, allowing continued absolute operations (approaching but not infinity).}
+
+\ppara{\textbf{"Vanished"} refers to a value that has become too small for normal representation but maintains its phase/orientation information. Vanished values are represented by a fraction with N-2 normalization and an ambiguous exponent (approaching but not zero).}
+
+\ppara{\textbf{"Transfinite values"} refers to values larger than normal finite representation, including both exploded values and infinity.}
+
+\newpage
+\ppara{\textbf{"Negligible values"} refers to values that are too small to be represented in normal form, including both vanished and zero values. These values have magnitudes that are treated as insignificant in relative arithmetic operations.}
+
+\ppara{\textbf{"Undefined state"} refers to values resulting from mathematically undefined operations (such as 0 / 0 or $\infty$ - 42). Unlike traditional floating-point formats with a single NaN representation, this invention provides multiple undefined states with specific bit patterns that preserve the cause of the ambiguity.}
+
+\ppara{\textbf{"Absolute operation"} refers to an arithmetic operation where sign handling follows fixed rules regardless of the scale of operands, such as multiplication and division. These operations work consistently with normal, exploded, vanished, zero and infinite values.}
+
+\ppara{\textbf{"Relative operation"} refers to an arithmetic operation where sign handling depends on the signs and magnitudes of operands, such as addition and subtraction.}
+
+\ppara{\textbf{"Overflow"} refers to when a calculation produces a result whose magnitude exceeds the maximum representable range. In this invention, overflow transitions a value to an exploded state rather than saturating to infinity, preserving phase/orientation information and allowing certain operations to continue.}
+
+\ppara{\textbf{"Underflow"} refers to when a calculation produces a result whose magnitude is below the minimum representable range. In this invention, underflow transitions values to a vanished state rather than truncating to zero.}
+
+\ppara{\textbf{"Integer"} as used in type parameters refers to a signed integer type of any bit width. While typical implementations use standard integer sizes (8, 16, 32, 64, or 128 bits), the invention can utilize any bit width for both fraction and exponent components.}
+
+\ppara{\textbf{"Real"} refers to the component of a number that lies on the conventional number line. In this invention, real values can be represented as standalone Scalar types or as the real component of a Circle type. Within a Circle, the real component stores the coefficient of the real part of a complex number. The real component shares an exponent with the imaginary component to maintain alignment between both fractions thus greatly simplifying complex operations.}
+
+\ppara{\textbf{"Imaginary"} refers to the component of a complex number that represents multiples of the imaginary unit $i$, where $i\times i$ = -1.}
+
+\ppara{\textbf{"Infinity"} refers to a specific representation of mathematical infinity as a singularity within the numeric space. Unlike IEEE-754's approach with separate positive and negative infinities, this invention treats infinity as a unified concept.}
+
+\ppara{\textbf{"Zero"} refers to the representation of mathematical zero as a singularity within the numeric space. Unlike IEEE-754's approach with separate positive and negative zeros, this invention treats zero as a unified concept at the middle of the continuous number line.}
+
+\newpage
+\section{BRIEF DESCRIPTION OF THE FIGURES}
+
+\ppara{FIG. \ref{fig:ieee_number_line} illustrates the fundamental discontinuity in IEEE-754's number representation, showing how the sign-magnitude approach creates a break at zero with overlapping positive and negative values that only differ by the sign bit.}
+
+\ppara{FIG. \ref{fig:spirix_number_line}A-\ref{fig:spirix_number_line}B contrasts the invention's two's complement representation with IEEE-754, demonstrating how the invention achieves a continuous number line where values maintain mathematical relationships across the entire range. The figure shows how zero appears naturally in the center rather than as a special case.}
+
+\ppara{FIG. \ref{fig:scalar_structure} illustrates the Scalar type implementation, showing the parameterized structure with fraction and exponent components that can be configured with various integer sizes. The fraction component stores the normalized significand (called phase), while the exponent determines the scale of the phase.}
+
+\ppara{FIG. \ref{fig:circle_structure} presents the Circle type definition for complex numbers, showing how real and imaginary phases share a common exponent for efficient complex arithmetic operations.}
+
+\ppara{FIG. \ref{fig:integer} demonstrates the type flexibility of the invention, showing how any integer size can be used for both fraction and exponent components, allowing applications to optimize for precision and range according to their specific requirements.}
+
+\ppara{FIG. \ref{fig:spirix_configurations} presents the precision-range matrix of FE type combinations, illustrating the flexibility of the system to accommodate different application needs from limited precision with wide range to high precision with narrower range.}
+
+\ppara{FIG. \ref{fig:normalization_levels} visually illustrates the different normalization levels used to represent various numeric states. The figure shows how specific bit patterns in the most significant positions encode normal values, escaped values (exploded and vanished), and different categories of undefined states.}
+
+\ppara{FIG. \ref{fig:undefined} provides an excerpt of the undefined state definitions, showing how different bit patterns are used to preserve the cause of ambiguous operations, enabling more effective debugging and error tracing compared to IEEE-754's single NaN.}
+
+\ppara{FIG. \ref{fig:addition_table} presents the Addition Operation Truth Table, illustrating how different value types interact under addition in the SPIRIX system. The table demonstrates the mathematical consistency of addition across normal, vanished, exploded, and special values.}
+
+\newpage
+\ppara{FIG. \ref{fig:subtraction_table} presents the Subtraction Operation Truth Table, showing outcomes of subtracting different value types in the SPIRIX system. The minuend (value being subtracted from) appears along the top, and the subtrahend (value being subtracted) appears along the left column, with a note about negation range limits.}
+
+\ppara{FIG. \ref{fig:multiplication_table} presents the Multiplication Operation Truth Table, demonstrating the system's multiplicative consistency. The table shows how the product of non-zero values is never zero, preserving phase information even when results exceed normal representation range.}
+
+\ppara{FIG. \ref{fig:division_table} presents the Division Operation Truth Table, illustrating division behavior across all value types. The table shows how division by zero consistently produces infinity for non-zero numerators and how division operations preserve mathematical relationships between vanished and exploded values.}
+
+\ppara{FIG. \ref{fig:spirix_ordering} illustrates the SPIRIX number line and comparison ordering, showing how values are arranged from positive exploded at the top to negative exploded at the bottom, with zero as a single point in the middle. The figure demonstrates how infinity and undefined states are treated as incomparable.}
+
+\ppara{FIG. \ref{fig:ieee_subtract_flowchart} presents a flowchart of the IEEE-754 subtraction operation, illustrating the multiple branching paths required for handling different sign combinations, rounding, and denormalized values.}
+
+\ppara{FIG. \ref{fig:scalar_subtract_flowchart} presents a flowchart of the scalar subtraction algorithm, demonstrating how normal and ambiguous values are differentiated with one check in the main path. Underflow is checked and handled before returning. Overflow is naturally handled by the system design.}
+
+\ppara{FIG. \ref{fig:ieee_subtract} contains an annotated assembly instruction trace for normal-normal IEEE-754 Binary32 <f32> subtraction, illustrating the branching control flow and numerous special case tests and steps required for handling different sign combinations, rounding, and special values.}
+
+\ppara{FIG. \ref{fig:scalar_subtract} shows annotated assembly instructions for scalar subtraction, highlighting how two's complement arithmetic naturally handles sign during operations, eliminating the need for sign bit testing and greatly reducing special case handling required by IEEE-754.}
+
+\newpage
+\ppara{Appendix A provides the complete assembly instruction trace for a normal complex division between two IEEE-754 Binary32 <f32> complex numbers, illustrating the substantially greater complexity (approximately 2,199 instructions) required to handle just a normal/normal case in the IEEE approach. Analysis of the IEEE trace reveals 165 conditional jumps, 82 function calls, and 83 return instructions, creating a branching maze that impacts performance and predictability.}
+
+\ppara{FIG. \ref{fig:circle_divide} provides assembly instructions for complex number division using the F5E4 Circle type (32-bit fractions, 16-bit exponent). This implementation demonstrates how normal complex division is handled in 63 instructions. Complete handling of all cases is illustrated in 169 instructions.}
+
+\ppara{FIG. \ref{fig:scalar_bitwise_example} demonstrates a mathematically meaningful bitwise AND operation between two Scalar values, showing how the system aligns operands by exponent before applying bitwise logic, preserving numerical significance thruout the operation.}
+
+\ppara{FIG. \ref{fig:scalar_bitwise_signs} illustrates how bitwise operations respect two's complement properties when operating on signed values, showing examples of AND, OR, XOR, and NOT operations with positive and negative operands. This demonstration highlights how sign information naturally propagates thru bitwise operations.}
+
+\ppara{FIG. \ref{fig:scalar_shifts} presents the implementation of bit shift operations as checked exponent adjustments rather than direct bit manipulation. This approach preserves the mathematical interpretation of shifts as multiplication or division by powers of two.}
+
+\newpage
+\section{DETAILED DESCRIPTION}
+
+\ppara{The invention implements a two's complement floating-point arithmetic system with distinct configurations for real and complex numbers. Real numbers are represented by the "Scalar" type, while complex numbers are represented by the "Circle" type. Both configurations are parameterized by fraction (F) and exponent (E) bit widths, allowing customization based on application range and precision requirements. Implementations are given in Rust and Intel x86-64 bit assembly language, however these can be implemented in any integer mathematics processor.}
+
+
+
+\subsection*{IEEE-754 vs. Two's Complement Representation}
+
+\ppara{As illustrated in FIG. \ref{fig:ieee_number_line}, the IEEE-754 sign-magnitude representation creates a fundamental discontinuity at zero. This visualization reveals how every value has an opposite representation—positive and negative—that differ only by the sign bit, creating a mirror of the entire number line. This includes cases like zero, which exists as both +0 and -0, despite attempting to represent the same mathematical value. This sign-magnitude approach introduces significant branching complexity in numerical operations, requiring separate code paths for different sign combinations and explicit testing of the sign for most arithmetic operations.}
+
+\ppara{In contrast, FIG. \ref{fig:spirix_number_line}A presents a linear view of the invention's continuous two's complement representation. Unlike IEEE-754, the invention achieves a completely continuous number space where values wrap around to maintain mathematical relationships across the entire range, eliminating the discontinuity at zero. This continuity enables operations to cross the zero boundary without any special handling or branching.}
+
+\ppara{FIG. \ref{fig:spirix_number_line}B further illustrates this concept with a vertically rotated perspective of the same representation, mapping values from fraction MAX/2+1 at the bottom to fraction MAX/2 at the top, with zero naturally landing in the middle. This visualization highlights how zero becomes a contiguous value in the number line rather than a special case requiring separate handling.}
+
+\newpage
+\subsection*{Core Configuration Definitions}
+
+\ppara{The Scalar and Circle configurations form the core of the system. These definitions provide a unified framework for representing and operating on both real and complex numbers.}
+
+\ppara{As shown in FIG. \ref{fig:scalar_structure}, the Scalar type implements the representation for real numbers thru two primary components: a normalized two's complement fraction that determines precision, and an unbiased two's complement exponent that determines range. The parameterized design allows for independent selection of fraction and exponent sizes to match application requirements.}
+
+\ppara{FIG. \ref{fig:circle_structure} presents the Circle type implementation for complex numbers. The structure contains real and imaginary fractions sharing a common exponent, enabling efficient complex arithmetic operations while maintaining mathematical consistency. By using a shared exponent for both fractions, the Circle type maintains alignment between real and imaginary components, greatly simplifying complex arithmetic operations compared to traditional approaches that handle components independently.}
+
+\ppara{The type flexibility of the invention is demonstrated in FIG. \ref{fig:integer}, showing how any integer size can be used for both fraction and exponent components. This abstraction over integer types allows the system to adapt to different precision and range requirements. While the implementation shown uses standard signed integer sizes (i8 thru i128), the system can work with arbitrary-sized integers, allowing for precise tuning of numeric representations to application-specific needs.}
+
+\ppara{FIG. \ref{fig:spirix_configurations} illustrates the precision-range matrix of valid FE type combinations. This table demonstrates how the invention enables independent configuration of precision (controlled by fraction size) and range (controlled by exponent size). The precision values shown are calculated as the number of decimal digits representable with the given fraction bits, accounting for the sign bit. For ranges exceeding standard scientific notation, the table uses nested exponential notation (10\^{}(10\^{}x)) to represent the scale of normal values for each exponent size.}
+
+\ppara{Scalar values are calculated as:}
+\ppara{$value = fraction \times 2^{exponent}$}
+
+\ppara{Circle values have real and imaginary phases sharing a common exponent:}
+\ppara{$value = (real + imaginary \times i) \times 2^{exponent}$}
+
+\subsection*{Normalization Levels and Numerical States}
+
+\ppara{The invention employs a leading same bit normalization scheme to represent different numerical states thru specific bit patterns in the fraction component(s).}
+
+\ppara{As depicted in FIG. \ref{fig:normalization_levels}, the normalization levels (N-levels) encode different numerical states thru distinct bit patterns in the most significant positions of the fraction. Normal values use N-1 normalization with bit patterns 01... or 10... in the most significant positions, while vanished values use N-2 normalization, and various undefined states are represented thru higher normalization levels.}
+
+\ppara{A key innovation in the normalization scheme is the concept of "escaped" values—those that exceed normal representation range, but their phase is known. Unlike IEEE-754, which uses special values like infinity or NaN that lose information about the operation, the invention's escaped values preserve phase/orientation information, enabling continued participation in absolute operations with magnitudes outside normal range. For example a negative vanished Scalar multiplied by another negative vanished Scalar will never return zero ([$\downarrow$] $\times$ [$\downarrow$] != [0]) and the result will be a positive vanished Scalar ([-$\downarrow$] $\times$ [-$\downarrow$] $\rightarrow$ [+$\downarrow$]), thus preserving orientation and continuity from zero to infinity wherever possible.}
+
+
+\subsection*{Unified Treatment of Zero [0], Infinity [$\infty$], and Escaped Values}
+
+\ppara{The invention implements a mathematically consistent approach to the singularities of zero and infinity while acknowledging fundamental computational limitations. Unlike IEEE-754, which treats these values as both positive and negative.}
+
+\ppara{Zero is represented as a specific bit pattern of all zeroes in the fraction, paired with an ambiguous exponent. SPIRIX treats zero as a singular point on the number line rather than as two distinct values [0].}
+
+\ppara{Similarly, infinity is represented as a specific bit pattern of all ones in the fraction component, also with an ambiguous exponent [$\infty$]. The system maintains mathematical relationships involving infinity, such as:}
+
+\ppara{- Any non-zero value divided by zero produces infinity}
+\ppara{- Infinity multiplied by any non-zero value remains infinity}
+\ppara{- Zero divided by any non-zero value remains zero}
+\ppara{- Adding or subtracting transfinite values produces a distinct undefined state}
+
+\ppara{While the system strives to follow Riemann principles, practical computation with finite representation necessarily departs from mathematical abstraction. When values escape normal representation, we preserve WHICH direction they approach zero or infinity (their phase/orientation), but not HOW far they are in that direction. This creates unavoidable ambiguities where addition and subtraction operations break with escaped values because they depend on known magnitudes.}
+
+\ppara{The invention addresses these limitations by explicitly marking ambiguous operations with distinct bit patterns that preserve the operation cause. This approach delivers significant advantages over IEEE-754, which silently truncates operations like MIN\_POSITIVE\^{}2 to zero, violating multiplicative zero equality. By acknowledging computational limits while preserving phase information, the invention enables more reliable numerical algorithms and improved error tracing.}
+
+\ppara{By treating both zero and infinity as orientationless singular points, while tracking the phase of values that escape normal representation, the invention enables consistent behavior across operations, greatly reducing special case handling while preserving mathematical coherence beyond representable boundaries wherever possible.}
+
+\subsection*{Undefined States and Error Preservation}
+
+\ppara{One of the most significant innovations of the invention is its approach to undefined numerical states, as illustrated in FIG. \ref{fig:undefined}. Unlike IEEE-754's single NaN (Not a Number) representation, which collapses all error conditions into a single state, the system employs distinct bit patterns to encode the specific cause of undefined operations. The figure demonstrates how different operations that produce undefined results (such as 0/0, $\infty$+1, or 0\^{}0) are assigned unique bit patterns in the fraction component, always with an ambiguous exponent.}
+
+\ppara{This preservation of error cause enables error tracing in numerical applications. When an undefined result propagates thru subsequent operations, the system maintains the original cause rather than losing this critical information, allowing developers to trace computational issues to their source. The hierarchical organization of undefined states further enhances this capability, with different operations (basic arithmetic, powers, logarithms, trigonometric functions) assigned different ranges within the bit pattern space. Each of these patterns, given sufficient fraction size can provide other important undefined information or custom implemented behavior.}
+
+\subsection*{SPIRIX Operation Truth Tables}
+
+
+\ppara{The invention attempts to implement consistent and helpful behavior across numerical operations and states. The SPIRIX Circle and Scalar states follow Riemann principles when performing operations.}
+
+\ppara{FIG. \ref{fig:addition_table} above presents the Addition Operation Truth Table, illustrating how different states interact under addition in the SPIRIX system. The table demonstrates the mathematical consistency of addition across normal, vanished, exploded, and special states. Note that operations between certain states, such as adding an exploded and a normal, produce specific undefined states, preserving information about the operation that led to the undefined state.}
+
+\ppara{The Subtraction Operation Truth Table in FIG. \ref{fig:subtraction_table} shows the outcomes of subtracting different states in the SPIRIX system. The minuend (value being subtracted from) appears along the top, and the subtrahend (value being subtracted) appears along the left column. The table highlights how subtraction maintains mathematical coherence even in boundary cases. Note the minimum negative and minimum positive explode or vanish upon negation of the subtrahend.}
+
+\ppara{FIG. \ref{fig:multiplication_table} demonstrates the system's multiplicative consistency thru the Multiplication Operation Truth Table. A key feature illustrated in this table is that the product of two non-zero states is never a zero state, preserving a fundamental mathematical property that can be violated in IEEE-754 implementations due to multiplicative underflow to zero or overflow to infinity. This multiplicative identity property is expressed as $a \times b = 0$ if and only if $a = 0$ or $b = 0$. The table also shows how the system maintains phase information even when results exceed normal range, transitioning to exploded or vanished states rather than truncating to infinites or zeros.}
+
+\ppara{The multiplicative identity is preserved because SPIRIX treats vanished values as distinct from zero. When a value becomes too small for normal representation, rather than truncating it to zero (as in IEEE-754), SPIRIX transitions it to a vanished state. Therefore, when a normal or vanished value is multiplied by a vanished value, the result remains vanished with the appropriate phase, never collapsing to zero. Similarly, overflow operations that would produce infinity in IEEE-754 instead produce exploded states in SPIRIX, again maintaining phase information and preserving the property that products of finite values remain finite.}
+
+\newpage
+\ppara{The Division Operation Truth Table in FIG. \ref{fig:division_table} illustrates division behavior for all Circle and Scalar states. The table shows how division by zero produces infinity for non-zero numerators, while division of zero by any non-zero value produces zero. This implements the mathematical principle that division of zero produces zero, and division by zero produces infinity when the numerator is non-zero. The singular case of zero divided by zero remains properly undefined rather than producing a quiet or signaling NaN as in IEEE-754.}
+
+\ppara{Division operations between escaped values (exploded and vanished) follow Riemann principles, with vanished divided by exploded producing vanished, and exploded divided by vanished producing exploded. This behavior eliminates many special cases that would otherwise require explicit handling in numerical applications.}
+
+\ppara{The system implements special cases for operations involving zero and infinity. The rules enforce that $0 \times \infty$ produces an undefined result with a specific bit pattern indicating the cause. Similarly, $\infty + \infty$ and $\infty - \infty$ produce distinct undefined results. These undefined values provide error cause tracing that is absent in IEEE-754's collapsed NaN representation, enabling more effective debugging of numerical algorithm issues.}
+
+\ppara{FIG. \ref{fig:spirix_ordering} presents the SPIRIX Scalar number line and comparison ordering, illustrating the continuous nature of the two's complement representation. This figure illustrates how normal, vanished, and exploded values maintain a consistent ordering relationship with a singular zero, while infinity and undefined states remain incomparable.}
+
+\subsection*{IEEE-754 vs. SPIRIX Implementation Complexity}
+
+\ppara{The fundamental differences in representation approach between IEEE-754 and the invention result in significant implementation differences, particularly in terms of complexity and instruction count.}
+
+\ppara{FIG. \ref{fig:ieee_subtract_flowchart} illustrates the control flow for IEEE-754 subtraction. The flowchart reveals numerous branching paths needed to handle different sign combinations, exponent comparisons, and special value considerations.}
+
+\newpage
+\ppara{In contrast, FIG. \ref{fig:scalar_subtract_flowchart} demonstrates the control flow for Scalar subtraction. The diagram shows two primary paths: one for normal values and one for ambiguous values, with the normal path aligning and subtracting fractions, then checking and updating the exponent without denormal, sign, exponent bias or implied one steps. Note how addition and subtraction only need to check for underflow. Overflow is naturally handled by the placement of the ambiguous exponent where the largest magnitude wraps around to our ambiguous value.}
+
+\ppara{The assembly instruction trace for IEEE-754 Binary32 subtraction in FIG. \ref{fig:ieee_subtract} further highlights the implementation complexity of IEEE-754 floating-point operations. The trace reveals approximately 192 machine instructions with complicated branching even for this normal case. This trace has 7 function calls, 6 unconditional jumps, 10 conditional jumps, and 7 returns, creating potential pipeline stalls and prediction failures in modern processors.}
+
+\ppara{FIG. \ref{fig:scalar_subtract} presents the assembly implementation of Scalar subtraction using the invention's two's complement method. The assembly instructions demonstrate how most normal cases can be completed in 33 instructions. All normal Scalar subtraction cases resulting in normal, vanished, exploded or zero states are handled in 49 total instructions, with most normal cases completing without any jumps.}
+
+\subsection*{Appendix A: IEEE-754 Complex Division ASM Trace}
+
+\ppara{\textbf{Appendix A} provides the full assembly instruction trace for a normal complex number division operation returning a normal complex number using the IEEE-754 Binary32 format. This trace illustrates the complexity of complex arithmetic in conventional floating-point systems. The trace captures each instruction executed during the complex division operation. Note how components are not aligned, thus requiring individual component operations to perform the operation.}
+
+\ppara{The instruction trace in \textbf{Appendix A} consists of 2,199 total assembly instructions for division with a normal numerator and normal denominator resulting in a normal quotient. Of these instructions, 165 are conditional jumps that create decision points in the execution path, 82 are function calls to various subroutines, and 83 are return instructions.}
+
+\newpage
+\ppara{This implementation complexity stems from several architectural characteristics of IEEE-754. First, the sign-magnitude representation necessitates explicit sign bit tests and different execution paths for each sign combination. Second, each component of a complex number (real and imaginary parts) must be processed independently, without any shared representation or processing mechanism. Third, special values such as signed zeros and signed infinities require explicit detection and dedicated handling routines. These characteristics combine to create a multiplicative effect on instruction count when implementing operations like complex division.}
+
+\subsection*{SPIRIX Circle Complex Division ASM implementation}
+
+\ppara{The invention's approach to complex arithmetic represents an advancement over traditional methods, particularly in terms of implementation efficiency.}
+
+\ppara{FIG. \ref{fig:circle_divide} presents the complete assembly implementation for complex number division for all cases using the F5E4 Circle type (32-bit fractions, 16-bit exponent). This implementation demonstrates how normal floating-point complex division can be handled in 63 instructions, while handling of all cases requires 169 instructions.}
+
+\ppara{The shared exponent aligns the real and imaginary components to maintain relative scaling thruout operations, simplifying implementation while preserving mathematical consistency. This approach is particularly beneficial for applications involving extensive complex arithmetic, such as signal processing, electrical engineering, and quantum computing simulations.}
+
+\subsection*{Bitwise Operations on Floating-Point Values}
+
+\ppara{A unique innovation in the invention is its implementation of mathematically meaningful bitwise operations directly on floating-point values, a capability completely absent in traditional floating-point standards.}
+
+\ppara{As illustrated in FIG. \ref{fig:scalar_bitwise_example}, the invention enables direct bitwise operations on Scalar values while preserving numerical meaning. The example demonstrates a bitwise AND operation between two Scalar values, showing how the system first aligns the binary representations based on their exponents, then performs the bitwise operation on the aligned values. The result maintains a mathematically meaningful relationship to the inputs, unlike traditional implementations where bitwise operations on floating-point numbers are implemented thru type conversion to integers and back.}
+
+\ppara{FIG. \ref{fig:scalar_bitwise_signs} demonstrates how bitwise operations in the invention respect two's complement properties when handling signed values. The examples of AND, OR, XOR, and NOT operations with positive and negative operands highlight how sign information naturally propagates thru bitwise operations. This consistent behavior extends across normal values, escaped values (exploded and vanished), and all other numeric states within the system, maintaining mathematical coherence wherever possible.}
+
+\ppara{The implementation of bit shift operations as checked exponent adjustments, shown in FIG. \ref{fig:scalar_shifts}, further illustrates the invention's mathematically consistent approach to bitwise operations. Rather than directly manipulating values, shift operations are implemented as exponent adjustments, preserving the mathematical interpretation of shifts as multiplication or division by powers of two. This approach ensures that shifts maintain mathematical coherence, including with escaped values, while eliminating the complexity and potential for errors that can occur with direct bit manipulation.}
+
+\subsection*{Subtractive and Multiplicative Consistency Without Denormals}
+
+\ppara{A significant innovation in the invention is how it maintains mathematical consistency and subtractive equality properties without requiring denormal numbers. In IEEE-754, denormal numbers were primarily introduced to address a specific edge case: maintaining the mathematical property that $x = y$ if and only if $x - y = 0$. Without denormals, IEEE-754 encounters situations where two distinct representable numbers subtract to produce zero because their difference would be too small to represent as a normalized number and truncated to zero, potentially causing unexpected behavior in algorithms that rely on this mathematical property.}
+
+\ppara{The invention's two's complement representation with the "vanished" state solves this problem using a different mechanism. When a value becomes too small for normal representation, it transitions to a vanished state. Unlike IEEE-754 denormals, which represent tiny values with reduced precision, the invention's vanished values represent a categorical state of "too small to represent normally." This approach maintains the critical property that equal values always have a zero difference, while eliminating the implementation complexity and performance penalties associated with denormal handling.}
+
+\newpage
+\ppara{Consider two values $a$ and $b$ that are very close but not identical. Their difference $a - b$ will either be a normal value (if the difference is representable) or a vanished value (if the difference is too small for normal representation). In either case, the difference will be non-zero, preserving the property that $a = b$ if and only if $a - b = 0$. Significantly, this holds true without requiring the extensive special handling that denormals introduce.}
+
+\ppara{The invention also improves mathematical consistency in multiplicative and reciprocal operations beyond normal ranges. Unlike IEEE-754, which allows products of non-zero values to become zero when they underflow, the invention guarantees that the product of any two non-zero values always produces a non-zero result, preserving fundamental mathematical principles. Similarly, reciprocal operations maintain mathematical coherence: $nonzero$ / 0 produces an infinite result with a specific bit pattern, while 1 / $vanished$ produces an exploded result with the appropriate sign.}
+
+\subsection*{Simplified Rounding}
+
+\ppara{The invention dramatically simplifies rounding compared to IEEE-754 due to its continuous number line and consistent two's complement representation. The system's use of double-wide fractions during intermediate calculations provides ample residual bits for precise rounding decisions.}
+
+\ppara{All standard rounding modes become straightforward to implement: Round down (truncation) simply discards residual bits after calculation. Round up adds 1 to the lowest retained bit if any residual bits are non-zero, working naturally for both positive and negative numbers due to the continuous nature of the number line. Round to nearest adds 1 to the lowest retained bit if the high residual bit is a 1 and ties to even utilizes the LSB. Rounding, which requires sign-dependent logic in IEEE-754, becomes a straightforward sign agnostic operation in SPIRIX without needing to mathematically flip the entire number line based on the sign of the value.}
+
+\ppara{Unlike IEEE-754, which requires complex logic for handling sign bits and special values during rounding, SPIRIX's continuous number line ensures rounding maintains mathematical consistency across the numeric spectrum, including the zero boundary. The contiguous representation from minimum to maximum eliminates separate rounding paths based on sign, significantly reducing implementation complexity and making corner cases like signed zeros unnecessary.}
+
+\ppara{With SPIRIX's continuous representation, rounding simply involves examining residual bits and potentially making a single adjustment to the fraction.}
+\newpage
+
+\section{TECHNICAL ADVANTAGES}
+
+\ppara{The invention provides several significant technical advantages over traditional floating-point implementations:}
+
+\ppara{- \textbf{Simplified computational architecture:} The elimination of separate sign bit handling and extensive special case branching results in faster, smaller and more efficient floating point hardware implementations. The architectural simplification reduces the complexity of branch prediction logic and speculative execution mechanisms in processor pipelines.}
+
+\ppara{- \textbf{Enhanced power efficiency:} The substantial reduction in conditional branches and calculation pipeline stages significantly decreases power consumption per operation. This technical improvement enables more energy-efficient computation, particularly beneficial in performance critical environments such as mobile devices, embedded systems, and high-density computing clusters.}
+
+\ppara{- \textbf{Instruction path optimization:} The dramatic reduction in instruction count for numerical operations (demonstrated by the 34:1 ratio improvement for complex division) represents a significant advancement in computational efficiency. This technical enhancement is particularly evident in instruction-limited domains such as scientific computing, signal processing, and machine learning, where it enables complex algorithms to execute within available computational constraints.}
+
+\ppara{- \textbf{Error state preservation:} The system's approach to undefined states provides tracing of error conditions thru preserved operation causes, enabling more effective error isolation and debugging. This technical capability eliminates the information loss inherent in IEEE-754's single NaN representation, allowing for automated identification of specific numerical failure modes.}
+
+\ppara{- \textbf{Parameterized numerical representation:} The invention's parameterized design with independent fraction and exponent sizing provides a flexible framework that can be precisely tuned to application requirements. This allows for technical optimization across different use cases without requiring separate implementations, enabling a single codebase to adapt to diverse precision and range requirements.}
+
+\newpage
+\ppara{- \textbf{Mathematical identity preservation:} The invention's approach to representing singularities such as zero and infinity preserves fundamental mathematical properties that IEEE-754 compromises. While IEEE-754 maintains the identity that $a$-$b$=0 if and only if $a$=$b$ thru denormal numbers, this invention achieves the same mathematical property without the complex denormalization mechanisms that impact performance. More significantly, the system preserves critical multiplicative and reciprocal identities by ensuring that non-zero values multiplied together never produce zero (underflow produces vanished states that maintain phase information), finite values multiplied together never inappropriately produce infinity, and operations maintain consistent behavior with zero and infinity. This mathematical coherence represents a technical advancement that enables more reliable numerical algorithms with fewer computational artifacts and more predictable behavior across the entire numeric space.}
+\newpage
+
+\section{IMPLEMENTATION EMBODIMENTS}
+
+\ppara{The invention described herein can be realized across diverse computational platforms and embodiments, as the core principles of two's complement floating-point arithmetic transcend specific implementation technologies. While the examples provided use Rust programming language and x86-64 assembly language for illustration, the invention is fundamentally language-agnostic and architecture-independent.}
+
+\ppara{Software embodiments can leverage standard integer operations available in virtually any programming language or computing environment. Library implementations may employ generics or templates to parameterize the fraction and exponent sizes, enabling application-specific tuning of precision and range characteristics. The following implementation approaches are possible:}
+
+\ppara{- General-purpose processor implementations can leverage native integer operations and SIMD (Single Instruction, Multiple Data) parallelism. The consistent branching patterns and uniform operations across all numerical states make the invention particularly well-suited for modern superscalar processors with branch prediction capabilities.}
+
+\ppara{- Hardware implementations can achieve significant efficiency improvements thru specialized circuit designs. These may include:
+\begin{itemize}
+\item Simplified arithmetic logic units (ALUs) that eliminate sign-handling circuitry
+\item Dedicated normalization components for left aligned two's complement representations
+\item Specialized complex arithmetic accelerators that capitalize on the shared exponent
+\end{itemize}}
+
+\ppara{- FPGA implementations can realize the invention thru configurable logic blocks that directly implement the binary operations described herein. The reduced branching complexity translates to simpler state machines and more efficient resource utilization compared to traditional floating point representations.}
+
+\ppara{- GPU implementations can exploit the parallel architecture to perform high-thruput floating-point operations. The uniform computational flow across different numerical states aligns well with the SIMT (Single Instruction, Multiple Thread) execution model of modern graphics processors.}
+
+\ppara{The reference implementation provided in assembly language and Rust demonstrates the practical realization of these concepts, but should be understood as merely exemplary rather than limiting. Any computational device capable of integer arithmetic can implement this invention, from embedded microcontrollers to high-performance computing clusters, with appropriate adaptations to the specific constraints and capabilities of the target platform.}
+
+\ppara{Future implementations might incorporate domain-specific extensions such as:
+\begin{itemize}
+\item Specialized transcendental function units optimized for two's compliment
+\item Adaptive precision mechanisms that dynamically adjust fraction and exponent sizes
+\item Hybrid number systems that combine aspects of this invention with other approaches to floating-point representation
+\end{itemize}}
+
+\subsection*{CONCLUSION}
+
+\ppara{The invention represents a significant advancement in floating-point arithmetic, addressing many of the longstanding limitations of IEEE-754 while providing new capabilities for numerical computation. By leveraging the natural properties of two's complement arithmetic and applying them consistently thruout the calculation pipeline, the invention achieves simplified implementation, error tracking, mathematical continuity, configurable precision, and unified complex arithmetic.}
+
+\ppara{These advantages make the invention particularly well-suited for applications in scientific computing, machine learning, signal processing, graphics, and other domains where floating point computation forms a core component. The described technology enables both improved performance and reduced development complexity for numerical integration across a wide range of computing platforms.}
+
+\ppara{The modular design and mathematical foundations provide a solid basis for future extensions and adaptations while maintaining backward compatibility with existing implementations. As computing continues to evolve toward more specialized architectures and domain-specific accelerators, the principles described in this invention offer a solid framework for consistent, efficient numerical representation across heterogeneous computing environments.}
+\newpage
+
+
+\begin{thebibliography}{}
+
+\bibitem{IEEE754-1985} IEEE 754-1985. ``IEEE Standard for Binary Floating-Point Arithmetic.'' Institute of Electrical and Electronics Engineers, 1985.
+
+\bibitem{IEEE754-2019} IEEE 754-2019. ``IEEE Standard for Floating-Point Arithmetic.'' Institute of Electrical and Electronics Engineers, 2019.
+
+\bibitem{Goldberg1991} Goldberg, David. ``What Every Computer Scientist Should Know About Floating-Point Arithmetic.'' ACM Computing Surveys, Vol. 23, No. 1, March 1991.
+
+\bibitem{Kahan1997} Kahan, William. ``IEEE Standard 754 for Binary Floating-Point Arithmetic.'' Lecture Notes on the Status of IEEE Standard 754, 1997.
+
+\bibitem{Gustafson2015} Gustafson, John L. ``The End of Error: Unum Computing.'' Taylor \& Francis, 2015.
+
+\bibitem{Gustafson2017} Gustafson, John L. ``Beating Floating Point at its Own Game: Posit Arithmetic.'' South Ural State University, 2017.
+
+\end{thebibliography}
+\newpage
+
+\newcounter{claimcounter}
+\newcommand{\claim}[2]{
+\stepcounter{claimcounter}
+\textbf{Claim \arabic{claimcounter}.} #2\par
+\vspace{0.5em}
+}
+
+\section{CLAIMS}
+
+\begin{enumerate}
+    \item A floating-point arithmetic system for representing and processing numerical values, comprising:
+        \begin{enumerate}
+            \item a processor; and
+            \item a memory storing instructions which, when executed by the processor, implement a floating-point arithmetic system that:
+                \begin{enumerate}
+                    \item represents floating-point values using two's complement fractions and unbiased two's complement exponents;
+                    \item utilizes a single reserved exponent value (the ambiguous exponent) to identify all values outside normal representation;
+                    \item encodes multiple distinct non-normal states at the ambiguous exponent, differentiated by normalization level of the fraction component, including:
+                        \begin{enumerate}
+                            \item exploded values with N-1 normalization (patterns 01... or 10...) representing values that have exceeded maximum representable magnitude while preserving sign;
+                            \item vanished values with N-2 normalization (patterns 001... or 110...) representing values that have fallen below minimum representable magnitude while preserving sign;
+                            \item zero represented by all zeros in the fraction;
+                            \item infinity represented by all ones in the fraction; and
+                            \item undefined states with N-3 or deeper normalization, encoding the specific cause of the undefined result;
+                        \end{enumerate}
+                    \item performs arithmetic operations directly on the two's complement fractions, transitioning results to the appropriate non-normal state when overflow or underflow occurs rather than truncating to infinity or zero.
+                \end{enumerate}
+        \end{enumerate}
+
+\newpage
+    \item The system of claim 1, wherein the multi-state ambiguous exponent encoding preserves mathematical identities that are violated by systems which truncate overflow to infinity or underflow to zero, including:
+        \begin{enumerate}
+            \item the subtractive identity: $a - b = 0$ if and only if $a = b$, maintained by transitioning underflow results to vanished states rather than zero;
+            \item the multiplicative identity: $a \times b = 0$ if and only if $a = 0$ or $b = 0$, maintained by transitioning underflow products to vanished states rather than zero; and
+            \item finite closure: $a + b \neq \infty$ and $a \times b \neq \infty$ for finite $a$ and $b$, maintained by transitioning overflow results to exploded states rather than infinity.
+        \end{enumerate}
+
+    \item The system of claim 1, wherein operations on exploded and vanished values follow defined rules that extend arithmetic beyond the normal representable range:
+        \begin{enumerate}
+            \item absolute operations (multiplication, division) on exploded values produce exploded results with appropriate sign, maintaining that exploded values approach but are not equal to infinity;
+            \item absolute operations on vanished values produce vanished results with appropriate sign, maintaining that vanished values approach but are not equal to zero;
+            \item relative operations (addition, subtraction) between normal values and exploded values produce exploded results; and
+            \item relative operations between normal values and vanished values produce the normal value, as the vanished operand is negligible.
+        \end{enumerate}
+
+    \item The system of claim 1, wherein undefined states encode the specific cause of the invalid operation thru hierarchically organized normalization levels:
+        \begin{enumerate}
+            \item N-3 normalization patterns for basic arithmetic undefined operations (0/0, $\infty - \infty$, $0 \times \infty$);
+            \item N-4 normalization patterns for power and root undefined operations;
+            \item N-5 normalization patterns for logarithm undefined operations;
+            \item N-6 normalization patterns for trigonometric undefined operations; and
+            \item the original undefined bit pattern is preserved thru subsequent operations, maintaining traceability to the first operation that produced the undefined result.
+        \end{enumerate}
+\newpage
+
+    \item A method for processing floating-point values in a computing system, comprising:
+        \begin{enumerate}
+            \item representing floating-point values using two's complement fractions and unbiased two's complement exponents;
+            \item designating a single reserved exponent value as the ambiguous exponent;
+            \item encoding multiple distinct non-normal states at the ambiguous exponent by utilizing the normalization level of the fraction component to differentiate between:
+                \begin{enumerate}
+                    \item exploded values (N-1 normalization) for magnitude overflow;
+                    \item vanished values (N-2 normalization) for magnitude underflow;
+                    \item zero (all-zeros fraction);
+                    \item infinity (all-ones fraction); and
+                    \item undefined results (N-3 or deeper normalization) with cause-specific bit patterns;
+                \end{enumerate}
+            \item performing arithmetic operations directly on the two's complement fractions without separate sign bit decomposition; and
+            \item transitioning results to the appropriate non-normal state when overflow or underflow occurs, thereby preserving sign information and maintaining mathematical identities across the entire numerical range.
+        \end{enumerate}
+
+    \item The method of claim 5, wherein the exploded and vanished states eliminate the need for denormalized numbers by:
+        \begin{enumerate}
+            \item maintaining $a - b = 0$ if and only if $a = b$ without gradual underflow, because values below minimum normal magnitude transition to vanished states that are distinct from zero; and
+            \item maintaining $a \times b = 0$ if and only if $a = 0$ or $b = 0$, because underflow products transition to vanished states rather than being flushed to zero.
+        \end{enumerate}
+
+\newpage
+    \item The method of claim 5, wherein numerical operations require fewer conditional branches than equivalent operations using separate sign bit representation, as demonstrated by:
+        \begin{enumerate}
+            \item performing scalar subtraction in approximately 33 instructions for normal cases compared to approximately 200 instructions in IEEE-754 implementations;
+            \item implementing jumpless complex division in exactly 63 instructions for normal cases compared to 165 conditional jumps and 2,199 instructions in IEEE-754 implementations; and
+            \item reducing conditional jumps from more than 100 to fewer than 10 for average complex arithmetic operations.
+        \end{enumerate}
+    
+    \item A system for complex number processing, comprising:
+        \begin{enumerate}
+            \item a processor; and
+            \item a memory storing instructions which, when executed by the processor, implement:
+                \begin{enumerate}
+                    \item a complex number representation that uses:
+                        \begin{enumerate}
+                            \item real and imaginary components as two's complement fractions;
+                            \item a shared exponent that ensures both components maintain relative magnitudes;
+                            \item the multi-state ambiguous exponent encoding of claim 1 to encode normal, exploded, vanished, zero, infinite, and undefined states for the complex value;
+                        \end{enumerate}
+                    \item arithmetic operations that maintain mathematical consistency across the entire complex plane, including:
+                        \begin{enumerate}
+                            \item performing complex division with 1 reciprocal and 6 multiplications;
+                            \item encoding complex infinity thru a specific bit pattern;
+                            \item preserving angular information when complex values exceed normal representation range;
+                        \end{enumerate}
+                    \item a unified normalization process that simultaneously adjusts both real and imaginary components based on the highest normalization level in either component.
+                \end{enumerate}
+        \end{enumerate}
+
+\newpage
+    \item The system of claim 8, wherein the complex number representation implements efficient complex arithmetic operations by:
+        \begin{enumerate}
+            \item using a shared exponent to align real and imaginary components, eliminating the need for separate normalization and exponent of each component;
+            \item applying normalization shifts to both real and imaginary components simultaneously; and
+            \item providing distinct remainder operations: mathematical modulus based on complex division semantics and component-wise modulo that performs independent modulo on each component.
+        \end{enumerate}
+
+    \item An arithmetic system with a unified mechanism for handling special values at a single reserved exponent, comprising:
+        \begin{enumerate}
+            \item a processor; and
+            \item a memory storing instructions which, when executed by the processor, implement:
+                \begin{enumerate}
+                    \item a representation where zero and infinity are singular points with specific bit patterns at a single reserved exponent value:
+                        \begin{enumerate}
+                            \item Zero represented by all zeros in the fraction with the reserved exponent value;
+                            \item Infinity represented by all ones in the fraction with the reserved exponent value;
+                        \end{enumerate}
+                    \item exploded and vanished states at the same reserved exponent, differentiated from zero and infinity by normalization level, providing graceful overflow and underflow that preserves sign information;
+                    \item operations that maintain fundamental mathematical identities for these special values:
+                        \begin{enumerate}
+                            \item non-zero value divided by Zero produces Infinity;
+                            \item Zero divided by non-zero value produces Zero;
+                            \item non-zero value multiplied by Infinity produces Infinity;
+                            \item Infinity multiplied by Zero produces an undefined state with a specific bit pattern;
+                        \end{enumerate}
+                    \item specific undefined states for indeterminate forms like Zero/Zero and Infinity$-$Infinity, each with distinct bit patterns at the same reserved exponent that preserve the cause of the undefined result.
+                \end{enumerate}
+        \end{enumerate}
+
+    \item A method for implementing bitwise operations directly on floating-point values in a two's complement floating-point arithmetic system, comprising:
+        \begin{enumerate}
+            \item aligning operands by exponent adjustment to ensure bits of equivalent mathematical significance are paired, including:
+                \begin{enumerate}
+                    \item expanding fractions to double-wide representation;
+                    \item shifting the fraction with the smaller exponent by the exponent difference;
+                    \item maintaining two's complement sign properties during alignment;
+                \end{enumerate}
+            \item applying bitwise logic operations to the aligned fractions while preserving two's complement properties, thereby maintaining proper sign propagation; and
+            \item implementing bit shift operations as exponent adjustments rather than direct bit manipulation:
+                \begin{enumerate}
+                    \item implementing left shift as an increase to the exponent by the shift amount;
+                    \item implementing right shift as a decrease to the exponent by the shift amount;
+                    \item transitioning to exploded or vanished states when shift operations would exceed the representable range.
+                \end{enumerate}
+        \end{enumerate}
+
+    \item The method of claim 11, wherein aligning operands by exponent ensures that the bitwise operations produce mathematically meaningful results by:
+        \begin{enumerate}
+            \item ensuring corresponding bits represent values of equivalent mathematical significance before applying bitwise operations; and
+            \item maintaining proper two's complement semantics for both positive and negative values during bitwise operations.
+        \end{enumerate}
+
+\newpage
+    \item A system for maintaining mathematical identities in floating-point operations, comprising:
+        \begin{enumerate}
+            \item a processor; and
+            \item a memory storing instructions which, when executed by the processor, implement:
+                \begin{enumerate}
+                    \item a representation mechanism that:
+                        \begin{enumerate}
+                            \item encodes different numerical states using specific normalization levels in two's complement fractions;
+                            \item uses a single reserved exponent value to identify values outside normal representation;
+                            \item distinguishes zero from vanished values and infinity from exploded values thru distinct normalization-level bit patterns at the same reserved exponent;
+                        \end{enumerate}
+                    \item arithmetic operations that:
+                        \begin{enumerate}
+                            \item align fractions by checked exponent adjustment when performing addition or subtraction, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring $a - b = 0$ if and only if $a = b$, and $MAX + MAX \neq \infty$;
+                            \item multiply fractions while adding exponents, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring $a \times b = 0$ if and only if $a = 0$ or $b = 0$, and $MAX \times MAX \neq \infty$;
+                            \item divide fractions while subtracting exponents, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring non-zero $\div$ non-zero never produces zero or infinity, non-zero $\div$ 0 produces infinity, and 0 $\div$ non-zero produces zero;
+                        \end{enumerate}
+                    \item state transition mechanisms that:
+                        \begin{enumerate}
+                            \item transition to N-1 normalized exploded states when exceeding maximum representable magnitude;
+                            \item transition to N-2 normalized vanished states when falling below minimum representable magnitude;
+                            \item preserve sign/orientation information in the most significant bits during transitions.
+                        \end{enumerate}
+                \end{enumerate}
+        \end{enumerate}
+\end{enumerate}
+
+\newpage
+
+\begin{lstlisting}[caption={IEEE-754 Sign-Magnitude Representation}, label={fig:ieee_number_line}]
+\end{lstlisting}
+\begin{center}
+    \includegraphics[width=0.7\textwidth]{Number line.pdf}
+\end{center}
+
+\begin{lstlisting}[caption={Two's Complement Representation}, label={fig:spirix_number_line}]
+\end{lstlisting}
+\begin{center}
+\begin{minipage}{0.49\textwidth}
+  \centering
+  \begin{adjustbox}{valign=t,width=\linewidth}
+  \includegraphics[page=2]{Number line.pdf}
+  \end{adjustbox}
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+  \centering
+  \begin{adjustbox}{valign=t,width=\linewidth}
+  \includegraphics[page=3]{Number line.pdf}
+  \end{adjustbox}
+\end{minipage}
+\end{center}
+
+\newpage
+
+\begin{lstlisting}[style=rust, caption={Scalar Type Definition in Rust}, label={fig:scalar_structure}]
+pub struct Scalar<F: Integer, E: Integer> {
+	/// The normalized fraction component representing the significand.
+	/// The fraction size determines the precision of the value.
+	/// The N (prefix bit) pattern determines the number's state
+	/// (normal, exploded, vanished, Zero or undefined/unimplemented).
+	pub fraction: F,
+
+	/// The exponent component determining the scale of the value/phase.
+	/// The exponent size determines the range of the value/phase.
+	/// When equal to AMBIGUOUS_EXPONENT, indicates an escaped phase
+	/// (exploded, vanished, undefined/unimplemented or Zero).
+	pub exponent: E,
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=rust, caption={Circle Type Definition in Rust}, label={fig:circle_structure}]
+pub struct Circle<F: Integer, E: Integer> {
+	/// The real phase representing the real part of the complex number.
+	/// The normalization level of this component indicates current state
+	/// (normal, exploded, vanished, undefined/unimplemented, Zero).
+	pub real: F,
+
+	/// The imaginary component representing the phase of i.
+	/// The normalization level of this component indicates current state
+	/// (normal, exploded, vanished, undefined/unimplemented, Zero).
+	pub imaginary: F,
+
+	/// The shared exponent component determining the scale of both phases.
+	/// When equal to AMBIGUOUS_EXPONENT, indicates an escaped phase
+	/// (exploded, vanished, undefined or Zero).
+	pub exponent: E,
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=rust, caption={Where fraction: F and exponent: E are any sized integer}, label={fig:integer}]
+impl Integer for i8 {}
+impl Integer for i16 {}
+impl Integer for i32 {}
+impl Integer for i64 {}
+impl Integer for i128 {}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={FE Type Configurations - Precision vs. Range}, label={fig:spirix_configurations}]
+\end{lstlisting}
+\begin{table}[ht]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\multirow{2}{*}{\textbf{Range}} & \multicolumn{5}{c|}{\textbf{Precision (Fraction Bits)}} \\
+\cline{2-6}
+ & \textbf{F3} & \textbf{F4} & \textbf{F5} & \textbf{F6} & \textbf{F7} \\
+ & \small{2.1 digits} & \small{4.5 digits} & \small{9.3 digits} & \small{18.9 digits} & \small{38.2 digits} \\
+\hline
+\textbf{E3} & F3E3 & F4E3 & F5E3 & F6E3 & F7E3 \\
+\small{$\approx 10\^{}38.5$} & \small{$\langle$i8, i8$\rangle$} & \small{$\langle$i16, i8$\rangle$} & \small{$\langle$i32, i8$\rangle$} & \small{$\langle$i64, i8$\rangle$} & \small{$\langle$i128, i8$\rangle$} \\
+\hline
+\textbf{E4} & F3E4 & F4E4 & F5E4 & F6E4 & F7E4 \\
+\small{$\approx 10\^{}9860$} & \small{$\langle$i8, i16$\rangle$} & \small{$\langle$i16, i16$\rangle$} & \small{$\langle$i32, i16$\rangle$} & \small{$\langle$i64, i16$\rangle$} & \small{$\langle$i128, i16$\rangle$} \\
+\hline
+\textbf{E5} & F3E5 & F4E5 & F5E5 & F6E5 & F7E5 \\
+\small{$\approx 10\^{}(10\^{}8.81)$} & \small{$\langle$i8, i32$\rangle$} & \small{$\langle$i16, i32$\rangle$} & \small{$\langle$i32, i32$\rangle$} & \small{$\langle$i64, i32$\rangle$} & \small{$\langle$i128, i32$\rangle$} \\
+\hline
+\textbf{E6} & F3E6 & F4E6 & F5E6 & F6E6 & F7E6 \\
+\small{$\approx 10\^{}(10\^{}18.4)$} & \small{$\langle$i8, i64$\rangle$} & \small{$\langle$i16, i64$\rangle$} & \small{$\langle$i32, i64$\rangle$} & \small{$\langle$i64, i64$\rangle$} & \small{$\langle$i128, i64$\rangle$} \\
+\hline
+\textbf{E7} & F3E7 & F4E7 & F5E7 & F6E7 & F7E7 \\
+\small{$\approx 10\^{}(10\^{}37.7)$} & \small{$\langle$i8, i128$\rangle$} & \small{$\langle$i16, i128$\rangle$} & \small{$\langle$i32, i128$\rangle$} & \small{$\langle$i64, i128$\rangle$} & \small{$\langle$i128, i128$\rangle$} \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{lstlisting}[caption={Normalization Levels and Bit Patterns}, label={fig:normalization_levels}]
+\end{lstlisting}
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    scale=0.65,
+    every node/.style={font=\footnotesize},
+    bit/.style={minimum width=0.4cm, minimum height=0.4cm, draw, anchor=center},
+    highlight/.style={fill=black, text=white},
+    empty/.style={fill=white},
+    ]
+    
+    % Title
+    \node at (4, 9.5) {\normalsize Two's Complement Fraction Representation};
+    
+    % Bit position markers
+    \node[align=right] at (-2, 8.7) {Bit position:};
+    \foreach \i in {0,...,7} {
+        \node at (\i*0.45+1, 8.7) {\tiny \i};
+    }
+    
+    % N-0: Zero and general undefined
+    \node[align=right, anchor=east] at (0, 7.5) {N-0: Zero and\\general undefined};
+    
+    % Zero pattern
+    \foreach \i in {0,...,7} {
+        \node[bit, empty, scale=0.8] at (\i*0.45+1, 8) {};
+    }
+    \node[align=left, anchor=west] at (5, 8) {Zero [0]};
+    
+    % Undefined pattern
+    \foreach \i in {0,...,7} {
+        \node[bit, highlight, scale=0.8] at (\i*0.45+1, 7.2) {};
+    }
+    \node[align=left, anchor=west] at (5, 7.2) {General undefined [$\wp$]};
+    
+    % N-1: Normal and exploded values
+    \node[align=right, anchor=east] at (0, 5.5) {N-1: Normal and\\exploded values};
+    
+    % Positive normal/exploded pattern
+    \node[bit, empty, scale=0.8] at (1, 6) {};
+    \node[bit, highlight, scale=0.8] at (1.45, 6) {};
+    \foreach \i in {2,...,7} {
+        \node[bit, scale=0.8] at (\i*0.45+1, 6) {\tiny?};
+    }
+    \node[align=left, anchor=west] at (5, 6) {Normal/exploded positive};
+    
+    % Negative normal/exploded pattern
+    \node[bit, highlight, scale=0.8] at (1, 5.2) {};
+    \node[bit, empty, scale=0.8] at (1.45, 5.2) {};
+    \foreach \i in {2,...,7} {
+        \node[bit, scale=0.8] at (\i*0.45+1, 5.2) {\tiny?};
+    }
+    \node[align=left, anchor=west] at (5, 5.2) {Normal/exploded negative};
+    
+    % N-2: Vanishing values
+    \node[align=right, anchor=east] at (0, 3.65) {N-2: Vanishing\\values};
+    
+    % Positive vanished pattern
+    \node[bit, empty, scale=0.8] at (1, 4) {};
+    \node[bit, empty, scale=0.8] at (1.45, 4) {};
+    \node[bit, highlight, scale=0.8] at (1.9, 4) {};
+    \foreach \i in {3,...,7} {
+        \node[bit, scale=0.8] at (\i*0.45+1, 4) {\tiny?};
+    }
+    \node[align=left, anchor=west] at (5, 4) {Vanished positive [$\downarrow$+]};
+    
+    % Negative vanished pattern
+    \node[bit, highlight, scale=0.8] at (1, 3.2) {};
+    \node[bit, highlight, scale=0.8] at (1.45, 3.2) {};
+    \node[bit, empty, scale=0.8] at (1.9, 3.2) {};
+    \foreach \i in {3,...,7} {
+        \node[bit, scale=0.8] at (\i*0.45+1, 3.2) {\tiny?};
+    }
+    \node[align=left, anchor=west] at (5, 3.2) {Vanished negative [$\downarrow$-]};
+    
+    % N-3+: Specific undefined states
+    \node[align=right, anchor=east] at (0, 1.75) {N-3+ and up:\\Undefined states};
+    
+    % Positive undefined patterns
+    \node[bit, empty, scale=0.8] at (1, 2) {};
+    \node[bit, empty, scale=0.8] at (1.45, 2) {};
+    \node[bit, empty, scale=0.8] at (1.9, 2) {};
+    \foreach \i in {3,...,7} {
+        \node[bit, scale=0.8] at (\i*0.45+1, 2) {\tiny?};
+    }
+    \node[align=left, anchor=west] at (5, 2) {Undefined positive states};
+    
+    % Negative undefined patterns
+    \node[bit, highlight, scale=0.8] at (1, 1.2) {};
+    \node[bit, highlight, scale=0.8] at (1.45, 1.2) {};
+    \node[bit, highlight, scale=0.8] at (1.9, 1.2) {};
+    \foreach \i in {3,...,7} {
+        \node[bit, scale=0.8] at (\i*0.45+1, 1.2) {\tiny?};
+    }
+    \node[align=left, anchor=west] at (5, 1.2) {Undefined negative states};
+    
+    \draw [thick] (0.7,8.2) -- (0.7,1);
+    \draw [thick] (0.7,4.6) -- (-4.5,4.6);
+    \node [align=right, anchor=east] at (-5, 4.6) {Normalized\\bit patterns\\Left-aligned};
+    
+    % Legend
+    \node at (0, 0.2) {Legend:};
+    \node[bit, empty, scale=0.8] at (1.5, 0.2) {};
+    \node at (2.25, 0.2) {= 0};
+    \node[bit, highlight, scale=0.8] at (3.5, 0.2) {};
+    \node at (4.25, 0.2) {= 1};
+    \node[bit, scale=0.8] at (5.5, 0.2) {\tiny?};
+    \node at (7, 0.2) {= variable};
+    
+\end{tikzpicture}
+\end{figure}
+
+\newpage
+
+\begin{lstlisting}[style=rust, caption={Excerpt of Undefined State Definitions in Rust}, label={fig:undefined}]
+// L3 Basic operators
+/// ¡$\square\square\square\blacksquare\blacksquare\blacksquare\blacksquare\blacksquare$¡
+pub const EXPLODED_PLUS_EXPLODED: Undefined = Undefined {
+	prefix: 0b00011111u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\uparrow$¡+¡$\uparrow$¡",
+	description: "Exploded value addition with exploded value",
+};
+/// ¡$\blacksquare\blacksquare\blacksquare\square\square\square\square\square$¡
+pub const EXPLODED_MINUS_EXPLODED: Undefined = Undefined {
+	prefix: 0b11100000u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\uparrow$¡-¡$\uparrow$¡",
+	description: "Exploded value subtraction with exploded value",
+};
+/// ¡$\square\square\square\blacksquare\blacksquare\blacksquare\blacksquare\square$¡
+pub const VANISHED_PLUS_VANISHED: Undefined = Undefined {
+	prefix: 0b00011110u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\downarrow$¡+¡$\downarrow$¡",
+	description: "Vanished value addition with vanished value",
+};
+/// ¡$\blacksquare\blacksquare\blacksquare\square\square\square\square\blacksquare$¡
+pub const VANISHED_MINUS_VANISHED: Undefined = Undefined {
+	prefix: 0b11100001u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\downarrow$¡-¡$\downarrow$¡",
+	description: "Vanished value subtraction with vanished value",
+};
+
+// L4 Powers and roots
+/// ¡$\square\square\square\square\blacksquare\blacksquare\blacksquare\blacksquare$¡
+pub const EXPLODED_POWER: Undefined = Undefined {
+	prefix: 0b00001111u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\uparrow$¡^",
+	description: "Exploded value raised to power",
+};
+/// ¡$\blacksquare\blacksquare\blacksquare\blacksquare\square\square\square\square$¡
+pub const VANISHED_POWER: Undefined = Undefined {
+	prefix: 0b11110000u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\downarrow$¡^",
+	description: "Vanished value raised to power",
+};
+/// ¡$\square\square\square\square\blacksquare\blacksquare\blacksquare\square$¡
+pub const POWER_EXPLODED: Undefined = Undefined {
+	prefix: 0b00001110u8 as i8,
+	symbol: "¡$\wp$¡ ^¡$\uparrow$¡",
+	description: "Value raised to exploded power",
+};
+
+// L5 Logarithms
+/// ¡$\square\square\square\square\square\blacksquare\blacksquare\blacksquare$¡
+pub const EXPLODED_LOG: Undefined = Undefined {
+	prefix: 0b00000111u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\uparrow$¡@",
+	description: "Logarithm of exploded value",
+};
+/// ¡$\blacksquare\blacksquare\blacksquare\blacksquare\blacksquare\square\square\square$¡
+pub const VANISHED_LOG: Undefined = Undefined {
+	prefix: 0b11111000u8 as i8,
+	symbol: "¡$\wp$¡ ¡$\downarrow$¡@",
+	description: "Logarithm of vanished value",
+};
+/// ¡$\square\square\square\square\square\blacksquare\blacksquare\square$¡
+pub const LOG_EXPLODED: Undefined = Undefined {
+	prefix: 0b00000110u8 as i8,
+	symbol: "¡$\wp$¡ @¡$\uparrow$¡",
+	description: "Logarithm with exploded base",
+};
+
+// L6 Sine/Cosine
+/// ¡$\square\square\square\square\square\square\blacksquare\blacksquare$¡
+pub const SINE: Undefined = Undefined {
+	prefix: 0b00000011u8 as i8,
+	symbol: "¡$\wp$¡ s",
+	description: "Sine of value with imprecise period position",
+};
+/// ¡$\blacksquare\blacksquare\blacksquare\blacksquare\blacksquare\blacksquare\square\square$¡
+pub const COSINE: Undefined = Undefined {
+	prefix: 0b11111100u8 as i8,
+	symbol: "¡$\wp$¡ c",
+	description: "Cosine of value with imprecise period position",
+};
+\end{lstlisting}
+
+\newpage
+\begin{lstlisting}[caption={SPIRIX Addition Operation Truth Table}, label={fig:addition_table}]
+\end{lstlisting}
+\begin{center}
+    \includegraphics[width=0.9\textwidth]{addition truth table.pdf}
+\end{center}
+
+\newpage
+\begin{lstlisting}[caption={SPIRIX Subtraction Operation Truth Table}, label={fig:subtraction_table}]
+\end{lstlisting}
+\begin{center}
+    \includegraphics[width=0.9\textwidth]{subtraction truth table.pdf}
+\end{center}
+
+\newpage
+\begin{lstlisting}[caption={SPIRIX Multiplication Operation Truth Table}, label={fig:multiplication_table}]
+\end{lstlisting}
+\begin{center}
+    \includegraphics[width=0.9\textwidth]{multiplication truth table.pdf}
+\end{center}
+
+\newpage
+\begin{lstlisting}[caption={SPIRIX Division Operation Truth Table}, label={fig:division_table}]
+\end{lstlisting}
+\begin{center}
+    \includegraphics[width=0.9\textwidth]{division truth table.pdf}
+\end{center}
+
+\newpage
+\begin{lstlisting}[caption={SPIRIX Number Line and Comparison Order}, label={fig:spirix_ordering}]
+\end{lstlisting}
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[scale=1]
+
+    \draw[<->, very thick] (0,-3.5) -- (0,3.5);
+    \node[centered] at (0,4) {Greater};
+    \node[centered] at (0,-4) {Less};
+    
+    \draw[thick] (-0.2,3) -- (0.2,3) node[right=0.3cm] {[+$\uparrow$] Positive Exploded};
+    \draw[thick] (-0.2,2) -- (0.2,2) node[right=0.3cm] {[+\#] Positive Normal};
+    \draw[thick] (-0.2,1) -- (0.2,1) node[right=0.3cm] {[+$\downarrow$] Positive Vanished};
+    \draw[thick] (-0.2,0) -- (0.2,0) node[right=0.3cm] {[0] Zero};
+    \draw[thick] (-0.2,-1) -- (0.2,-1) node[right=0.3cm] {[-$\downarrow$] Negative Vanished};
+    \draw[thick] (-0.2,-2) -- (0.2,-2) node[right=0.3cm] {[-\#] Negative Normal};
+    \draw[thick] (-0.2,-3) -- (0.2,-3) node[right=0.3cm] {[-$\uparrow$] Negative Exploded};
+    \node[left] at (-4,1) {Infinity [$\infty$]};
+    \node[left] at (-4,-1) {Undefined [$\wp$]};
+
+    \draw[dashed] (-2,4.5) -- (-2.5,-4.5);
+    \node[rotate=90] at (-3,0) {Incomparable};
+
+    
+  \end{tikzpicture}
+\end{figure}
+
+\newpage
+\begin{lstlisting}[caption={IEEE-754 Binary32 Subtraction Flowchart}, label={fig:ieee_subtract_flowchart}]
+\end{lstlisting}
+\begin{figure}[htbp]
+  \centering
+  \includepdf[pages=1, scale=0.85]{IEEE subtract flowchart.pdf}
+\end{figure}
+\newpage
+\begin{figure}[htbp]
+  \centering
+  \includepdf[pages=2, scale=0.85]{IEEE subtract flowchart.pdf}
+\end{figure}
+\newpage
+\begin{figure}[htbp]
+  \centering
+  \includepdf[pages=3, scale=0.85]{IEEE subtract flowchart.pdf}
+\end{figure}
+\newpage
+
+\newpage
+\begin{lstlisting}[caption={Scalar Subtraction Flowchart}, label={fig:scalar_subtract_flowchart}]
+\end{lstlisting}
+\begin{figure}[htbp]
+  \centering
+  \includepdf[pages=1, scale=0.85]{Scalar subtract flowchart.pdf}
+\end{figure}
+\newpage
+
+\begin{lstlisting}[style=rust, caption={Annotated IEE-754 Binary32 Normal Subtraction ASM Trace}, label={fig:ieee_subtract}]
+; Main Subtraction Fuction Entry Point
+[001]sub rsp, 0x58                 ; Allocate 88 bytes on the stack
+[002]mov qword ptr [rsp 0x8], rdi  ; Store first parameter (pointer to first value)
+[003]mov al, dl                    ; Move the 3rd parameter (lower byte) to al
+[004]mov dword ptr [rsp 0x18], esi ; Store second parameter (second value)
+[005]mov ecx, dword ptr [rsp 0x18] ; Load second Binary32 value into ecx
+[006]mov dword ptr [rsp 0x14], ecx ; Store second Binary32 value at rsp+20
+[007]mov byte ptr [rsp 0x1f], al   ; Store lower byte of 3rd parameter at rsp+31
+[008]mov qword ptr [rsp 0x30], rdi ; Move first parameter
+[009]lea rax, ptr [rip 0x3d6e9]    ; Load effective address
+[010]lea rdi, ptr [rsp 0x1f]       ; Load address of next function into rdi
+[011]call rax                      ; Call function at address in rax
+
+; Set Rounding Mode
+[012]push rax                 ; Save rax register
+[013]mov qword ptr [rsp], rdi ; Store rdi at top of stack
+[014]call 0x558bdf671e20      ; Call function to set rounding mode
+
+; Convert Rounding Mode to Float Format
+[015]mov qword ptr [rsp-0x8], rdi      ; Store rdi at rsp-8
+[016]movzx eax, byte ptr [rdi]         ; Zero-extend byte at [rdi] into eax
+[017]mov qword ptr [rsp-0x18], rax     ; Store extended value at rsp-24
+[018]mov rax, qword ptr [rsp-0x18]     ; Load value from rsp-24 into rax
+[019]lea rcx, ptr [rip 0x452af]        ; Load effective address (jump table?)
+[020]movsxd rax, dword ptr [rcx rax*4] ; Load and sign-extend value from jump table
+[021]add rax, rcx                      ; Add base address to jump offset
+[022]jmp rax                           ; Jump to the calculated address
+[023]mov byte ptr [rsp-0x9], 0x0       ; Set byte at rsp-9 to 0
+[024]jmp 0x558bdf671e65                ; Jump to function epilogue
+[025]mov al, byte ptr [rsp-0x9]        ; Load byte from rsp-9 into al
+[026]ret                               ; Return from function
+
+; Set Rounding Mode
+[027]movzx edi, al                ; Zero-extend al into edi
+[028]call qword ptr [rip 0x5bf45] ; Call function pointer at rip+0x5bf45
+
+; Rounding Mode Helper
+[029]push rbp                     ; Save base pointer
+[030]mov rbp, rsp                 ; Set new base pointer
+[031]push rbx                     ; Save rbx register
+[032]sub rsp, 0x8                 ; Allocate 8 bytes on stack
+[033]mov ebx, edi                 ; Store first parameter in ebx
+[034]mov rax, qword ptr fs:[0x0]  ; Load value from fs segment
+[035]lea rax, ptr [rax-0x4f]      ; Calculate address at fs:0 - 79
+[036]mov byte ptr [rax], bl       ; Store lowest byte of ebx at calculated address
+[037]mov rbx, qword ptr [rbp-0x8] ; Restore rbx
+[038]leave                        ; Restore stack and base pointer
+[039]ret                          ; Return from function
+
+; Set Rounding Mode (continued)
+[040]pop rax ; Restore rax
+[041]ret     ; Return from function
+
+; Main Subtraction Function (continued)
+[042]jmp 0x558bdf63473a            ; Jump to next part of subtraction function
+[043]mov rax, qword ptr [rsp 0x8]  ; Load pointer to first Binary32 from rsp+8
+[044]mov eax, dword ptr [rax]      ; Load value of first Binary32 into eax
+[045]mov dword ptr [rsp 0x28], eax ; Store first Binary32 at rsp+40
+[046]lea rdi, ptr [rsp 0x14]       ; Load address of second value into rdi
+[047]call 0x558bdf6346e0           ; Call function to borrow memory value
+
+; Borrow Memory Value
+[048]mov rax, rdi                 ; Copy input parameter to rax
+[049]mov qword ptr [rsp-0x8], rax ; Store rax at rsp-8
+[050]ret                          ; Return from function
+
+; Main Subtraction Function (continued)
+[051]mov qword ptr [rsp], rax      ; Store return value at top of stack
+[052]jmp 0x558bdf634755            ; Jump to next part of subtraction
+[053]mov rax, qword ptr [rsp]      ; Load pointer from stack into rax
+[054]mov eax, dword ptr [rax]      ; Load value at pointer into eax
+[055]mov dword ptr [rsp 0x2c], eax ; Store second Binary32 at rsp+44
+[056]mov eax, dword ptr [rsp 0x28] ; Load first Binary32 into eax
+[057]mov dword ptr [rsp 0x4c], eax ; Store first Binary32 at rsp+76
+[058]mov edi, dword ptr [rsp 0x4c] ; Load first value into edi
+[059]mov eax, dword ptr [rsp 0x2c] ; Load second Binary32 into eax
+[060]mov dword ptr [rsp 0x50], eax ; Store second Binary32 at rsp+80
+[061]mov esi, dword ptr [rsp 0x50] ; Load second value into esi
+[062]call qword ptr [rip 0x9906b]  ; Call function for low-level
+
+; Low-level Float Subtraction
+[063]push rbp            ; Save base pointer
+[064]mov rbp, rsp        ; Set new base pointer
+[065]mov eax, edi        ; Copy first Binary32 to eax
+[066]mov edx, esi        ; Copy second Binary32 to edx
+[067]xor esi, edi        ; XOR the two Binary32 values
+[068]js 0x558bdf671e83   ; Jump if sign bit is set (opposing signs)
+[069]mov rsi, rdx        ; Copy second Binary32 to rsi
+[070]mov rdi, rax        ; Copy first Binary32 to rdi
+[071]call 0x558bdf6721a9 ; Call function to add float magnitudes
+
+; Add Float Magnitudes
+[072]push rbp            ; Save base pointer
+[073]mov rbp, rsp        ; Set new base pointer
+[074]mov rcx, rdi        ; Copy first Binary32 to rcx
+[075]shr rcx, 0x17       ; Shift right by 23 bits (extract exponent)
+[076]movzx ecx, cl       ; Zero-extend lowest byte to get 8-bit exponent
+[077]mov r9, rcx         ; Copy exponent to r9
+[078]mov r10, rdi        ; Copy first Binary32 to r10
+[079]and r10d, 0x7fffff  ; Mask to get mantissa (23 bits)
+[080]mov rax, rsi        ; Copy second Binary32 to rax
+[081]shr rax, 0x17       ; Shift right by 23 bits (extract exponent)
+[082]movzx eax, al       ; Zero-extend lowest byte to get 8-bit exponent
+[083]mov rdx, rsi        ; Copy second Binary32 to rdx
+[084]and edx, 0x7fffff   ; Mask to get mantissa (23 bits)
+[085]mov r11, rcx        ; Copy first exponent to r11
+[086]sub r11, rax        ; Subtract exponents (for comparing magnitude)
+[087]jnz 0x558bdf67224f  ; Jump if exponents are different
+[088]mov r8d, edi        ; Copy first Binary32 to r8d
+[089]shr r8d, 0x1f       ; Shift right by 31 bits (extract sign bit)
+[090]shl r10, 0x6        ; Shift first mantissa left by 6 bits (normalize)
+[091]shl rdx, 0x6        ; Shift second mantissa left by 6 bits (normalize)
+[092]test r11, r11       ; Test if exponent difference is Zero
+[093]js 0x558bdf6722c4   ; Jump if exponent difference is negative
+[094]cmp rax, 0xff       ; Check for NaN/Infinity
+[095]jz 0x558bdf67230b   ; Jump if second number is NaN or Infinity
+[096]test rcx, rcx       ; Test if first exponent is Zero
+[097]mov esi, 0x20000000 ; Set esi to 0x20000000 (implied 1 for normal numbers)
+[098]cmovz rsi, r10      ; True for normals, false for subnormal
+[099]mov rdi, rax        ; Copy second exponent to rdi
+[100]sub rdi, rcx        ; Calculate exponent difference
+[101]add rsi, r10        ; Add implied 1 to first mantissa
+[102]cmp rdi, 0x1e       ; Compare exponent difference with 30
+[103]jnbe 0x558bdf672327 ; Jump if difference is not within range
+[104]mov ecx, edi        ; Copy exponent difference to ecx
+[105]neg ecx             ; Negate exponent difference
+[106]mov r9d, esi        ; Copy first mantissa with implied 1 to r9d
+[107]shl r9d, cl         ; Shift left by exponent difference
+[108]test r9d, r9d       ; Test if shifted value is Zero
+[109]setnz r10b          ; Set r10b to 1 if not Zero, 0 if Zero
+[110]movzx r10d, r10b    ; Zero-extend r10b to r10d
+[111]mov ecx, edi        ; Copy exponent difference to ecx
+[112]shr esi, cl         ; Shift first mantissa right by exponent difference
+[113]or r10d, esi        ; Combine shifted bits with sticky bit
+[114]mov r10d, r10d      ; Clear upper 32 bits of r10
+[115]mov r9, rax         ; Copy second exponent to r9
+[116]jmp 0x558bdf6722a3  ; Jump to next part of float addition
+[117]lea rdx, ptr [r10 rdx*1 0x20000000] ; Calculate sum of mantissas
+[118]cmp rdx, 0x3fffffff ; Check if result needs normalization
+[119]jnbe 0x558bdf67220e ; Jump if normalization needed
+[120]movzx edi, r8b      ; Zero-extend sign bit to edi
+[121]mov rsi, r9         ; Copy exponent to rsi
+[122]call 0x558bdf671f65 ; Call function to round and pack to Binary32 format
+
+; Round and Pack to Binary32 Format
+[123]push rbp                      ; Save base pointer
+[124]mov rbp, rsp                  ; Set new base pointer
+[125]push r15                      ; Save r15 register
+[126]push r14                      ; Save r14 register
+[127]push r13                      ; Save r13 register
+[128]push r12                      ; Save r12 register
+[129]push rbx                      ; Save rbx register
+[130]sub rsp, 0x18                 ; Allocate 24 bytes on stack
+[131]mov r15d, edi                 ; Store sign bit in r15d
+[132]mov dword ptr [rbp-0x34], edi ; Store sign bit at rbp-52
+[133]mov rbx, rsi                  ; Store exponent in rbx
+[134]mov r13, rdx                  ; Store mantissa in r13
+[135]mov rax, qword ptr fs:[0x0]   ; Load value from fs segment
+[136]lea rax, ptr [rax-0x4f]       ; Calculate address at fs:0 - 79
+[137]movzx r14d, byte ptr [rax]    ; Load rounding mode into r14d
+[138]test r14b, r14b               ; Test if rounding mode is 0 (to nearest)
+[139]setz byte ptr [rbp-0x40]      ; Set flag at rbp-64 if rounding mode is 0
+[140]mov r12d, 0x40                ; Set r12d to 64 (used for rounding)
+[141]test r14b, 0xfb               ; Test rounding mode against 0xfb
+[142]jz 0x558bdf671fc9             ; Jump if specific rounding mode
+[143]mov r15d, r13d                ; Copy mantissa to r15d
+[144]and r15d, 0x7f                ; Mask with 0x7f (7 least significant bits)
+[145]mov dword ptr [rbp-0x38], ebx ; Store exponent at rbp-56
+[146]cmp ebx, 0xfc                 ; Compare exponent with 0xfc
+[147]jbe 0x558bdf672000            ; Jump if exponent <= 0xfc
+[148]movzx r12d, r12b              ; Zero-extend r12b to r12d
+[149]add r12, r13                  ; Add mantissa to r12
+[150]shr r12, 0x7                  ; Shift right by 7 bits (rounding)
+[151]test r15b, r15b               ; Test if lower 7 bits are Zero
+[152]jnz 0x558bdf6720ec            ; Jump if lower 7 bits are not Zero
+[153]mov rax, qword ptr fs:[0x0]   ; Load value from fs segment
+[154]lea rax, ptr [rax-0x50]       ; Calculate address at fs:0 - 80
+[155]or byte ptr [rax], 0x1        ; Set inexact flag
+[156]cmp r14b, 0x6                 ; Compare rounding mode with 6
+[157]jnz 0x558bdf672014            ; Jump if rounding mode is not 6
+[158]cmp r15b, 0x40                ; Compare lower 7 bits with 0x40
+[159]setz al                       ; Set al to 1 if equal, 0 if not
+[160]movzx eax, al                 ; Zero-extend al to eax
+[161]and rax, qword ptr [rbp-0x40] ; AND with rounding flag
+[162]not rax                       ; Complement result
+[163]and r12, rax                  ; Mask r12 with result
+[164]mov eax, 0x0                  ; Set eax to 0
+[165]cmovz rbx, rax                ; If Zero, set exponent to 0
+[166]mov eax, dword ptr [rbp-0x34] ; Load sign bit into eax
+[167]shl eax, 0x1f                 ; Shift sign bit to position 31
+[168]shl ebx, 0x17                 ; Shift exponent to position 23-30
+[169]add eax, ebx                  ; Combine sign and exponent
+[170]mov eax, eax                  ; Clear upper 32 bits
+[171]add rax, r12                  ; Add mantissa to result
+[172]add rsp, 0x18                 ; Deallocate stack space
+[173]pop rbx                       ; Restore rbx
+[174]pop r12                       ; Restore r12
+[175]pop r13                       ; Restore r13
+[176]pop r14                       ; Restore r14
+[177]pop r15                       ; Restore r15
+[178]pop rbp                       ; Restore base pointer
+[179]ret                           ; Return from function
+
+; Add Float Magnitudes (epilogue)
+[180]pop rbp ; Restore base pointer
+[181]ret     ; Return from function
+
+; Low-level Float Subtraction (epilogue)
+[182]jmp 0x558bdf671e81 ; Jump to another part of function
+[183]pop rbp            ; Restore base pointer
+[184]ret                ; Return from function
+
+; Main Subtraction Function (epilogue)
+[185]mov dword ptr [rsp 0x54], eax ; Store result at rsp+84
+[186]mov eax, dword ptr [rsp 0x54] ; Load result back into eax
+[187]mov dword ptr [rsp 0x24], eax ; Store result at rsp+36
+[188]mov eax, dword ptr [rsp 0x24] ; Load result back into eax
+[189]mov dword ptr [rsp 0x20], eax ; Store result at rsp+32
+[190]mov eax, dword ptr [rsp 0x20] ; Load result back into eax
+[191]add rsp, 0x58                 ; Deallocate 88 bytes from stack
+[192]ret                           ; Return from function
+
+\end{lstlisting}
+
+\newpage
+\begin{lstlisting}[style=rust, caption={Assembly Implementation of Scalar Subtraction}, label={fig:scalar_subtract}]
+; ScalarF5E4-ScalarF5E4 by Nick Spiker fractaldecoder@proton.me
+; Performs normal subtraction with 32-bit fractions and 16-bit exponents
+; Input: Result pointer in rdi, Minuend in rsi, Subtrahend in rdx
+
+; Register allocation:
+; rax - a.fraction/result fraction (64-bit extended)
+; rbx - b.fraction (64-bit extended)
+; ecx - exponent difference/normalization shift
+; r8d - a.exponent/result exponent
+; r9d - b.exponent
+; edx - leading bits counter
+
+; Load values with sign extension
+[01]movsx rax, dword ptr [rsi]  ; Load a.fraction
+[02]movsx rbx, dword ptr [rdx]  ; Load b.fraction
+[03]movsx r8d, word ptr [rsi+4] ; Load a.exponent
+[04]movsx r9d, word ptr [rdx+4] ; Load b.exponent
+
+; Check for ambiguous exponents
+[05]cmp r8d, 0x8000      ; Compare with AMBIGUOUS_EXPONENT
+[06]je ambiguous_handler ; Jump if a is ambiguous
+[07]cmp r9d, 0x8000      ; Compare with AMBIGUOUS_EXPONENT
+[08]je ambiguous_handler ; Jump if b is ambiguous
+
+; Calculate exponent difference
+[09]mov ecx, r8d ; Use ecx to store exponent diff
+[10]sub ecx, r9d ; ecx = a.exp - b.exp
+[11]js b_larger  ; Jump if b's exponent is larger
+
+; Minuend has larger exponent
+[12]cmp ecx, 32  ; Shift amount >= 32 bits?
+[13]jge return ; If yes, b's contribution is negligible
+
+; Perform shift and subtraction
+[14]shl rax, cl       ; Align a to b
+[15]sub rax, rbx      ; (a << diff) - b
+[16]test rax, rax     ; Check if result is zero
+[17]jz set_ambiguous  ; If zero, set exponent to AMBIGUOUS
+[18]lea r8d, [r9d+32] ; Intermediary exponent=b.exp+offset
+
+normalize:
+[19]lzcnt edx, eax       ; Count leading zeros
+[20]not rax              ; Invert for leading ones count
+[21]lzcnt ecx, eax       ; Count leading ones (as zeros in inverted)
+[22]not rax              ; Restore original value
+[23]cmp edx, ecx         ; Compare leading zeros with leading ones
+[24]cmovl edx, ecx       ; Take max (Leading Same Bits)
+[25]dec edx              ; Offset for N-1 normalization
+[26]shl rax, edx         ; Normalize to N-1 high bits
+[27]shr rax, 32          ; Re-align to single-wide
+[28]sub r8d, edx         ; Adjust result exponent by shift amount
+[29]cmp r8d, 0x8001      ; Check result for underflow
+[30]jl underflow_handler ; Jump if underflow detected
+
+return:
+[31]mov dword ptr [rdi], eax  ; Store result fraction
+[32]mov word ptr [rdi+4], r8w ; Store result exponent
+[33]ret
+
+underflow_handler:
+[34]shr rax, 1 ; Shift fraction to N-2 normalization
+
+set_ambiguous:
+[35]mov r8d, 0x8000 ; Set exponent to AMBIGUOUS_EXPONENT
+[36]jmp return
+
+b_larger:
+[37]neg ecx         ; Convert negative diff to positive
+[39]jge b_dominates ; If yes, a's contribution is negligible
+
+; Perform shift and subtraction with b larger
+[40]shl rbx, cl      ; Align b to a
+[41]sub rax, rbx     ; a - (b << diff)
+[42]test rax, rax    ; Check if result is zero
+[43]jz set_ambiguous ; If zero, set exponent to AMBIGUOUS
+[44]add r8d, 32      ; Set up for normalization alignment
+[45]jmp normalize
+
+b_dominates:
+[46]mov rax, rbx      ; Result fraction is just -b
+[47]neg rax           ; Negate in double-wide to avoid MIN issues
+[48]lea r8d, [r9d+32] ; Use b's exponent with normalization offset
+[49]jmp normalize
+
+; Implementation of ambiguous_handler would follow, similar to figure 18, [073]
+\end{lstlisting}
+
+\newpage
+\begin{lstlisting}[style=rust, caption={Complete Complex Division Assembly Implementation}, label={fig:circle_divide}]
+; CircleF5E4/CircleF5E4 by Nick Spiker fractaldecoder@proton.me
+; Performs complex division with 32-bit fractions and 16-bit exponents
+; Input: Result pointer in rdi, Dividend in rsi, Divisor in rdx
+; (a + bi) / (c + di) = [(a*c + b*d) + (b*c - a*d)i] * 1 / (c*c + d*d)
+
+; Register allocation:
+[001] movsx r8d, dword ptr [rsi]    ; Load a (numerator real fraction)
+[002] movsx r9d, dword ptr [rsi+4]  ; Load b (numerator imaginary fraction)
+[003] movsx r10d, dword ptr [rdx]   ; Load c (denominator real fraction)
+[004] movsx r11d, dword ptr [rdx+4] ; Load d (denominator imaginary fraction)
+[005] movsx di, word ptr [rsi+8]    ; Load numerator exponent
+[006] movsx si, word ptr [rdx+8]    ; Load denominator exponent
+
+; Check both exponents for ambiguity
+[007] cmp di, 0x8000       ; Compare with AMBIGUOUS_EXPONENT
+[008] je ambiguous_handler ; Jump if numerator ambiguous
+[009] cmp si, 0x8000       ; Compare with AMBIGUOUS_EXPONENT
+[010] je ambiguous_handler ; Jump if denominator ambiguous
+
+; Calculate result exponent (numerator exponent - denominator exponent)
+[011] sub edi, esi ; di - si (double width, lands in edi)
+[012] xor esi, esi ; Zero esi to use as normal(0)/exploded(1)/vanished(2) flag
+
+main_path:
+; Calculate denominator magnitude squared (c*c + d*d)
+[013] mov eax, r10d ; Copy c for squaring
+[014] mul eax       ; Square!
+[015] mov ecx, edx  ; Pull left half
+[016] mov eax, r11d ; Copy d for squaring
+[017] mul eax       ; Square!
+[018] add ecx, edx  ; Add both high halves, mag squared is now in ecx
+[019] mov rax, 0x4000000000000000 ; Left-aligned 1
+[020] xor rdx, rdx  ; Clear numerator left half (128-bit divide)
+[021] div ecx       ; Denominator is now in eax
+
+; Calculate real numerator = a*c + b*d
+[022] imul rcx, r8, r10 ; a*c 64-bit multiply
+[023] imul rdx, r9, r11 ; b*d
+[024] shr rcx, 1        ; Prepare for adding to avoid overflow
+[025] shr rdx, 1
+[026] add rcx, rdx      ; real numerator is now in rcx
+
+; Calculate imaginary numerator = b*c - a*d
+[027] imul r9, r10
+[028] imul r8, r11
+[029] shr r9, 1
+[030] shr r8, 1
+[031] sub r9, r8 ; imaginary numerator is now in r9
+
+; Calculate r and i quotient
+[032] imul r8, rcx, eax ; multiply real by reciprocal
+[033] imul r9, eax      ; same for i
+
+; Find max(leading_zeros, leading_ones) for real result fraction
+[034] lzcnt rax, r8  ; Count leading Zeros
+[035] not r8         ; Invert bits
+[036] lzcnt rdx, r8  ; Count leading ones (as Zeros in inverted)
+[037] not r8         ; Invert back to original value
+[038] cmp rax, rdx   ; Compare leading Zeros with leading ones
+[039] cmovl rax, rdx ; If rax < rdx, move rdx to rax
+
+; Find max(leading_zeros, leading_ones) for imaginary result fraction
+[040] lzcnt rcx, r9
+[041] not r9
+[042] lzcnt rdx, r9
+[043] not r9
+[044] cmp rcx, rdx
+[045] cmovl rcx, rdx
+
+; Find min(max_real, max_imag) and store in rax
+[046] cmp rax, rcx   ; Compare max_real with max_imag
+[047] cmovg rax, rcx ; If rax > rcx, move rcx to rax
+[048] dec rax        ; N-1 normalization
+
+[049] shl r8, rax    ; Normalize real
+[050] shr r8, 32     ; Align to 32-bit fraction
+[051] shl r9, rax    ; Normalize i
+[052] shr r9, 32
+
+[053] test esi, esi  ; Check flag for escaped
+[054] jnz .escaped   ; Wee!
+
+[055] sub di, rax    ; Adjust exponent from normalization shift
+
+; Check adjusted exponent for over/underflow
+[056] cmp di, 0x7FFF ; Compare with MAX_EXPONENT
+[057] jg .exploded   ; Jump if di > MAX_EXPONENT
+[058] cmp di, 0x8001 ; Compare with MIN_EXPONENT
+[059] jl .vanished   ; Jump if di < MIN_EXPONENT
+
+return:
+[060] mov dword ptr [rdi], r8d   ; Store real fraction
+[061] mov dword ptr [rdi+4], r9d ; Store imaginary fraction
+[062] mov word ptr [rdi+8], di   ; Store exponent
+[063] ret
+
+vanished:
+[064] shr r8, 1 ; Shift real fraction right by 1
+[065] shr r9, 1 ; Shift imaginary fraction right by 1
+
+exploded:
+[066] mov di, 0x8000 ; Set to ambiguous exponent
+
+[067] jmp return
+
+escaped:
+[068] shr esi, 1 ; Convert flag to shift
+[069] shr r8, esi                      
+[070] shr r9, esi
+[071] mov di, 0x8000
+[072] jmp return
+
+ambiguous_handler:
+; Check if numerator's exponent is ambiguous
+[073] cmp di, 0x8000             ; Is numerator exponent ambiguous?
+[074] jne .check_denom_ambiguous ; If not, check if denominator is ambiguous
+
+; Check if numerator is undefined (ambiguous exponent + undefined bit pattern)
+[075] cmp r8d, r9d               ; Compare real and imaginary fractions
+[076] jne .check_denom_ambiguous ; If they don't match, not undefined!
+
+[077] test r8d, r8d             ; Is real part Zero?
+[078] jz .check_denom_ambiguous ; If Zero, not undefined
+
+; Check if top 3 bits are equal (undefined or Zero pattern)
+[079] mov eax, r8d         ; Get real part
+[080] shr eax, 29          ; Isolate top 3 bits
+[081] mov ecx, eax         ; Copy top bits
+[082] ror ecx, 1           ; Rotate right by 1
+[083] cmp eax, ecx         ; Are top 3 bits uniform?
+[084] je .return_numerator ; If uniform (undefined), return numerator
+
+.check_denom_ambiguous:
+; Check if denominator is undefined
+[085] cmp si, 0x8000 ; Is denominator exponent ambiguous?
+[086] jne .check_ambiguous_cases
+
+[087] cmp r10d, r11d             ; Compare real and imaginary parts
+[088] jne .check_ambiguous_cases ; If they don't match, not undefined
+
+[089] test r10d, r10d ; Is real part Zero?
+[090] jz .check_zero  ; If Zero, might be division by Zero
+
+; Check top 3 bits for undefined pattern
+[091] mov eax, r10d          ; Get real part
+[092] shr eax, 29            ; Isolate top 3 bits
+[093] mov ecx, eax           ; Copy top bits
+[094] ror ecx, 1             ; Rotate right by 1
+[095] cmp eax, ecx           ; Are top 3 bits uniform? (undefined check)
+[096] je .return_denominator ; If undefined, return denominator
+
+[097] jmp .check_ambiguous_cases
+
+.check_zero:
+; Check if denominator is Zero - both parts are Zero
+[098] test r11d, r11d            ; Test if imaginary part is also Zero
+[099] jnz .check_ambiguous_cases ; If not Zero, check other cases
+
+; Return division by Zero undefined value
+[100] mov eax, 0x00010111          ; Load DIVIDE_BY_ZERO prefix
+[101] mov dword ptr [rdi], eax     ; Store real component with prefix
+[102] mov dword ptr [rdi+4], eax   ; Store imaginary component with prefix
+[103] mov word ptr [rdi+8], 0x8000 ; Set exponent to AMBIGUOUS_EXPONENT
+[104] ret
+
+.check_ambiguous_cases:
+; Check for both exploded
+[105] mov eax, r8d
+[106] shr eax, 30   ; Get top 2 bits
+[107] cmp eax, 0x01 ; Check for ¡$\square\blacksquare$¡ pattern (exploded positive)
+[108] je .check_numerator_exploded
+[109] cmp eax, 0x02 ; Check for ¡$\blacksquare\square$¡ pattern (exploded negative)
+[110] jne .check_numerator_vanished
+
+.check_numerator_exploded:
+[111] mov eax, r10d
+[112] shr eax, 30   ; Get top 2 bits
+[113] cmp eax, 0x01 ; Check for ¡$\square\blacksquare$¡ pattern (exploded positive)
+[114] je .exploded_divide_exploded
+[115] cmp eax, 0x02 ; Check for ¡$\blacksquare\square$¡ pattern (exploded negative)
+[116] je .exploded_divide_exploded
+
+; Check if denominator is vanished
+[117] mov eax, r10d
+[118] shr eax, 29   ; Get top 3 bits
+[119] cmp eax, 0x01 ; Check for ¡$\square\square\blacksquare$¡ pattern (vanished positive)
+[120] je .exploded_divide_vanished
+[121] cmp eax, 0x06 ; Check for ¡$\blacksquare\blacksquare\square$¡ pattern (vanished negative)
+[122] je .exploded_divide_vanished
+
+; Numerator exploded, denominator normal
+; Set flag for exploded (1) and go to main_path
+[123] mov esi, 1
+[124] jmp main_path
+
+.exploded_divide_vanished:
+; Numerator exploded, denominator vanished
+; Exploded/vanished = exploded (N-1)
+[125] mov esi, 1
+[126] jmp main_path
+
+.check_numerator_vanished:
+[127] mov eax, r8d
+[128] shr eax, 29   ; Get top 3 bits
+[129] cmp eax, 0x01 ; Check for ¡$\square\square\blacksquare$¡ pattern (vanished positive)
+[130] je .check_vanished
+[131] cmp eax, 0x06 ; Check for ¡$\blacksquare\blacksquare\square$¡ pattern (vanished negative)
+[132] je .check_vanished
+[133] jmp main_path
+
+.check_vanished:
+[134] mov eax, r10d
+[135] shr eax, 29   ; Get top 3 bits
+[136] cmp eax, 0x01 ; Check for ¡$\square\square\blacksquare$¡ pattern (vanished positive)
+[137] je .vanished_divide_vanished
+[138] cmp eax, 0x06 ; Check for ¡$\blacksquare\blacksquare\square$¡ pattern (vanished negative)
+[139] je .vanished_divide_vanished
+[140] mov esi, 2
+[141] jmp main_path
+
+.denominator_exploded:
+; Normal divided by exploded = vanished
+[142] mov esi, 2 ; Set flag for vanished (2)
+[143] jmp main_path
+
+.denominator_vanished:
+; Normal divided by vanished = exploded
+[144] mov esi, 1 ; Set flag for exploded (1)
+[145] jmp main_path
+
+.exploded_divide_exploded:
+; Return exploded divide exploded undefined value
+[146] mov eax, 0x00010110          ; EXPLODED_DIVIDE_EXPLODED prefix
+[147] mov dword ptr [rdi], eax     ; Store real fraction with prefix
+[148] mov dword ptr [rdi+4], eax   ; Store imaginary fraction with prefix
+[149] mov word ptr [rdi+8], 0x8000 ; Set exponent to AMBIGUOUS_EXPONENT
+[150] ret
+
+.vanished_divide_vanished:
+; Return vanished divide vanished undefined value
+[151] mov eax, 0xf1090000          ; VANISHED_DIVIDE_VANISHED prefix (sign-extended)
+[152] mov dword ptr [rdi], eax     ; Store real fraction with prefix
+[153] mov dword ptr [rdi+4], eax   ; Store imaginary fraction with prefix
+[154] mov word ptr [rdi+8], 0x8000 ; Set exponent to AMBIGUOUS_EXPONENT
+[155] ret
+
+.return_numerator:
+; Just copy the numerator as is
+[156] mov r8d, dword ptr [rsi]   ; Load a (numerator real)
+[157] mov r9d, dword ptr [rsi+4] ; Load b (numerator imaginary)
+[158] mov di, word ptr [rsi+8]   ; Load numerator exponent
+[159] mov dword ptr [rdi], r8d   ; Store real fraction
+[160] mov dword ptr [rdi+4], r9d ; Store imaginary fraction
+[161] mov word ptr [rdi+8], di   ; Store exponent
+[162] ret
+
+.return_denominator:
+; Just copy the denominator as is
+[163] mov r8d, dword ptr [rdx]   ; Load c (denominator real)
+[164] mov r9d, dword ptr [rdx+4] ; Load d (denominator imaginary)
+[165] mov di, word ptr [rdx+8]   ; Load denominator exponent
+[166] mov dword ptr [rdi], r8d   ; Store real fraction
+[167] mov dword ptr [rdi+4], r9d ; Store imaginary fraction
+[168] mov word ptr [rdi+8], di   ; Store exponent
+[169] ret
+\end{lstlisting}
+
+\newpage
+\begin{lstlisting}[style=rust, caption={Scalar Bitwise AND Example in Rust}, label={fig:scalar_bitwise_example}]
+let a = Scalar::<i32, i8>::from(42.75);  // 101010.11 in binary
+let b = Scalar::<i32, i8>::from(27.5);   // 11011.1 in binary
+
+// Bitwise AND (a & b) in the invention:
+// Values are aligned based on their exponents:
+//   101010.11
+//    11011.1
+//   ---------
+//   001010.10
+let result = a & b;  // Equals 10.5 in decimal, 1010.1 in binary
+\end{lstlisting}
+
+\begin{lstlisting}[style=rust, caption={Scalar Bitwise Operations with Signs in Rust}, label={fig:scalar_bitwise_signs}]
+// Bitwise operations respect two's complement properties
+let pos = Scalar::<i32, i8>::from(42.75);   // 101010 in binary
+let neg = Scalar::<i32, i8>::from(-27.5);  // ~1 00100.1 in binary
+// where ~ denotes infinite leading ones
+
+// In two's complement, negative numbers have high bits set to 1
+let and_result = pos & neg;  // Will retain pos where neg has 1 bits (+32.5)
+let or_result = pos | neg;   // Will be negative due to neg's high bits (-17.25)
+let xor_result = pos ^ neg;  // Flips the bits of pos where neg has 1's (-49.75)
+let not_result = !pos;       // Flips all bits (a smidge less than -42.75)
+\end{lstlisting}
+
+\begin{lstlisting}[style=rust, caption={Scalar Bit Shift Operations in Rust}, label={fig:scalar_shifts}]
+let value = Scalar::<i32, i8>::from(42);
+
+// Left shift (multiplication by power of 2)
+let shifted_left = value << 3;  // Equals 336 (42 * 2^3)
+
+// Right shift (division by power of 2)
+let shifted_right = value >> 2;  // Equals 10.5 (42 / 2^2)
+\end{lstlisting}
+
+\end{document}

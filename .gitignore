@@ -14,10 +14,10 @@
 .vscode/
 *.swp
 *.swo
+Thumbs.db*
 
 # Project specific ignores
 /logo text.ai
-/patent/
 /web/
 /out/
 
@@ -29,6 +29,13 @@
 *.out
 *.synctex.gz
 *.pdf
+*.toc
+*.xdv
+
+# Patent: track figure PDFs and submission docs, ignore compiled patent PDFs
+!patent/**/*.pdf
+patent/patent*.pdf
+patent/Spirix*.pdf
 
 # FPGA synthesis artifacts
 fpga/build/

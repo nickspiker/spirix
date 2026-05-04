@@ -1,0 +1,2532 @@
+IEEE Complex division ASM trace
+
+Complex division function
+[0001] sub rsp, 0xe8
+[0002] mov qword ptr [rsp+0x10], rdi
+[0003] mov qword ptr [rsp+0x8], rsi
+[0004] mov qword ptr [rsp+0x58], rdi
+[0005] mov qword ptr [rsp+0x60], rsi
+[0006] mov byte ptr [rsp+0x2b], 0x0
+[0007] mov qword ptr [rsp+0x68], rdi
+[0008] add rdi, 0x4
+[0009] mov qword ptr [rsp], rdi
+[0010] mov qword ptr [rsp+0x70], rdi
+[0011] mov qword ptr [rsp+0x78], rsi
+[0012] mov rax, rsi
+[0013] add rax, 0x4
+[0014] mov qword ptr [rsp+0x18], rax
+[0015] mov qword ptr [rsp+0x80], rax
+[0016] mov rdi, rsi
+[0017] movzx edx, byte ptr [rsp+0x2b]
+[0018] call 0x55aa6a944860
+
+Multiply two F32 numbers
+[0019] sub rsp, 0x58
+[0020] mov qword ptr [rsp+0x8], rdi
+[0021] mov al, dl
+[0022] mov qword ptr [rsp+0x10], rsi
+[0023] mov byte ptr [rsp+0x1f], al
+[0024] mov qword ptr [rsp+0x30], rdi
+[0025] lea rax, ptr [rip+0x3e810]
+[0026] lea rdi, ptr [rsp+0x1f]
+[0027] call rax
+
+Set rounding mode
+[0028] push rax
+[0029] mov qword ptr [rsp], rdi
+[0030] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[0031] mov qword ptr [rsp-0x8], rdi
+[0032] movzx eax, byte ptr [rdi]
+[0033] mov qword ptr [rsp-0x18], rax
+[0034] mov rax, qword ptr [rsp-0x18]
+[0035] lea rcx, ptr [rip+0x4808f]
+[0036] movsxd rax, dword ptr [rcx+rax*4]
+[0037] add rax, rcx
+[0038] jmp rax
+[0039] mov byte ptr [rsp-0x9], 0x0
+[0040] jmp 0x55aa6a9830f5
+[0041] mov al, byte ptr [rsp-0x9]
+[0042] ret
+
+Set rounding mode
+[0043] movzx edi, al
+[0044] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[0045] push rbp
+[0046] mov rbp, rsp
+[0047] push rbx
+[0048] sub rsp, 0x8
+[0049] mov ebx, edi
+[0050] mov rax, qword ptr fs:[0x0]
+[0051] lea rax, ptr [rax-0x4f]
+[0052] mov byte ptr [rax], bl
+[0053] mov rbx, qword ptr [rbp-0x8]
+[0054] leave
+[0055] ret
+
+Set rounding mode
+[0056] pop rax
+[0057] ret
+
+Multiply two F32 numbers
+[0058] jmp 0x55aa6a9448a3
+[0059] mov rax, qword ptr [rsp+0x8]
+[0060] mov eax, dword ptr [rax]
+[0061] mov dword ptr [rsp+0x28], eax
+[0062] lea rdi, ptr [rsp+0x10]
+[0063] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[0064] mov qword ptr [rsp-0x8], rdi
+[0065] mov rax, qword ptr [rdi]
+[0066] ret
+
+Multiply two F32 numbers
+[0067] mov qword ptr [rsp], rax
+[0068] jmp 0x55aa6a9448be
+[0069] mov rax, qword ptr [rsp]
+[0070] mov eax, dword ptr [rax]
+[0071] mov dword ptr [rsp+0x2c], eax
+[0072] mov eax, dword ptr [rsp+0x28]
+[0073] mov dword ptr [rsp+0x4c], eax
+[0074] mov edi, dword ptr [rsp+0x4c]
+[0075] mov eax, dword ptr [rsp+0x2c]
+[0076] mov dword ptr [rsp+0x50], eax
+[0077] mov esi, dword ptr [rsp+0x50]
+[0078] call qword ptr [rip+0x9e11a]
+
+Low-level float multiplication
+[0079] push rbp
+[0080] mov rbp, rsp
+[0081] push r15
+[0082] push r14
+[0083] push r13
+[0084] push r12
+[0085] push rbx
+[0086] sub rsp, 0x18
+[0087] mov ebx, edi
+[0088] mov edi, edi
+[0089] mov rax, rdi
+[0090] shr rax, 0x17
+[0091] movzx eax, al
+[0092] mov r13d, ebx
+[0093] and r13d, 0x7fffff
+[0094] mov edx, esi
+[0095] mov r12, rdx
+[0096] shr r12, 0x17
+[0097] movzx r12d, r12b
+[0098] mov qword ptr [rbp-0x38], r12
+[0099] mov r14d, esi
+[0100] and r14d, 0x7fffff
+[0101] xor ebx, esi
+[0102] cmp rax, 0xff
+[0103] jz 0x55aa6a9831b3
+[0104] mov r15, rax
+[0105] cmp r12, 0xff
+[0106] jz 0x55aa6a983207
+[0107] test rax, rax
+[0108] jnz 0x55aa6a98321f
+[0109] test r12, r12
+[0110] jnz 0x55aa6a983238
+[0111] mov rsi, qword ptr [rbp-0x38]
+[0112] add rsi, r15
+[0113] shl r13, 0x7
+[0114] shl r14, 0x8
+[0115] or r13, 0x40000000
+[0116] bts r14, 0x1f
+[0117] imul r13, r14
+[0118] test r13d, r13d
+[0119] setnz dl
+[0120] movzx edx, dl
+[0121] shr r13, 0x20
+[0122] or rdx, r13
+[0123] cmp rdx, 0x3fffffff
+[0124] jbe 0x55aa6a983283
+[0125] sub rsi, 0x7f
+[0126] shr ebx, 0x1f
+[0127] mov edi, ebx
+[0128] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[0129] push rbp
+[0130] mov rbp, rsp
+[0131] push r15
+[0132] push r14
+[0133] push r13
+[0134] push r12
+[0135] push rbx
+[0136] sub rsp, 0x18
+[0137] mov r15d, edi
+[0138] mov dword ptr [rbp-0x34], edi
+[0139] mov rbx, rsi
+[0140] mov r13, rdx
+[0141] mov rax, qword ptr fs:[0x0]
+[0142] lea rax, ptr [rax-0x4f]
+[0143] movzx r14d, byte ptr [rax]
+[0144] test r14b, r14b
+[0145] setz byte ptr [rbp-0x40]
+[0146] mov r12d, 0x40
+[0147] test r14b, 0xfb
+[0148] jz 0x55aa6a98353c
+[0149] mov r15d, r13d
+[0150] and r15d, 0x7f
+[0151] mov dword ptr [rbp-0x38], ebx
+[0152] cmp ebx, 0xfc
+[0153] jbe 0x55aa6a983573
+[0154] movzx r12d, r12b
+[0155] add r12, r13
+[0156] shr r12, 0x7
+[0157] test r15b, r15b
+[0158] jnz 0x55aa6a98365f
+[0159] mov rax, qword ptr fs:[0x0]
+[0160] lea rax, ptr [rax-0x50]
+[0161] or byte ptr [rax], 0x1
+[0162] cmp r14b, 0x6
+[0163] jnz 0x55aa6a983587
+[0164] cmp r15b, 0x40
+[0165] setz al
+[0166] movzx eax, al
+[0167] and rax, qword ptr [rbp-0x40]
+[0168] not rax
+[0169] and r12, rax
+[0170] mov eax, 0x0
+[0171] cmovz rbx, rax
+[0172] mov eax, dword ptr [rbp-0x34]
+[0173] shl eax, 0x1f
+[0174] shl ebx, 0x17
+[0175] add eax, ebx
+[0176] mov eax, eax
+[0177] add rax, r12
+[0178] add rsp, 0x18
+[0179] pop rbx
+[0180] pop r12
+[0181] pop r13
+[0182] pop r14
+[0183] pop r15
+[0184] pop rbp
+[0185] ret
+
+Low-level float multiplication
+[0186] jmp 0x55aa6a9831ce
+[0187] add rsp, 0x18
+[0188] pop rbx
+[0189] pop r12
+[0190] pop r13
+[0191] pop r14
+[0192] pop r15
+[0193] pop rbp
+[0194] ret
+
+Multiply two F32 numbers
+[0195] mov dword ptr [rsp+0x54], eax
+[0196] mov eax, dword ptr [rsp+0x54]
+[0197] mov dword ptr [rsp+0x24], eax
+[0198] mov eax, dword ptr [rsp+0x24]
+[0199] mov dword ptr [rsp+0x20], eax
+[0200] mov eax, dword ptr [rsp+0x20]
+[0201] add rsp, 0x58
+[0202] ret
+
+Complex division function
+[0203] mov rsi, qword ptr [rsp+0x18]
+[0204] mov dword ptr [rsp+0x8c], eax
+[0205] mov eax, dword ptr [rsp+0x8c]
+[0206] mov dword ptr [rsp+0x2c], eax
+[0207] mov rdi, rsi
+[0208] movzx edx, byte ptr [rsp+0x2b]
+[0209] call 0x55aa6a944860
+
+Multiply two F32 numbers
+[0210] sub rsp, 0x58
+[0211] mov qword ptr [rsp+0x8], rdi
+[0212] mov al, dl
+[0213] mov qword ptr [rsp+0x10], rsi
+[0214] mov byte ptr [rsp+0x1f], al
+[0215] mov qword ptr [rsp+0x30], rdi
+[0216] lea rax, ptr [rip+0x3e810]
+[0217] lea rdi, ptr [rsp+0x1f]
+[0218] call rax
+
+Set rounding mode
+[0219] push rax
+[0220] mov qword ptr [rsp], rdi
+[0221] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[0222] mov qword ptr [rsp-0x8], rdi
+[0223] movzx eax, byte ptr [rdi]
+[0224] mov qword ptr [rsp-0x18], rax
+[0225] mov rax, qword ptr [rsp-0x18]
+[0226] lea rcx, ptr [rip+0x4808f]
+[0227] movsxd rax, dword ptr [rcx+rax*4]
+[0228] add rax, rcx
+[0229] jmp rax
+[0230] mov byte ptr [rsp-0x9], 0x0
+[0231] jmp 0x55aa6a9830f5
+[0232] mov al, byte ptr [rsp-0x9]
+[0233] ret
+
+Set rounding mode
+[0234] movzx edi, al
+[0235] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[0236] push rbp
+[0237] mov rbp, rsp
+[0238] push rbx
+[0239] sub rsp, 0x8
+[0240] mov ebx, edi
+[0241] mov rax, qword ptr fs:[0x0]
+[0242] lea rax, ptr [rax-0x4f]
+[0243] mov byte ptr [rax], bl
+[0244] mov rbx, qword ptr [rbp-0x8]
+[0245] leave
+[0246] ret
+
+Set rounding mode
+[0247] pop rax
+[0248] ret
+
+Multiply two F32 numbers
+[0249] jmp 0x55aa6a9448a3
+[0250] mov rax, qword ptr [rsp+0x8]
+[0251] mov eax, dword ptr [rax]
+[0252] mov dword ptr [rsp+0x28], eax
+[0253] lea rdi, ptr [rsp+0x10]
+[0254] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[0255] mov qword ptr [rsp-0x8], rdi
+[0256] mov rax, qword ptr [rdi]
+[0257] ret
+
+Multiply two F32 numbers
+[0258] mov qword ptr [rsp], rax
+[0259] jmp 0x55aa6a9448be
+[0260] mov rax, qword ptr [rsp]
+[0261] mov eax, dword ptr [rax]
+[0262] mov dword ptr [rsp+0x2c], eax
+[0263] mov eax, dword ptr [rsp+0x28]
+[0264] mov dword ptr [rsp+0x4c], eax
+[0265] mov edi, dword ptr [rsp+0x4c]
+[0266] mov eax, dword ptr [rsp+0x2c]
+[0267] mov dword ptr [rsp+0x50], eax
+[0268] mov esi, dword ptr [rsp+0x50]
+[0269] call qword ptr [rip+0x9e11a]
+
+Low-level float multiplication
+[0270] push rbp
+[0271] mov rbp, rsp
+[0272] push r15
+[0273] push r14
+[0274] push r13
+[0275] push r12
+[0276] push rbx
+[0277] sub rsp, 0x18
+[0278] mov ebx, edi
+[0279] mov edi, edi
+[0280] mov rax, rdi
+[0281] shr rax, 0x17
+[0282] movzx eax, al
+[0283] mov r13d, ebx
+[0284] and r13d, 0x7fffff
+[0285] mov edx, esi
+[0286] mov r12, rdx
+[0287] shr r12, 0x17
+[0288] movzx r12d, r12b
+[0289] mov qword ptr [rbp-0x38], r12
+[0290] mov r14d, esi
+[0291] and r14d, 0x7fffff
+[0292] xor ebx, esi
+[0293] cmp rax, 0xff
+[0294] jz 0x55aa6a9831b3
+[0295] mov r15, rax
+[0296] cmp r12, 0xff
+[0297] jz 0x55aa6a983207
+[0298] test rax, rax
+[0299] jnz 0x55aa6a98321f
+[0300] test r12, r12
+[0301] jnz 0x55aa6a983238
+[0302] mov rsi, qword ptr [rbp-0x38]
+[0303] add rsi, r15
+[0304] shl r13, 0x7
+[0305] shl r14, 0x8
+[0306] or r13, 0x40000000
+[0307] bts r14, 0x1f
+[0308] imul r13, r14
+[0309] test r13d, r13d
+[0310] setnz dl
+[0311] movzx edx, dl
+[0312] shr r13, 0x20
+[0313] or rdx, r13
+[0314] cmp rdx, 0x3fffffff
+[0315] jbe 0x55aa6a983283
+[0316] add rsi, 0xffffffffffffff80
+[0317] add rdx, rdx
+[0318] jmp 0x55aa6a983274
+[0319] shr ebx, 0x1f
+[0320] mov edi, ebx
+[0321] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[0322] push rbp
+[0323] mov rbp, rsp
+[0324] push r15
+[0325] push r14
+[0326] push r13
+[0327] push r12
+[0328] push rbx
+[0329] sub rsp, 0x18
+[0330] mov r15d, edi
+[0331] mov dword ptr [rbp-0x34], edi
+[0332] mov rbx, rsi
+[0333] mov r13, rdx
+[0334] mov rax, qword ptr fs:[0x0]
+[0335] lea rax, ptr [rax-0x4f]
+[0336] movzx r14d, byte ptr [rax]
+[0337] test r14b, r14b
+[0338] setz byte ptr [rbp-0x40]
+[0339] mov r12d, 0x40
+[0340] test r14b, 0xfb
+[0341] jz 0x55aa6a98353c
+[0342] mov r15d, r13d
+[0343] and r15d, 0x7f
+[0344] mov dword ptr [rbp-0x38], ebx
+[0345] cmp ebx, 0xfc
+[0346] jbe 0x55aa6a983573
+[0347] movzx r12d, r12b
+[0348] add r12, r13
+[0349] shr r12, 0x7
+[0350] test r15b, r15b
+[0351] jnz 0x55aa6a98365f
+[0352] mov rax, qword ptr fs:[0x0]
+[0353] lea rax, ptr [rax-0x50]
+[0354] or byte ptr [rax], 0x1
+[0355] cmp r14b, 0x6
+[0356] jnz 0x55aa6a983587
+[0357] cmp r15b, 0x40
+[0358] setz al
+[0359] movzx eax, al
+[0360] and rax, qword ptr [rbp-0x40]
+[0361] not rax
+[0362] and r12, rax
+[0363] mov eax, 0x0
+[0364] cmovz rbx, rax
+[0365] mov eax, dword ptr [rbp-0x34]
+[0366] shl eax, 0x1f
+[0367] shl ebx, 0x17
+[0368] add eax, ebx
+[0369] mov eax, eax
+[0370] add rax, r12
+[0371] add rsp, 0x18
+[0372] pop rbx
+[0373] pop r12
+[0374] pop r13
+[0375] pop r14
+[0376] pop r15
+[0377] pop rbp
+[0378] ret
+
+Low-level float multiplication
+[0379] jmp 0x55aa6a9831ce
+[0380] add rsp, 0x18
+[0381] pop rbx
+[0382] pop r12
+[0383] pop r13
+[0384] pop r14
+[0385] pop r15
+[0386] pop rbp
+[0387] ret
+
+Multiply two F32 numbers
+[0388] mov dword ptr [rsp+0x54], eax
+[0389] mov eax, dword ptr [rsp+0x54]
+[0390] mov dword ptr [rsp+0x24], eax
+[0391] mov eax, dword ptr [rsp+0x24]
+[0392] mov dword ptr [rsp+0x20], eax
+[0393] mov eax, dword ptr [rsp+0x20]
+[0394] add rsp, 0x58
+[0395] ret
+
+Complex division function
+[0396] mov dword ptr [rsp+0x90], eax
+[0397] mov eax, dword ptr [rsp+0x90]
+[0398] mov dword ptr [rsp+0x30], eax
+[0399] mov eax, dword ptr [rsp+0x30]
+[0400] mov dword ptr [rsp+0x94], eax
+[0401] mov eax, dword ptr [rsp+0x94]
+[0402] mov dword ptr [rsp+0x98], eax
+[0403] mov esi, dword ptr [rsp+0x98]
+[0404] lea rdi, ptr [rsp+0x2c]
+[0405] movzx edx, byte ptr [rsp+0x2b]
+[0406] call 0x55aa6a944700
+
+Add two F32 numbers
+[0407] sub rsp, 0x58
+[0408] mov qword ptr [rsp+0x8], rdi
+[0409] mov al, dl
+[0410] mov dword ptr [rsp+0x18], esi
+[0411] mov ecx, dword ptr [rsp+0x18]
+[0412] mov dword ptr [rsp+0x14], ecx
+[0413] mov byte ptr [rsp+0x1f], al
+[0414] mov qword ptr [rsp+0x30], rdi
+[0415] lea rax, ptr [rip+0x3e969]
+[0416] lea rdi, ptr [rsp+0x1f]
+[0417] call rax
+
+Set rounding mode
+[0418] push rax
+[0419] mov qword ptr [rsp], rdi
+[0420] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[0421] mov qword ptr [rsp-0x8], rdi
+[0422] movzx eax, byte ptr [rdi]
+[0423] mov qword ptr [rsp-0x18], rax
+[0424] mov rax, qword ptr [rsp-0x18]
+[0425] lea rcx, ptr [rip+0x4808f]
+[0426] movsxd rax, dword ptr [rcx+rax*4]
+[0427] add rax, rcx
+[0428] jmp rax
+[0429] mov byte ptr [rsp-0x9], 0x0
+[0430] jmp 0x55aa6a9830f5
+[0431] mov al, byte ptr [rsp-0x9]
+[0432] ret
+
+Set rounding mode
+[0433] movzx edi, al
+[0434] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[0435] push rbp
+[0436] mov rbp, rsp
+[0437] push rbx
+[0438] sub rsp, 0x8
+[0439] mov ebx, edi
+[0440] mov rax, qword ptr fs:[0x0]
+[0441] lea rax, ptr [rax-0x4f]
+[0442] mov byte ptr [rax], bl
+[0443] mov rbx, qword ptr [rbp-0x8]
+[0444] leave
+[0445] ret
+
+Set rounding mode
+[0446] pop rax
+[0447] ret
+
+Add two F32 numbers
+[0448] jmp 0x55aa6a94474a
+[0449] mov rax, qword ptr [rsp+0x8]
+[0450] mov eax, dword ptr [rax]
+[0451] mov dword ptr [rsp+0x28], eax
+[0452] lea rdi, ptr [rsp+0x14]
+[0453] call 0x55aa6a9446e0
+
+Borrow value
+[0454] mov rax, rdi
+[0455] mov qword ptr [rsp-0x8], rax
+[0456] ret
+
+Add two F32 numbers
+[0457] mov qword ptr [rsp], rax
+[0458] jmp 0x55aa6a944765
+[0459] mov rax, qword ptr [rsp]
+[0460] mov eax, dword ptr [rax]
+[0461] mov dword ptr [rsp+0x2c], eax
+[0462] mov eax, dword ptr [rsp+0x28]
+[0463] mov dword ptr [rsp+0x4c], eax
+[0464] mov edi, dword ptr [rsp+0x4c]
+[0465] mov eax, dword ptr [rsp+0x2c]
+[0466] mov dword ptr [rsp+0x50], eax
+[0467] mov esi, dword ptr [rsp+0x50]
+[0468] call qword ptr [rip+0x9e453]
+
+Low-level float addition
+[0469] push rbp
+[0470] mov rbp, rsp
+[0471] mov eax, edi
+[0472] mov edx, esi
+[0473] xor esi, edi
+[0474] js 0x55aa6a983113
+[0475] mov rsi, rdx
+[0476] mov rdi, rax
+[0477] call 0x55aa6a98371c
+
+Add float magnitudes
+[0478] push rbp
+[0479] mov rbp, rsp
+[0480] mov rcx, rdi
+[0481] shr rcx, 0x17
+[0482] movzx ecx, cl
+[0483] mov r9, rcx
+[0484] mov r10, rdi
+[0485] and r10d, 0x7fffff
+[0486] mov rax, rsi
+[0487] shr rax, 0x17
+[0488] movzx eax, al
+[0489] mov rdx, rsi
+[0490] and edx, 0x7fffff
+[0491] mov r11, rcx
+[0492] sub r11, rax
+[0493] jnz 0x55aa6a9837c2
+[0494] mov r8d, edi
+[0495] shr r8d, 0x1f
+[0496] shl r10, 0x6
+[0497] shl rdx, 0x6
+[0498] test r11, r11
+[0499] js 0x55aa6a983837
+[0500] cmp rax, 0xff
+[0501] jz 0x55aa6a98387e
+[0502] test rcx, rcx
+[0503] mov esi, 0x20000000
+[0504] cmovz rsi, r10
+[0505] mov rdi, rax
+[0506] sub rdi, rcx
+[0507] add rsi, r10
+[0508] cmp rdi, 0x1e
+[0509] jnbe 0x55aa6a98389a
+[0510] mov ecx, edi
+[0511] neg ecx
+[0512] mov r9d, esi
+[0513] shl r9d, cl
+[0514] test r9d, r9d
+[0515] setnz r10b
+[0516] movzx r10d, r10b
+[0517] mov ecx, edi
+[0518] shr esi, cl
+[0519] or r10d, esi
+[0520] mov r10d, r10d
+[0521] mov r9, rax
+[0522] jmp 0x55aa6a983816
+[0523] lea rdx, ptr [r10+rdx*1+0x20000000]
+[0524] cmp rdx, 0x3fffffff
+[0525] jnbe 0x55aa6a983781
+[0526] sub r9, 0x1
+[0527] add rdx, rdx
+[0528] jmp 0x55aa6a983781
+[0529] movzx edi, r8b
+[0530] mov rsi, r9
+[0531] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[0532] push rbp
+[0533] mov rbp, rsp
+[0534] push r15
+[0535] push r14
+[0536] push r13
+[0537] push r12
+[0538] push rbx
+[0539] sub rsp, 0x18
+[0540] mov r15d, edi
+[0541] mov dword ptr [rbp-0x34], edi
+[0542] mov rbx, rsi
+[0543] mov r13, rdx
+[0544] mov rax, qword ptr fs:[0x0]
+[0545] lea rax, ptr [rax-0x4f]
+[0546] movzx r14d, byte ptr [rax]
+[0547] test r14b, r14b
+[0548] setz byte ptr [rbp-0x40]
+[0549] mov r12d, 0x40
+[0550] test r14b, 0xfb
+[0551] jz 0x55aa6a98353c
+[0552] mov r15d, r13d
+[0553] and r15d, 0x7f
+[0554] mov dword ptr [rbp-0x38], ebx
+[0555] cmp ebx, 0xfc
+[0556] jbe 0x55aa6a983573
+[0557] movzx r12d, r12b
+[0558] add r12, r13
+[0559] shr r12, 0x7
+[0560] test r15b, r15b
+[0561] jnz 0x55aa6a98365f
+[0562] mov rax, qword ptr fs:[0x0]
+[0563] lea rax, ptr [rax-0x50]
+[0564] or byte ptr [rax], 0x1
+[0565] cmp r14b, 0x6
+[0566] jnz 0x55aa6a983587
+[0567] cmp r15b, 0x40
+[0568] setz al
+[0569] movzx eax, al
+[0570] and rax, qword ptr [rbp-0x40]
+[0571] not rax
+[0572] and r12, rax
+[0573] mov eax, 0x0
+[0574] cmovz rbx, rax
+[0575] mov eax, dword ptr [rbp-0x34]
+[0576] shl eax, 0x1f
+[0577] shl ebx, 0x17
+[0578] add eax, ebx
+[0579] mov eax, eax
+[0580] add rax, r12
+[0581] add rsp, 0x18
+[0582] pop rbx
+[0583] pop r12
+[0584] pop r13
+[0585] pop r14
+[0586] pop r15
+[0587] pop rbp
+[0588] ret
+
+Add float magnitudes
+[0589] pop rbp
+[0590] ret
+
+Low-level float addition
+[0591] pop rbp
+[0592] ret
+
+Add two F32 numbers
+[0593] mov dword ptr [rsp+0x54], eax
+[0594] mov eax, dword ptr [rsp+0x54]
+[0595] mov dword ptr [rsp+0x24], eax
+[0596] mov eax, dword ptr [rsp+0x24]
+[0597] mov dword ptr [rsp+0x20], eax
+[0598] mov eax, dword ptr [rsp+0x20]
+[0599] add rsp, 0x58
+[0600] ret
+
+Complex division function
+[0601] mov rsi, qword ptr [rsp+0x8]
+[0602] mov rdi, qword ptr [rsp+0x10]
+[0603] mov dword ptr [rsp+0x9c], eax
+[0604] mov eax, dword ptr [rsp+0x9c]
+[0605] mov dword ptr [rsp+0x34], eax
+[0606] movzx edx, byte ptr [rsp+0x2b]
+[0607] call 0x55aa6a944860
+
+Multiply two F32 numbers
+[0608] sub rsp, 0x58
+[0609] mov qword ptr [rsp+0x8], rdi
+[0610] mov al, dl
+[0611] mov qword ptr [rsp+0x10], rsi
+[0612] mov byte ptr [rsp+0x1f], al
+[0613] mov qword ptr [rsp+0x30], rdi
+[0614] lea rax, ptr [rip+0x3e810]
+[0615] lea rdi, ptr [rsp+0x1f]
+[0616] call rax
+
+Set rounding mode
+[0617] push rax
+[0618] mov qword ptr [rsp], rdi
+[0619] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[0620] mov qword ptr [rsp-0x8], rdi
+[0621] movzx eax, byte ptr [rdi]
+[0622] mov qword ptr [rsp-0x18], rax
+[0623] mov rax, qword ptr [rsp-0x18]
+[0624] lea rcx, ptr [rip+0x4808f]
+[0625] movsxd rax, dword ptr [rcx+rax*4]
+[0626] add rax, rcx
+[0627] jmp rax
+[0628] mov byte ptr [rsp-0x9], 0x0
+[0629] jmp 0x55aa6a9830f5
+[0630] mov al, byte ptr [rsp-0x9]
+[0631] ret
+
+Set rounding mode
+[0632] movzx edi, al
+[0633] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[0634] push rbp
+[0635] mov rbp, rsp
+[0636] push rbx
+[0637] sub rsp, 0x8
+[0638] mov ebx, edi
+[0639] mov rax, qword ptr fs:[0x0]
+[0640] lea rax, ptr [rax-0x4f]
+[0641] mov byte ptr [rax], bl
+[0642] mov rbx, qword ptr [rbp-0x8]
+[0643] leave
+[0644] ret
+
+Set rounding mode
+[0645] pop rax
+[0646] ret
+
+Multiply two F32 numbers
+[0647] jmp 0x55aa6a9448a3
+[0648] mov rax, qword ptr [rsp+0x8]
+[0649] mov eax, dword ptr [rax]
+[0650] mov dword ptr [rsp+0x28], eax
+[0651] lea rdi, ptr [rsp+0x10]
+[0652] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[0653] mov qword ptr [rsp-0x8], rdi
+[0654] mov rax, qword ptr [rdi]
+[0655] ret
+
+Multiply two F32 numbers
+[0656] mov qword ptr [rsp], rax
+[0657] jmp 0x55aa6a9448be
+[0658] mov rax, qword ptr [rsp]
+[0659] mov eax, dword ptr [rax]
+[0660] mov dword ptr [rsp+0x2c], eax
+[0661] mov eax, dword ptr [rsp+0x28]
+[0662] mov dword ptr [rsp+0x4c], eax
+[0663] mov edi, dword ptr [rsp+0x4c]
+[0664] mov eax, dword ptr [rsp+0x2c]
+[0665] mov dword ptr [rsp+0x50], eax
+[0666] mov esi, dword ptr [rsp+0x50]
+[0667] call qword ptr [rip+0x9e11a]
+
+Low-level float multiplication
+[0668] push rbp
+[0669] mov rbp, rsp
+[0670] push r15
+[0671] push r14
+[0672] push r13
+[0673] push r12
+[0674] push rbx
+[0675] sub rsp, 0x18
+[0676] mov ebx, edi
+[0677] mov edi, edi
+[0678] mov rax, rdi
+[0679] shr rax, 0x17
+[0680] movzx eax, al
+[0681] mov r13d, ebx
+[0682] and r13d, 0x7fffff
+[0683] mov edx, esi
+[0684] mov r12, rdx
+[0685] shr r12, 0x17
+[0686] movzx r12d, r12b
+[0687] mov qword ptr [rbp-0x38], r12
+[0688] mov r14d, esi
+[0689] and r14d, 0x7fffff
+[0690] xor ebx, esi
+[0691] cmp rax, 0xff
+[0692] jz 0x55aa6a9831b3
+[0693] mov r15, rax
+[0694] cmp r12, 0xff
+[0695] jz 0x55aa6a983207
+[0696] test rax, rax
+[0697] jnz 0x55aa6a98321f
+[0698] test r12, r12
+[0699] jnz 0x55aa6a983238
+[0700] mov rsi, qword ptr [rbp-0x38]
+[0701] add rsi, r15
+[0702] shl r13, 0x7
+[0703] shl r14, 0x8
+[0704] or r13, 0x40000000
+[0705] bts r14, 0x1f
+[0706] imul r13, r14
+[0707] test r13d, r13d
+[0708] setnz dl
+[0709] movzx edx, dl
+[0710] shr r13, 0x20
+[0711] or rdx, r13
+[0712] cmp rdx, 0x3fffffff
+[0713] jbe 0x55aa6a983283
+[0714] sub rsi, 0x7f
+[0715] shr ebx, 0x1f
+[0716] mov edi, ebx
+[0717] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[0718] push rbp
+[0719] mov rbp, rsp
+[0720] push r15
+[0721] push r14
+[0722] push r13
+[0723] push r12
+[0724] push rbx
+[0725] sub rsp, 0x18
+[0726] mov r15d, edi
+[0727] mov dword ptr [rbp-0x34], edi
+[0728] mov rbx, rsi
+[0729] mov r13, rdx
+[0730] mov rax, qword ptr fs:[0x0]
+[0731] lea rax, ptr [rax-0x4f]
+[0732] movzx r14d, byte ptr [rax]
+[0733] test r14b, r14b
+[0734] setz byte ptr [rbp-0x40]
+[0735] mov r12d, 0x40
+[0736] test r14b, 0xfb
+[0737] jz 0x55aa6a98353c
+[0738] mov r15d, r13d
+[0739] and r15d, 0x7f
+[0740] mov dword ptr [rbp-0x38], ebx
+[0741] cmp ebx, 0xfc
+[0742] jbe 0x55aa6a983573
+[0743] movzx r12d, r12b
+[0744] add r12, r13
+[0745] shr r12, 0x7
+[0746] test r15b, r15b
+[0747] jnz 0x55aa6a98365f
+[0748] mov rax, qword ptr fs:[0x0]
+[0749] lea rax, ptr [rax-0x50]
+[0750] or byte ptr [rax], 0x1
+[0751] cmp r14b, 0x6
+[0752] jnz 0x55aa6a983587
+[0753] cmp r15b, 0x40
+[0754] setz al
+[0755] movzx eax, al
+[0756] and rax, qword ptr [rbp-0x40]
+[0757] not rax
+[0758] and r12, rax
+[0759] mov eax, 0x0
+[0760] cmovz rbx, rax
+[0761] mov eax, dword ptr [rbp-0x34]
+[0762] shl eax, 0x1f
+[0763] shl ebx, 0x17
+[0764] add eax, ebx
+[0765] mov eax, eax
+[0766] add rax, r12
+[0767] add rsp, 0x18
+[0768] pop rbx
+[0769] pop r12
+[0770] pop r13
+[0771] pop r14
+[0772] pop r15
+[0773] pop rbp
+[0774] ret
+
+Low-level float multiplication
+[0775] jmp 0x55aa6a9831ce
+[0776] add rsp, 0x18
+[0777] pop rbx
+[0778] pop r12
+[0779] pop r13
+[0780] pop r14
+[0781] pop r15
+[0782] pop rbp
+[0783] ret
+
+Multiply two F32 numbers
+[0784] mov dword ptr [rsp+0x54], eax
+[0785] mov eax, dword ptr [rsp+0x54]
+[0786] mov dword ptr [rsp+0x24], eax
+[0787] mov eax, dword ptr [rsp+0x24]
+[0788] mov dword ptr [rsp+0x20], eax
+[0789] mov eax, dword ptr [rsp+0x20]
+[0790] add rsp, 0x58
+[0791] ret
+
+Complex division function
+[0792] mov rdi, qword ptr [rsp]
+[0793] mov rsi, qword ptr [rsp+0x18]
+[0794] mov dword ptr [rsp+0xa0], eax
+[0795] mov eax, dword ptr [rsp+0xa0]
+[0796] mov dword ptr [rsp+0x38], eax
+[0797] movzx edx, byte ptr [rsp+0x2b]
+[0798] call 0x55aa6a944860
+
+Multiply two F32 numbers
+[0799] sub rsp, 0x58
+[0800] mov qword ptr [rsp+0x8], rdi
+[0801] mov al, dl
+[0802] mov qword ptr [rsp+0x10], rsi
+[0803] mov byte ptr [rsp+0x1f], al
+[0804] mov qword ptr [rsp+0x30], rdi
+[0805] lea rax, ptr [rip+0x3e810]
+[0806] lea rdi, ptr [rsp+0x1f]
+[0807] call rax
+
+Set rounding mode
+[0808] push rax
+[0809] mov qword ptr [rsp], rdi
+[0810] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[0811] mov qword ptr [rsp-0x8], rdi
+[0812] movzx eax, byte ptr [rdi]
+[0813] mov qword ptr [rsp-0x18], rax
+[0814] mov rax, qword ptr [rsp-0x18]
+[0815] lea rcx, ptr [rip+0x4808f]
+[0816] movsxd rax, dword ptr [rcx+rax*4]
+[0817] add rax, rcx
+[0818] jmp rax
+[0819] mov byte ptr [rsp-0x9], 0x0
+[0820] jmp 0x55aa6a9830f5
+[0821] mov al, byte ptr [rsp-0x9]
+[0822] ret
+
+Set rounding mode
+[0823] movzx edi, al
+[0824] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[0825] push rbp
+[0826] mov rbp, rsp
+[0827] push rbx
+[0828] sub rsp, 0x8
+[0829] mov ebx, edi
+[0830] mov rax, qword ptr fs:[0x0]
+[0831] lea rax, ptr [rax-0x4f]
+[0832] mov byte ptr [rax], bl
+[0833] mov rbx, qword ptr [rbp-0x8]
+[0834] leave
+[0835] ret
+
+Set rounding mode
+[0836] pop rax
+[0837] ret
+
+Multiply two F32 numbers
+[0838] jmp 0x55aa6a9448a3
+[0839] mov rax, qword ptr [rsp+0x8]
+[0840] mov eax, dword ptr [rax]
+[0841] mov dword ptr [rsp+0x28], eax
+[0842] lea rdi, ptr [rsp+0x10]
+[0843] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[0844] mov qword ptr [rsp-0x8], rdi
+[0845] mov rax, qword ptr [rdi]
+[0846] ret
+
+Multiply two F32 numbers
+[0847] mov qword ptr [rsp], rax
+[0848] jmp 0x55aa6a9448be
+[0849] mov rax, qword ptr [rsp]
+[0850] mov eax, dword ptr [rax]
+[0851] mov dword ptr [rsp+0x2c], eax
+[0852] mov eax, dword ptr [rsp+0x28]
+[0853] mov dword ptr [rsp+0x4c], eax
+[0854] mov edi, dword ptr [rsp+0x4c]
+[0855] mov eax, dword ptr [rsp+0x2c]
+[0856] mov dword ptr [rsp+0x50], eax
+[0857] mov esi, dword ptr [rsp+0x50]
+[0858] call qword ptr [rip+0x9e11a]
+
+Low-level float multiplication
+[0859] push rbp
+[0860] mov rbp, rsp
+[0861] push r15
+[0862] push r14
+[0863] push r13
+[0864] push r12
+[0865] push rbx
+[0866] sub rsp, 0x18
+[0867] mov ebx, edi
+[0868] mov edi, edi
+[0869] mov rax, rdi
+[0870] shr rax, 0x17
+[0871] movzx eax, al
+[0872] mov r13d, ebx
+[0873] and r13d, 0x7fffff
+[0874] mov edx, esi
+[0875] mov r12, rdx
+[0876] shr r12, 0x17
+[0877] movzx r12d, r12b
+[0878] mov qword ptr [rbp-0x38], r12
+[0879] mov r14d, esi
+[0880] and r14d, 0x7fffff
+[0881] xor ebx, esi
+[0882] cmp rax, 0xff
+[0883] jz 0x55aa6a9831b3
+[0884] mov r15, rax
+[0885] cmp r12, 0xff
+[0886] jz 0x55aa6a983207
+[0887] test rax, rax
+[0888] jnz 0x55aa6a98321f
+[0889] test r12, r12
+[0890] jnz 0x55aa6a983238
+[0891] mov rsi, qword ptr [rbp-0x38]
+[0892] add rsi, r15
+[0893] shl r13, 0x7
+[0894] shl r14, 0x8
+[0895] or r13, 0x40000000
+[0896] bts r14, 0x1f
+[0897] imul r13, r14
+[0898] test r13d, r13d
+[0899] setnz dl
+[0900] movzx edx, dl
+[0901] shr r13, 0x20
+[0902] or rdx, r13
+[0903] cmp rdx, 0x3fffffff
+[0904] jbe 0x55aa6a983283
+[0905] add rsi, 0xffffffffffffff80
+[0906] add rdx, rdx
+[0907] jmp 0x55aa6a983274
+[0908] shr ebx, 0x1f
+[0909] mov edi, ebx
+[0910] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[0911] push rbp
+[0912] mov rbp, rsp
+[0913] push r15
+[0914] push r14
+[0915] push r13
+[0916] push r12
+[0917] push rbx
+[0918] sub rsp, 0x18
+[0919] mov r15d, edi
+[0920] mov dword ptr [rbp-0x34], edi
+[0921] mov rbx, rsi
+[0922] mov r13, rdx
+[0923] mov rax, qword ptr fs:[0x0]
+[0924] lea rax, ptr [rax-0x4f]
+[0925] movzx r14d, byte ptr [rax]
+[0926] test r14b, r14b
+[0927] setz byte ptr [rbp-0x40]
+[0928] mov r12d, 0x40
+[0929] test r14b, 0xfb
+[0930] jz 0x55aa6a98353c
+[0931] mov r15d, r13d
+[0932] and r15d, 0x7f
+[0933] mov dword ptr [rbp-0x38], ebx
+[0934] cmp ebx, 0xfc
+[0935] jbe 0x55aa6a983573
+[0936] movzx r12d, r12b
+[0937] add r12, r13
+[0938] shr r12, 0x7
+[0939] test r15b, r15b
+[0940] jnz 0x55aa6a98365f
+[0941] mov rax, qword ptr fs:[0x0]
+[0942] lea rax, ptr [rax-0x50]
+[0943] or byte ptr [rax], 0x1
+[0944] cmp r14b, 0x6
+[0945] jnz 0x55aa6a983587
+[0946] cmp r15b, 0x40
+[0947] setz al
+[0948] movzx eax, al
+[0949] and rax, qword ptr [rbp-0x40]
+[0950] not rax
+[0951] and r12, rax
+[0952] mov eax, 0x0
+[0953] cmovz rbx, rax
+[0954] mov eax, dword ptr [rbp-0x34]
+[0955] shl eax, 0x1f
+[0956] shl ebx, 0x17
+[0957] add eax, ebx
+[0958] mov eax, eax
+[0959] add rax, r12
+[0960] add rsp, 0x18
+[0961] pop rbx
+[0962] pop r12
+[0963] pop r13
+[0964] pop r14
+[0965] pop r15
+[0966] pop rbp
+[0967] ret
+
+Low-level float multiplication
+[0968] jmp 0x55aa6a9831ce
+[0969] add rsp, 0x18
+[0970] pop rbx
+[0971] pop r12
+[0972] pop r13
+[0973] pop r14
+[0974] pop r15
+[0975] pop rbp
+[0976] ret
+
+Multiply two F32 numbers
+[0977] mov dword ptr [rsp+0x54], eax
+[0978] mov eax, dword ptr [rsp+0x54]
+[0979] mov dword ptr [rsp+0x24], eax
+[0980] mov eax, dword ptr [rsp+0x24]
+[0981] mov dword ptr [rsp+0x20], eax
+[0982] mov eax, dword ptr [rsp+0x20]
+[0983] add rsp, 0x58
+[0984] ret
+
+Complex division function
+[0985] mov dword ptr [rsp+0xa4], eax
+[0986] mov eax, dword ptr [rsp+0xa4]
+[0987] mov dword ptr [rsp+0x3c], eax
+[0988] mov eax, dword ptr [rsp+0x3c]
+[0989] mov dword ptr [rsp+0xa8], eax
+[0990] mov eax, dword ptr [rsp+0xa8]
+[0991] mov dword ptr [rsp+0xac], eax
+[0992] mov esi, dword ptr [rsp+0xac]
+[0993] lea rdi, ptr [rsp+0x38]
+[0994] movzx edx, byte ptr [rsp+0x2b]
+[0995] call 0x55aa6a944700
+
+Add two F32 numbers
+[0996] sub rsp, 0x58
+[0997] mov qword ptr [rsp+0x8], rdi
+[0998] mov al, dl
+[0999] mov dword ptr [rsp+0x18], esi
+[1000] mov ecx, dword ptr [rsp+0x18]
+[1001] mov dword ptr [rsp+0x14], ecx
+[1002] mov byte ptr [rsp+0x1f], al
+[1003] mov qword ptr [rsp+0x30], rdi
+[1004] lea rax, ptr [rip+0x3e969]
+[1005] lea rdi, ptr [rsp+0x1f]
+[1006] call rax
+
+Set rounding mode
+[1007] push rax
+[1008] mov qword ptr [rsp], rdi
+[1009] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[1010] mov qword ptr [rsp-0x8], rdi
+[1011] movzx eax, byte ptr [rdi]
+[1012] mov qword ptr [rsp-0x18], rax
+[1013] mov rax, qword ptr [rsp-0x18]
+[1014] lea rcx, ptr [rip+0x4808f]
+[1015] movsxd rax, dword ptr [rcx+rax*4]
+[1016] add rax, rcx
+[1017] jmp rax
+[1018] mov byte ptr [rsp-0x9], 0x0
+[1019] jmp 0x55aa6a9830f5
+[1020] mov al, byte ptr [rsp-0x9]
+[1021] ret
+
+Set rounding mode
+[1022] movzx edi, al
+[1023] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[1024] push rbp
+[1025] mov rbp, rsp
+[1026] push rbx
+[1027] sub rsp, 0x8
+[1028] mov ebx, edi
+[1029] mov rax, qword ptr fs:[0x0]
+[1030] lea rax, ptr [rax-0x4f]
+[1031] mov byte ptr [rax], bl
+[1032] mov rbx, qword ptr [rbp-0x8]
+[1033] leave
+[1034] ret
+
+Set rounding mode
+[1035] pop rax
+[1036] ret
+
+Add two F32 numbers
+[1037] jmp 0x55aa6a94474a
+[1038] mov rax, qword ptr [rsp+0x8]
+[1039] mov eax, dword ptr [rax]
+[1040] mov dword ptr [rsp+0x28], eax
+[1041] lea rdi, ptr [rsp+0x14]
+[1042] call 0x55aa6a9446e0
+
+Borrow value
+[1043] mov rax, rdi
+[1044] mov qword ptr [rsp-0x8], rax
+[1045] ret
+
+Add two F32 numbers
+[1046] mov qword ptr [rsp], rax
+[1047] jmp 0x55aa6a944765
+[1048] mov rax, qword ptr [rsp]
+[1049] mov eax, dword ptr [rax]
+[1050] mov dword ptr [rsp+0x2c], eax
+[1051] mov eax, dword ptr [rsp+0x28]
+[1052] mov dword ptr [rsp+0x4c], eax
+[1053] mov edi, dword ptr [rsp+0x4c]
+[1054] mov eax, dword ptr [rsp+0x2c]
+[1055] mov dword ptr [rsp+0x50], eax
+[1056] mov esi, dword ptr [rsp+0x50]
+[1057] call qword ptr [rip+0x9e453]
+
+Low-level float addition
+[1058] push rbp
+[1059] mov rbp, rsp
+[1060] mov eax, edi
+[1061] mov edx, esi
+[1062] xor esi, edi
+[1063] js 0x55aa6a983113
+[1064] mov rsi, rdx
+[1065] mov rdi, rax
+[1066] call 0x55aa6a98371c
+
+Add float magnitudes
+[1067] push rbp
+[1068] mov rbp, rsp
+[1069] mov rcx, rdi
+[1070] shr rcx, 0x17
+[1071] movzx ecx, cl
+[1072] mov r9, rcx
+[1073] mov r10, rdi
+[1074] and r10d, 0x7fffff
+[1075] mov rax, rsi
+[1076] shr rax, 0x17
+[1077] movzx eax, al
+[1078] mov rdx, rsi
+[1079] and edx, 0x7fffff
+[1080] mov r11, rcx
+[1081] sub r11, rax
+[1082] jnz 0x55aa6a9837c2
+[1083] mov r8d, edi
+[1084] shr r8d, 0x1f
+[1085] shl r10, 0x6
+[1086] shl rdx, 0x6
+[1087] test r11, r11
+[1088] js 0x55aa6a983837
+[1089] cmp rax, 0xff
+[1090] jz 0x55aa6a98387e
+[1091] test rcx, rcx
+[1092] mov esi, 0x20000000
+[1093] cmovz rsi, r10
+[1094] mov rdi, rax
+[1095] sub rdi, rcx
+[1096] add rsi, r10
+[1097] cmp rdi, 0x1e
+[1098] jnbe 0x55aa6a98389a
+[1099] mov ecx, edi
+[1100] neg ecx
+[1101] mov r9d, esi
+[1102] shl r9d, cl
+[1103] test r9d, r9d
+[1104] setnz r10b
+[1105] movzx r10d, r10b
+[1106] mov ecx, edi
+[1107] shr esi, cl
+[1108] or r10d, esi
+[1109] mov r10d, r10d
+[1110] mov r9, rax
+[1111] jmp 0x55aa6a983816
+[1112] lea rdx, ptr [r10+rdx*1+0x20000000]
+[1113] cmp rdx, 0x3fffffff
+[1114] jnbe 0x55aa6a983781
+[1115] sub r9, 0x1
+[1116] add rdx, rdx
+[1117] jmp 0x55aa6a983781
+[1118] movzx edi, r8b
+[1119] mov rsi, r9
+[1120] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[1121] push rbp
+[1122] mov rbp, rsp
+[1123] push r15
+[1124] push r14
+[1125] push r13
+[1126] push r12
+[1127] push rbx
+[1128] sub rsp, 0x18
+[1129] mov r15d, edi
+[1130] mov dword ptr [rbp-0x34], edi
+[1131] mov rbx, rsi
+[1132] mov r13, rdx
+[1133] mov rax, qword ptr fs:[0x0]
+[1134] lea rax, ptr [rax-0x4f]
+[1135] movzx r14d, byte ptr [rax]
+[1136] test r14b, r14b
+[1137] setz byte ptr [rbp-0x40]
+[1138] mov r12d, 0x40
+[1139] test r14b, 0xfb
+[1140] jz 0x55aa6a98353c
+[1141] mov r15d, r13d
+[1142] and r15d, 0x7f
+[1143] mov dword ptr [rbp-0x38], ebx
+[1144] cmp ebx, 0xfc
+[1145] jbe 0x55aa6a983573
+[1146] movzx r12d, r12b
+[1147] add r12, r13
+[1148] shr r12, 0x7
+[1149] test r15b, r15b
+[1150] jnz 0x55aa6a98365f
+[1151] cmp r15b, 0x40
+[1152] setz al
+[1153] movzx eax, al
+[1154] and rax, qword ptr [rbp-0x40]
+[1155] not rax
+[1156] and r12, rax
+[1157] mov eax, 0x0
+[1158] cmovz rbx, rax
+[1159] mov eax, dword ptr [rbp-0x34]
+[1160] shl eax, 0x1f
+[1161] shl ebx, 0x17
+[1162] add eax, ebx
+[1163] mov eax, eax
+[1164] add rax, r12
+[1165] add rsp, 0x18
+[1166] pop rbx
+[1167] pop r12
+[1168] pop r13
+[1169] pop r14
+[1170] pop r15
+[1171] pop rbp
+[1172] ret
+
+Add float magnitudes
+[1173] pop rbp
+[1174] ret
+
+Low-level float addition
+[1175] pop rbp
+[1176] ret
+
+Add two F32 numbers
+[1177] mov dword ptr [rsp+0x54], eax
+[1178] mov eax, dword ptr [rsp+0x54]
+[1179] mov dword ptr [rsp+0x24], eax
+[1180] mov eax, dword ptr [rsp+0x24]
+[1181] mov dword ptr [rsp+0x20], eax
+[1182] mov eax, dword ptr [rsp+0x20]
+[1183] add rsp, 0x58
+[1184] ret
+
+Complex division function
+[1185] mov dword ptr [rsp+0xb0], eax
+[1186] mov eax, dword ptr [rsp+0xb0]
+[1187] mov dword ptr [rsp+0x40], eax
+[1188] lea rdi, ptr [rsp+0x40]
+[1189] lea rsi, ptr [rsp+0x34]
+[1190] movzx edx, byte ptr [rsp+0x2b]
+[1191] call 0x55aa6a9447b0
+
+Divide two F32 numbers
+[1192] sub rsp, 0x58
+[1193] mov qword ptr [rsp+0x8], rdi
+[1194] mov al, dl
+[1195] mov qword ptr [rsp+0x10], rsi
+[1196] mov byte ptr [rsp+0x1f], al
+[1197] mov qword ptr [rsp+0x30], rdi
+[1198] lea rax, ptr [rip+0x3e8c0]
+[1199] lea rdi, ptr [rsp+0x1f]
+[1200] call rax
+
+Set rounding mode
+[1201] push rax
+[1202] mov qword ptr [rsp], rdi
+[1203] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[1204] mov qword ptr [rsp-0x8], rdi
+[1205] movzx eax, byte ptr [rdi]
+[1206] mov qword ptr [rsp-0x18], rax
+[1207] mov rax, qword ptr [rsp-0x18]
+[1208] lea rcx, ptr [rip+0x4808f]
+[1209] movsxd rax, dword ptr [rcx+rax*4]
+[1210] add rax, rcx
+[1211] jmp rax
+[1212] mov byte ptr [rsp-0x9], 0x0
+[1213] jmp 0x55aa6a9830f5
+[1214] mov al, byte ptr [rsp-0x9]
+[1215] ret
+
+Set rounding mode
+[1216] movzx edi, al
+[1217] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[1218] push rbp
+[1219] mov rbp, rsp
+[1220] push rbx
+[1221] sub rsp, 0x8
+[1222] mov ebx, edi
+[1223] mov rax, qword ptr fs:[0x0]
+[1224] lea rax, ptr [rax-0x4f]
+[1225] mov byte ptr [rax], bl
+[1226] mov rbx, qword ptr [rbp-0x8]
+[1227] leave
+[1228] ret
+
+Set rounding mode
+[1229] pop rax
+[1230] ret
+
+Divide two F32 numbers
+[1231] jmp 0x55aa6a9447f3
+[1232] mov rax, qword ptr [rsp+0x8]
+[1233] mov eax, dword ptr [rax]
+[1234] mov dword ptr [rsp+0x28], eax
+[1235] lea rdi, ptr [rsp+0x10]
+[1236] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[1237] mov qword ptr [rsp-0x8], rdi
+[1238] mov rax, qword ptr [rdi]
+[1239] ret
+
+Divide two F32 numbers
+[1240] mov qword ptr [rsp], rax
+[1241] jmp 0x55aa6a94480e
+[1242] mov rax, qword ptr [rsp]
+[1243] mov eax, dword ptr [rax]
+[1244] mov dword ptr [rsp+0x2c], eax
+[1245] mov eax, dword ptr [rsp+0x28]
+[1246] mov dword ptr [rsp+0x4c], eax
+[1247] mov edi, dword ptr [rsp+0x4c]
+[1248] mov eax, dword ptr [rsp+0x2c]
+[1249] mov dword ptr [rsp+0x50], eax
+[1250] mov esi, dword ptr [rsp+0x50]
+[1251] call qword ptr [rip+0x9e0b2]
+
+Low-level float division
+[1252] push rbp
+[1253] mov rbp, rsp
+[1254] push r15
+[1255] push r14
+[1256] push r13
+[1257] push r12
+[1258] push rbx
+[1259] sub rsp, 0x18
+[1260] mov ebx, edi
+[1261] mov edi, edi
+[1262] mov r12, rdi
+[1263] shr r12, 0x17
+[1264] movzx r12d, r12b
+[1265] mov qword ptr [rbp-0x38], r12
+[1266] mov r14d, ebx
+[1267] and r14d, 0x7fffff
+[1268] mov eax, esi
+[1269] mov r13, rax
+[1270] shr r13, 0x17
+[1271] movzx r13d, r13b
+[1272] mov r15d, esi
+[1273] and r15d, 0x7fffff
+[1274] xor ebx, esi
+[1275] cmp r12, 0xff
+[1276] jz 0x55aa6a983305
+[1277] cmp r13, 0xff
+[1278] jz 0x55aa6a98332f
+[1279] test r13, r13
+[1280] jnz 0x55aa6a983365
+[1281] test r12, r12
+[1282] jnz 0x55aa6a98337e
+[1283] mov rsi, qword ptr [rbp-0x38]
+[1284] sub rsi, r13
+[1285] or r14, 0x800000
+[1286] or r15, 0x800000
+[1287] cmp r14, r15
+[1288] jnb 0x55aa6a9833d1
+[1289] add rsi, 0x7d
+[1290] shl r14, 0x1f
+[1291] mov rax, r14
+[1292] mov edx, 0x0
+[1293] div r15
+[1294] mov rdx, rax
+[1295] test al, 0x3f
+[1296] jnz 0x55aa6a9833c2
+[1297] shr ebx, 0x1f
+[1298] mov edi, ebx
+[1299] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[1300] push rbp
+[1301] mov rbp, rsp
+[1302] push r15
+[1303] push r14
+[1304] push r13
+[1305] push r12
+[1306] push rbx
+[1307] sub rsp, 0x18
+[1308] mov r15d, edi
+[1309] mov dword ptr [rbp-0x34], edi
+[1310] mov rbx, rsi
+[1311] mov r13, rdx
+[1312] mov rax, qword ptr fs:[0x0]
+[1313] lea rax, ptr [rax-0x4f]
+[1314] movzx r14d, byte ptr [rax]
+[1315] test r14b, r14b
+[1316] setz byte ptr [rbp-0x40]
+[1317] mov r12d, 0x40
+[1318] test r14b, 0xfb
+[1319] jz 0x55aa6a98353c
+[1320] mov r15d, r13d
+[1321] and r15d, 0x7f
+[1322] mov dword ptr [rbp-0x38], ebx
+[1323] cmp ebx, 0xfc
+[1324] jbe 0x55aa6a983573
+[1325] movzx r12d, r12b
+[1326] add r12, r13
+[1327] shr r12, 0x7
+[1328] test r15b, r15b
+[1329] jnz 0x55aa6a98365f
+[1330] mov rax, qword ptr fs:[0x0]
+[1331] lea rax, ptr [rax-0x50]
+[1332] or byte ptr [rax], 0x1
+[1333] cmp r14b, 0x6
+[1334] jnz 0x55aa6a983587
+[1335] cmp r15b, 0x40
+[1336] setz al
+[1337] movzx eax, al
+[1338] and rax, qword ptr [rbp-0x40]
+[1339] not rax
+[1340] and r12, rax
+[1341] mov eax, 0x0
+[1342] cmovz rbx, rax
+[1343] mov eax, dword ptr [rbp-0x34]
+[1344] shl eax, 0x1f
+[1345] shl ebx, 0x17
+[1346] add eax, ebx
+[1347] mov eax, eax
+[1348] add rax, r12
+[1349] add rsp, 0x18
+[1350] pop rbx
+[1351] pop r12
+[1352] pop r13
+[1353] pop r14
+[1354] pop r15
+[1355] pop rbp
+[1356] ret
+
+Low-level float division
+[1357] jmp 0x55aa6a983320
+[1358] add rsp, 0x18
+[1359] pop rbx
+[1360] pop r12
+[1361] pop r13
+[1362] pop r14
+[1363] pop r15
+[1364] pop rbp
+[1365] ret
+
+Divide two F32 numbers
+[1366] mov dword ptr [rsp+0x54], eax
+[1367] mov eax, dword ptr [rsp+0x54]
+[1368] mov dword ptr [rsp+0x24], eax
+[1369] mov eax, dword ptr [rsp+0x24]
+[1370] mov dword ptr [rsp+0x20], eax
+[1371] mov eax, dword ptr [rsp+0x20]
+[1372] add rsp, 0x58
+[1373] ret
+
+Complex division function
+[1374] mov rdi, qword ptr [rsp]
+[1375] mov rsi, qword ptr [rsp+0x8]
+[1376] mov dword ptr [rsp+0xb4], eax
+[1377] mov eax, dword ptr [rsp+0xb4]
+[1378] mov dword ptr [rsp+0x44], eax
+[1379] movzx edx, byte ptr [rsp+0x2b]
+[1380] call 0x55aa6a944860
+
+Multiply two F32 numbers
+[1381] sub rsp, 0x58
+[1382] mov qword ptr [rsp+0x8], rdi
+[1383] mov al, dl
+[1384] mov qword ptr [rsp+0x10], rsi
+[1385] mov byte ptr [rsp+0x1f], al
+[1386] mov qword ptr [rsp+0x30], rdi
+[1387] lea rax, ptr [rip+0x3e810]
+[1388] lea rdi, ptr [rsp+0x1f]
+[1389] call rax
+
+Set rounding mode
+[1390] push rax
+[1391] mov qword ptr [rsp], rdi
+[1392] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[1393] mov qword ptr [rsp-0x8], rdi
+[1394] movzx eax, byte ptr [rdi]
+[1395] mov qword ptr [rsp-0x18], rax
+[1396] mov rax, qword ptr [rsp-0x18]
+[1397] lea rcx, ptr [rip+0x4808f]
+[1398] movsxd rax, dword ptr [rcx+rax*4]
+[1399] add rax, rcx
+[1400] jmp rax
+[1401] mov byte ptr [rsp-0x9], 0x0
+[1402] jmp 0x55aa6a9830f5
+[1403] mov al, byte ptr [rsp-0x9]
+[1404] ret
+
+Set rounding mode
+[1405] movzx edi, al
+[1406] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[1407] push rbp
+[1408] mov rbp, rsp
+[1409] push rbx
+[1410] sub rsp, 0x8
+[1411] mov ebx, edi
+[1412] mov rax, qword ptr fs:[0x0]
+[1413] lea rax, ptr [rax-0x4f]
+[1414] mov byte ptr [rax], bl
+[1415] mov rbx, qword ptr [rbp-0x8]
+[1416] leave
+[1417] ret
+
+Set rounding mode
+[1418] pop rax
+[1419] ret
+
+Multiply two F32 numbers
+[1420] jmp 0x55aa6a9448a3
+[1421] mov rax, qword ptr [rsp+0x8]
+[1422] mov eax, dword ptr [rax]
+[1423] mov dword ptr [rsp+0x28], eax
+[1424] lea rdi, ptr [rsp+0x10]
+[1425] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[1426] mov qword ptr [rsp-0x8], rdi
+[1427] mov rax, qword ptr [rdi]
+[1428] ret
+
+Multiply two F32 numbers
+[1429] mov qword ptr [rsp], rax
+[1430] jmp 0x55aa6a9448be
+[1431] mov rax, qword ptr [rsp]
+[1432] mov eax, dword ptr [rax]
+[1433] mov dword ptr [rsp+0x2c], eax
+[1434] mov eax, dword ptr [rsp+0x28]
+[1435] mov dword ptr [rsp+0x4c], eax
+[1436] mov edi, dword ptr [rsp+0x4c]
+[1437] mov eax, dword ptr [rsp+0x2c]
+[1438] mov dword ptr [rsp+0x50], eax
+[1439] mov esi, dword ptr [rsp+0x50]
+[1440] call qword ptr [rip+0x9e11a]
+
+Low-level float multiplication
+[1441] push rbp
+[1442] mov rbp, rsp
+[1443] push r15
+[1444] push r14
+[1445] push r13
+[1446] push r12
+[1447] push rbx
+[1448] sub rsp, 0x18
+[1449] mov ebx, edi
+[1450] mov edi, edi
+[1451] mov rax, rdi
+[1452] shr rax, 0x17
+[1453] movzx eax, al
+[1454] mov r13d, ebx
+[1455] and r13d, 0x7fffff
+[1456] mov edx, esi
+[1457] mov r12, rdx
+[1458] shr r12, 0x17
+[1459] movzx r12d, r12b
+[1460] mov qword ptr [rbp-0x38], r12
+[1461] mov r14d, esi
+[1462] and r14d, 0x7fffff
+[1463] xor ebx, esi
+[1464] cmp rax, 0xff
+[1465] jz 0x55aa6a9831b3
+[1466] mov r15, rax
+[1467] cmp r12, 0xff
+[1468] jz 0x55aa6a983207
+[1469] test rax, rax
+[1470] jnz 0x55aa6a98321f
+[1471] test r12, r12
+[1472] jnz 0x55aa6a983238
+[1473] mov rsi, qword ptr [rbp-0x38]
+[1474] add rsi, r15
+[1475] shl r13, 0x7
+[1476] shl r14, 0x8
+[1477] or r13, 0x40000000
+[1478] bts r14, 0x1f
+[1479] imul r13, r14
+[1480] test r13d, r13d
+[1481] setnz dl
+[1482] movzx edx, dl
+[1483] shr r13, 0x20
+[1484] or rdx, r13
+[1485] cmp rdx, 0x3fffffff
+[1486] jbe 0x55aa6a983283
+[1487] add rsi, 0xffffffffffffff80
+[1488] add rdx, rdx
+[1489] jmp 0x55aa6a983274
+[1490] shr ebx, 0x1f
+[1491] mov edi, ebx
+[1492] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[1493] push rbp
+[1494] mov rbp, rsp
+[1495] push r15
+[1496] push r14
+[1497] push r13
+[1498] push r12
+[1499] push rbx
+[1500] sub rsp, 0x18
+[1501] mov r15d, edi
+[1502] mov dword ptr [rbp-0x34], edi
+[1503] mov rbx, rsi
+[1504] mov r13, rdx
+[1505] mov rax, qword ptr fs:[0x0]
+[1506] lea rax, ptr [rax-0x4f]
+[1507] movzx r14d, byte ptr [rax]
+[1508] test r14b, r14b
+[1509] setz byte ptr [rbp-0x40]
+[1510] mov r12d, 0x40
+[1511] test r14b, 0xfb
+[1512] jz 0x55aa6a98353c
+[1513] mov r15d, r13d
+[1514] and r15d, 0x7f
+[1515] mov dword ptr [rbp-0x38], ebx
+[1516] cmp ebx, 0xfc
+[1517] jbe 0x55aa6a983573
+[1518] movzx r12d, r12b
+[1519] add r12, r13
+[1520] shr r12, 0x7
+[1521] test r15b, r15b
+[1522] jnz 0x55aa6a98365f
+[1523] mov rax, qword ptr fs:[0x0]
+[1524] lea rax, ptr [rax-0x50]
+[1525] or byte ptr [rax], 0x1
+[1526] cmp r14b, 0x6
+[1527] jnz 0x55aa6a983587
+[1528] cmp r15b, 0x40
+[1529] setz al
+[1530] movzx eax, al
+[1531] and rax, qword ptr [rbp-0x40]
+[1532] not rax
+[1533] and r12, rax
+[1534] mov eax, 0x0
+[1535] cmovz rbx, rax
+[1536] mov eax, dword ptr [rbp-0x34]
+[1537] shl eax, 0x1f
+[1538] shl ebx, 0x17
+[1539] add eax, ebx
+[1540] mov eax, eax
+[1541] add rax, r12
+[1542] add rsp, 0x18
+[1543] pop rbx
+[1544] pop r12
+[1545] pop r13
+[1546] pop r14
+[1547] pop r15
+[1548] pop rbp
+[1549] ret
+
+Low-level float multiplication
+[1550] jmp 0x55aa6a9831ce
+[1551] add rsp, 0x18
+[1552] pop rbx
+[1553] pop r12
+[1554] pop r13
+[1555] pop r14
+[1556] pop r15
+[1557] pop rbp
+[1558] ret
+
+Multiply two F32 numbers
+[1559] mov dword ptr [rsp+0x54], eax
+[1560] mov eax, dword ptr [rsp+0x54]
+[1561] mov dword ptr [rsp+0x24], eax
+[1562] mov eax, dword ptr [rsp+0x24]
+[1563] mov dword ptr [rsp+0x20], eax
+[1564] mov eax, dword ptr [rsp+0x20]
+[1565] add rsp, 0x58
+[1566] ret
+
+Complex division function
+[1567] mov rdi, qword ptr [rsp+0x10]
+[1568] mov rsi, qword ptr [rsp+0x18]
+[1569] mov dword ptr [rsp+0xb8], eax
+[1570] mov eax, dword ptr [rsp+0xb8]
+[1571] mov dword ptr [rsp+0x48], eax
+[1572] movzx edx, byte ptr [rsp+0x2b]
+[1573] call 0x55aa6a944860
+
+Multiply two F32 numbers
+[1574] sub rsp, 0x58
+[1575] mov qword ptr [rsp+0x8], rdi
+[1576] mov al, dl
+[1577] mov qword ptr [rsp+0x10], rsi
+[1578] mov byte ptr [rsp+0x1f], al
+[1579] mov qword ptr [rsp+0x30], rdi
+[1580] lea rax, ptr [rip+0x3e810]
+[1581] lea rdi, ptr [rsp+0x1f]
+[1582] call rax
+
+Set rounding mode
+[1583] push rax
+[1584] mov qword ptr [rsp], rdi
+[1585] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[1586] mov qword ptr [rsp-0x8], rdi
+[1587] movzx eax, byte ptr [rdi]
+[1588] mov qword ptr [rsp-0x18], rax
+[1589] mov rax, qword ptr [rsp-0x18]
+[1590] lea rcx, ptr [rip+0x4808f]
+[1591] movsxd rax, dword ptr [rcx+rax*4]
+[1592] add rax, rcx
+[1593] jmp rax
+[1594] mov byte ptr [rsp-0x9], 0x0
+[1595] jmp 0x55aa6a9830f5
+[1596] mov al, byte ptr [rsp-0x9]
+[1597] ret
+
+Set rounding mode
+[1598] movzx edi, al
+[1599] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[1600] push rbp
+[1601] mov rbp, rsp
+[1602] push rbx
+[1603] sub rsp, 0x8
+[1604] mov ebx, edi
+[1605] mov rax, qword ptr fs:[0x0]
+[1606] lea rax, ptr [rax-0x4f]
+[1607] mov byte ptr [rax], bl
+[1608] mov rbx, qword ptr [rbp-0x8]
+[1609] leave
+[1610] ret
+
+Set rounding mode
+[1611] pop rax
+[1612] ret
+
+Multiply two F32 numbers
+[1613] jmp 0x55aa6a9448a3
+[1614] mov rax, qword ptr [rsp+0x8]
+[1615] mov eax, dword ptr [rax]
+[1616] mov dword ptr [rsp+0x28], eax
+[1617] lea rdi, ptr [rsp+0x10]
+[1618] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[1619] mov qword ptr [rsp-0x8], rdi
+[1620] mov rax, qword ptr [rdi]
+[1621] ret
+
+Multiply two F32 numbers
+[1622] mov qword ptr [rsp], rax
+[1623] jmp 0x55aa6a9448be
+[1624] mov rax, qword ptr [rsp]
+[1625] mov eax, dword ptr [rax]
+[1626] mov dword ptr [rsp+0x2c], eax
+[1627] mov eax, dword ptr [rsp+0x28]
+[1628] mov dword ptr [rsp+0x4c], eax
+[1629] mov edi, dword ptr [rsp+0x4c]
+[1630] mov eax, dword ptr [rsp+0x2c]
+[1631] mov dword ptr [rsp+0x50], eax
+[1632] mov esi, dword ptr [rsp+0x50]
+[1633] call qword ptr [rip+0x9e11a]
+
+Low-level float multiplication
+[1634] push rbp
+[1635] mov rbp, rsp
+[1636] push r15
+[1637] push r14
+[1638] push r13
+[1639] push r12
+[1640] push rbx
+[1641] sub rsp, 0x18
+[1642] mov ebx, edi
+[1643] mov edi, edi
+[1644] mov rax, rdi
+[1645] shr rax, 0x17
+[1646] movzx eax, al
+[1647] mov r13d, ebx
+[1648] and r13d, 0x7fffff
+[1649] mov edx, esi
+[1650] mov r12, rdx
+[1651] shr r12, 0x17
+[1652] movzx r12d, r12b
+[1653] mov qword ptr [rbp-0x38], r12
+[1654] mov r14d, esi
+[1655] and r14d, 0x7fffff
+[1656] xor ebx, esi
+[1657] cmp rax, 0xff
+[1658] jz 0x55aa6a9831b3
+[1659] mov r15, rax
+[1660] cmp r12, 0xff
+[1661] jz 0x55aa6a983207
+[1662] test rax, rax
+[1663] jnz 0x55aa6a98321f
+[1664] test r12, r12
+[1665] jnz 0x55aa6a983238
+[1666] mov rsi, qword ptr [rbp-0x38]
+[1667] add rsi, r15
+[1668] shl r13, 0x7
+[1669] shl r14, 0x8
+[1670] or r13, 0x40000000
+[1671] bts r14, 0x1f
+[1672] imul r13, r14
+[1673] test r13d, r13d
+[1674] setnz dl
+[1675] movzx edx, dl
+[1676] shr r13, 0x20
+[1677] or rdx, r13
+[1678] cmp rdx, 0x3fffffff
+[1679] jbe 0x55aa6a983283
+[1680] add rsi, 0xffffffffffffff80
+[1681] add rdx, rdx
+[1682] jmp 0x55aa6a983274
+[1683] shr ebx, 0x1f
+[1684] mov edi, ebx
+[1685] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[1686] push rbp
+[1687] mov rbp, rsp
+[1688] push r15
+[1689] push r14
+[1690] push r13
+[1691] push r12
+[1692] push rbx
+[1693] sub rsp, 0x18
+[1694] mov r15d, edi
+[1695] mov dword ptr [rbp-0x34], edi
+[1696] mov rbx, rsi
+[1697] mov r13, rdx
+[1698] mov rax, qword ptr fs:[0x0]
+[1699] lea rax, ptr [rax-0x4f]
+[1700] movzx r14d, byte ptr [rax]
+[1701] test r14b, r14b
+[1702] setz byte ptr [rbp-0x40]
+[1703] mov r12d, 0x40
+[1704] test r14b, 0xfb
+[1705] jz 0x55aa6a98353c
+[1706] mov r15d, r13d
+[1707] and r15d, 0x7f
+[1708] mov dword ptr [rbp-0x38], ebx
+[1709] cmp ebx, 0xfc
+[1710] jbe 0x55aa6a983573
+[1711] movzx r12d, r12b
+[1712] add r12, r13
+[1713] shr r12, 0x7
+[1714] test r15b, r15b
+[1715] jnz 0x55aa6a98365f
+[1716] mov rax, qword ptr fs:[0x0]
+[1717] lea rax, ptr [rax-0x50]
+[1718] or byte ptr [rax], 0x1
+[1719] cmp r14b, 0x6
+[1720] jnz 0x55aa6a983587
+[1721] cmp r15b, 0x40
+[1722] setz al
+[1723] movzx eax, al
+[1724] and rax, qword ptr [rbp-0x40]
+[1725] not rax
+[1726] and r12, rax
+[1727] mov eax, 0x0
+[1728] cmovz rbx, rax
+[1729] mov eax, dword ptr [rbp-0x34]
+[1730] shl eax, 0x1f
+[1731] shl ebx, 0x17
+[1732] add eax, ebx
+[1733] mov eax, eax
+[1734] add rax, r12
+[1735] add rsp, 0x18
+[1736] pop rbx
+[1737] pop r12
+[1738] pop r13
+[1739] pop r14
+[1740] pop r15
+[1741] pop rbp
+[1742] ret
+
+Low-level float multiplication
+[1743] jmp 0x55aa6a9831ce
+[1744] add rsp, 0x18
+[1745] pop rbx
+[1746] pop r12
+[1747] pop r13
+[1748] pop r14
+[1749] pop r15
+[1750] pop rbp
+[1751] ret
+
+Multiply two F32 numbers
+[1752] mov dword ptr [rsp+0x54], eax
+[1753] mov eax, dword ptr [rsp+0x54]
+[1754] mov dword ptr [rsp+0x24], eax
+[1755] mov eax, dword ptr [rsp+0x24]
+[1756] mov dword ptr [rsp+0x20], eax
+[1757] mov eax, dword ptr [rsp+0x20]
+[1758] add rsp, 0x58
+[1759] ret
+
+Complex division function
+[1760] mov dword ptr [rsp+0xbc], eax
+[1761] mov eax, dword ptr [rsp+0xbc]
+[1762] mov dword ptr [rsp+0x4c], eax
+[1763] mov eax, dword ptr [rsp+0x4c]
+[1764] mov dword ptr [rsp+0xc0], eax
+[1765] mov eax, dword ptr [rsp+0xc0]
+[1766] mov dword ptr [rsp+0xc4], eax
+[1767] mov esi, dword ptr [rsp+0xc4]
+[1768] lea rdi, ptr [rsp+0x48]
+[1769] movzx edx, byte ptr [rsp+0x2b]
+[1770] call 0x55aa6a944910
+
+Subtract two F32 numbers
+[1771] sub rsp, 0x58
+[1772] mov qword ptr [rsp+0x8], rdi
+[1773] mov al, dl
+[1774] mov dword ptr [rsp+0x18], esi
+[1775] mov ecx, dword ptr [rsp+0x18]
+[1776] mov dword ptr [rsp+0x14], ecx
+[1777] mov byte ptr [rsp+0x1f], al
+[1778] mov qword ptr [rsp+0x30], rdi
+[1779] lea rax, ptr [rip+0x3e759]
+[1780] lea rdi, ptr [rsp+0x1f]
+[1781] call rax
+
+Set rounding mode
+[1782] push rax
+[1783] mov qword ptr [rsp], rdi
+[1784] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[1785] mov qword ptr [rsp-0x8], rdi
+[1786] movzx eax, byte ptr [rdi]
+[1787] mov qword ptr [rsp-0x18], rax
+[1788] mov rax, qword ptr [rsp-0x18]
+[1789] lea rcx, ptr [rip+0x4808f]
+[1790] movsxd rax, dword ptr [rcx+rax*4]
+[1791] add rax, rcx
+[1792] jmp rax
+[1793] mov byte ptr [rsp-0x9], 0x0
+[1794] jmp 0x55aa6a9830f5
+[1795] mov al, byte ptr [rsp-0x9]
+[1796] ret
+
+Set rounding mode
+[1797] movzx edi, al
+[1798] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[1799] push rbp
+[1800] mov rbp, rsp
+[1801] push rbx
+[1802] sub rsp, 0x8
+[1803] mov ebx, edi
+[1804] mov rax, qword ptr fs:[0x0]
+[1805] lea rax, ptr [rax-0x4f]
+[1806] mov byte ptr [rax], bl
+[1807] mov rbx, qword ptr [rbp-0x8]
+[1808] leave
+[1809] ret
+
+Set rounding mode
+[1810] pop rax
+[1811] ret
+
+Subtract two F32 numbers
+[1812] jmp 0x55aa6a94495a
+[1813] mov rax, qword ptr [rsp+0x8]
+[1814] mov eax, dword ptr [rax]
+[1815] mov dword ptr [rsp+0x28], eax
+[1816] lea rdi, ptr [rsp+0x14]
+[1817] call 0x55aa6a9446e0
+
+Borrow value
+[1818] mov rax, rdi
+[1819] mov qword ptr [rsp-0x8], rax
+[1820] ret
+
+Subtract two F32 numbers
+[1821] mov qword ptr [rsp], rax
+[1822] jmp 0x55aa6a944975
+[1823] mov rax, qword ptr [rsp]
+[1824] mov eax, dword ptr [rax]
+[1825] mov dword ptr [rsp+0x2c], eax
+[1826] mov eax, dword ptr [rsp+0x28]
+[1827] mov dword ptr [rsp+0x4c], eax
+[1828] mov edi, dword ptr [rsp+0x4c]
+[1829] mov eax, dword ptr [rsp+0x2c]
+[1830] mov dword ptr [rsp+0x50], eax
+[1831] mov esi, dword ptr [rsp+0x50]
+[1832] call qword ptr [rip+0x9ddfb]
+
+Low-level float subtraction
+[1833] push rbp
+[1834] mov rbp, rsp
+[1835] mov eax, edi
+[1836] mov edx, esi
+[1837] xor esi, edi
+[1838] js 0x55aa6a983139
+[1839] mov rsi, rdx
+[1840] mov rdi, rax
+[1841] call 0x55aa6a9838c1
+
+Subtract float magnitudes
+[1842] push rbp
+[1843] mov rbp, rsp
+[1844] mov rdx, rsi
+[1845] mov rsi, rdi
+[1846] shr rsi, 0x17
+[1847] movzx esi, sil
+[1848] mov rcx, rdi
+[1849] and ecx, 0x7fffff
+[1850] mov rax, rdx
+[1851] shr rax, 0x17
+[1852] movzx eax, al
+[1853] mov r8, rdx
+[1854] and r8d, 0x7fffff
+[1855] mov r9, rsi
+[1856] sub r9, rax
+[1857] jnz 0x55aa6a9839a1
+[1858] mov r10d, edi
+[1859] shl rcx, 0x7
+[1860] shl r8, 0x7
+[1861] test r9, r9
+[1862] js 0x55aa6a9839c5
+[1863] mov r9d, edi
+[1864] not r9d
+[1865] shr r9d, 0x1f
+[1866] mov r10d, r9d
+[1867] cmp rax, 0xff
+[1868] jnz 0x55aa6a9839f6
+[1869] lea r11, ptr [rax-0x1]
+[1870] mov rdx, r8
+[1871] or rdx, 0x40000000
+[1872] test rsi, rsi
+[1873] mov r8d, 0x40000000
+[1874] cmovz r8, rcx
+[1875] add r8, rcx
+[1876] sub rax, rsi
+[1877] mov r9, rax
+[1878] jmp 0x55aa6a983a3d
+[1879] cmp r9, 0x1e
+[1880] jnbe 0x55aa6a983a74
+[1881] mov ecx, r9d
+[1882] neg ecx
+[1883] mov eax, r8d
+[1884] shl eax, cl
+[1885] test eax, eax
+[1886] setnz al
+[1887] movzx eax, al
+[1888] mov ecx, r9d
+[1889] shr r8d, cl
+[1890] or eax, r8d
+[1891] mov eax, eax
+[1892] sub rdx, rax
+[1893] movzx edi, r10b
+[1894] mov rsi, r11
+[1895] call 0x55aa6a9836a5
+
+Normalize and round to F32
+[1896] mov eax, edi
+[1897] mov edi, edx
+[1898] test edx, edx
+[1899] jz 0x55aa6a9836e5
+[1900] bsr edi, edx
+[1901] xor edi, 0x1f
+[1902] lea ecx, ptr [rdi-0x1]
+[1903] movsx rdi, cl
+[1904] sub rsi, rdi
+[1905] cmp cl, 0x6
+[1906] jle 0x55aa6a9836cd
+[1907] push rbp
+[1908] mov rbp, rsp
+[1909] shl rdx, cl
+[1910] movzx edi, al
+[1911] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[1912] push rbp
+[1913] mov rbp, rsp
+[1914] push r15
+[1915] push r14
+[1916] push r13
+[1917] push r12
+[1918] push rbx
+[1919] sub rsp, 0x18
+[1920] mov r15d, edi
+[1921] mov dword ptr [rbp-0x34], edi
+[1922] mov rbx, rsi
+[1923] mov r13, rdx
+[1924] mov rax, qword ptr fs:[0x0]
+[1925] lea rax, ptr [rax-0x4f]
+[1926] movzx r14d, byte ptr [rax]
+[1927] test r14b, r14b
+[1928] setz byte ptr [rbp-0x40]
+[1929] mov r12d, 0x40
+[1930] test r14b, 0xfb
+[1931] jz 0x55aa6a98353c
+[1932] mov r15d, r13d
+[1933] and r15d, 0x7f
+[1934] mov dword ptr [rbp-0x38], ebx
+[1935] cmp ebx, 0xfc
+[1936] jbe 0x55aa6a983573
+[1937] movzx r12d, r12b
+[1938] add r12, r13
+[1939] shr r12, 0x7
+[1940] test r15b, r15b
+[1941] jnz 0x55aa6a98365f
+[1942] cmp r15b, 0x40
+[1943] setz al
+[1944] movzx eax, al
+[1945] and rax, qword ptr [rbp-0x40]
+[1946] not rax
+[1947] and r12, rax
+[1948] mov eax, 0x0
+[1949] cmovz rbx, rax
+[1950] mov eax, dword ptr [rbp-0x34]
+[1951] shl eax, 0x1f
+[1952] shl ebx, 0x17
+[1953] add eax, ebx
+[1954] mov eax, eax
+[1955] add rax, r12
+[1956] add rsp, 0x18
+[1957] pop rbx
+[1958] pop r12
+[1959] pop r13
+[1960] pop r14
+[1961] pop r15
+[1962] pop rbp
+[1963] ret
+
+Normalize and round to F32
+[1964] pop rbp
+[1965] ret
+
+Subtract float magnitudes
+[1966] jmp 0x55aa6a983948
+[1967] pop rbp
+[1968] ret
+
+Low-level float subtraction
+[1969] pop rbp
+[1970] ret
+
+Subtract two F32 numbers
+[1971] mov dword ptr [rsp+0x54], eax
+[1972] mov eax, dword ptr [rsp+0x54]
+[1973] mov dword ptr [rsp+0x24], eax
+[1974] mov eax, dword ptr [rsp+0x24]
+[1975] mov dword ptr [rsp+0x20], eax
+[1976] mov eax, dword ptr [rsp+0x20]
+[1977] add rsp, 0x58
+[1978] ret
+
+Complex division function
+[1979] mov dword ptr [rsp+0xc8], eax
+[1980] mov eax, dword ptr [rsp+0xc8]
+[1981] mov dword ptr [rsp+0x50], eax
+[1982] lea rdi, ptr [rsp+0x50]
+[1983] lea rsi, ptr [rsp+0x34]
+[1984] movzx edx, byte ptr [rsp+0x2b]
+[1985] call 0x55aa6a9447b0
+
+Divide two F32 numbers
+[1986] sub rsp, 0x58
+[1987] mov qword ptr [rsp+0x8], rdi
+[1988] mov al, dl
+[1989] mov qword ptr [rsp+0x10], rsi
+[1990] mov byte ptr [rsp+0x1f], al
+[1991] mov qword ptr [rsp+0x30], rdi
+[1992] lea rax, ptr [rip+0x3e8c0]
+[1993] lea rdi, ptr [rsp+0x1f]
+[1994] call rax
+
+Set rounding mode
+[1995] push rax
+[1996] mov qword ptr [rsp], rdi
+[1997] call 0x55aa6a9830b0
+
+Convert rounding mode to softfloat format
+[1998] mov qword ptr [rsp-0x8], rdi
+[1999] movzx eax, byte ptr [rdi]
+[2000] mov qword ptr [rsp-0x18], rax
+[2001] mov rax, qword ptr [rsp-0x18]
+[2002] lea rcx, ptr [rip+0x4808f]
+[2003] movsxd rax, dword ptr [rcx+rax*4]
+[2004] add rax, rcx
+[2005] jmp rax
+[2006] mov byte ptr [rsp-0x9], 0x0
+[2007] jmp 0x55aa6a9830f5
+[2008] mov al, byte ptr [rsp-0x9]
+[2009] ret
+
+Set rounding mode
+[2010] movzx edi, al
+[2011] call qword ptr [rip+0x5fc9d]
+
+Helper for setting rounding mode
+[2012] push rbp
+[2013] mov rbp, rsp
+[2014] push rbx
+[2015] sub rsp, 0x8
+[2016] mov ebx, edi
+[2017] mov rax, qword ptr fs:[0x0]
+[2018] lea rax, ptr [rax-0x4f]
+[2019] mov byte ptr [rax], bl
+[2020] mov rbx, qword ptr [rbp-0x8]
+[2021] leave
+[2022] ret
+
+Set rounding mode
+[2023] pop rax
+[2024] ret
+
+Divide two F32 numbers
+[2025] jmp 0x55aa6a9447f3
+[2026] mov rax, qword ptr [rsp+0x8]
+[2027] mov eax, dword ptr [rax]
+[2028] mov dword ptr [rsp+0x28], eax
+[2029] lea rdi, ptr [rsp+0x10]
+[2030] call 0x55aa6a9446f0
+
+Add two F32 numbers
+[2031] mov qword ptr [rsp-0x8], rdi
+[2032] mov rax, qword ptr [rdi]
+[2033] ret
+
+Divide two F32 numbers
+[2034] mov qword ptr [rsp], rax
+[2035] jmp 0x55aa6a94480e
+[2036] mov rax, qword ptr [rsp]
+[2037] mov eax, dword ptr [rax]
+[2038] mov dword ptr [rsp+0x2c], eax
+[2039] mov eax, dword ptr [rsp+0x28]
+[2040] mov dword ptr [rsp+0x4c], eax
+[2041] mov edi, dword ptr [rsp+0x4c]
+[2042] mov eax, dword ptr [rsp+0x2c]
+[2043] mov dword ptr [rsp+0x50], eax
+[2044] mov esi, dword ptr [rsp+0x50]
+[2045] call qword ptr [rip+0x9e0b2]
+
+Low-level float division
+[2046] push rbp
+[2047] mov rbp, rsp
+[2048] push r15
+[2049] push r14
+[2050] push r13
+[2051] push r12
+[2052] push rbx
+[2053] sub rsp, 0x18
+[2054] mov ebx, edi
+[2055] mov edi, edi
+[2056] mov r12, rdi
+[2057] shr r12, 0x17
+[2058] movzx r12d, r12b
+[2059] mov qword ptr [rbp-0x38], r12
+[2060] mov r14d, ebx
+[2061] and r14d, 0x7fffff
+[2062] mov eax, esi
+[2063] mov r13, rax
+[2064] shr r13, 0x17
+[2065] movzx r13d, r13b
+[2066] mov r15d, esi
+[2067] and r15d, 0x7fffff
+[2068] xor ebx, esi
+[2069] cmp r12, 0xff
+[2070] jz 0x55aa6a983305
+[2071] cmp r13, 0xff
+[2072] jz 0x55aa6a98332f
+[2073] test r13, r13
+[2074] jnz 0x55aa6a983365
+[2075] test r12, r12
+[2076] jnz 0x55aa6a98337e
+[2077] mov rsi, qword ptr [rbp-0x38]
+[2078] sub rsi, r13
+[2079] or r14, 0x800000
+[2080] or r15, 0x800000
+[2081] cmp r14, r15
+[2082] jnb 0x55aa6a9833d1
+[2083] add rsi, 0x7d
+[2084] shl r14, 0x1f
+[2085] mov rax, r14
+[2086] mov edx, 0x0
+[2087] div r15
+[2088] mov rdx, rax
+[2089] test al, 0x3f
+[2090] jnz 0x55aa6a9833c2
+[2091] shr ebx, 0x1f
+[2092] mov edi, ebx
+[2093] call 0x55aa6a9834d8
+
+Round and pack to F32 format
+[2094] push rbp
+[2095] mov rbp, rsp
+[2096] push r15
+[2097] push r14
+[2098] push r13
+[2099] push r12
+[2100] push rbx
+[2101] sub rsp, 0x18
+[2102] mov r15d, edi
+[2103] mov dword ptr [rbp-0x34], edi
+[2104] mov rbx, rsi
+[2105] mov r13, rdx
+[2106] mov rax, qword ptr fs:[0x0]
+[2107] lea rax, ptr [rax-0x4f]
+[2108] movzx r14d, byte ptr [rax]
+[2109] test r14b, r14b
+[2110] setz byte ptr [rbp-0x40]
+[2111] mov r12d, 0x40
+[2112] test r14b, 0xfb
+[2113] jz 0x55aa6a98353c
+[2114] mov r15d, r13d
+[2115] and r15d, 0x7f
+[2116] mov dword ptr [rbp-0x38], ebx
+[2117] cmp ebx, 0xfc
+[2118] jbe 0x55aa6a983573
+[2119] movzx r12d, r12b
+[2120] add r12, r13
+[2121] shr r12, 0x7
+[2122] test r15b, r15b
+[2123] jnz 0x55aa6a98365f
+[2124] mov rax, qword ptr fs:[0x0]
+[2125] lea rax, ptr [rax-0x50]
+[2126] or byte ptr [rax], 0x1
+[2127] cmp r14b, 0x6
+[2128] jnz 0x55aa6a983587
+[2129] cmp r15b, 0x40
+[2130] setz al
+[2131] movzx eax, al
+[2132] and rax, qword ptr [rbp-0x40]
+[2133] not rax
+[2134] and r12, rax
+[2135] mov eax, 0x0
+[2136] cmovz rbx, rax
+[2137] mov eax, dword ptr [rbp-0x34]
+[2138] shl eax, 0x1f
+[2139] shl ebx, 0x17
+[2140] add eax, ebx
+[2141] mov eax, eax
+[2142] add rax, r12
+[2143] add rsp, 0x18
+[2144] pop rbx
+[2145] pop r12
+[2146] pop r13
+[2147] pop r14
+[2148] pop r15
+[2149] pop rbp
+[2150] ret
+
+Low-level float division
+[2151] jmp 0x55aa6a983320
+[2152] add rsp, 0x18
+[2153] pop rbx
+[2154] pop r12
+[2155] pop r13
+[2156] pop r14
+[2157] pop r15
+[2158] pop rbp
+[2159] ret
+
+Divide two F32 numbers
+[2160] mov dword ptr [rsp+0x54], eax
+[2161] mov eax, dword ptr [rsp+0x54]
+[2162] mov dword ptr [rsp+0x24], eax
+[2163] mov eax, dword ptr [rsp+0x24]
+[2164] mov dword ptr [rsp+0x20], eax
+[2165] mov eax, dword ptr [rsp+0x20]
+[2166] add rsp, 0x58
+[2167] ret
+
+Complex division function
+[2168] mov dword ptr [rsp+0xcc], eax
+[2169] mov eax, dword ptr [rsp+0xcc]
+[2170] mov dword ptr [rsp+0x54], eax
+[2171] mov eax, dword ptr [rsp+0x44]
+[2172] mov dword ptr [rsp+0xd0], eax
+[2173] mov eax, dword ptr [rsp+0xd0]
+[2174] mov dword ptr [rsp+0xd4], eax
+[2175] mov edi, dword ptr [rsp+0xd4]
+[2176] mov eax, dword ptr [rsp+0x54]
+[2177] mov dword ptr [rsp+0xd8], eax
+[2178] mov eax, dword ptr [rsp+0xd8]
+[2179] mov dword ptr [rsp+0xdc], eax
+[2180] mov esi, dword ptr [rsp+0xdc]
+[2181] call 0x55aa6a944ab0
+
+Create a new complex number
+[2182] mov dword ptr [rsp-0x14], edi
+[2183] mov eax, dword ptr [rsp-0x14]
+[2184] mov dword ptr [rsp-0x18], eax
+[2185] mov dword ptr [rsp-0xc], esi
+[2186] mov eax, dword ptr [rsp-0xc]
+[2187] mov dword ptr [rsp-0x10], eax
+[2188] mov eax, dword ptr [rsp-0x18]
+[2189] mov dword ptr [rsp-0x8], eax
+[2190] mov eax, dword ptr [rsp-0x10]
+[2191] mov dword ptr [rsp-0x4], eax
+[2192] mov rax, qword ptr [rsp-0x8]
+[2193] ret
+
+Complex division function
+[2194] mov qword ptr [rsp+0xe0], rax
+[2195] mov rax, qword ptr [rsp+0xe0]
+[2196] mov qword ptr [rsp+0x20], rax
+[2197] mov rax, qword ptr [rsp+0x20]
+[2198] add rsp, 0xe8
+[2199] ret
+
+294 jumps in total including jmp j* call and ret
