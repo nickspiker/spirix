@@ -310,7 +310,7 @@ impl<F: Integer, E: Integer> Circle<F, E> {
         (core::mem::size_of::<F>() * 8) as isize
     }
 
-    // --- Exponent --- NOTE: Circle still uses the old v0.0.x encoding (AMBIG=E::MIN, ruler exp=0→[0.5,1)). Scalar migrated to v0.1 encoding. Circle migration will follow in a separate pass; until then its sentinel + ruler stay on the legacy convention to avoid internal inconsistency with its own (unmigrated) constants.
+    // --- Exponent --- NOTE: Circle uses the v0.0.x encoding (AMBIG=E::MIN, ruler exp=0→[0.5,1)) permanently. The v0.1 N0 convention used by Scalar (sign via implicit complement of MSB, magnitude in [1,2)) is incompatible with shared-exponent dominance discrimination: a non-dominant Circle component has smaller magnitude than the dominant one at the shared scale and cannot be N0-decoded. The N-1 two-leading-bits encoding (01/10/00/11) is required to simultaneously encode dominance, sign, and non-normal-state classification; reducing to a 1-bit MSB loses information that cannot be reconstructed without metadata.
     #[inline]
     pub(crate) fn ambiguous_exponent() -> E {
         E::min_value()
