@@ -156,14 +156,10 @@ fn leading_same_bit_count_u32(value: u32, width: u32) -> u32 {
 }
 
 /// Convert Spirix v0.1 N0 compute form (Q, exp) back to f32 using the spirix lib's to_f32. Bridges our FRAC=24 form to the lib's Scalar<i32, i8> at FRAC=32 by left-shifting the 24-bit storage to occupy the upper 24 bits of the 32-bit fraction (zero-padding the lower 8 bits, which is bit-exact since Spirix at FRAC=24 has no information below those bits).
+///
+/// **Spirix-design override**: per Spirix's "no signed zero" principle, any zero result from the lib (which would be -0.0 for negative-vanished inputs) is normalized to +0.0. This makes the IEEE-side reference consistent with Spirix's signless treatment of zero, and removes the architectural mismatch where the lib's signed-zero choice would diverge from Spirix's own design.
 fn spirix_to_f32(q: i32, exp: i8) -> f32 {
-    let stored_24 = if exp == AMB_EXP {
-        // Non-normal: q already carries the storage pattern in its lower 24 bits.
-        (q as u32) & 0xFF_FFFF
-    } else {
-        // Normal: extract the 24-bit storage form from compute Q (drop the implicit complement bit, keep lower 24).
-        (q as u32) & 0xFF_FFFF
-    };
+    let stored_24 = (q as u32) & 0xFF_FFFF;
     let stored_32 = if exp == AMB_EXP && stored_24 == 0xFF_FFFF {
         // Spirix infinity at FRAC=24 (uniform 24-bit ones) corresponds to lib's infinity at FRAC=32 (uniform 32-bit ones).
         0xFFFF_FFFFu32
@@ -175,7 +171,14 @@ fn spirix_to_f32(q: i32, exp: i8) -> f32 {
         fraction: stored_32 as i32,
         exponent: exp,
     };
-    s.to_f32()
+    let result = s.to_f32();
+
+    // Spirix has no signed zero — normalize any zero output to +0.0. This catches the lib's vanished → -0.0 mapping for negative-phase vanished, which doesn't reflect Spirix's signless zero design.
+    if result == 0.0 {
+        0.0
+    } else {
+        result
+    }
 }
 
 // ── Bit-accurate Spirix v0.1 N0 add ─────────────────────────────────────────
@@ -450,7 +453,7 @@ fn main() {
 
     // ── Phase B: Spirix-driven random ────────────────────────────────────
     println!("== Phase B: Spirix-driven random — {N} trials ==");
-    println!("Inputs: full random Spirix bit patterns (random 24-bit fraction + random i8 exponent — every bit pattern is a valid Spirix state by design). IEEE-side reference computed via the lib's to_f32 (signless infinity → NaN; vanished → ±0 with phase; undefined → NaN; exploded → ±∞ with phase; otherwise precise).");
+    println!("Inputs: full random Spirix bit patterns (random 24-bit fraction + random i8 exponent — every bit pattern is a valid Spirix state by design). IEEE-side reference computed via the lib's to_f32, with Spirix's signless-zero principle enforced (vanished → +0; zero → +0; signless infinity → NaN; undefined → NaN; exploded → ±∞ with phase; otherwise precise).");
     println!();
     let mut rng_b = Lcg::new(0xCAFE_BABE_DEAD_5678);
     let mut counters_b = Counters::default();
