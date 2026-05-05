@@ -43,6 +43,10 @@ pub struct Counters {
     pub max_ulp_diff: u64,
     pub worst_a: f32,
     pub worst_b: f32,
+    /// Pairs skipped because at least one IEEE input mapped to Spirix exploded during conversion (e.g., IEEE biased_exp=254 — IEEE's max-positive-exp normal range that exceeds Spirix's max-normal-exp 126).
+    pub conversion_loss_to_exploded: u64,
+    /// Pairs skipped because at least one IEEE input mapped to Spirix vanished during conversion (e.g., IEEE denormals smaller than Spirix's smallest normal).
+    pub conversion_loss_to_vanished: u64,
 }
 
 impl Counters {
@@ -77,6 +81,14 @@ impl Counters {
             self.worst_a = a;
             self.worst_b = b;
         }
+    }
+
+    pub fn record_conversion_loss_to_exploded(&mut self) {
+        self.conversion_loss_to_exploded += 1;
+    }
+
+    pub fn record_conversion_loss_to_vanished(&mut self) {
+        self.conversion_loss_to_vanished += 1;
     }
 
     pub fn print_summary(&self, n: u64) {
@@ -117,6 +129,20 @@ impl Counters {
             self.off_by_more,
             pct(self.off_by_more)
         );
+        if self.conversion_loss_to_exploded > 0 || self.conversion_loss_to_vanished > 0 {
+            println!();
+            println!("Conversion loss (input mapped to non-normal Spirix during IEEE->Spirix):");
+            println!(
+                "  IEEE input -> Spirix exploded:     {:>10}  ({:.4}%)",
+                self.conversion_loss_to_exploded,
+                pct(self.conversion_loss_to_exploded)
+            );
+            println!(
+                "  IEEE input -> Spirix vanished:     {:>10}  ({:.4}%)",
+                self.conversion_loss_to_vanished,
+                pct(self.conversion_loss_to_vanished)
+            );
+        }
         if self.off_by_more > 0 {
             println!();
             println!("  Max ULP error: {}", self.max_ulp_diff);

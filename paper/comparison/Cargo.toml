@@ -3,7 +3,10 @@ name = "spirix-paper-comparison"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Bit-accurate Spirix v0.1 implementations and IEEE 754 binary32 comparison harnesses for the Spirix paper. Standalone — does not depend on the production spirix crate, so the algorithms shown here directly correspond to the comparison numbers reported in the paper."
+description = "Bit-accurate Spirix v0.1 implementations and IEEE 754 binary32 comparison harnesses for the Spirix paper. The bit-accurate arithmetic algorithms (add, mul, FMA) are reproduced standalone for paper-readable clarity; the IEEE↔Spirix conversion layer uses the production spirix crate so denormal handling and other edge cases match the lib's authoritative behavior exactly."
 
 [lib]
 path = "src/lib.rs"
+
+[dependencies]
+spirix = { path = "../.." }
