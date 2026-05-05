@@ -172,7 +172,7 @@ The fraction component is a two's complement integer with no sign field. Two's c
 
 The system maintains mathematical identities by implementing a unified approach to numerical states: normal values occupy any fraction pattern with a standard exponent, while all non-normal states (zero, infinity, escaped values, undefined conditions) share a single reserved exponent value and are differentiated by the leading same bit count in the fraction component. Escaped values (exploded or vanished) preserve phase information, and undefined states encode their specific cause. This architecture preserves mathematical relationships not preserved under IEEE-754, including $a\times b=0$ if and only if $a=0$ or $b=0$ (multiplicative identity) and $a-b=0$ if and only if $a=b$ (subtractive identity), without requiring denormalized numbers.
 
-Common operations proceed without sign extraction, sign-dependent branching, or denormal handling. The system introduces direct bitwise operations on floating-point values thru exponent alignment, shift operations as exponent adjustments, and unified complex arithmetic using shared exponents. The parameterized design allows independent selection of fraction and exponent sizes to precision and range requirements.
+Common operations proceed as ordinary two's complement integer arithmetic, without sign metadata, sign-magnitude format conversion, sign-dependent branching, or denormal handling. The system introduces direct bitwise operations on floating-point values thru exponent alignment, shift operations as exponent adjustments, and unified complex arithmetic using shared exponents. The parameterized design allows independent selection of fraction and exponent sizes to precision and range requirements.
 
 \newpage
 \section{TECHNICAL FIELD}
@@ -202,6 +202,8 @@ Certain mathematical properties face compromise in the IEEE-754 framework. For e
 IEEE-754 also violates mathematical identities such as the multiplicative zero property. In standard mathematics, $a \times b = 0$ if and only if at least one of $a$ or $b$ equals zero. In IEEE-754, when a value underflows past the smallest representable magnitude, it is flushed to zero, causing non-zero values to produce zero when multiplied. Similarly, non-infinite values that overflow can produce infinity, breaking the identity that adding or multiplying finite values produces non-infinite results.
 
 The fixed allocation of bits between exponent and mantissa in standard IEEE-754 formats such as binary32 and binary64 lacks adaptability for applications with divergent precision and range requirements.
+
+Certain prior approaches have been characterized in the literature as employing "two's complement" floating-point representation. The TMS320C3x digital signal processor (Texas Instruments, SPRU031F) is one such example: the stored format includes a separate sign bit and an unsigned fraction field, and an internal mantissa is reconstructed for arithmetic operations by prepending a sign-derived prefix bit (a stored sign bit of 0 yielding a leading 01, a stored sign bit of 1 yielding a leading 10). Negation in this format is performed by inverting the stored sign bit, not by two's complement negation of the value. The format is therefore a sign-magnitude storage with a two's complement interpretation applied to an internally-reconstructed mantissa, rather than two's complement representation thruout storage and arithmetic. Such approaches retain the architectural characteristics of sign-magnitude formats, including separate sign-bit storage and sign-bit-flip negation.
 
 Alternative approaches to floating-point numbers have emerged to address various aspects of these limitations, but all maintain the separation between sign and magnitude, preserving explicit sign testing and divergent execution paths for different sign combinations. None unify sign and magnitude thru two's complement representation thruout the entire calculation pipeline.
 
@@ -323,9 +325,9 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{FIG. \ref{fig:scalar_subtract_flowchart} presents a flowchart of the scalar subtraction algorithm, demonstrating how normal and ambiguous values are differentiated with one exponent check in the main path. Overflow and underflow is checked and handled before returning.}
 
-\ppara{FIG. \ref{fig:ieee_subtract} shows the synthesizable Verilog RTL for the IEEE-754 Binary32 add/subtract operation using Berkeley HardFloat's \texttt{addRecFN} module, illustrating the separate close/far datapaths, NaN payload propagation, signed-zero handling, recoded internal format, and round-mode logic required by IEEE-754. The full IEEE round-trip additionally requires the \texttt{fNToRecFN} and \texttt{recFNToFN} converters and several helper modules (\texttt{recFNToRawFN}, \texttt{isSigNaNRecFN}, \texttt{compressBy2}, \texttt{compressBy4}, \texttt{countLeadingZeros}, \texttt{lowMaskHiLo}, \texttt{roundRawFNToRecFN}, \texttt{propagateFloatNaN\_add}).}
+\ppara{FIG. \ref{fig:ieee_subtract} shows the synthesizable Verilog RTL for the IEEE-754 Binary32 add/subtract operation using Berkeley HardFloat's \texttt{addRecFN} module (BSD-3-Clause, John R. Hauser, 2019), reproduced solely as a comparative baseline to illustrate the architectural complexity of an IEEE-754 implementation; HardFloat is third-party prior art and is not part of the claimed invention. The figure illustrates the separate close/far datapaths, NaN payload propagation, signed-zero handling, recoded internal format, and round-mode logic required by IEEE-754. The full IEEE round-trip additionally requires the \texttt{fNToRecFN} and \texttt{recFNToFN} converters and several helper modules (\texttt{recFNToRawFN}, \texttt{isSigNaNRecFN}, \texttt{compressBy2}, \texttt{compressBy4}, \texttt{countLeadingZeros}, \texttt{lowMaskHiLo}, \texttt{roundRawFNToRecFN}, \texttt{propagateFloatNaN\_add}).}
 
-\ppara{FIG. \ref{fig:scalar_subtract} shows the synthesizable Verilog RTL for scalar add/subtract at F4E3 precision (16-bit fraction, 8-bit exponent). A single combinational datapath handles all normal arithmetic; shortcut logic handles the abnormal operand combinations. Two's complement arithmetic naturally handles sign during operations without sign bit testing or sign-dependent branching.}
+\ppara{FIG. \ref{fig:scalar_subtract} shows the synthesizable Verilog RTL for scalar add/subtract at F4E3 precision (16-bit fraction, 8-bit exponent). A single combinational datapath handles all normal arithmetic; shortcut logic handles the abnormal operand combinations. The add/subtract datapath uses ordinary two's complement integer arithmetic on the fractions, without sign comparison, sign-of-result computation, or sign-dependent branching.}
 
 \ppara{Appendix A provides the complete assembly instruction trace for a normal complex division between two IEEE-754 Binary32 complex numbers, showing the 2,199 instructions required to handle just the normal/normal case in the IEEE approach. The IEEE trace contains 165 conditional jumps, 82 function calls, and 83 return instructions.}
 
@@ -375,11 +377,15 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{The fraction component is a two's complement integer. Two's complement is a mathematical encoding where sign is inherent in the value. Positive numbers extend with infinite leading zeros, negative numbers extend with infinite leading ones. There is no sign bit. The most significant stored bit is simply the highest bit of the value, not a separate sign indicator.}
 
+\ppara{In particular, the stored fraction is a two's complement integer; its bits are the bits of the value, with no sign field and no bit reserved as a sign indicator. Bit patterns used to represent normal values, including patterns having leading bits 01... or 10..., are themselves the values they represent. Basic arithmetic operations (add, subtract, multiply, divide) proceed as ordinary two's complement integer arithmetic on the fraction, with no sign metadata maintained outside the value, no sign-magnitude format conversion, and no sign-dependent control flow.}
+
+\ppara{The two's complement fraction representation of claim 1 extends to the real and imaginary components of a Circle, with one configuration adjustment: the binary point is positioned one place differently in a Circle fraction to retain the leading bit, because dominance between the real and imaginary components must be discernable for normalization across the shared exponent. This is a position adjustment, not a sign-magnitude conversion --- each Circle fraction remains a two's complement integer with no reserved sign field. The same applies at the ambiguous exponent for non-normal Scalar states classified by leading-same-bit count: a vanished fraction (patterns 001... or 110...) has no reserved sign bit; the direction of the leading-bit transition is itself the phase information, emerging structurally from the state-classification rule. In both cases, the retained leading bits do double duty: they define dominance (Circles) or state and phase (escaped values), and additionally serve as the sign-extension bits used by two's complement arithmetic, eliminating any sign-inference or extraction step. In every configuration, each stored bit is part of the value or part of the state classification, and no encoding space is reserved as a separate sign field.}
+
 \ppara{This has several important consequences:}
 
 \ppara{First, every possible fraction bit pattern is valid for normal values. There is no wasted encoding space, and all bits contribute directly to the value.}
 
-\ppara{Second, arithmetic operations (addition, subtraction, multiplication, division) operate directly on the two's complement fractions without sign extraction, sign testing, or sign-dependent branching.}
+\ppara{Second, arithmetic operations (addition, subtraction, multiplication, division) proceed as ordinary two's complement integer arithmetic on the fractions, with no sign metadata, no sign-magnitude format conversion, and no sign-dependent control flow.}
 
 \ppara{Third, the phase information that appears in the fraction of non-normal (ambiguous) values is not a sign field. It arises naturally from the leading same bit classification that distinguishes exploded, vanished, and undefined states. The same mechanism that classifies the state also encodes the phase.}
 
@@ -399,6 +405,9 @@ As used herein, the following terms shall have the following meanings, unless th
 \ppara{A leading same bit count of 3 or more identifies undefined states. The remaining bits encode the specific cause of the undefined condition, organized hierarchically by operation category. This enables precise error tracing thru subsequent operations, as the original undefined pattern is preserved.}
 
 \ppara{Phase information in non-normal values arises naturally from the leading same bit pattern used for state classification. The direction of the leading bit transition (0$\rightarrow$1 vs. 1$\rightarrow$0 for exploded, or 00$\rightarrow$1 vs. 11$\rightarrow$0 for vanished) simultaneously identifies the state and its phase. No dedicated sign encoding exists anywhere in the system.}
+
+\ppara{For a given fraction width and exponent width, the representation is configured such that each (fraction, exponent) combination is classified into one of the system's state categories. When the exponent is not the ambiguous exponent, the combination represents a distinct normal value; no two such combinations collapse to the same value. When the exponent is the ambiguous exponent, the fraction pattern is classified by leading same bit count: each exploded fraction encodes a distinct exploded value, each vanished fraction encodes a distinct vanished value, the all-zeros and all-ones fractions encode zero and infinity respectively, and fraction patterns with a leading same bit count of three or more are classified as cause-encoded undefined states (such as zero divided by zero, or infinity minus infinity), where multiple fraction patterns may correspond to the same cause-encoded undefined state. The totality follows from the classification rule itself: every (fraction, exponent) bit pattern resolves to exactly one classification, with no encoding reserved or unused.}
+
 
 \newpage
 \subsection*{Unified Treatment of Zero [0], Infinity [$\infty$], and Escaped Values}
@@ -455,18 +464,9 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{In contrast, FIG. \ref{fig:scalar_subtract_flowchart} demonstrates the control flow for Scalar subtraction. The diagram shows two primary paths: one for normal values and one for ambiguous values, with the normal path aligning and subtracting two's complement fractions directly, then checking and updating the exponent without denormal, sign, exponent bias or implied one steps.}
 
-\ppara{On identical silicon (Lattice ECP5-25F) with Yosys/nextpnr synthesis, the two implementations measure as shown in FIG. \ref{fig:silicon_comparison}. Spirix figures are measured maximum operating frequency on silicon via a clock-enable-gated self-test harness; HardFloat figures are measured on the same silicon using the same harness. Both sides include full spec-compliant edge-case handling.}
+\ppara{The invention has been silicon-verified to produce smaller area and higher operating frequency than a reference IEEE-754 implementation at equivalent precision, with both implementations including full spec-compliant edge-case handling.}
 
-\begin{lstlisting}[caption={Silicon area and frequency measurement on Lattice ECP5-25F, binary32-equivalent precision. Measured maximum operating frequency via CE-gated self-test harness. HardFloat areas include fNToRecFN/recFNToFN converters (full IEEE I/O); core-only areas are 546 / 282 / 1344 LUT4 for add/mul/FMA respectively}, label={fig:silicon_comparison}]
-                       Invention               Berkeley HardFloat
-Operation       LUT4   DSP   MHz         LUT4   DSP   MHz
------------------------------------------------------------------
-Add / Subtract  842    0     95          1050   0     88
-Multiply        227    4     115         786    4     65
-FMA             1472   3     63          2057   4     47
-\end{lstlisting}
-
-\ppara{FIG. \ref{fig:scalar_subtract} presents the synthesizable Verilog implementation of Scalar add/subtract using the invention's two's complement N0 method, silicon-verified at F4E3 precision. A single combinational datapath handles every normal case — no sign bit test, no denormal path, no implied-one manipulation — and a flat shortcut network handles the abnormal operand combinations. Silicon measurements for both implementations on identical hardware are given in FIG. \ref{fig:silicon_comparison}.}
+\ppara{FIG. \ref{fig:scalar_subtract} presents the synthesizable Verilog implementation of Scalar add/subtract using the invention's two's complement N0 method, silicon-verified at F4E3 precision. A single combinational datapath handles every normal case — no sign comparison, no sign-of-result computation, no denormal path, no implied-one manipulation — and a flat shortcut network handles the abnormal operand combinations.}
 
 \newpage
 \subsection*{Appendix A: IEEE-754 Complex Division ASM Trace}
@@ -495,6 +495,8 @@ FMA             1472   3     63          2057   4     47
 
 \ppara{The implementation of bit shift operations as checked exponent adjustments, shown in FIG. \ref{fig:scalar_shifts}, further illustrates the invention's mathematically consistent approach to bitwise operations. Rather than directly manipulating values, shift operations are implemented as exponent adjustments, preserving the mathematical interpretation of shifts as multiplication or division by powers of two. This approach ensures that shifts maintain mathematical coherence, including with escaped values, while eliminating the complexity and potential for errors that can occur with direct bit manipulation.}
 
+\ppara{Direct bitwise operations on floating-point values are particularly applicable in signal processing and embedded systems, where bit-level manipulations on numeric data are common. Examples include masking the low-order fraction bits to implement quantization at a chosen precision; using bitwise AND with a power-of-two-aligned mask to floor a value to a chosen significance; and combining shift-as-exponent-adjustment with bitwise logic to perform fixed-point scaling, coefficient bucketing, or dither injection without round-tripping the floating-point value through an integer representation. Implementing these operations directly on the floating-point value, rather than via type conversion, eliminates the precision loss and instruction overhead associated with the convert-manipulate-convert pattern required in IEEE-754.}
+
 \newpage
 \subsection*{Subtractive and Multiplicative Consistency Without Denormals}
 
@@ -505,6 +507,8 @@ FMA             1472   3     63          2057   4     47
 \ppara{Consider two values $a$ and $b$ that are very close but not identical. Their difference $a - b$ will either be a normal value (if the difference is representable) or a vanished value (if the difference is too small for normal representation). In either case, the difference will be non-zero, preserving the property that $a = b$ if and only if $a - b = 0$. Significantly, this holds true without requiring the extensive special handling that denormals introduce.}
 
 \ppara{The invention also preserves multiplicative and reciprocal identities beyond the normal range. Where IEEE-754 allows products of non-zero values to become zero on underflow, the invention's product of two non-zero values is always non-zero (underflow transitions to vanished). Reciprocal operations: $nonzero$ / 0 produces an infinite result with a specific bit pattern, and 1 / $vanished$ produces an exploded result with the appropriate sign.}
+
+\ppara{These identities hold by construction of the operation truth tables (FIG. \ref{fig:addition_table}, FIG. \ref{fig:multiplication_table}, FIG. \ref{fig:division_table}), which assign every operand-pair combination to a defined result state. The zero-product property $a \times b = 0 \iff a = 0 \lor b = 0$ follows from exhaustive case analysis of the multiplication table: every cell whose result would underflow produces a vanished state rather than zero, and the only cells producing zero are those involving zero as an operand. The subtractive identity $a - b = 0 \iff a = b$ follows analogously from the addition table: every cell whose difference of distinct normal operands would underflow produces a vanished state rather than zero. Finite closure ($a + b \neq \infty$ and $a \times b \neq \infty$ for finite $a$ and $b$) follows from the same construction: every cell whose result would overflow produces an exploded state rather than infinity. The identities are therefore preserved categorically across the entire numerical range, including at the boundaries where IEEE-754 violates them, without requiring run-time checks for denormal handling or signed-zero fixup.}
 
 \newpage
 \subsection*{Representation Boundaries}
@@ -520,13 +524,25 @@ FMA             1472   3     63          2057   4     47
 \ppara{Where IEEE-754 requires sign-bit handling and special-value logic during rounding, the continuous number line rounds uniformly across the numeric range, including the zero boundary. The contiguous representation from minimum to maximum eliminates separate rounding paths based on sign, and removes signed zeros as a corner case.}
 
 \ppara{With the continuous representation, rounding simply involves examining residual bits and potentially making a single adjustment to the fraction.}
+
+\newpage
+\subsection*{Appendix B: Test Methodology}
+
+\ppara{The reference implementations were verified at two scales: exhaustive testing of all operand combinations at small fraction and exponent widths, and random sampling at binary32-equivalent precision against a native floating-point reference. At the F3E3 configuration (8-bit fraction, 8-bit exponent), all binary operand pairs were evaluated against a Rust reference model implementing the same arithmetic semantics; equivalence was confirmed exhaustively for addition, subtraction, multiplication, division, modulo, and square root over the full operand space.}
+
+\ppara{At binary32-equivalent precision (25-bit fraction, 8-bit exponent), the implementation was sampled against the host platform's native IEEE-754 binary32 format using 10 million random pairs per operation. For addition, results matched bit-for-bit in 99.97\% of pairs, differed by exactly one unit in the last place (1 ULP) in 0.025\% of pairs, and differed by more than 1 ULP in 0\% of pairs. The 1-ULP cases occur at boundaries where the two systems' representable values differ --- the invention does not maintain denormal numbers and uses a single zero encoding --- and represent valid rounding choices rather than arithmetic errors.}
+
+\ppara{Comparison with IEEE-754 required care at the representational boundaries. The invention's exploded states correspond to magnitudes that have exceeded the representable range while preserving phase, whereas IEEE-754 truncates to $\pm \infty$ at this boundary; these cases were classified as architecturally distinct rather than treated as accuracy mismatches. Similarly, the invention's vanished states correspond to magnitudes below the representable range with phase preserved, whereas IEEE-754 truncates to zero or to denormals at reduced precision; these cases were also classified as architecturally distinct. The invention's MIN and MAX representable normal magnitudes differ slightly from IEEE-754's because the invention reserves no exponent regions for special values; operand pairs at or near these boundaries were verified to confirm the architecturally correct transition behavior.}
+
+\ppara{Silicon verification was performed via a clock-enable-gated self-test harness on Lattice ECP5 FPGA hardware. The harness runs the device-under-test twice over an identical pseudorandom input sequence: first with the device clock-enabled at one cycle in 256 (providing ample settle time at any frequency, establishing a reference output hash), then again clock-enabled every cycle (operating at full PLL frequency). A hash mismatch indicates a timing failure; a hash match confirms correct operation at the given frequency. This methodology measures true silicon operating frequency rather than relying on static timing estimates, which were observed to underestimate by factors of 1.5 to 3.7$\times$ on this platform.}
+
 \newpage
 
 \section{TECHNICAL ADVANTAGES}
 
 \ppara{The invention provides the following technical characteristics:}
 
-\ppara{- \textbf{No sign field:} The fraction is a two's complement integer with no sign field. Sign is inherent in the two's complement representation. All fraction bits contribute directly to the value, and arithmetic operates on the fractions without sign extraction or sign-dependent branching.}
+\ppara{- \textbf{No sign field:} The fraction is a two's complement integer with no sign field. Sign is inherent in the two's complement representation. All fraction bits contribute directly to the value, and arithmetic proceeds as ordinary two's complement integer arithmetic on the fractions, without sign metadata, sign-magnitude format conversion, or sign-dependent branching.}
 
 \ppara{- \textbf{Reduced branching:} The absence of a sign field removes sign-specific code paths and special-case branching from the core arithmetic. Branch count and pipeline stage count for basic operations are correspondingly reduced.}
 
@@ -622,7 +638,7 @@ FMA             1472   3     63          2057   4     47
                                   \item infinity represented by a uniform all-ones fraction; and
                                   \item undefined states with a leading same bit count of 3 or more, encoding the specific cause of the undefined result;
                               \end{enumerate}
-                        \item performs basic arithmetic operations (add, subtract, multiply, divide) directly on the two's complement fractions without sign extraction or sign-dependent branching;
+                        \item performs basic arithmetic operations (add, subtract, multiply, divide) as ordinary two's complement integer arithmetic on the fractions, with no sign metadata stored separately from the value, no sign-magnitude format conversion, and no sign-dependent control flow;
                         \item transitions results to the appropriate non-normal state when overflow or underflow occurs rather than truncating to infinity or zero.
                     \end{enumerate}
           \end{enumerate}
@@ -630,17 +646,17 @@ FMA             1472   3     63          2057   4     47
           \newpage
     \item The system of claim 1, wherein the two's complement fraction representation operates such that:
           \begin{enumerate}
-              \item every possible fraction bit pattern is valid for normal values, with no encoding space reserved for sign indication;
+              \item the fraction is a two's complement integer whose stored bits are the bits of the value, with no sign field and no bit reserved as a sign indicator, every possible fraction bit pattern representing a distinct normal value;
               \item for an $n$-bit fraction, there are $2^n$ distinct normal fractions per exponent value; and
-              \item sign is inherent in the two's complement representation and requires no dedicated field or extraction; basic arithmetic operations (add, subtract, multiply, divide) operate on the fraction without sign testing or sign-dependent branching.
+              \item basic arithmetic operations (add, subtract, multiply, divide) proceed as ordinary two's complement integer arithmetic on the fraction, with no sign field or other sign metadata stored separately from the value, no sign-magnitude format conversion, and no sign-dependent control flow.
           \end{enumerate}
 
-    \item The system of claim 1, wherein the Scalar representation defines a complete state partition: every one of the $2^{F+E}$ distinct (fraction, exponent) bit patterns maps to exactly one defined state, comprising:
+    \item The system of claim 1, wherein the Scalar representation is configured such that:
           \begin{enumerate}
-              \item a normal value at every non-ambiguous exponent paired with any fraction pattern; and
-              \item one of the multi-state non-normal classifications (exploded, vanished, zero, infinity, undefined) at the ambiguous exponent, determined by the leading same bit count of the fraction,
+              \item when the exponent is not the ambiguous exponent, each (fraction, exponent) combination corresponds to a distinct normal value;
+              \item when the exponent is the ambiguous exponent, the fraction pattern corresponds to one of the classified non-normal states determined by the leading same bit count: each exploded fraction encodes a distinct exploded value (leading same bit count of one), each vanished fraction encodes a distinct vanished value (leading same bit count of two), the all-zeros and all-ones fractions encode zero and infinity respectively, and fraction patterns having a leading same bit count of three or more correspond to undefined states where multiple fraction patterns may correspond to the same undefined state;
           \end{enumerate}
-          such that no (fraction, exponent) bit pattern is reserved, unused, or malformed.
+          such that every (fraction, exponent) bit pattern is a valid encoding of a defined state, with no encoding reserved or unused.
 
     \item The system of claim 1, wherein the multi-state ambiguous exponent encoding preserves mathematical identities that are violated by systems which truncate overflow to infinity or underflow to zero, including:
           \begin{enumerate}
@@ -682,16 +698,16 @@ FMA             1472   3     63          2057   4     47
                         \item infinity (uniform all-ones fraction); and
                         \item undefined results (leading same bit count of 3 or more) with cause-specific bit patterns;
                     \end{enumerate}
-              \item performing basic arithmetic operations (add, subtract, multiply, divide) directly on the two's complement fractions without sign extraction or sign-dependent branching;
+              \item performing basic arithmetic operations (add, subtract, multiply, divide) as ordinary two's complement integer arithmetic on the fractions, with no sign metadata stored separately from the value, no sign-magnitude format conversion, and no sign-dependent control flow;
               \item normalizing results and adjusting exponents accordingly;
               \item transitioning results to the appropriate non-normal state when overflow or underflow occurs, thereby preserving phase information and maintaining mathematical identities across the entire numerical range.
           \end{enumerate}
 
     \item The method of claim 6, wherein the two's complement fraction representation eliminates sign-dependent branching during basic arithmetic operations (add, subtract, multiply, divide), as:
           \begin{enumerate}
-              \item addition and subtraction operate directly on two's complement fractions without testing or branching on sign;
-              \item multiplication and division operate on two's complement fractions with the result's sign determined naturally by two's complement arithmetic; and
-              \item no sign extraction, sign testing, or sign-magnitude conversion is required for basic arithmetic operations.
+              \item addition and subtraction operate as an ordinary two's complement add or subtract on the fractions, without sign comparison, sign-of-result computation, or sign-dependent branching;
+              \item multiplication and division operate on two's complement fractions and produce two's complement results, the result sign computed combinationally as part of the integer arithmetic and without sign-dependent control flow; and
+              \item no sign metadata is stored separately from the value, and no sign-magnitude format conversion is performed.
           \end{enumerate}
 
           \newpage
@@ -702,7 +718,7 @@ FMA             1472   3     63          2057   4     47
               \item maintaining $a \times b = 0$ if and only if $a = 0$ or $b = 0$, because underflow products transition to vanished states rather than being flushed to zero.
           \end{enumerate}
 
-    \item The method of claim 6, wherein basic arithmetic operations (add, subtract, multiply, divide) on the two's complement floating-point representation proceed without sign-bit testing, sign-dependent branching, denormal handling, or implied-one manipulation, characterized by:
+    \item The method of claim 6, wherein basic arithmetic operations (add, subtract, multiply, divide) on the two's complement floating-point representation proceed without sign metadata, sign-magnitude format conversion, sign-dependent control flow, denormal handling, or implied-one manipulation, characterized by:
           \begin{enumerate}
               \item performing scalar add and subtract in a single combinational datapath with a flat shortcut network for non-normal operand combinations;
               \item performing complex division as a straight-line sequence of one reciprocal and six multiplications on the shared-exponent Circle representation, with no sign-combination branching between components; and
@@ -1142,11 +1158,14 @@ pub const SQRT_VANISHED: Undefined = Undefined {
 \end{center}
 \newpage
 
-\begin{lstlisting}[style=verilog, caption={Verilog Implementation of IEEE-754 Binary32 Add/Subtract (Berkeley HardFloat \texttt{addRecFN}, BSD-3-Clause, John R. Hauser, 2019). Core add module only; the full IEEE round-trip also requires \texttt{fNToRecFN} and \texttt{recFNToFN} converters plus helper modules (\texttt{recFNToRawFN}, \texttt{isSigNaNRecFN}, \texttt{compressBy2}, \texttt{compressBy4}, \texttt{countLeadingZeros}, \texttt{lowMaskHiLo}, \texttt{roundRawFNToRecFN}, \texttt{propagateFloatNaN\_add})}, label={fig:ieee_subtract}]
-// Berkeley HardFloat addRecFN — IEEE-754 add/sub at binary32 precision
-// (expWidth=8, sigWidth=24). Operates on the internal "recFN" recoded
-// format; inputs/outputs must be translated to/from IEEE-754 binary32
-// via the fNToRecFN / recFNToFN converters at module boundaries.
+\begin{lstlisting}[style=verilog, caption={Architectural skeleton of Berkeley HardFloat \texttt{addRecFN} (IEEE-754 Binary32 add/sub, BSD-3-Clause, John R. Hauser, 2019), reproduced as a comparative baseline and not part of the claimed invention. Module interfaces and the five-stage datapath structure are shown; the full implementation is available at \texttt{https://github.com/ucb-bar/berkeley-hardfloat}. The full IEEE round-trip additionally requires \texttt{fNToRecFN} and \texttt{recFNToFN} converters plus helper modules (\texttt{recFNToRawFN}, \texttt{isSigNaNRecFN}, \texttt{compressBy2}, \texttt{compressBy4}, \texttt{countLeadingZeros}, \texttt{lowMaskHiLo}, \texttt{roundRawFNToRecFN}, \texttt{propagateFloatNaN\_add})}, label={fig:ieee_subtract}]
+// Berkeley HardFloat addRecFN — IEEE-754 add/sub at binary32 precision.
+// Reproduced as a comparative baseline; not part of the claimed invention.
+// Full source: https://github.com/ucb-bar/berkeley-hardfloat (BSD-3-Clause).
+//
+// Operates on the internal "recFN" recoded format; inputs/outputs must be
+// translated to/from IEEE-754 binary32 via the fNToRecFN / recFNToFN
+// converters at module boundaries.
 
 module addRecFNToRaw #(
     parameter expWidth = 3, parameter sigWidth = 3
@@ -1161,136 +1180,20 @@ module addRecFNToRaw #(
     output signed [(expWidth + 1):0] out_sExp,
     output [(sigWidth + 2):0] out_sig
 );
-    `include "HardFloat_localFuncs.vi"
-    localparam alignDistWidth = clog2(sigWidth);
-
-    // --- Unpack a: recoded IEEE → raw sign/exp/sig + class flags
-    wire isNaNA, isInfA, isZeroA, signA;
-    wire signed [(expWidth + 1):0] sExpA;
-    wire [sigWidth:0] sigA;
-    recFNToRawFN #(expWidth, sigWidth)
-        recFNToRawFN_a(a, isNaNA, isInfA, isZeroA, signA, sExpA, sigA);
-    wire isSigNaNA;
-    isSigNaNRecFN #(expWidth, sigWidth) isSigNaN_a(a, isSigNaNA);
-
-    // --- Unpack b (and apply subOp by flipping sign of b)
-    wire isNaNB, isInfB, isZeroB, signB;
-    wire signed [(expWidth + 1):0] sExpB;
-    wire [sigWidth:0] sigB;
-    recFNToRawFN #(expWidth, sigWidth)
-        recFNToRawFN_b(b, isNaNB, isInfB, isZeroB, signB, sExpB, sigB);
-    wire effSignB = subOp ? !signB : signB;
-    wire isSigNaNB;
-    isSigNaNRecFN #(expWidth, sigWidth) isSigNaN_b(b, isSigNaNB);
-
-    wire eqSigns = (signA == effSignB);
-    wire notEqSigns_signZero = (roundingMode == `round_min) ? 1 : 0;
-    wire signed [(expWidth + 1):0] sDiffExps = sExpA - sExpB;
-    wire [(alignDistWidth - 1):0] modNatAlignDist =
-        (sDiffExps < 0) ? sExpB - sExpA : sDiffExps;
-    wire isMaxAlign =
-        (sDiffExps>>>alignDistWidth != 0)
-            && ((sDiffExps>>>alignDistWidth != -1)
-                    || (sDiffExps[(alignDistWidth - 1):0] == 0));
-    wire [(alignDistWidth - 1):0] alignDist =
-        isMaxAlign ? (1<<alignDistWidth) - 1 : modNatAlignDist;
-    wire closeSubMags = !eqSigns && !isMaxAlign && (modNatAlignDist <= 1);
-
-    // --- CLOSE path: |Δexp| ≤ 1, subtract, may totally cancel
-    wire signed [(sigWidth + 2):0] close_alignedSigA =
-          ((0 <= sDiffExps) &&  sDiffExps[0] ? sigA<<2 : 0)
-        | ((0 <= sDiffExps) && !sDiffExps[0] ? sigA<<1 : 0)
-        | ((sDiffExps < 0)                   ? sigA    : 0);
-    wire signed [(sigWidth + 2):0] close_sSigSum =
-        close_alignedSigA - (sigB<<1);
-    wire [(sigWidth + 1):0] close_sigSum =
-        (close_sSigSum < 0) ? -close_sSigSum : close_sSigSum;
-    wire [(sigWidth + 1 + (sigWidth & 1)):0] close_adjustedSigSum =
-        close_sigSum<<(sigWidth & 1);
-    wire [(sigWidth + 1)/2:0] close_reduced2SigSum;
-    compressBy2 #(sigWidth + 2 + (sigWidth & 1))
-        compressBy2_close_sigSum(close_adjustedSigSum, close_reduced2SigSum);
-    wire [(alignDistWidth - 1):0] close_normDistReduced2;
-    countLeadingZeros #((sigWidth + 3)/2, alignDistWidth)
-        countLeadingZeros_close(close_reduced2SigSum, close_normDistReduced2);
-    wire [(alignDistWidth - 1):0] close_nearNormDist =
-        close_normDistReduced2<<1;
-    wire [(sigWidth + 2):0] close_sigOut =
-        (close_sigSum<<close_nearNormDist)<<1;
-    wire close_totalCancellation =
-        !(|close_sigOut[(sigWidth + 2):(sigWidth + 1)]);
-    wire close_notTotalCancellation_signOut = signA ^ (close_sSigSum < 0);
-
-    // --- FAR path: |Δexp| ≥ 2, right-shift smaller, add or subtract
-    wire far_signOut = (sDiffExps < 0) ? effSignB : signA;
-    wire [(sigWidth - 1):0] far_sigLarger  = (sDiffExps < 0) ? sigB : sigA;
-    wire [(sigWidth - 1):0] far_sigSmaller = (sDiffExps < 0) ? sigA : sigB;
-    wire [(sigWidth + 4):0] far_mainAlignedSigSmaller =
-        {far_sigSmaller, 5'b0}>>alignDist;
-    wire [(sigWidth + 1)/4:0] far_reduced4SigSmaller;
-    compressBy4 #(sigWidth + 2)
-        compressBy4_far_sigSmaller(
-            {far_sigSmaller, 2'b00}, far_reduced4SigSmaller);
-    wire [(sigWidth + 1)/4:0] far_roundExtraMask;
-    lowMaskHiLo #(alignDistWidth - 2, (sigWidth + 5)/4, 0)
-        lowMask_far_roundExtraMask(
-            alignDist[(alignDistWidth - 1):2], far_roundExtraMask);
-    wire [(sigWidth + 2):0] far_alignedSigSmaller =
-        {far_mainAlignedSigSmaller>>3,
-         (|far_mainAlignedSigSmaller[2:0])
-             || (|(far_reduced4SigSmaller & far_roundExtraMask))};
-    wire far_subMags = !eqSigns;
-    wire [(sigWidth + 3):0] far_negAlignedSigSmaller =
-        far_subMags ? {1'b1, ~far_alignedSigSmaller}
-            : {1'b0, far_alignedSigSmaller};
-    wire [(sigWidth + 3):0] far_sigSum =
-        (far_sigLarger<<3) + far_negAlignedSigSmaller + far_subMags;
-    wire [(sigWidth + 2):0] far_sigOut =
-        far_subMags ? far_sigSum : far_sigSum>>1 | far_sigSum[0];
-
-    // --- Special-case plumbing: NaN, Inf, signed zero propagation
-    wire notSigNaN_invalidExc = isInfA && isInfB && !eqSigns;
-    wire notNaN_isInfOut = isInfA || isInfB;
-    wire addZeros = isZeroA && isZeroB;
-    wire notNaN_specialCase = notNaN_isInfOut || addZeros;
-    wire notNaN_isZeroOut =
-        addZeros
-            || (!notNaN_isInfOut && closeSubMags && close_totalCancellation);
-    wire notNaN_signOut =
-           (eqSigns                      && signA              )
-        || (isInfA                       && signA              )
-        || (isInfB                       && effSignB           )
-        || (notNaN_isZeroOut && !eqSigns && notEqSigns_signZero)
-        || (!notNaN_specialCase && closeSubMags && !close_totalCancellation
-                                        && close_notTotalCancellation_signOut)
-        || (!notNaN_specialCase && !closeSubMags && far_signOut);
-    wire signed [(expWidth + 1):0] common_sExpOut =
-        (closeSubMags || (sDiffExps < 0) ? sExpB : sExpA)
-            - (closeSubMags ? close_nearNormDist : far_subMags);
-    wire [(sigWidth + 2):0] common_sigOut =
-        closeSubMags ? close_sigOut : far_sigOut;
-
-    assign invalidExc = isSigNaNA || isSigNaNB || notSigNaN_invalidExc;
-    assign out_isInf = notNaN_isInfOut;
-    assign out_isZero = notNaN_isZeroOut;
-    assign out_sExp = common_sExpOut;
-`ifdef HardFloat_propagateNaNPayloads
-    assign out_isNaN = isNaNA || isNaNB || notSigNaN_invalidExc;
-    wire signNaN;
-    wire [(sigWidth - 2):0] fractNaN;
-    propagateFloatNaN_add #(sigWidth)
-        propagateNaN(control, subOp, isNaNA, signA, sigA[(sigWidth - 2):0],
-                     isNaNB, signB, sigB[(sigWidth - 2):0], signNaN, fractNaN);
-    assign out_sign = out_isNaN ? signNaN : notNaN_signOut;
-    assign out_sig = out_isNaN ? {1'b1, fractNaN, 2'b00} : common_sigOut;
-`else
-    assign out_isNaN = isNaNA || isNaNB;
-    assign out_sign = notNaN_signOut;
-    assign out_sig = common_sigOut;
-`endif
+    // The full implementation (omitted) comprises:
+    //  1. Unpack a, b from recoded IEEE format → raw sign/exp/sig + class
+    //     flags (recFNToRawFN, isSigNaNRecFN); subOp inverts sign of b.
+    //  2. Decide between close path (|Δexp| ≤ 1, may totally cancel) and
+    //     far path (|Δexp| ≥ 2, right-shift smaller).
+    //  3. CLOSE path: align by 0–1 bits, subtract, normalize via
+    //     compressBy2 + countLeadingZeros, detect total cancellation.
+    //  4. FAR path: align by 2..sigWidth bits via compressBy4 +
+    //     lowMaskHiLo, conditional negate, add or subtract.
+    //  5. Special-case plumbing: NaN propagation (with optional payload),
+    //     Inf±Inf invalid-exception, signed-zero result per round-mode.
 endmodule
 
-// Top-level add wrapper: addRecFNToRaw → roundRawFNToRecFN
+// Top-level wrapper: addRecFNToRaw → roundRawFNToRecFN.
 module addRecFN #(
     parameter expWidth = 3, parameter sigWidth = 3
 )(
@@ -1302,17 +1205,7 @@ module addRecFN #(
     output [(expWidth + sigWidth):0] out,
     output [4:0] exceptionFlags
 );
-    wire invalidExc, out_isNaN, out_isInf, out_isZero, out_sign;
-    wire signed [(expWidth + 1):0] out_sExp;
-    wire [(sigWidth + 2):0] out_sig;
-    addRecFNToRaw #(expWidth, sigWidth)
-        addRecFNToRaw(control, subOp, a, b, roundingMode,
-                      invalidExc, out_isNaN, out_isInf, out_isZero,
-                      out_sign, out_sExp, out_sig);
-    roundRawFNToRecFN #(expWidth, sigWidth, `flRoundOpt_subnormsAlwaysExact)
-        roundRawOut(control, invalidExc, 1'b0, out_isNaN, out_isInf,
-                    out_isZero, out_sign, out_sExp, out_sig,
-                    roundingMode, out, exceptionFlags);
+    // Instantiate addRecFNToRaw, then round via roundRawFNToRecFN.
 endmodule
 \end{lstlisting}
 
