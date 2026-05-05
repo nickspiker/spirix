@@ -42,6 +42,9 @@ fpga/build/
 fpga/sim/
 fpga/tools/gen_font_rom/target/
 
+# Paper comparison crate build artifacts
+paper/comparison/target/
+
 # Compiled simulation binaries
 fpga/rtl/blake3_tb
 
