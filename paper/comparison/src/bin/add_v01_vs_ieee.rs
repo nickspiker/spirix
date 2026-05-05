@@ -21,62 +21,112 @@ const AMB_EXP: i8 = i8::MAX;      // 127
 
 const _: () = assert!(EXP_BITS == 8);
 
-/// Outcome of an IEEE -> Spirix conversion.
-#[derive(Debug, Clone, Copy)]
-enum ConvOutcome {
-    /// Clean conversion to a normal Spirix value: returns compute form (Q, exp).
-    Normal { q: i32, exp: i8 },
-    /// Conversion mapped to Spirix exploded (IEEE value too large for Spirix's normal range, e.g., IEEE biased_exp=254).
-    Exploded,
-    /// Conversion mapped to Spirix vanished (IEEE value too small, denormals below Spirix's smallest normal).
-    Vanished,
-    /// Conversion mapped to Spirix zero (IEEE ±0).
+/// State of a Spirix Scalar — every bit pattern maps to exactly one of these.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SpirixState {
+    Normal,
     Zero,
-    /// Conversion mapped to Spirix undefined (IEEE NaN).
+    Vanished,
+    Exploded,
+    Infinity,
     Undefined,
+}
+
+/// Operand carried through spirix_add. For Normal state, `q` is the compute-form Q (sign-extended 25-bit) and `exp` is the unbiased exponent. For non-normal states (exp == AMB_EXP), `q` carries the storage pattern in its lower 24 bits.
+#[derive(Debug, Clone, Copy)]
+struct Operand {
+    q: i32,
+    exp: i8,
+    state: SpirixState,
+}
+
+/// Classify a Spirix Scalar from its (q, exp) storage. Used after IEEE->Spirix conversion and at the output of arithmetic.
+fn classify_state(q: i32, exp: i8) -> SpirixState {
+    if exp != AMB_EXP {
+        return SpirixState::Normal;
+    }
+    let stored = (q as u32) & 0xFF_FFFF;
+    if stored == 0 {
+        return SpirixState::Zero;
+    }
+    if stored == 0xFF_FFFF {
+        return SpirixState::Infinity;
+    }
+    let lsbc = leading_same_bit_count(stored);
+    if lsbc == 1 {
+        return SpirixState::Exploded;
+    }
+    if lsbc == 2 {
+        return SpirixState::Vanished;
+    }
+    SpirixState::Undefined
+}
+
+/// Canonical undefined storage pattern (LSBC ≥ 3). The specific cause-encoding of undefined doesn't matter for the architectural-match categorization in this comparison; any LSBC≥3 pattern reads as undefined.
+const UNDEFINED_CANONICAL: i32 = 0x10_0000;
+
+/// IEEE 754 binary32 result kind for categorization purposes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IeeeKind {
+    Normal,
+    Zero,
+    Denormal,
+    Inf,
+    Nan,
+}
+
+fn classify_ieee(v: f32) -> IeeeKind {
+    if v.is_nan() {
+        IeeeKind::Nan
+    } else if v.is_infinite() {
+        IeeeKind::Inf
+    } else if v == 0.0 {
+        IeeeKind::Zero
+    } else if is_denormal(v) {
+        IeeeKind::Denormal
+    } else {
+        IeeeKind::Normal
+    }
 }
 
 // ── f32 -> Spirix v0.1 N0 conversion via the spirix lib ─────────────────────
 
-/// Convert an f32 to Spirix v0.1 N0 form, using the production spirix lib for the IEEE->Scalar mapping (so denormal handling, ±∞ -> exploded, NaN -> undefined, ±0 -> zero, and the high-end conversion-loss-to-exploded boundary all match the lib's authoritative behavior).
+/// Convert an f32 to a Spirix Operand at FRAC=24, using the spirix lib for the IEEE→Scalar mapping (so denormal handling, ±∞ → exploded, NaN → undefined, ±0 → zero, and the high-end conversion-loss-to-exploded boundary all match the lib's authoritative behavior). Returns an Operand carrying the Spirix state plus the (q, exp) storage suitable for spirix_add's dispatcher.
 ///
-/// The lib produces a `Scalar<i32, i8>` at FRAC=32. We bridge to our FRAC=24 compute form by truncating the lib's stored 32-bit fraction down to 24 bits via right-shift-by-8. This is bit-exact for f32 inputs because IEEE binary32 has only 24 effective fraction bits, so the lib's stored 32-bit fraction always has zeros in its lower 8 bits for any f32-sourced normal value.
-fn f32_to_spirix_via_lib(v: f32) -> ConvOutcome {
+/// The lib produces a `Scalar<i32, i8>` at FRAC=32. We bridge to our FRAC=24 compute form by truncating the lib's stored 32-bit fraction down 8 bits — bit-exact for f32 inputs because IEEE binary32 has only 24 effective fraction bits, so the lib's lower 8 stored bits are always zero for f32-sourced normals.
+fn f32_to_spirix_via_lib(v: f32) -> Operand {
     let s: Scalar<i32, i8> = v.into();
 
     if s.exponent == AMB_EXP {
-        // Lib mapped to a non-normal Spirix state. Classify it from the storage pattern.
+        // Lib mapped to a non-normal Spirix state. Classify from the 32-bit storage pattern, then translate the storage to our 24-bit form.
         let stored_32 = s.fraction as u32;
-        if stored_32 == 0 {
-            return ConvOutcome::Zero;
-        }
-        if stored_32 == 0xFFFF_FFFF {
-            // Lib's infinity pattern at FRAC=32 — but f32 inputs cannot reach Spirix infinity (only arithmetic 1/0 etc. produces it), so this branch is theoretically unreachable from f32_to_spirix. Treat as zero just in case for safety.
-            return ConvOutcome::Undefined;
-        }
-        // For non-uniform AMB patterns at FRAC=32, classify by leading-same-bit count on the 32-bit pattern.
-        let lsbc = leading_same_bit_count_u32(stored_32, 32);
-        if lsbc == 1 {
-            return ConvOutcome::Exploded;
-        }
-        if lsbc == 2 {
-            return ConvOutcome::Vanished;
-        }
-        return ConvOutcome::Undefined;
+        let stored_24 = (stored_32 >> 8) as i32;
+        let state = if stored_32 == 0 {
+            SpirixState::Zero
+        } else if stored_32 == 0xFFFF_FFFF {
+            SpirixState::Infinity
+        } else {
+            let lsbc = leading_same_bit_count_u32(stored_32, 32);
+            match lsbc {
+                1 => SpirixState::Exploded,
+                2 => SpirixState::Vanished,
+                _ => SpirixState::Undefined,
+            }
+        };
+        return Operand { q: stored_24, exp: AMB_EXP, state };
     }
 
     // Normal: truncate the lib's 32-bit stored fraction to our 24-bit storage form, then convert to compute Q.
-    // Bit-exact for f32 inputs because IEEE binary32 has 24 effective bits -> lib's lower 8 bits are always zero.
     let stored_24 = (s.fraction as u32) >> 8;
     let msb = (stored_24 >> 23) & 1;
-    let prefix = 1 - msb; // implicit complement of MSB reconstructs the (n+1)-bit two's complement value
+    let prefix = 1 - msb;
     let q_25bit = (prefix << 24) | stored_24;
     let q = if (q_25bit >> 24) & 1 != 0 {
         (q_25bit | !0x1FF_FFFF_u32) as i32
     } else {
         q_25bit as i32
     };
-    ConvOutcome::Normal { q, exp: s.exponent }
+    Operand { q, exp: s.exponent, state: SpirixState::Normal }
 }
 
 /// Count the leading same-bit run length of `value`, examining the top `width` bits. Returns `width` for uniform patterns (all-zeros or all-ones).
@@ -105,61 +155,71 @@ fn leading_same_bit_count_u32(value: u32, width: u32) -> u32 {
     count
 }
 
-/// Convert Spirix v0.1 N0 compute form (Q, exp) back to f32. Handles normals; returns 0.0 for the zero pattern at AMB_EXP, ±∞ for the infinity pattern, NaN for any other AMB_EXP pattern (vanished, exploded, undefined — encoded as NaN here so the IEEE comparison classifier can detect them).
+/// Convert Spirix v0.1 N0 compute form (Q, exp) back to f32 using the spirix lib's to_f32. Bridges our FRAC=24 form to the lib's Scalar<i32, i8> at FRAC=32 by left-shifting the 24-bit storage to occupy the upper 24 bits of the 32-bit fraction (zero-padding the lower 8 bits, which is bit-exact since Spirix at FRAC=24 has no information below those bits).
 fn spirix_to_f32(q: i32, exp: i8) -> f32 {
-    if exp == AMB_EXP {
-        // Caller's harness inspects (q, exp) directly to classify non-normals. This conversion just returns a placeholder distinguishable from normal results.
-        let stored = (q as u32) & 0xFF_FFFF;
-        return if stored == 0 {
-            0.0
-        } else if stored == 0xFF_FFFF {
-            f32::INFINITY
-        } else {
-            f32::NAN
-        };
-    }
-
-    // Normal: Q ∈ [+2^23, +2^24-1] ∪ [-2^24, -2^23-1].
-    let abs_q = q.unsigned_abs() as u64;
-    let sign_neg = q < 0;
-
-    // Position of the highest 1-bit in abs_q — for normals this is 23 (positive case)
-    // or 24 (negative case where Q = -2^k).
-    let leading_pos = 63 - abs_q.leading_zeros() as i32;
-    let shift = leading_pos - 23; // align to IEEE's implicit-1 position
-
-    let aligned = if shift >= 0 {
-        abs_q >> shift
+    let stored_24 = if exp == AMB_EXP {
+        // Non-normal: q already carries the storage pattern in its lower 24 bits.
+        (q as u32) & 0xFF_FFFF
     } else {
-        abs_q << (-shift)
+        // Normal: extract the 24-bit storage form from compute Q (drop the implicit complement bit, keep lower 24).
+        (q as u32) & 0xFF_FFFF
     };
-
-    let mantissa = (aligned & 0x7F_FFFF) as u32;
-    let biased_exp = exp as i32 + 127 + shift;
-
-    if biased_exp <= 0 {
-        return if sign_neg { -0.0 } else { 0.0 };
-    }
-    if biased_exp >= 255 {
-        return if sign_neg { f32::NEG_INFINITY } else { f32::INFINITY };
-    }
-
-    let bits = ((sign_neg as u32) << 31) | ((biased_exp as u32) << 23) | mantissa;
-    f32::from_bits(bits)
+    let stored_32 = if exp == AMB_EXP && stored_24 == 0xFF_FFFF {
+        // Spirix infinity at FRAC=24 (uniform 24-bit ones) corresponds to lib's infinity at FRAC=32 (uniform 32-bit ones).
+        0xFFFF_FFFFu32
+    } else {
+        // For all other patterns (normals + zero/exploded/vanished/undefined), left-shift-by-8 expands the 24-bit storage to 32-bit storage. The lower 8 bits stay zero (bit-exact: Spirix at FRAC=24 carries no info there).
+        stored_24 << 8
+    };
+    let s = Scalar::<i32, i8> {
+        fraction: stored_32 as i32,
+        exponent: exp,
+    };
+    s.to_f32()
 }
 
 // ── Bit-accurate Spirix v0.1 N0 add ─────────────────────────────────────────
 
-/// Spirix v0.1 N0 add at FRAC=24, banker's rounding. Operates on compute form (Q, exp); returns same.
+/// Spirix v0.1 N0 add at FRAC=24. Dispatches by operand state, then runs the bit-accurate normal+normal algorithm or the truth-table rule for non-normal combinations.
+///
+/// Truth table (matches src/implementations/addition/scalar_scalar.rs in the spirix crate):
+///  - Both normal → bit-accurate add (close/far split, banker's rounding, rovf detection)
+///  - Either undefined → propagate first undefined
+///  - Either zero → other operand (zero is true additive identity, even for transfinite — matches the lib's note at scalar_scalar.rs:198)
+///  - Both transfinite (exploded/infinity) → undefined "transfinite + transfinite"
+///  - Both vanished → undefined "vanished + vanished"
+///  - Transfinite + finite (normal) → undefined "transfinite + finite" (Spirix is more conservative than IEEE here: IEEE's ∞+5=∞, Spirix says undefined because the singular point doesn't admit relative arithmetic)
+///  - Vanished + normal → return the normal (vanished passes through as below precision)
+fn spirix_add(a: Operand, b: Operand) -> (i32, i8) {
+    use SpirixState::*;
+    match (a.state, b.state) {
+        (Normal, Normal) => spirix_add_normal_normal(a.q, a.exp, b.q, b.exp),
+        (Undefined, _) => (a.q, a.exp),
+        (_, Undefined) => (b.q, b.exp),
+        (Zero, _) => (b.q, b.exp),
+        (_, Zero) => (a.q, a.exp),
+        // Both transfinite (exploded ∪ infinity)
+        (Exploded | Infinity, Exploded | Infinity) => (UNDEFINED_CANONICAL, AMB_EXP),
+        // Both vanished
+        (Vanished, Vanished) => (UNDEFINED_CANONICAL, AMB_EXP),
+        // One transfinite, one finite (normal)
+        (Exploded | Infinity, _) | (_, Exploded | Infinity) => (UNDEFINED_CANONICAL, AMB_EXP),
+        // Vanished + normal: vanished passes through
+        (Vanished, _) => (b.q, b.exp),
+        (_, Vanished) => (a.q, a.exp),
+    }
+}
+
+/// Bit-accurate Spirix v0.1 N0 add for normal+normal operands at FRAC=24, banker's rounding.
 ///
 /// Algorithm structure:
 ///  1. Exponent difference + swap (so `big` has the larger exponent).
 ///  2. Negligible early exit if `exp_diff` exceeds compute precision.
 ///  3. Close path (exp_diff ≤ 1): align by 0 or 1 bit, sum, CLZ-normalize, round.
 ///  4. Far path (exp_diff ≥ 2): barrel-shift small with sticky, sum, bounded normalize (0/1/2 bits), round.
-///  5. Banker's rounding (round-to-nearest-even) and rounding-overflow detection.
+///  5. Banker's rounding and rounding-overflow detection.
 ///  6. v0.1 saturation: both overflow past i8::MAX-1 and underflow past i8::MIN map to AMB_EXP, encoded as exploded (LSBC=1) or vanished (LSBC=2) by phase.
-fn spirix_add(a_q: i32, a_exp: i8, b_q: i32, b_exp: i8) -> (i32, i8) {
+fn spirix_add_normal_normal(a_q: i32, a_exp: i8, b_q: i32, b_exp: i8) -> (i32, i8) {
     // Step 1: exponent difference + swap so `big` has the larger (or equal) exponent.
     let raw_diff = (a_exp as i16) - (b_exp as i16);
     let a_is_big = raw_diff >= 0;
@@ -323,17 +383,20 @@ fn spirix_add(a_q: i32, a_exp: i8, b_q: i32, b_exp: i8) -> (i32, i8) {
 }
 
 /// Banker's rounding (round-to-nearest-even). Returns the un-rounded fraction (extracted from `normalized`) and the round-up bit.
+///
+/// Bit layout below the LSB of the output fraction:
+/// - bit (INT_BITS - 1 - COMPUTE_FRAC): guard
+/// - bit (INT_BITS - 2 - COMPUTE_FRAC): round
+/// - bits (INT_BITS - 2 - COMPUTE_FRAC - 1) .. 0: sticky region (OR of all)
+///
+/// Note: an earlier version of this routine (and the v0.0 N1 port at `examples/ieee_add_f32.rs` in the parent crate) used `INT_BITS - 3 - COMPUTE_FRAC` for the sticky mask shift, which is **off by one** — at FRAC=24 / INT_BITS=28 that mask captures zero bits and the LSB of `normalized` is silently dropped from the sticky calculation. The result is a systematic ~0.025% downward 1-ULP bias against IEEE for far-path same-sign adds. This was the source of the "1 ULP rounding choice" cases reported against IEEE binary32.
 fn round_banker(normalized: i64, align_sticky: bool) -> (i32, bool) {
     let out_q_raw = (normalized >> (INT_BITS - COMPUTE_FRAC)) as i32;
     let guard = ((normalized >> (INT_BITS - 1 - COMPUTE_FRAC)) & 1) != 0;
     let lsb = ((normalized >> (INT_BITS - COMPUTE_FRAC)) & 1) != 0;
     let round_bit = ((normalized >> (INT_BITS - 2 - COMPUTE_FRAC)) & 1) != 0;
-    let ext_sticky_mask = (1i64 << (INT_BITS - 3 - COMPUTE_FRAC)) - 1;
-    let ext_sticky = if INT_BITS - 3 - COMPUTE_FRAC > 0 {
-        (normalized & ext_sticky_mask) != 0
-    } else {
-        false
-    };
+    let ext_sticky_mask = (1i64 << (INT_BITS - 2 - COMPUTE_FRAC)) - 1;
+    let ext_sticky = (normalized & ext_sticky_mask) != 0;
     let sticky = ext_sticky || align_sticky;
     // Round up if guard is set AND (round_bit OR sticky OR lsb). The lsb term implements the "to-even" tie-break.
     let round_up = guard && (round_bit || sticky || lsb);
@@ -358,117 +421,101 @@ fn main() {
     println!(
         "Spirix v0.1 N0 add (FRAC={FRAC}, EXP={EXP_BITS}, banker's rounding) vs IEEE 754 binary32 — {N} trials"
     );
-    println!("Inputs: full IEEE normal range (biased_exp in [1, 254]); non-normals (NaN, ±∞, ±0, denormals) are skipped pending non-normal-input support in spirix_add.");
+    println!("Inputs: full random IEEE 754 binary32 bit patterns (every bit pattern is a valid IEEE value; lib's from(f32) maps each to its corresponding valid Spirix state). No filtering.");
     println!();
 
     let mut rng = Lcg::new(0xDEAD_BEEF_CAFE_1234);
     let mut counters = Counters::default();
 
     for _ in 0..N {
-        // Generate two random f32 normals across the full IEEE normal range (biased_exp ∈ [1, 254]). Non-normals (NaN, ±∞, ±0, denormals) are filtered here because spirix_add at this iteration only handles normal compute-form (Q, exp) inputs.
-        let a = next_normal_f32_full_range(&mut rng);
-        let b = next_normal_f32_full_range(&mut rng);
+        // Full random IEEE bit patterns — every f32 bit pattern is a valid IEEE value (normal, denormal, ±0, ±∞, NaN). Lib's f32→Scalar conversion maps each to its corresponding valid Spirix state.
+        let a = f32::from_bits(rng.next_u32());
+        let b = f32::from_bits(rng.next_u32());
         let ieee_result = a + b;
 
-        // Convert via the spirix lib. If either input maps to a non-normal Spirix state during conversion (e.g., IEEE biased_exp=254 → Spirix exploded because Spirix's max normal exp is 126), record the conversion-loss category and skip — spirix_add doesn't yet handle non-normal inputs.
-        let a_outcome = f32_to_spirix_via_lib(a);
-        let b_outcome = f32_to_spirix_via_lib(b);
-        let ((a_q, a_exp), (b_q, b_exp)) = match (a_outcome, b_outcome) {
-            (ConvOutcome::Normal { q: aq, exp: ae }, ConvOutcome::Normal { q: bq, exp: be }) => {
-                ((aq, ae), (bq, be))
+        let a_op = f32_to_spirix_via_lib(a);
+        let b_op = f32_to_spirix_via_lib(b);
+
+        // Track input-side conversion losses (informational, per-input).
+        for op in [a_op, b_op] {
+            match op.state {
+                SpirixState::Exploded => counters.record_conversion_loss_to_exploded(),
+                SpirixState::Vanished => counters.record_conversion_loss_to_vanished(),
+                _ => {}
             }
-            _ => {
-                for outcome in [a_outcome, b_outcome] {
-                    match outcome {
-                        ConvOutcome::Exploded => counters.record_conversion_loss_to_exploded(),
-                        ConvOutcome::Vanished => counters.record_conversion_loss_to_vanished(),
-                        ConvOutcome::Zero | ConvOutcome::Undefined | ConvOutcome::Normal { .. } => {}
+        }
+
+        let (r_q, r_exp) = spirix_add(a_op, b_op);
+        let r_state = classify_state(r_q, r_exp);
+        let ieee_kind = classify_ieee(ieee_result);
+
+        let inputs_had_arch_input = a_op.state != SpirixState::Normal
+            || b_op.state != SpirixState::Normal
+            || classify_ieee(a) != IeeeKind::Normal
+            || classify_ieee(b) != IeeeKind::Normal;
+
+        match r_state {
+            SpirixState::Normal => {
+                let spirix_result = spirix_to_f32(r_q, r_exp);
+                match ieee_kind {
+                    IeeeKind::Normal => {
+                        if ieee_result == 0.0 && spirix_result == 0.0 {
+                            counters.record_exact();
+                        } else if ieee_result == 0.0 || spirix_result == 0.0 {
+                            // Shouldn't happen — IEEE Normal but one side is 0
+                            counters.record_off_by_more(u64::MAX, a, b);
+                        } else {
+                            let diff = ulp_diff_same_sign(ieee_result, spirix_result);
+                            if diff == 0 {
+                                counters.record_exact();
+                            } else if inputs_had_arch_input {
+                                // Architectural drift — any non-zero diff with at least one non-normal input in either format. E.g., Spirix dropped a vanished input (mapped from an IEEE denormal) that IEEE included in its result; or IEEE arithmetic on denormal inputs differs from Spirix's full-precision arithmetic on the same values.
+                                counters.record_spirix_normal_arch_drift();
+                            } else if diff == 1 {
+                                // Pure 1-ULP rounding boundary, both inputs Normal in both formats — banker's-rounding tie-break disagreement.
+                                counters.record_one_ulp();
+                            } else {
+                                counters.record_off_by_more(diff, a, b);
+                            }
+                        }
+                    }
+                    IeeeKind::Zero | IeeeKind::Denormal => {
+                        // Spirix kept a Normal value where IEEE flushed to zero or used denormal precision — architectural difference between formats.
+                        counters.record_spirix_normal_arch_drift();
+                    }
+                    IeeeKind::Inf | IeeeKind::Nan => {
+                        counters.record_off_by_more(u64::MAX, a, b);
                     }
                 }
-                continue;
             }
-        };
-
-        let (r_q, r_exp) = spirix_add(a_q, a_exp, b_q, b_exp);
-
-        // Detect Spirix non-normal results before converting to f32, so we classify architectural distinctions explicitly.
-        if r_exp == AMB_EXP {
-            let stored = (r_q as u32) & 0xFF_FFFF;
-
-            if stored == 0 {
-                if ieee_result == 0.0 {
-                    counters.record_exact();
-                } else {
-                    counters.record_off_by_more(u64::MAX, a, b);
-                }
-                continue;
+            SpirixState::Zero => match ieee_kind {
+                IeeeKind::Zero => counters.record_spirix_zero_ieee_zero(),
+                _ => counters.record_spirix_zero_ieee_other(),
+            },
+            SpirixState::Vanished => match ieee_kind {
+                IeeeKind::Zero => counters.record_spirix_vanished_ieee_zero(),
+                IeeeKind::Denormal => counters.record_spirix_vanished_ieee_denormal(),
+                _ => counters.record_spirix_vanished_ieee_other(),
+            },
+            SpirixState::Exploded => match ieee_kind {
+                IeeeKind::Inf => counters.record_spirix_exploded_ieee_inf(),
+                IeeeKind::Normal => counters.record_spirix_exploded_ieee_finite(),
+                _ => counters.record_spirix_exploded_ieee_other(),
+            },
+            SpirixState::Infinity => {
+                // From add, Spirix Infinity output shouldn't arise (only arithmetic like 1/0 produces it). Lump into off_by_more for visibility if it ever happens.
+                counters.record_off_by_more(u64::MAX, a, b);
             }
-            if stored == 0xFF_FFFF {
-                if ieee_result.is_infinite() {
-                    counters.record_spirix_exploded_ieee_inf();
-                } else {
-                    counters.record_spirix_exploded_ieee_finite();
-                }
-                continue;
-            }
-
-            let lsbc = leading_same_bit_count(stored);
-            if lsbc == 1 {
-                if ieee_result.is_infinite() {
-                    counters.record_spirix_exploded_ieee_inf();
-                } else {
-                    counters.record_spirix_exploded_ieee_finite();
-                }
-                continue;
-            }
-            if lsbc == 2 {
-                if ieee_result == 0.0 {
-                    counters.record_spirix_vanished_ieee_zero();
-                } else if is_denormal(ieee_result) {
-                    counters.record_spirix_vanished_ieee_denormal();
-                } else {
-                    counters.record_off_by_more(u64::MAX, a, b);
-                }
-                continue;
-            }
-            counters.record_off_by_more(u64::MAX, a, b);
-            continue;
-        }
-
-        // Normal result — ULP-compare against IEEE.
-        let spirix_result = spirix_to_f32(r_q, r_exp);
-
-        if ieee_result == 0.0 && spirix_result == 0.0 {
-            counters.record_exact();
-            continue;
-        }
-        if ieee_result == 0.0 || spirix_result == 0.0 {
-            counters.record_off_by_more(u64::MAX, a, b);
-            continue;
-        }
-
-        let diff = ulp_diff_same_sign(ieee_result, spirix_result);
-        if diff == 0 {
-            counters.record_exact();
-        } else if diff == 1 {
-            counters.record_one_ulp();
-        } else {
-            counters.record_off_by_more(diff, a, b);
+            SpirixState::Undefined => match ieee_kind {
+                IeeeKind::Nan => counters.record_spirix_undefined_ieee_nan(),
+                IeeeKind::Inf => counters.record_spirix_undefined_ieee_inf(),
+                IeeeKind::Normal | IeeeKind::Denormal => counters.record_spirix_undefined_ieee_finite(),
+                IeeeKind::Zero => counters.record_spirix_undefined_ieee_zero(),
+            },
         }
     }
 
     counters.print_summary(N);
-}
-
-/// Generate a random normal f32 across the full IEEE normal range (biased_exp ∈ [1, 254]). Skips non-normals (biased_exp == 0 for ±0/denormals, biased_exp == 255 for ±∞/NaN).
-fn next_normal_f32_full_range(rng: &mut Lcg) -> f32 {
-    loop {
-        let bits = rng.next_u32();
-        let biased_exp = (bits >> 23) & 0xFF;
-        if (1..=254).contains(&biased_exp) {
-            return f32::from_bits(bits);
-        }
-    }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

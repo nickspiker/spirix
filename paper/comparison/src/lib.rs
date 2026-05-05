@@ -31,21 +31,57 @@ impl Lcg {
 }
 
 /// Counters tabulating per-category comparison results. See README.md for category definitions.
+///
+/// Categories are organized by Spirix output state, then sub-divided by what IEEE produced. The "architectural" categories are honest-by-design mismatches between IEEE 754 and Spirix v0.1 semantics; "off_by_more" should always be zero for a correct implementation.
 #[derive(Default, Debug)]
 pub struct Counters {
+    // ── Spirix Normal output ──────────────────────────────────────────────
     pub exact: u64,
     pub one_ulp: u64,
-    pub spirix_vanished_ieee_zero: u64,
-    pub spirix_vanished_ieee_denormal: u64,
-    pub spirix_exploded_ieee_inf: u64,
-    pub spirix_exploded_ieee_finite: u64,
+    /// Spirix Normal output with > 1 ULP diff from IEEE, where at least one input was non-normal Spirix (e.g., a vanished input was dropped per truth table while IEEE kept its denormal contribution), or where IEEE produced a denormal/zero result. Architectural — not a bug.
+    pub spirix_normal_arch_drift: u64,
+    /// Spirix Normal output with > 1 ULP diff from IEEE, with both inputs Normal Spirix — should be 0 for a correct algorithm.
     pub off_by_more: u64,
     pub max_ulp_diff: u64,
     pub worst_a: f32,
     pub worst_b: f32,
-    /// Pairs skipped because at least one IEEE input mapped to Spirix exploded during conversion (e.g., IEEE biased_exp=254 — IEEE's max-positive-exp normal range that exceeds Spirix's max-normal-exp 126).
+
+    // ── Spirix Zero output ────────────────────────────────────────────────
+    /// Both produced zero (Spirix singleton ↔ IEEE ±0). Match.
+    pub spirix_zero_ieee_zero: u64,
+    /// Spirix produced zero, IEEE produced something else — unexpected.
+    pub spirix_zero_ieee_other: u64,
+
+    // ── Spirix Vanished output ────────────────────────────────────────────
+    /// Spirix vanished, IEEE flushed to ±0 (architectural — Spirix preserves direction).
+    pub spirix_vanished_ieee_zero: u64,
+    /// Spirix vanished, IEEE produced a denormal (architectural — IEEE has reduced precision).
+    pub spirix_vanished_ieee_denormal: u64,
+    /// Spirix vanished, IEEE produced something else — unexpected.
+    pub spirix_vanished_ieee_other: u64,
+
+    // ── Spirix Exploded output ────────────────────────────────────────────
+    /// Spirix exploded, IEEE produced ±∞ (architectural — Spirix preserves direction beyond magnitude limit).
+    pub spirix_exploded_ieee_inf: u64,
+    /// Spirix exploded, IEEE produced a finite normal (architectural — Spirix's narrower max-positive-exp range).
+    pub spirix_exploded_ieee_finite: u64,
+    /// Spirix exploded, IEEE produced something else — unexpected.
+    pub spirix_exploded_ieee_other: u64,
+
+    // ── Spirix Undefined output ───────────────────────────────────────────
+    /// Spirix undefined, IEEE produced NaN. Architectural match — both signal "undefined".
+    pub spirix_undefined_ieee_nan: u64,
+    /// Spirix undefined, IEEE produced ±∞ (e.g., Spirix exploded+normal=undefined, IEEE ∞+normal=∞).
+    pub spirix_undefined_ieee_inf: u64,
+    /// Spirix undefined, IEEE produced a finite value (e.g., Spirix vanished+vanished=undefined, IEEE produces a tiny normal).
+    pub spirix_undefined_ieee_finite: u64,
+    /// Spirix undefined, IEEE produced ±0 (e.g., Spirix vanished+vanished=undefined cancellation, IEEE flushed to 0).
+    pub spirix_undefined_ieee_zero: u64,
+
+    // ── Input-side conversion tracking (per-input, informational) ─────────
+    /// Inputs that mapped to Spirix exploded during IEEE→Spirix conversion (e.g., IEEE biased_exp=254 inputs that exceed Spirix's max-normal-exp of 126).
     pub conversion_loss_to_exploded: u64,
-    /// Pairs skipped because at least one IEEE input mapped to Spirix vanished during conversion (e.g., IEEE denormals smaller than Spirix's smallest normal).
+    /// Inputs that mapped to Spirix vanished during IEEE→Spirix conversion (denormals below Spirix's smallest normal).
     pub conversion_loss_to_vanished: u64,
 }
 
@@ -91,61 +127,83 @@ impl Counters {
         self.conversion_loss_to_vanished += 1;
     }
 
+    pub fn record_spirix_normal_arch_drift(&mut self) { self.spirix_normal_arch_drift += 1; }
+    pub fn record_spirix_zero_ieee_zero(&mut self) { self.spirix_zero_ieee_zero += 1; }
+    pub fn record_spirix_zero_ieee_other(&mut self) { self.spirix_zero_ieee_other += 1; }
+    pub fn record_spirix_vanished_ieee_other(&mut self) { self.spirix_vanished_ieee_other += 1; }
+    pub fn record_spirix_exploded_ieee_other(&mut self) { self.spirix_exploded_ieee_other += 1; }
+    pub fn record_spirix_undefined_ieee_nan(&mut self) { self.spirix_undefined_ieee_nan += 1; }
+    pub fn record_spirix_undefined_ieee_inf(&mut self) { self.spirix_undefined_ieee_inf += 1; }
+    pub fn record_spirix_undefined_ieee_finite(&mut self) { self.spirix_undefined_ieee_finite += 1; }
+    pub fn record_spirix_undefined_ieee_zero(&mut self) { self.spirix_undefined_ieee_zero += 1; }
+
     pub fn print_summary(&self, n: u64) {
         let pct = |c: u64| c as f64 / n as f64 * 100.0;
+        let row = |label: &str, count: u64| {
+            println!("  {:42} {:>10}  ({:.4}%)", label, count, pct(count));
+        };
+
         println!("Results ({} trials):", n);
-        println!(
-            "  Exact match:                       {:>10}  ({:.4}%)",
-            self.exact,
-            pct(self.exact)
-        );
-        println!(
-            "  1 ULP (valid rounding choice):     {:>10}  ({:.4}%)",
-            self.one_ulp,
-            pct(self.one_ulp)
-        );
-        println!(
-            "  Spirix vanished, IEEE -> 0:        {:>10}  ({:.4}%)",
-            self.spirix_vanished_ieee_zero,
-            pct(self.spirix_vanished_ieee_zero)
-        );
-        println!(
-            "  Spirix vanished, IEEE -> denormal: {:>10}  ({:.4}%)",
-            self.spirix_vanished_ieee_denormal,
-            pct(self.spirix_vanished_ieee_denormal)
-        );
-        println!(
-            "  Spirix exploded, IEEE -> +/-inf:   {:>10}  ({:.4}%)",
-            self.spirix_exploded_ieee_inf,
-            pct(self.spirix_exploded_ieee_inf)
-        );
-        println!(
-            "  Spirix exploded, IEEE -> finite:   {:>10}  ({:.4}%)",
-            self.spirix_exploded_ieee_finite,
-            pct(self.spirix_exploded_ieee_finite)
-        );
-        println!(
-            "  Off by more (unexpected):          {:>10}  ({:.4}%)",
-            self.off_by_more,
-            pct(self.off_by_more)
-        );
+        println!();
+        println!("Spirix Normal output:");
+        row("exact match", self.exact);
+        row("1 ULP (valid rounding choice)", self.one_ulp);
+        row("architectural drift (non-normal input or IEEE denormal/zero)", self.spirix_normal_arch_drift);
+        row("off by more (REAL BUG — should be 0)", self.off_by_more);
+
+        let zero_total = self.spirix_zero_ieee_zero + self.spirix_zero_ieee_other;
+        if zero_total > 0 {
+            println!();
+            println!("Spirix Zero output:");
+            row("IEEE -> 0 (match)", self.spirix_zero_ieee_zero);
+            row("IEEE -> other (UNEXPECTED)", self.spirix_zero_ieee_other);
+        }
+
+        let vanished_total = self.spirix_vanished_ieee_zero
+            + self.spirix_vanished_ieee_denormal
+            + self.spirix_vanished_ieee_other;
+        if vanished_total > 0 {
+            println!();
+            println!("Spirix Vanished output (architectural — Spirix preserves direction below precision):");
+            row("IEEE -> 0", self.spirix_vanished_ieee_zero);
+            row("IEEE -> denormal", self.spirix_vanished_ieee_denormal);
+            row("IEEE -> other (UNEXPECTED)", self.spirix_vanished_ieee_other);
+        }
+
+        let exploded_total = self.spirix_exploded_ieee_inf
+            + self.spirix_exploded_ieee_finite
+            + self.spirix_exploded_ieee_other;
+        if exploded_total > 0 {
+            println!();
+            println!("Spirix Exploded output (architectural — Spirix preserves direction beyond magnitude limit):");
+            row("IEEE -> +/-inf", self.spirix_exploded_ieee_inf);
+            row("IEEE -> finite (exp-range delta)", self.spirix_exploded_ieee_finite);
+            row("IEEE -> other (UNEXPECTED)", self.spirix_exploded_ieee_other);
+        }
+
+        let undefined_total = self.spirix_undefined_ieee_nan
+            + self.spirix_undefined_ieee_inf
+            + self.spirix_undefined_ieee_finite
+            + self.spirix_undefined_ieee_zero;
+        if undefined_total > 0 {
+            println!();
+            println!("Spirix Undefined output (architectural — Spirix flags more cases as undefined than IEEE):");
+            row("IEEE -> NaN  (architectural match)", self.spirix_undefined_ieee_nan);
+            row("IEEE -> +/-inf  (Spirix more conservative)", self.spirix_undefined_ieee_inf);
+            row("IEEE -> finite  (Spirix more conservative)", self.spirix_undefined_ieee_finite);
+            row("IEEE -> 0  (Spirix more conservative)", self.spirix_undefined_ieee_zero);
+        }
+
         if self.conversion_loss_to_exploded > 0 || self.conversion_loss_to_vanished > 0 {
             println!();
-            println!("Conversion loss (input mapped to non-normal Spirix during IEEE->Spirix):");
-            println!(
-                "  IEEE input -> Spirix exploded:     {:>10}  ({:.4}%)",
-                self.conversion_loss_to_exploded,
-                pct(self.conversion_loss_to_exploded)
-            );
-            println!(
-                "  IEEE input -> Spirix vanished:     {:>10}  ({:.4}%)",
-                self.conversion_loss_to_vanished,
-                pct(self.conversion_loss_to_vanished)
-            );
+            println!("Input-side IEEE->Spirix conversion loss (informational, per input):");
+            row("IEEE input -> Spirix exploded", self.conversion_loss_to_exploded);
+            row("IEEE input -> Spirix vanished", self.conversion_loss_to_vanished);
         }
-        if self.off_by_more > 0 {
+
+        if self.off_by_more > 0 || self.spirix_zero_ieee_other > 0 || self.spirix_vanished_ieee_other > 0 || self.spirix_exploded_ieee_other > 0 {
             println!();
-            println!("  Max ULP error: {}", self.max_ulp_diff);
+            println!("  Max ULP error (Normal+Normal): {}", self.max_ulp_diff);
             println!("  Worst-case operand pair: a = {:e}, b = {:e}", self.worst_a, self.worst_b);
         }
     }
