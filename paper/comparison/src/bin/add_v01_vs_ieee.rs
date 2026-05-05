@@ -419,103 +419,153 @@ fn rovf_detect(out_q_raw: i32, round_up: bool) -> (bool, bool) {
 fn main() {
     const N: u64 = 10_000_000;
     println!(
-        "Spirix v0.1 N0 add (FRAC={FRAC}, EXP={EXP_BITS}, banker's rounding) vs IEEE 754 binary32 — {N} trials"
+        "Spirix v0.1 N0 add (FRAC={FRAC}, EXP={EXP_BITS}, banker's rounding) vs IEEE 754 binary32"
     );
-    println!("Inputs: full random IEEE 754 binary32 bit patterns (every bit pattern is a valid IEEE value; lib's from(f32) maps each to its corresponding valid Spirix state). No filtering.");
     println!();
 
-    let mut rng = Lcg::new(0xDEAD_BEEF_CAFE_1234);
-    let mut counters = Counters::default();
-
+    // ── Phase A: IEEE-driven random ──────────────────────────────────────
+    println!("== Phase A: IEEE-driven random — {N} trials ==");
+    println!("Inputs: full random IEEE 754 binary32 bit patterns (every f32 bit pattern is a valid IEEE value). Lib's from(f32) maps each to its corresponding valid Spirix state.");
+    println!();
+    let mut rng_a = Lcg::new(0xDEAD_BEEF_CAFE_1234);
+    let mut counters_a = Counters::default();
     for _ in 0..N {
-        // Full random IEEE bit patterns — every f32 bit pattern is a valid IEEE value (normal, denormal, ±0, ±∞, NaN). Lib's f32→Scalar conversion maps each to its corresponding valid Spirix state.
-        let a = f32::from_bits(rng.next_u32());
-        let b = f32::from_bits(rng.next_u32());
-        let ieee_result = a + b;
-
+        let a = f32::from_bits(rng_a.next_u32());
+        let b = f32::from_bits(rng_a.next_u32());
         let a_op = f32_to_spirix_via_lib(a);
         let b_op = f32_to_spirix_via_lib(b);
-
-        // Track input-side conversion losses (informational, per-input).
         for op in [a_op, b_op] {
             match op.state {
-                SpirixState::Exploded => counters.record_conversion_loss_to_exploded(),
-                SpirixState::Vanished => counters.record_conversion_loss_to_vanished(),
+                SpirixState::Exploded => counters_a.record_conversion_loss_to_exploded(),
+                SpirixState::Vanished => counters_a.record_conversion_loss_to_vanished(),
                 _ => {}
             }
         }
+        let ieee_result = a + b;
+        categorize_and_record(a, b, ieee_result, a_op, b_op, &mut counters_a);
+    }
+    counters_a.print_summary(N);
 
-        let (r_q, r_exp) = spirix_add(a_op, b_op);
-        let r_state = classify_state(r_q, r_exp);
-        let ieee_kind = classify_ieee(ieee_result);
+    println!();
 
-        let inputs_had_arch_input = a_op.state != SpirixState::Normal
-            || b_op.state != SpirixState::Normal
-            || classify_ieee(a) != IeeeKind::Normal
-            || classify_ieee(b) != IeeeKind::Normal;
+    // ── Phase B: Spirix-driven random ────────────────────────────────────
+    println!("== Phase B: Spirix-driven random — {N} trials ==");
+    println!("Inputs: full random Spirix bit patterns (random 24-bit fraction + random i8 exponent — every bit pattern is a valid Spirix state by design). IEEE-side reference computed via the lib's to_f32 (signless infinity → NaN; vanished → ±0 with phase; undefined → NaN; exploded → ±∞ with phase; otherwise precise).");
+    println!();
+    let mut rng_b = Lcg::new(0xCAFE_BABE_DEAD_5678);
+    let mut counters_b = Counters::default();
+    for _ in 0..N {
+        let a_op = random_spirix_operand(&mut rng_b);
+        let b_op = random_spirix_operand(&mut rng_b);
+        // Convert each Spirix operand to its f32 representative via the lib for the IEEE-side reference.
+        let a = spirix_to_f32(a_op.q, a_op.exp);
+        let b = spirix_to_f32(b_op.q, b_op.exp);
+        let ieee_result = a + b;
+        categorize_and_record(a, b, ieee_result, a_op, b_op, &mut counters_b);
+    }
+    counters_b.print_summary(N);
+}
 
-        match r_state {
-            SpirixState::Normal => {
-                let spirix_result = spirix_to_f32(r_q, r_exp);
-                match ieee_kind {
-                    IeeeKind::Normal => {
-                        if ieee_result == 0.0 && spirix_result == 0.0 {
-                            counters.record_exact();
-                        } else if ieee_result == 0.0 || spirix_result == 0.0 {
-                            // Shouldn't happen — IEEE Normal but one side is 0
-                            counters.record_off_by_more(u64::MAX, a, b);
-                        } else {
-                            let diff = ulp_diff_same_sign(ieee_result, spirix_result);
-                            if diff == 0 {
-                                counters.record_exact();
-                            } else if inputs_had_arch_input {
-                                // Architectural drift — any non-zero diff with at least one non-normal input in either format. E.g., Spirix dropped a vanished input (mapped from an IEEE denormal) that IEEE included in its result; or IEEE arithmetic on denormal inputs differs from Spirix's full-precision arithmetic on the same values.
-                                counters.record_spirix_normal_arch_drift();
-                            } else if diff == 1 {
-                                // Pure 1-ULP rounding boundary, both inputs Normal in both formats — banker's-rounding tie-break disagreement.
-                                counters.record_one_ulp();
-                            } else {
-                                counters.record_off_by_more(diff, a, b);
-                            }
-                        }
-                    }
-                    IeeeKind::Zero | IeeeKind::Denormal => {
-                        // Spirix kept a Normal value where IEEE flushed to zero or used denormal precision — architectural difference between formats.
-                        counters.record_spirix_normal_arch_drift();
-                    }
-                    IeeeKind::Inf | IeeeKind::Nan => {
-                        counters.record_off_by_more(u64::MAX, a, b);
-                    }
-                }
-            }
-            SpirixState::Zero => match ieee_kind {
-                IeeeKind::Zero => counters.record_spirix_zero_ieee_zero(),
-                _ => counters.record_spirix_zero_ieee_other(),
-            },
-            SpirixState::Vanished => match ieee_kind {
-                IeeeKind::Zero => counters.record_spirix_vanished_ieee_zero(),
-                IeeeKind::Denormal => counters.record_spirix_vanished_ieee_denormal(),
-                _ => counters.record_spirix_vanished_ieee_other(),
-            },
-            SpirixState::Exploded => match ieee_kind {
-                IeeeKind::Inf => counters.record_spirix_exploded_ieee_inf(),
-                IeeeKind::Normal => counters.record_spirix_exploded_ieee_finite(),
-                _ => counters.record_spirix_exploded_ieee_other(),
-            },
-            SpirixState::Infinity => {
-                // From add, Spirix Infinity output shouldn't arise (only arithmetic like 1/0 produces it). Lump into off_by_more for visibility if it ever happens.
-                counters.record_off_by_more(u64::MAX, a, b);
-            }
-            SpirixState::Undefined => match ieee_kind {
-                IeeeKind::Nan => counters.record_spirix_undefined_ieee_nan(),
-                IeeeKind::Inf => counters.record_spirix_undefined_ieee_inf(),
-                IeeeKind::Normal | IeeeKind::Denormal => counters.record_spirix_undefined_ieee_finite(),
-                IeeeKind::Zero => counters.record_spirix_undefined_ieee_zero(),
-            },
-        }
+/// Generate a random valid Spirix operand. Random 24-bit fraction + random 8-bit exponent — every bit pattern is a valid Spirix state by design.
+fn random_spirix_operand(rng: &mut Lcg) -> Operand {
+    let stored_24 = (rng.next_u32() & 0xFF_FFFF) as i32;
+    let exp_byte = rng.next_u32() as u8;
+    let exp = exp_byte as i8;
+
+    if exp == AMB_EXP {
+        let state = classify_state(stored_24, AMB_EXP);
+        return Operand { q: stored_24, exp: AMB_EXP, state };
     }
 
-    counters.print_summary(N);
+    // Normal Spirix: convert 24-bit storage to compute-form Q.
+    let stored_24_u = stored_24 as u32 & 0xFF_FFFF;
+    let msb = (stored_24_u >> 23) & 1;
+    let prefix = 1 - msb;
+    let q_25bit = (prefix << 24) | stored_24_u;
+    let q = if (q_25bit >> 24) & 1 != 0 {
+        (q_25bit | !0x1FF_FFFF_u32) as i32
+    } else {
+        q_25bit as i32
+    };
+    Operand { q, exp, state: SpirixState::Normal }
+}
+
+/// Categorize a single (a, b) → result pair against IEEE and update counters. Used by both Phase A (IEEE-driven) and Phase B (Spirix-driven) — categorization is symmetric in input direction.
+fn categorize_and_record(
+    a: f32,
+    b: f32,
+    ieee_result: f32,
+    a_op: Operand,
+    b_op: Operand,
+    counters: &mut Counters,
+) {
+    let (r_q, r_exp) = spirix_add(a_op, b_op);
+    let r_state = classify_state(r_q, r_exp);
+    let ieee_kind = classify_ieee(ieee_result);
+
+    let inputs_had_arch_input = a_op.state != SpirixState::Normal
+        || b_op.state != SpirixState::Normal
+        || classify_ieee(a) != IeeeKind::Normal
+        || classify_ieee(b) != IeeeKind::Normal;
+
+    match r_state {
+        SpirixState::Normal => {
+            let spirix_result = spirix_to_f32(r_q, r_exp);
+            match ieee_kind {
+                IeeeKind::Normal => {
+                    if ieee_result == 0.0 && spirix_result == 0.0 {
+                        counters.record_exact();
+                    } else if ieee_result == 0.0 || spirix_result == 0.0 {
+                        counters.record_off_by_more(u64::MAX, a, b);
+                    } else {
+                        let diff = ulp_diff_same_sign(ieee_result, spirix_result);
+                        if diff == 0 {
+                            counters.record_exact();
+                        } else if inputs_had_arch_input {
+                            counters.record_spirix_normal_arch_drift();
+                        } else if diff == 1 {
+                            counters.record_one_ulp();
+                        } else {
+                            counters.record_off_by_more(diff, a, b);
+                        }
+                    }
+                }
+                IeeeKind::Zero | IeeeKind::Denormal => {
+                    counters.record_spirix_normal_arch_drift();
+                }
+                IeeeKind::Inf | IeeeKind::Nan => {
+                    counters.record_off_by_more(u64::MAX, a, b);
+                }
+            }
+        }
+        SpirixState::Zero => match ieee_kind {
+            IeeeKind::Zero => counters.record_spirix_zero_ieee_zero(),
+            _ => counters.record_spirix_zero_ieee_other(),
+        },
+        SpirixState::Vanished => match ieee_kind {
+            IeeeKind::Zero => counters.record_spirix_vanished_ieee_zero(),
+            IeeeKind::Denormal => counters.record_spirix_vanished_ieee_denormal(),
+            _ => counters.record_spirix_vanished_ieee_other(),
+        },
+        SpirixState::Exploded => match ieee_kind {
+            IeeeKind::Inf => counters.record_spirix_exploded_ieee_inf(),
+            IeeeKind::Normal => counters.record_spirix_exploded_ieee_finite(),
+            _ => counters.record_spirix_exploded_ieee_other(),
+        },
+        SpirixState::Infinity => {
+            // Spirix Infinity output arises only when one operand was Spirix Infinity AND the other was Spirix Zero (zero is identity per the truth table). Lib's to_f32 maps Spirix Infinity → IEEE NaN, so IEEE adds NaN+0=NaN. Categorize as architectural match.
+            match ieee_kind {
+                IeeeKind::Nan => counters.record_spirix_undefined_ieee_nan(),
+                _ => counters.record_off_by_more(u64::MAX, a, b),
+            }
+        }
+        SpirixState::Undefined => match ieee_kind {
+            IeeeKind::Nan => counters.record_spirix_undefined_ieee_nan(),
+            IeeeKind::Inf => counters.record_spirix_undefined_ieee_inf(),
+            IeeeKind::Normal | IeeeKind::Denormal => counters.record_spirix_undefined_ieee_finite(),
+            IeeeKind::Zero => counters.record_spirix_undefined_ieee_zero(),
+        },
+    }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
