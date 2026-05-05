@@ -1,33 +1,23 @@
-//! Bit-accurate Spirix v0.1 N0 add at FRAC=24, EXP=8, banker's rounding, compared against native IEEE 754 binary32 add.
+//! Bit-accurate Spirix v0.1 N0 sub at FRAC=24, EXP=8, banker's rounding, compared against native IEEE 754 binary32 sub.
 //!
-//! ## Format details
+//! Subtraction is implemented as `a + (-b)` using the bit-accurate add algorithm and the lib's `Neg` impl on `Scalar<i32, i8>` to negate the second operand correctly across all Spirix states (normal sign-flip with renormalization at boundary; signless zero stays signless; phase-flip for exploded/vanished; undefined propagates).
 //!
-//! Spirix v0.1 N0 stores a 24-bit fraction and an 8-bit exponent (32 bits total, bit-equivalent to binary32). The stored MSB encodes sign via implicit complement: a stored MSB of 1 reads as positive (conceptual pattern `01.xxx...`, magnitude in [1, 2)), and a stored MSB of 0 reads as negative (conceptual pattern `10.xxx...`, magnitude in [-2, -1) per two's complement).
-//!
-//! Internally this module operates on the full sign-extended 25-bit two's complement value (the "compute form" Q), not the 24-bit storage form. Internally Q is identical in both v0.0 N1 and v0.1 N0: the algorithm transfers verbatim, with only the AMB_EXP sentinel value and the wrap-detection direction differing. The 24-bit stored form is recoverable as `Q & 0xFF_FFFF` (lower 24 bits); the implicit complement of the stored MSB is bit 24 of Q.
-//!
-//! ## Ambiguous exponent
-//!
-//! `AMB_EXP = i8::MAX = 127` is the single sentinel exponent for non-normal states (zero, infinity, exploded, vanished, undefined). Both overflow past `i8::MAX - 1 = 126` and underflow past `i8::MIN = -128` saturate to AMB_EXP.
+//! The add algorithm is duplicated here rather than imported from add_v01_vs_ieee.rs because Cargo doesn't share `[[bin]]` source files. Both binaries embed the same bit-accurate add for the same reason — paper readers can verify the algorithm in one file without crossing module boundaries.
 
 use spirix_paper_comparison::{
-    run_phase_a, run_phase_b, Operand, SpirixState, AMB_EXP, COMPUTE_FRAC, FRAC, INT_BITS,
+    run_phase_a, run_phase_b, spirix_negate, Operand, SpirixState, AMB_EXP, COMPUTE_FRAC, FRAC,
+    INT_BITS,
 };
 
 const _: () = assert!(FRAC == 24 && COMPUTE_FRAC == 25 && INT_BITS == 28);
 
-// ── Bit-accurate Spirix v0.1 N0 add ─────────────────────────────────────────
+/// Spirix v0.1 N0 subtract: `a - b = a + (-b)`. Negation handled by the lib's Neg impl via spirix_negate, which correctly handles all states (normal, zero, vanished, exploded, infinity, undefined).
+fn spirix_sub(a: Operand, b: Operand) -> (i32, i8) {
+    spirix_add(a, spirix_negate(b))
+}
 
-/// Spirix v0.1 N0 add at FRAC=24. Dispatches by operand state, then runs the bit-accurate normal+normal algorithm or the truth-table rule for non-normal combinations.
-///
-/// Truth table (matches the spirix lib's scalar_add_scalar):
-///  - Both normal → bit-accurate add (close/far split, banker's rounding, rovf detection)
-///  - Either undefined → propagate first undefined
-///  - Either zero → other operand (zero is true additive identity, even for transfinite)
-///  - Both transfinite (exploded ∪ infinity) → undefined "transfinite + transfinite"
-///  - Both vanished → undefined "vanished + vanished"
-///  - Transfinite + finite (normal) → undefined "transfinite + finite"
-///  - Vanished + normal → return the normal (vanished passes through as below precision)
+// ── Bit-accurate add (same as add_v01_vs_ieee.rs — see truth-table notes there) ───
+
 fn spirix_add(a: Operand, b: Operand) -> (i32, i8) {
     use SpirixState::*;
     match (a.state, b.state) {
@@ -46,15 +36,6 @@ fn spirix_add(a: Operand, b: Operand) -> (i32, i8) {
 
 const UNDEFINED_CANONICAL: i32 = 0x10_0000;
 
-/// Bit-accurate Spirix v0.1 N0 add for normal+normal operands at FRAC=24, banker's rounding.
-///
-/// Algorithm structure:
-///  1. Exponent difference + swap (so `big` has the larger exponent).
-///  2. Negligible early exit if `exp_diff` exceeds compute precision.
-///  3. Close path (exp_diff ≤ 1): align by 0 or 1 bit, sum, CLZ-normalize, round.
-///  4. Far path (exp_diff ≥ 2): barrel-shift small with sticky, sum, bounded normalize (0/1/2 bits), round.
-///  5. Banker's rounding and rounding-overflow detection.
-///  6. v0.1 saturation: both overflow past i8::MAX-1 and underflow past i8::MIN map to AMB_EXP, encoded as exploded (LSBC=1) or vanished (LSBC=2) by phase.
 fn spirix_add_normal_normal(a_q: i32, a_exp: i8, b_q: i32, b_exp: i8) -> (i32, i8) {
     let raw_diff = (a_exp as i16) - (b_exp as i16);
     let a_is_big = raw_diff >= 0;
@@ -204,12 +185,6 @@ fn spirix_add_normal_normal(a_q: i32, a_exp: i8, b_q: i32, b_exp: i8) -> (i32, i
     (out_q, exp_wide as i8)
 }
 
-/// Banker's rounding (round-to-nearest-even). Returns the un-rounded fraction (extracted from `normalized`) and the round-up bit.
-///
-/// Bit layout below the LSB of the output fraction:
-/// - bit (INT_BITS - 1 - COMPUTE_FRAC): guard
-/// - bit (INT_BITS - 2 - COMPUTE_FRAC): round
-/// - bits (INT_BITS - 2 - COMPUTE_FRAC - 1) .. 0: sticky region (OR of all)
 fn round_banker(normalized: i64, align_sticky: bool) -> (i32, bool) {
     let out_q_raw = (normalized >> (INT_BITS - COMPUTE_FRAC)) as i32;
     let guard = ((normalized >> (INT_BITS - 1 - COMPUTE_FRAC)) & 1) != 0;
@@ -222,7 +197,6 @@ fn round_banker(normalized: i64, align_sticky: bool) -> (i32, bool) {
     (out_q_raw, round_up)
 }
 
-/// Detect rounding-overflow (rovf): the case where round-up would push the fraction past its representable range, requiring an exponent bump.
 fn rovf_detect(out_q_raw: i32, round_up: bool) -> (bool, bool) {
     let pos_all_ones = (out_q_raw & ((1 << (COMPUTE_FRAC - 1)) - 1)) == ((1 << (COMPUTE_FRAC - 1)) - 1);
     let rovf_pos = (out_q_raw >> (COMPUTE_FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
@@ -238,11 +212,11 @@ fn rovf_detect(out_q_raw: i32, round_up: bool) -> (bool, bool) {
 fn main() {
     const N: u64 = 10_000_000;
     println!(
-        "Spirix v0.1 N0 add (FRAC={FRAC}, EXP=8, banker's rounding) vs IEEE 754 binary32"
+        "Spirix v0.1 N0 sub (FRAC={FRAC}, EXP=8, banker's rounding, sub = a + (-b)) vs IEEE 754 binary32"
     );
     println!();
 
-    run_phase_a("add", N, 0xDEAD_BEEF_CAFE_1234, |a, b| a + b, spirix_add);
+    run_phase_a("sub", N, 0x5AB5_5AB5_5AB5_5AB5, |a, b| a - b, spirix_sub);
     println!();
-    run_phase_b("add", N, 0xCAFE_BABE_DEAD_5678, |a, b| a + b, spirix_add);
+    run_phase_b("sub", N, 0xBABE_F00D_DEAD_5AB1, |a, b| a - b, spirix_sub);
 }
