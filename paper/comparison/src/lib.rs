@@ -194,48 +194,313 @@ pub fn spirix_to_f32(q: i32, exp: i8) -> f32 {
     }
 }
 
-/// Negate a Spirix Operand using the lib's `Neg` impl. Handles all states correctly (normal sign flip with renormalization for boundary cases like ±1.0; signless states stay signless; phase flip for exploded/vanished; undefined propagates).
-pub fn spirix_negate(op: Operand) -> Operand {
-    let stored_24 = (op.q as u32) & 0xFF_FFFF;
-    let stored_32 = if op.exp == AMB_EXP && stored_24 == 0xFF_FFFF {
-        0xFFFF_FFFFu32
-    } else {
-        stored_24 << 8
-    };
-    let s = Scalar::<i32, i8> {
-        fraction: stored_32 as i32,
-        exponent: op.exp,
-    };
-    let neg_s = -s;
+/// Negate a Normal Spirix compute Q with boundary handling. The two boundary cases (where the result needs renormalization or saturates off the exp range):
+///   `pos_one_normal` (Q=+2^23) at exp=k → `neg_one_normal` (Q=-2^24) at exp=k-1, with saturation to negative-vanished if exp underflows i8::MIN
+///   `neg_one_normal` (Q=-2^24) at exp=k → `pos_one_normal` (Q=+2^23) at exp=k+1, with saturation to positive-exploded if exp overflows past AMB
+/// All other normals: Q ↦ -Q at the same exponent (plain integer negation, in-range).
+pub fn negate_normal_compute_q(q: i32, exp: i8) -> (i32, i8) {
+    if q == (1 << 23) {
+        let new_exp = (exp as i16) - 1;
+        if new_exp < i8::MIN as i16 {
+            // Underflow off the cliff → negative vanished (LSBC=2, negative phase)
+            return (0xC0_0000_u32 as i32, AMB_EXP);
+        }
+        return (-(1 << 24), new_exp as i8);
+    }
+    if q == -(1 << 24) {
+        let new_exp = (exp as i16) + 1;
+        if new_exp >= AMB_EXP as i16 {
+            // Overflow off the cliff → positive exploded (LSBC=1, positive phase)
+            return (0x40_0000, AMB_EXP);
+        }
+        return (1 << 23, new_exp as i8);
+    }
+    (-q, exp)
+}
 
-    if neg_s.exponent == AMB_EXP {
-        let neg_stored_32 = neg_s.fraction as u32;
-        let neg_stored_24 = (neg_stored_32 >> 8) as i32;
-        let state = if neg_stored_32 == 0 {
-            SpirixState::Zero
-        } else if neg_stored_32 == 0xFFFF_FFFF {
-            SpirixState::Infinity
-        } else {
-            let lsbc = leading_same_bit_count_u32(neg_stored_32, 32);
-            match lsbc {
-                1 => SpirixState::Exploded,
-                2 => SpirixState::Vanished,
-                _ => SpirixState::Undefined,
-            }
-        };
-        return Operand { q: neg_stored_24, exp: AMB_EXP, state };
+/// Phase-flip negation for non-Normal Spirix states, used in the sub truth table for cases like `Zero - X`. Avoids the lib's full `scalar_negate` (which is branchy across all 6 states and has known boundary corners). Operates only on AMB-sentinel states:
+///   Zero, Infinity, Undefined: signless/cause-preserving — no-op
+///   Exploded: phase-flip top 2 bits (01... ↔ 10...)
+///   Vanished: phase-flip top 3 bits (001... ↔ 110...)
+/// Normal handled separately via `negate_normal_compute_q`.
+pub fn negate_state_inline(op: Operand) -> (i32, i8) {
+    match op.state {
+        SpirixState::Normal => negate_normal_compute_q(op.q, op.exp),
+        SpirixState::Zero | SpirixState::Infinity | SpirixState::Undefined => (op.q, op.exp),
+        SpirixState::Exploded => {
+            let stored_24 = (op.q as u32) & 0xFF_FFFF;
+            let flipped = stored_24 ^ 0xC0_0000;
+            (flipped as i32, AMB_EXP)
+        }
+        SpirixState::Vanished => {
+            let stored_24 = (op.q as u32) & 0xFF_FFFF;
+            let flipped = stored_24 ^ 0xE0_0000;
+            (flipped as i32, AMB_EXP)
+        }
+    }
+}
+
+// ── Unified bit-accurate add/sub ────────────────────────────────────────────
+
+/// Unified Spirix v0.1 N0 add/sub algorithm at FRAC=24, banker's rounding. The `sub` flag selects subtraction by integer-negating the second operand's compute Q at the alignment input — this mirrors the silicon Verilog's `subOp` pattern (single shared datapath, one bit flips effective sign of b). Because the negate is at the integer level (`wrapping_neg` on a 25-bit-range compute Q value), there are no state-level branches and no boundary edge cases — the algorithm's internal 28-bit signed arithmetic handles any value, and the result is renormalized to a valid Q.
+///
+/// Algorithm structure (same for add and sub):
+///   1. Exponent difference and swap (so big has the larger exp, for precision-preserving alignment).
+///   2. Negligible early exit if exp_diff exceeds compute precision.
+///   3. Close path (exp_diff ≤ 1): align by 0/1 bits, sum, CLZ-normalize, round.
+///   4. Far path (exp_diff ≥ 2): barrel-shift small with sticky tracking, sum, bounded normalize (0/1/2 bits), round.
+///   5. Banker's rounding and rounding-overflow detection.
+///   6. v0.1 saturation: overflow → exploded with phase, underflow → vanished with phase.
+///
+/// For sub, when we swapped (b had larger exp), the computed sum is `b - a` rather than `a - b`. The final out_q is integer-negated to correct, with the boundary-case-aware `negate_normal_compute_q` handling the pos_one/neg_one corners.
+pub fn spirix_addsub_normal_normal(
+    a_q: i32,
+    a_exp: i8,
+    b_q: i32,
+    b_exp: i8,
+    sub: bool,
+) -> (i32, i8) {
+    let raw_diff = (a_exp as i16) - (b_exp as i16);
+    let a_is_big = raw_diff >= 0;
+    let (big_q, big_exp, small_q) = if a_is_big {
+        (a_q, a_exp, b_q)
+    } else {
+        (b_q, b_exp, a_q)
+    };
+    let exp_diff = raw_diff.unsigned_abs() as i32;
+
+    // Negligible early exit: small contributes nothing past compute precision.
+    // For add: result ≈ big regardless of swap.
+    // For sub: result ≈ a - b. If a is big (no swap): a - 0 = a → return big. If b is big (swap): 0 - b = -b → negate big.
+    if exp_diff >= COMPUTE_FRAC {
+        if sub && !a_is_big {
+            return negate_normal_compute_q(big_q, big_exp);
+        }
+        return (big_q, big_exp);
     }
 
-    let neg_stored_24 = (neg_s.fraction as u32) >> 8;
-    let msb = (neg_stored_24 >> 23) & 1;
-    let prefix = 1 - msb;
-    let q_25bit = (prefix << 24) | neg_stored_24;
-    let q = if (q_25bit >> 24) & 1 != 0 {
-        (q_25bit | !0x1FF_FFFF_u32) as i32
+    let is_close = exp_diff <= 1;
+
+    let big_ext = (big_q as i64) << 2;
+    let small_ext_raw = (small_q as i64) << 2;
+
+    // Apply sub: integer-negate small at the alignment input (silicon's subOp pattern).
+    let small_ext = if sub {
+        small_ext_raw.wrapping_neg()
     } else {
-        q_25bit as i32
+        small_ext_raw
     };
-    Operand { q, exp: neg_s.exponent, state: SpirixState::Normal }
+
+    let mask = (1i64 << INT_BITS) - 1;
+    let sign_bit_int = 1i64 << (INT_BITS - 1);
+
+    let sext = |v: i64| -> i64 {
+        let v = v & mask;
+        if v & sign_bit_int != 0 {
+            v | !mask
+        } else {
+            v
+        }
+    };
+
+    let big_ext = sext(big_ext);
+    let small_ext = sext(small_ext);
+
+    let pos_half: i32 = 1 << (COMPUTE_FRAC - 2);
+    let neg_one: i32 = -(1 << (COMPUTE_FRAC - 1));
+
+    let (out_q_pre_swap_correction, exp_wide) = if is_close {
+        let close_small = if (exp_diff & 1) != 0 {
+            sext(small_ext >> 1)
+        } else {
+            small_ext
+        };
+        let close_align_sticky = (exp_diff & 1) != 0 && (small_ext & 1) != 0;
+        let close_sum = sext(big_ext + close_small);
+
+        if close_sum == 0 {
+            return (0, AMB_EXP);
+        }
+
+        let ubits = (close_sum & mask) as u32;
+        let top_bit = (close_sum >> (INT_BITS - 1)) & 1;
+        let leading = if top_bit != 0 {
+            let inverted = (!ubits) & (mask as u32);
+            inverted.leading_zeros() as i32 - (32 - INT_BITS)
+        } else {
+            ubits.leading_zeros() as i32 - (32 - INT_BITS)
+        };
+
+        let close_norm_shift = leading - 1;
+        let close_normalized = sext(close_sum << close_norm_shift);
+
+        let (out_q_raw, round_up) = round_banker(close_normalized, close_align_sticky);
+        let (rovf_pos, rovf_neg) = rovf_detect(out_q_raw, round_up);
+
+        let out_q = if rovf_pos {
+            pos_half
+        } else if rovf_neg {
+            neg_one
+        } else {
+            out_q_raw + i32::from(round_up)
+        };
+
+        let exp_wide = (big_exp as i16) + 2 - (leading as i16)
+            + i16::from(rovf_pos)
+            - i16::from(rovf_neg);
+
+        (out_q, exp_wide)
+    } else {
+        let far_shift = if exp_diff >= INT_BITS {
+            (INT_BITS - 1) as u32
+        } else {
+            exp_diff as u32
+        };
+
+        let mut shifted = small_ext;
+        let mut barrel_sticky = false;
+        for i in 0..5u32 {
+            if (far_shift >> i) & 1 != 0 {
+                let amount = 1u32 << i;
+                let lost_mask = (1i64 << amount) - 1;
+                barrel_sticky = barrel_sticky || (shifted & lost_mask) != 0;
+                shifted = sext(shifted >> amount);
+            }
+        }
+
+        let far_aligned = shifted;
+        let far_sum = sext(big_ext + far_aligned);
+
+        if far_sum == 0 {
+            return (0, AMB_EXP);
+        }
+
+        let bit_n1 = (far_sum >> (INT_BITS - 1)) & 1;
+        let bit_n2 = (far_sum >> (INT_BITS - 2)) & 1;
+        let bit_n3 = (far_sum >> (INT_BITS - 3)) & 1;
+        let far_d0 = bit_n1 != bit_n2;
+        let far_d1 = bit_n2 != bit_n3;
+        let far_norm_shift: i32 = if far_d0 {
+            0
+        } else if far_d1 {
+            1
+        } else {
+            2
+        };
+        let far_leading = far_norm_shift + 1;
+
+        let far_normalized = sext(far_sum << far_norm_shift);
+
+        let (out_q_raw, round_up) = round_banker(far_normalized, barrel_sticky);
+        let (rovf_pos, rovf_neg) = rovf_detect(out_q_raw, round_up);
+
+        let out_q = if rovf_pos {
+            pos_half
+        } else if rovf_neg {
+            neg_one
+        } else {
+            out_q_raw + i32::from(round_up)
+        };
+
+        let exp_wide = (big_exp as i16) + 2 - (far_leading as i16)
+            + i16::from(rovf_pos)
+            - i16::from(rovf_neg);
+
+        (out_q, exp_wide)
+    };
+
+    // For sub: if we swapped (b had larger exp), the computed value is `b - a` but we want `a - b`.
+    // Negate the result Q. The integer negate has 2 boundary corners (pos_one ↔ neg_one with exp shift) handled by negate_normal_compute_q.
+    let (out_q, exp_wide_corrected) = if sub && !a_is_big {
+        // out_q_pre_swap_correction is in valid normal compute Q range; apply the boundary-aware negate.
+        let (q, exp) = negate_normal_compute_q(out_q_pre_swap_correction, exp_wide.clamp(i8::MIN as i16, i8::MAX as i16) as i8);
+        // negate_normal_compute_q may have already saturated to AMB; in that case return as-is.
+        if exp == AMB_EXP {
+            return (q, AMB_EXP);
+        }
+        (q, exp as i16)
+    } else {
+        (out_q_pre_swap_correction, exp_wide)
+    };
+
+    if exp_wide_corrected >= AMB_EXP as i16 {
+        let frac = if out_q < 0 { 0x80_0000 } else { 0x40_0000 };
+        return (frac, AMB_EXP);
+    }
+    if exp_wide_corrected < i8::MIN as i16 {
+        let frac = if out_q < 0 { 0xC0_0000_u32 as i32 } else { 0x20_0000 };
+        return (frac, AMB_EXP);
+    }
+
+    (out_q, exp_wide_corrected as i8)
+}
+
+/// Banker's rounding (round-to-nearest-even). Bit layout below the LSB of the output fraction:
+///   bit (INT_BITS - 1 - COMPUTE_FRAC): guard
+///   bit (INT_BITS - 2 - COMPUTE_FRAC): round
+///   bits (INT_BITS - 2 - COMPUTE_FRAC - 1) .. 0: sticky region (OR of all)
+fn round_banker(normalized: i64, align_sticky: bool) -> (i32, bool) {
+    let out_q_raw = (normalized >> (INT_BITS - COMPUTE_FRAC)) as i32;
+    let guard = ((normalized >> (INT_BITS - 1 - COMPUTE_FRAC)) & 1) != 0;
+    let lsb = ((normalized >> (INT_BITS - COMPUTE_FRAC)) & 1) != 0;
+    let round_bit = ((normalized >> (INT_BITS - 2 - COMPUTE_FRAC)) & 1) != 0;
+    let ext_sticky_mask = (1i64 << (INT_BITS - 2 - COMPUTE_FRAC)) - 1;
+    let ext_sticky = (normalized & ext_sticky_mask) != 0;
+    let sticky = ext_sticky || align_sticky;
+    let round_up = guard && (round_bit || sticky || lsb);
+    (out_q_raw, round_up)
+}
+
+/// Detect rounding-overflow (rovf): when round-up would push the fraction past its representable range, requiring an exponent bump.
+fn rovf_detect(out_q_raw: i32, round_up: bool) -> (bool, bool) {
+    let pos_all_ones = (out_q_raw & ((1 << (COMPUTE_FRAC - 1)) - 1)) == ((1 << (COMPUTE_FRAC - 1)) - 1);
+    let rovf_pos = (out_q_raw >> (COMPUTE_FRAC - 1)) & 1 == 0 && pos_all_ones && round_up;
+    let rovf_neg = ((out_q_raw >> (COMPUTE_FRAC - 1)) & 1 == 1)
+        && ((out_q_raw >> (COMPUTE_FRAC - 2)) & 1 == 0)
+        && ((out_q_raw & ((1 << (COMPUTE_FRAC - 2)) - 1)) == (1 << (COMPUTE_FRAC - 2)) - 1)
+        && round_up;
+    (rovf_pos, rovf_neg)
+}
+
+/// Canonical undefined storage pattern (LSBC=3 positive). Specific cause-encoding doesn't affect the architectural-match categorization in this comparison; any LSBC≥3 pattern reads as Undefined.
+pub const UNDEFINED_CANONICAL: i32 = 0x10_0000;
+
+/// Truth-table dispatch for unified add/sub. Mirrors the spirix lib's scalar_add_scalar truth table, with sub-aware branches at the cases that need negation. Avoids `spirix_negate` entirely — uses inline phase-flips and boundary-aware compute-Q negation.
+pub fn spirix_addsub(a: Operand, b: Operand, sub: bool) -> (i32, i8) {
+    use SpirixState::*;
+    match (a.state, b.state) {
+        (Normal, Normal) => spirix_addsub_normal_normal(a.q, a.exp, b.q, b.exp, sub),
+        (Undefined, _) => (a.q, a.exp),
+        (_, Undefined) => (b.q, b.exp),
+        // a + 0 = a; a - 0 = a (zero is identity, regardless of sub)
+        (_, Zero) => (a.q, a.exp),
+        // 0 + b = b; 0 - b = -b
+        (Zero, _) => {
+            if sub {
+                negate_state_inline(b)
+            } else {
+                (b.q, b.exp)
+            }
+        }
+        // Both transfinite: undefined
+        (Exploded | Infinity, Exploded | Infinity) => (UNDEFINED_CANONICAL, AMB_EXP),
+        // Both vanished: undefined
+        (Vanished, Vanished) => (UNDEFINED_CANONICAL, AMB_EXP),
+        // Transfinite + finite (or transfinite - finite): undefined
+        (Exploded | Infinity, _) | (_, Exploded | Infinity) => (UNDEFINED_CANONICAL, AMB_EXP),
+        // a is vanished, b is normal — vanished drops out:
+        //   add: result is b
+        //   sub: result is -b (b's negation, with boundary handling)
+        (Vanished, _) => {
+            if sub {
+                negate_state_inline(b)
+            } else {
+                (b.q, b.exp)
+            }
+        }
+        // a is normal, b is vanished — vanished drops out, result is a (regardless of sub)
+        (_, Vanished) => (a.q, a.exp),
+    }
 }
 
 // ── Random generators ───────────────────────────────────────────────────────
