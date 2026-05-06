@@ -26,9 +26,125 @@ fn main() {
         "font" => gen_font(&args[2..]),
         "bitmap" => gen_bitmap(&args[2..]),
         "oled-grid" => gen_oled_grid(&args[2..]),
+        "tiles" => gen_tiles(&args[2..]),
         _ => {
-            eprintln!("Unknown mode: {}. Use 'font', 'bitmap', or 'oled-grid'.", args[1]);
+            eprintln!("Unknown mode: {}. Use 'font', 'bitmap', 'oled-grid', or 'tiles'.", args[1]);
             std::process::exit(1);
+        }
+    }
+}
+
+// ============================================================================
+// Mode: tiles — per-glyph 8bpp greyscale bitmaps, one byte per .mem line.
+// Each glyph is tile_w × tile_h bytes, raster-scan order (row-major, top-left
+// first). Glyph N is at offset N × (tile_w × tile_h) bytes. Glyphs are
+// rendered with the natural font aspect (taller than wide for digits) and
+// centered within the tile.
+// ============================================================================
+fn gen_tiles(args: &[String]) {
+    if args.len() < 5 {
+        eprintln!("Usage: gen_font_rom tiles <font.ttf> <output.mem> <chars> <tile_w> <tile_h>");
+        eprintln!("  Example: gen_font_rom tiles font.ttf glyphs.mem \"0123456789.\" 16 16");
+        std::process::exit(1);
+    }
+    let font = load_font(&args[0]);
+    let out_path = &args[1];
+    let chars = &args[2];
+    let tile_w: usize = args[3].parse().expect("Invalid tile_w");
+    let tile_h: usize = args[4].parse().expect("Invalid tile_h");
+
+    // Binary search for the largest font size that fits any of the requested
+    // glyphs within tile_w (with a small horizontal margin) and tile_h.
+    // Use the tile height as the upper bound of font size since we want the
+    // glyph cap height to consume most of the cell.
+    let mut lo: f64 = 1.0;
+    let mut hi: f64 = (tile_h as f64) * 1.5;
+    for _ in 0..32 {
+        let mid = (lo + hi) / 2.0;
+        let px = ScalarF4E4::from(mid);
+        let mut max_w = 0i32;
+        let mut max_ascent = 0i32;
+        let mut max_descent = 0i32;
+        for ch in chars.chars() {
+            let m = font.metrics(ch, px);
+            if (m.advance_width.ceil().to_isize() as i32) > max_w {
+                max_w = m.advance_width.ceil().to_isize() as i32;
+            }
+            let top = m.ymin + m.height as i32;
+            if top > max_ascent { max_ascent = top; }
+            if m.ymin < max_descent { max_descent = m.ymin; }
+        }
+        let total_h = max_ascent - max_descent;
+        // Constrain glyph content to tile_w - 4 (2 px padding each side).
+        // The verilog renderer can crop these padding cols at display time
+        // to make digits visually closer without changing the font size.
+        if max_w <= tile_w as i32 - 4 && total_h <= tile_h as i32 - 1 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let px = ScalarF4E4::from(lo);
+
+    let mut out = fs::File::create(out_path).expect("Failed to create output");
+    let mut total_bytes = 0usize;
+    let mut max_ascent_global = 0i32;
+    let mut max_descent_global = 0i32;
+    for ch in chars.chars() {
+        let m = font.metrics(ch, px);
+        let top = m.ymin + m.height as i32;
+        if top > max_ascent_global { max_ascent_global = top; }
+        if m.ymin < max_descent_global { max_descent_global = m.ymin; }
+    }
+    let baseline = (tile_h as i32 + (max_ascent_global - max_descent_global)) / 2 - max_descent_global;
+
+    for ch in chars.chars() {
+        let (m, bitmap) = font.rasterize(ch, px);
+        let mut tile = vec![0u8; tile_w * tile_h];
+        let cx = (tile_w as i32 - m.advance_width.ceil().to_isize() as i32) / 2;
+        for gy in 0..m.height as i32 {
+            let py = baseline - max_ascent_global + gy + (max_ascent_global - m.ymin - m.height as i32);
+            if py < 0 || py >= tile_h as i32 { continue; }
+            for gx in 0..m.width as i32 {
+                let tx = cx + m.xmin + gx;
+                if tx < 0 || tx >= tile_w as i32 { continue; }
+                let v = bitmap[(gy * m.width as i32 + gx) as usize];
+                tile[py as usize * tile_w + tx as usize] = v;
+            }
+        }
+        for byte in &tile {
+            writeln!(out, "{:02x}", byte).unwrap();
+        }
+        total_bytes += tile.len();
+    }
+
+    eprintln!("Generated {}: {} bytes, {} glyphs of {}×{} ({:.1}px font)",
+              out_path, total_bytes, chars.chars().count(), tile_w, tile_h, lo);
+
+    // ASCII preview of the first few glyphs
+    eprintln!("Preview (first {} glyphs):", chars.chars().count().min(11));
+    let mut preview_chars: Vec<char> = chars.chars().take(11).collect();
+    let _ = preview_chars.len();
+    for ch in &preview_chars {
+        eprintln!("  '{}':", ch);
+        let (m, bitmap) = font.rasterize(*ch, px);
+        let mut tile = vec![0u8; tile_w * tile_h];
+        let cx = (tile_w as i32 - m.advance_width.ceil().to_isize() as i32) / 2;
+        for gy in 0..m.height as i32 {
+            let py = baseline - max_ascent_global + gy + (max_ascent_global - m.ymin - m.height as i32);
+            if py < 0 || py >= tile_h as i32 { continue; }
+            for gx in 0..m.width as i32 {
+                let tx = cx + m.xmin + gx;
+                if tx < 0 || tx >= tile_w as i32 { continue; }
+                tile[py as usize * tile_w + tx as usize] = bitmap[(gy * m.width as i32 + gx) as usize];
+            }
+        }
+        for y in 0..tile_h {
+            let mut line = String::from("    ");
+            for x in 0..tile_w {
+                line.push(if tile[y * tile_w + x] > THRESHOLD { '#' } else { '.' });
+            }
+            eprintln!("{}", line);
         }
     }
 }

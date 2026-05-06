@@ -1,0 +1,33 @@
+# top_extclk.v constraints — Colorlight 5A-75B v8.0
+# Pin map matches the spirix project (NTSC on C4/D4, OLED on E4/D3 if added).
+# Adds ext_clk (E16) and osc_drive (F15) for the RC-oscillator clock path.
+
+LOCATE COMP "clk" SITE "P6";
+IOBUF PORT "clk" IO_TYPE=LVCMOS33;
+FREQUENCY PORT "clk" 25 MHz;
+
+LOCATE COMP "led" SITE "T6";
+IOBUF PORT "led" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "btn" SITE "R7";
+IOBUF PORT "btn" IO_TYPE=LVCMOS33 PULLMODE=UP;
+
+LOCATE COMP "ntsc_sync" SITE "C4";
+IOBUF PORT "ntsc_sync" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "ntsc_vid" SITE "D4";
+IOBUF PORT "ntsc_vid" IO_TYPE=LVCMOS33;
+
+# RC oscillator I/O — pot wired between these two pins.
+LOCATE COMP "ext_clk" SITE "E16";
+IOBUF PORT "ext_clk" IO_TYPE=LVCMOS33 PULLMODE=NONE;
+
+LOCATE COMP "osc_drive" SITE "F15";
+IOBUF PORT "osc_drive" IO_TYPE=LVCMOS33;
+
+# OLED I2C (current physical wiring on the spirix board)
+LOCATE COMP "oled_scl" SITE "P2";
+IOBUF PORT "oled_scl" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "oled_sda" SITE "R2";
+IOBUF PORT "oled_sda" IO_TYPE=LVCMOS33;

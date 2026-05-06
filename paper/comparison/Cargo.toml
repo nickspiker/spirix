@@ -2,11 +2,25 @@
 name = "spirix-paper-comparison"
 version = "0.1.0"
 edition = "2021"
-publish = false
-description = "Bit-accurate Spirix v0.1 implementations and IEEE 754 binary32 comparison harnesses for the Spirix paper. The bit-accurate arithmetic algorithms (add, mul, FMA) are reproduced standalone for paper-readable clarity; the IEEE↔Spirix conversion layer uses the production spirix crate so denormal handling and other edge cases match the lib's authoritative behavior exactly."
 
-[lib]
-path = "src/lib.rs"
+[[bin]]
+name = "gen_addsub_vectors"
+path = "src/bin/gen_addsub_vectors.rs"
+
+[[bin]]
+name = "gen_mul_vectors"
+path = "src/bin/gen_mul_vectors.rs"
+
+[[bin]]
+name = "gen_div_vectors"
+path = "src/bin/gen_div_vectors.rs"
+
+[[bin]]
+name = "gen_sqrt_vectors"
+path = "src/bin/gen_sqrt_vectors.rs"
+
+[[bin]]
+name = "gen_div_p4_bram"
+path = "src/bin/gen_div_p4_bram.rs"
 
 [dependencies]
-spirix = { path = "../.." }
