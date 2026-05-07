@@ -19,11 +19,13 @@ LOCATE COMP "ntsc_vid" SITE "D4";
 IOBUF PORT "ntsc_vid" IO_TYPE=LVCMOS33;
 
 # RC oscillator I/O — pot wired between these two pins.
-LOCATE COMP "ext_clk" SITE "E16";
+# Polarity swapped: input on F15, drive on E16 (cap moves to high-Z side).
+# External 33 Ω at the source pin handles reflections, so back to FAST/full drive.
+LOCATE COMP "ext_clk" SITE "F15";
 IOBUF PORT "ext_clk" IO_TYPE=LVCMOS33 PULLMODE=NONE;
 
-LOCATE COMP "osc_drive" SITE "F15";
-IOBUF PORT "osc_drive" IO_TYPE=LVCMOS33;
+LOCATE COMP "osc_drive" SITE "E16";
+IOBUF PORT "osc_drive" IO_TYPE=LVCMOS33 DRIVE=4 SLEWRATE=SLOW;
 
 # OLED I2C (current physical wiring on the spirix board)
 LOCATE COMP "oled_scl" SITE "P2";

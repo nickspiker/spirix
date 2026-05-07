@@ -1,50 +1,59 @@
 #!/usr/bin/env bash
-# Build external-clock silicon Fmax test for spirix DUTs (Colorlight 5A-75B v8.0)
-# Drives DUT from RC oscillator (pot between FPGA pins E16 and F15).
-# BRAM-driven test vectors, sticky-fail latch on output mismatch, LED status.
+# Build the standalone frequency counter on Colorlight 5A-75B v8.0.
+# RC oscillator wired between E16 (ext_clk) and F15 (osc_drive); FPGA inverts
+# ext_clk back through the pot. OLED shows live frequency in MHz + the raw
+# 32-bit count_per_frame as a binary ruler.
 # Usage: bash scripts/build_extclk.sh [--program] [--flash]
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
-SPIRIX_ROOT="$ROOT/.."
 BUILD="$ROOT/build_extclk"
 LPF="$ROOT/constraints/extclk.lpf"
-VEC_MEM="$BUILD/div_p4_vectors.mem"
 SEED="${SEED:-4}"
 
 mkdir -p "$BUILD"
 
-# Generate BRAM init (always regenerate — fast, deterministic from LFSR seed)
-echo "--- Generate BRAM vectors ---"
-cd "$SPIRIX_ROOT/paper/comparison"
-cargo build --release --bin gen_div_p4_bram 2>&1 | tail -3
-./target/release/gen_div_p4_bram "$VEC_MEM"
-cd - > /dev/null
-
-PROGRAM=0; FLASH=0
+PROGRAM=0; FLASH=0; PLL_TEST=0; PLL_FREQ=400; RING_TEST=0; FONT_TEST=0
 for arg in "$@"; do
     case "$arg" in
-        --program) PROGRAM=1 ;;
-        --flash)   FLASH=1   ;;
+        --program)  PROGRAM=1 ;;
+        --flash)    FLASH=1   ;;
+        --pll=*)    PLL_TEST=1; PLL_FREQ="${arg#--pll=}" ;;
+        --pll)      PLL_TEST=1 ;;
+        --ring)     RING_TEST=1 ;;
+        --font)     FONT_TEST=1 ;;
     esac
 done
 
-DUT_VERILOG="$SPIRIX_ROOT/paper/comparison/verilog/spirix_divide.v"
+YOSYS_DEFINES=""
+if [ "$FONT_TEST" -eq 1 ]; then
+    YOSYS_DEFINES="-DFONT_TEST"
+    echo "FONT_TEST mode: top band shows digits 0-9 (debug glyph render)"
+elif [ "$RING_TEST" -eq 1 ]; then
+    YOSYS_DEFINES="-DRING_TEST"
+    echo "RING_TEST mode: count_clk = 7-stage internal ring oscillator"
+elif [ "$PLL_TEST" -eq 1 ]; then
+    PLL_FBDIV=$((PLL_FREQ / 25))
+    if [ $((PLL_FBDIV * 25)) -ne "$PLL_FREQ" ]; then
+        echo "PLL freq must be a multiple of 25 MHz (got $PLL_FREQ)"; exit 1
+    fi
+    YOSYS_DEFINES="-DPLL_TEST -DPLL_FBDIV=$PLL_FBDIV"
+    echo "PLL_TEST mode: count_clk = 25→${PLL_FREQ} MHz PLL output (FBDIV=$PLL_FBDIV)"
+fi
+
 TOP_VERILOG="$ROOT/bench/top_extclk.v"
 I2C_VERILOG="$ROOT/bench/ssd1306_i2c.v"
 GLYPH_MEM_SRC="$ROOT/data/decimal_glyphs.mem"
 
-# Stage glyph ROM and BRAM vectors in build dir for $readmemh
+# Stage glyph ROM in build dir for $readmemh
 cp -f "$GLYPH_MEM_SRC" "$BUILD/decimal_glyphs.mem"
 
-echo ""
 echo "--- Synthesise ---"
 cd "$BUILD"
 yosys -p "
     read_verilog $I2C_VERILOG
-    read_verilog $DUT_VERILOG
-    read_verilog $TOP_VERILOG
+    read_verilog $YOSYS_DEFINES $TOP_VERILOG
     synth_ecp5 -nowidelut -abc2 -top top_extclk -json $BUILD/extclk.json
     stat
 " 2>&1 | tee "$BUILD/extclk_yosys.log" | grep -E "(LUT4|CCU2C|TRELLIS_FF|Warning|Error)" | head -10

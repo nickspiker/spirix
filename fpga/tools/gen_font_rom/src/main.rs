@@ -75,10 +75,8 @@ fn gen_tiles(args: &[String]) {
             if m.ymin < max_descent { max_descent = m.ymin; }
         }
         let total_h = max_ascent - max_descent;
-        // Constrain glyph content to tile_w - 4 (2 px padding each side).
-        // The verilog renderer can crop these padding cols at display time
-        // to make digits visually closer without changing the font size.
-        if max_w <= tile_w as i32 - 4 && total_h <= tile_h as i32 - 1 {
+        // Allow content to fill the full tile width (no padding).
+        if max_w <= tile_w as i32 && total_h <= tile_h as i32 - 1 {
             lo = mid;
         } else {
             hi = mid;
