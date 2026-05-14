@@ -644,7 +644,7 @@ As used herein, the following terms shall have the following meanings, unless th
 \section{CLAIMS}
 
 \begin{enumerate}
-    \item A floating-point arithmetic system for representing and processing numerical values, comprising:
+    \item\label{cl:scalar-system} A floating-point arithmetic system for representing and processing numerical values, comprising:
           \begin{enumerate}
               \item a processor; and
               \item a memory storing instructions which, when executed by the processor, implement a floating-point arithmetic system that:
@@ -664,28 +664,28 @@ As used herein, the following terms shall have the following meanings, unless th
                     \end{enumerate}
           \end{enumerate}
 
-    \item The system of claim 1, wherein the two's complement fraction representation operates such that:
+    \item The system of claim~\ref{cl:scalar-system}, wherein the two's complement fraction representation operates such that:
           \begin{enumerate}
               \item for a normal value, the fraction is a two's complement integer whose stored bits are the bits of the value with the sign bit physically omitted from storage (no sign bit is stored anywhere; the missing sign bit is the inverse of the stored MSB by the normalization invariant), every possible fraction bit pattern representing a distinct normal value;
               \item for an $n$-bit fraction, there are $2^n$ distinct normal fractions per exponent value; and
               \item basic arithmetic operations (add, subtract, multiply, divide) proceed as ordinary two's complement integer arithmetic on the fraction, with no dedicated sign field or other sign metadata stored separately from the value, no sign-magnitude format conversion, and no sign-dependent control flow.
           \end{enumerate}
 
-    \item The system of claim 1, wherein the Scalar representation is configured such that:
+    \item The system of claim~\ref{cl:scalar-system}, wherein the Scalar representation is configured such that:
           \begin{enumerate}
               \item when the exponent is not the ambiguous exponent, each (fraction, exponent) combination corresponds to a distinct normal value;
               \item when the exponent is the ambiguous exponent, the fraction pattern corresponds to one of the classified non-normal states determined by the leading same bit count: each exploded fraction encodes a distinct exploded value (leading same bit count of one), each vanished fraction encodes a distinct vanished value (leading same bit count of two), the all-zeros and all-ones fractions encode zero and infinity respectively, and non-uniform fraction patterns having a leading same bit count of three or more correspond to undefined states where multiple fraction patterns may correspond to the same undefined state;
           \end{enumerate}
           such that every (fraction, exponent) bit pattern is a valid encoding of a defined state, with no encoding reserved or unused.
 
-    \item The system of claim 1, wherein the multi-state ambiguous exponent encoding preserves mathematical identities that are violated by systems which truncate overflow to infinity or underflow to zero, including:
+    \item The system of claim~\ref{cl:scalar-system}, wherein the multi-state ambiguous exponent encoding preserves mathematical identities that are violated by systems which truncate overflow to infinity or underflow to zero, including:
           \begin{enumerate}
               \item the subtractive identity: $a - b = 0$ if and only if $a = b$, maintained by transitioning underflow results to vanished states rather than zero;
               \item the multiplicative identity: $a \times b = 0$ if and only if $a = 0$ or $b = 0$, maintained by transitioning underflow products to vanished states rather than zero; and
               \item finite closure: $a + b \neq \infty$ and $a \times b \neq \infty$ for finite $a$ and $b$, maintained by transitioning overflow results to exploded states rather than infinity.
           \end{enumerate}
 
-    \item The system of claim 1, wherein operations on exploded, vanished, and infinity values follow defined magnitude-class dominance rules that extend arithmetic beyond the normal representable range:
+    \item The system of claim~\ref{cl:scalar-system}, wherein operations on exploded, vanished, and infinity values follow defined magnitude-class dominance rules that extend arithmetic beyond the normal representable range:
           \begin{enumerate}
               \item multiplication composes magnitude classes: operands in the same direction of escape compose ($\uparrow \times \uparrow = \uparrow$, $\uparrow \times \text{normal} = \uparrow$, $\downarrow \times \downarrow = \downarrow$, $\downarrow \times \text{normal} = \downarrow$) with phase derived from the operand phases; cross-direction operands ($\uparrow \times \downarrow$ and $0 \times \infty$) produce undefined results encoding the indeterminate magnitude;
               \item division follows magnitude-class dominance, with the result class shifting by the difference between dividend and divisor classes (e.g., $\text{normal} / \downarrow = \uparrow$, $\uparrow / \text{normal} = \uparrow$, $\text{normal} / \uparrow = \downarrow$, $\uparrow / \infty = 0$, $0 / \text{normal} = 0$); operand pairs within the same magnitude class ($0/0$, $\downarrow / \downarrow$, $\uparrow / \uparrow$, $\infty / \infty$) produce undefined results;
@@ -696,7 +696,7 @@ As used herein, the following terms shall have the following meanings, unless th
               \item arithmetic operations involving the singular infinity produce infinity, the infinity state being a phaseless singularity (negation is a no-op) reached only by limit operations such as division by zero and $\log(0)$, such that no finite or exploded operand can move it.
           \end{enumerate}
 
-    \item The system of claim 1, wherein each undefined result encodes the specific cause of the invalid operation as a distinct bit pattern in the stored fraction (paired with the ambiguous exponent), and the original cause-encoded bit pattern is preserved thru subsequent operations, maintaining traceability to the first operation that produced the undefined result. As one convenient organization (not essential to the encoding principle), causes may be grouped by leading same bit count of the stored fraction:
+    \item The system of claim~\ref{cl:scalar-system}, wherein each undefined result encodes the specific cause of the invalid operation as a distinct bit pattern in the stored fraction (paired with the ambiguous exponent), and the original cause-encoded bit pattern is preserved thru subsequent operations, maintaining traceability to the first operation that produced the undefined result. As one convenient organization (not essential to the encoding principle), causes may be grouped by leading same bit count of the stored fraction:
           \begin{enumerate}
               \item leading same bit count of 3 for basic arithmetic and logic undefined operations (0/0, $0 \times \infty$, bitwise with escape, modulus / modulo with vanished, etc.);
               \item leading same bit count of 4 for exponential undefined operations (power, logarithm);
@@ -704,14 +704,14 @@ As used herein, the following terms shall have the following meanings, unless th
               \item leading same bit count of 6 for root undefined operations.
           \end{enumerate}
 
-    \item The system of claim 1, wherein the ambiguous exponent sentinel occupies the all-zeros bit pattern (the cyclic origin) of the exponent's modular field, such that:
+    \item The system of claim~\ref{cl:scalar-system}, wherein the ambiguous exponent sentinel occupies the all-zeros bit pattern (the cyclic origin) of the exponent's modular field, such that:
           \begin{enumerate}
               \item overflow and underflow both reach the ambiguous exponent by opposite traversals of the cycle, detected by one equality check against zero with no separate overflow/underflow comparators;
               \item a wholly zero-initialized Scalar (fraction=0, exponent=0) uniquely encodes the Zero value, so BSS globals, zero-filled allocations, cleared CPU registers, and \texttt{memset(buffer, 0, size)} all read as Zero;
               \item the same property extends to Circle: zeroed (real, imaginary, exponent) triples encode the complex origin.
           \end{enumerate}
 
-    \item A method for processing floating-point values in a computing system, comprising:
+    \item\label{cl:scalar-method} A method for processing floating-point values in a computing system, comprising:
           \begin{enumerate}
               \item representing normal floating-point values using a two's complement fraction and an unsigned modular exponent encoded on a cyclic group of integers modulo $2^{\text{EXP\_BITS}}$, wherein the fraction contains no dedicated sign field and the exponent's sign emerges during arithmetic from the field's position relative to a designated cyclic origin rather than being stored;
               \item designating a single reserved exponent value as the ambiguous exponent;
@@ -728,36 +728,36 @@ As used herein, the following terms shall have the following meanings, unless th
               \item transitioning results to the appropriate non-normal state when overflow or underflow occurs, thereby preserving phase information and maintaining mathematical identities across the entire numerical range.
           \end{enumerate}
 
-    \item The method of claim 6, wherein the two's complement fraction representation eliminates sign-dependent branching during basic arithmetic operations (add, subtract, multiply, divide), as:
+    \item The method of claim~\ref{cl:scalar-method}, wherein the two's complement fraction representation eliminates sign-dependent branching during basic arithmetic operations (add, subtract, multiply, divide), as:
           \begin{enumerate}
               \item addition and subtraction operate as an ordinary two's complement add or subtract on the fractions, without sign comparison, sign-of-result computation, or sign-dependent branching;
               \item multiplication and division operate on two's complement fractions and produce two's complement results, the result sign emerging from the integer arithmetic itself without sign-dependent control flow; and
               \item no sign metadata is stored separately from the value, and no sign-magnitude format conversion is performed.
           \end{enumerate}
 
-    \item The method of claim 6, wherein the exploded and vanished states eliminate the need for denormalized numbers by:
+    \item The method of claim~\ref{cl:scalar-method}, wherein the exploded and vanished states eliminate the need for denormalized numbers by:
           \begin{enumerate}
               \item maintaining $a - b = 0$ if and only if $a = b$ without gradual underflow, because values below minimum normal magnitude transition to vanished states that are distinct from zero; and
               \item maintaining $a \times b = 0$ if and only if $a = 0$ or $b = 0$, because underflow products transition to vanished states rather than being flushed to zero.
           \end{enumerate}
 
-    \item The method of claim 6, wherein basic arithmetic operations (add, subtract, multiply, divide) on the two's complement floating-point representation proceed without sign metadata, sign-magnitude format conversion, sign-dependent control flow, denormal handling, or implied-one manipulation, characterized by:
+    \item The method of claim~\ref{cl:scalar-method}, wherein basic arithmetic operations (add, subtract, multiply, divide) on the two's complement floating-point representation proceed without sign metadata, sign-magnitude format conversion, sign-dependent control flow, denormal handling, or implied-one manipulation, characterized by:
           \begin{enumerate}
               \item performing scalar add and subtract on a shared datapath (subtract being add of a negated operand) whose main arithmetic operates without sign-dependent branches, with non-normal operand combinations routed to a separate shortcut that bypasses the main arithmetic;
               \item performing complex division on the shared-exponent Circle representation as a straight-thru sequence of two's complement integer multiplications and a reciprocal, with no sign-combination branching between real and imaginary components; and
               \item classifying and encoding non-normal states (zero, infinity, exploded, vanished, undefined) via the leading same bit count of the fraction paired with a single reserved exponent value, without sign-dependent enumeration or masking.
           \end{enumerate}
 
-    \item A system for complex number processing, comprising:
+    \item\label{cl:circle-system} A system for complex number processing, comprising:
           \begin{enumerate}
               \item a processor; and
               \item a memory storing instructions which, when executed by the processor, implement:
                     \begin{enumerate}
                         \item a complex number representation that uses:
                               \begin{enumerate}
-                                  \item real and imaginary components as two's complement fractions with no dedicated sign field as described in claim 1;
+                                  \item real and imaginary components as two's complement fractions with no dedicated sign field as described in claim~\ref{cl:scalar-system};
                                   \item a shared exponent that ensures both components maintain relative magnitudes;
-                                  \item the multi-state ambiguous exponent encoding of claim 1 to encode normal, exploded, vanished, zero, infinite, and undefined states for the complex value;
+                                  \item the multi-state ambiguous exponent encoding of claim~\ref{cl:scalar-system} to encode normal, exploded, vanished, zero, infinite, and undefined states for the complex value;
                               \end{enumerate}
                         \item arithmetic operations that maintain mathematical consistency across the entire complex plane, including:
                               \begin{enumerate}
@@ -768,14 +768,14 @@ As used herein, the following terms shall have the following meanings, unless th
                     \end{enumerate}
           \end{enumerate}
 
-    \item The system of claim 10, wherein the complex number representation implements complex arithmetic operations by:
+    \item The system of claim~\ref{cl:circle-system}, wherein the complex number representation implements complex arithmetic operations by:
           \begin{enumerate}
               \item using a shared exponent to align real and imaginary components, eliminating the need for separate normalization and exponent of each component;
               \item applying normalization shifts to both real and imaginary components simultaneously; and
               \item providing distinct remainder operations: mathematical modulus based on complex division semantics and component-wise modulo that performs independent modulo on each component.
           \end{enumerate}
 
-    \item A method for implementing bitwise operations directly on floating-point values in a two's complement floating-point arithmetic system, comprising:
+    \item\label{cl:bitwise-method} A method for implementing bitwise operations directly on floating-point values in a two's complement floating-point arithmetic system, comprising:
           \begin{enumerate}
               \item aligning operands by exponent adjustment to ensure bits of equivalent mathematical significance are paired, including:
                     \begin{enumerate}
@@ -793,7 +793,7 @@ As used herein, the following terms shall have the following meanings, unless th
                     \end{enumerate}
           \end{enumerate}
 
-    \item The method of claim 12, wherein aligning operands by exponent ensures that the bitwise operations produce mathematically meaningful results by:
+    \item The method of claim~\ref{cl:bitwise-method}, wherein aligning operands by exponent ensures that the bitwise operations produce mathematically meaningful results by:
           \begin{enumerate}
               \item ensuring corresponding bits represent values of equivalent mathematical significance before applying bitwise operations; and
               \item maintaining proper two's complement semantics for both positive and negative values during bitwise operations.
