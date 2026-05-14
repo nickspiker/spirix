@@ -525,9 +525,9 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{The reference implementations were verified at two scales: exhaustive testing of all operand combinations at small fraction and exponent widths, and random sampling at binary32-equivalent precision against a native floating-point reference. At the F3E3 configuration (8-bit fraction, 8-bit exponent), all binary operand pairs were evaluated against a Rust reference model implementing the same arithmetic semantics; equivalence was confirmed exhaustively for addition, subtraction, multiplication, division, modulo, and square root over the full operand space.}
 
-\ppara{At binary32-equivalent precision, results match bit-for-bit against the host platform's native IEEE 754 binary32 format under ties-to-even rounding wherever the operands and exact result fall within the overlap of the two formats' representable value sets.}
+\ppara{At binary32-equivalent precision, results match exactly against the host platform's native IEEE 754 binary32 format under ties-to-even rounding wherever the operands and result fall within the overlap of the two formats' representable values.}
 
-\ppara{Comparison with IEEE 754 required care at the representational boundaries. The invention's exploded states correspond to magnitudes that have exceeded the representable range while preserving phase, whereas IEEE 754 truncates to $\pm \infty$ at this boundary; these cases were classified as architecturally distinct rather than treated as accuracy mismatches. Similarly, the invention's vanished states correspond to magnitudes below the representable range with phase preserved, whereas IEEE 754 truncates to zero or to denormals at reduced precision; these cases were also classified as architecturally distinct. The invention's MIN and MAX representable normal magnitudes differ slightly from IEEE 754's because the invention reserves no exponent regions for special values; operand pairs at or near these boundaries were verified to confirm the architecturally correct transition behavior.}
+\ppara{Comparison with IEEE 754 required care at the representational boundaries. The invention's exploded states correspond to magnitudes that have exceeded the representable range while preserving phase, whereas IEEE 754 truncates to $\pm \infty$ at this boundary; these cases were classified as architecturally distinct rather than treated as accuracy mismatches. Similarly, the invention's vanished states correspond to magnitudes below the representable range with phase preserved, whereas IEEE 754 truncates to zero or to denormals at reduced precision; these cases were also classified as architecturally distinct. The invention's MIN and MAX differ from IEEE 754's because the invention reserves a single exponent for all ambiguous values and does not denormalize the fraction; operand pairs at or near these boundaries were verified to confirm the architecturally correct transition behavior.}
 
 \ppara{Silicon verification was performed via a clock-enable-gated self-test harness on Lattice ECP5 FPGA hardware. The harness runs the device-under-test twice over an identical pseudorandom input sequence: first with the device clock-enabled at one cycle in 256 (providing ample settle time at any frequency, establishing a reference output hash), then again clock-enabled every cycle (operating at full PLL frequency). A hash mismatch indicates a timing failure; a hash match confirms correct operation at the given frequency. This methodology measures true silicon operating frequency rather than relying on static timing estimates, which were observed to underestimate by factors of 1.5 to 3.7$\times$ on this platform.}
 
@@ -542,7 +542,7 @@ As used herein, the following terms shall have the following meanings, unless th
         \cline{2-7}
                                             & Fmax                                    & Cycles                                           & LUT4 & Fmax & Cycles & LUT4 \\
         \hline
-        Add / Subtract                      & 78                                      & 1                                                & 924  & 88   & 1      & 1050 \\
+        Add / Subtract                      & 73                                      & 1                                                & 915  & 67   & 1      & 1045 \\
         \hline
         Multiply                            & 93                                      & 1                                                & 2205 & 65   & 1      & 2423 \\
         \hline
@@ -2051,9 +2051,9 @@ endmodule
 
 \newpage
 \begin{lstlisting}[style=verilog, caption={Verilog Implementation of Scalar Add/Subtract at F4E3 (16-bit fraction, 8-bit exponent), floor-only canonical design. The IEEE-754 reference comparison numbers in the synthesis table above measure the same architecture extended with banker's RNE rounding at FRAC\_BITS=24, EXP\_BITS=8 for binary32 parity.}, label={fig:scalar_subtract}]
-// spirix_addsub — Combinational add/subtract for Spirix scalars with edge cases
+// spirix_addsub — Combinational add/subtract for Spirix scalars
 //
-// Floor-only (no rounding), single-path design. N0 format.
+// Floor-only, single-path.
 // Parameterized: FRAC_BITS in {8..256}, EXP_BITS in {2..256}.
 //
 // N0 storage convention (matches Rust Scalar<Fn, En>):
@@ -2078,9 +2078,6 @@ endmodule
 //   N-1 pattern         → Exploded (top 2 bits differ)
 //   N-2 pattern         → Vanished (top 2 bits same, bit 3 differs)
 //   N-3+ pattern        → Undefined (top 3+ bits all same, non-uniform)
-//
-// Edge case precedence matches Rust scalar_add_scalar exactly.
-// Undefined-prefix constants match src/core/undefined.rs.
 
 module spirix_addsub #(
     parameter FRAC_BITS = 16,   // F4 (16-bit fraction)
@@ -2113,24 +2110,24 @@ module spirix_addsub #(
     localparam signed [FRAC_BITS-1:0] POS_ONE_NORMAL = {1'b1, {(FRAC_BITS-1){1'b0}}}; // 0x80...0
     localparam signed [FRAC_BITS-1:0] NEG_ONE_NORMAL = {FRAC_BITS{1'b0}};             // 0x00...0
 
-    // Escaped (N-1 / N-2) boundary patterns — same in N0 and N1.
+    // Escaped (N-1 / N-2) boundary patterns
     localparam signed [FRAC_BITS-1:0] POS_ONE_EXPLODED = {1'b0, 1'b1, {(FRAC_BITS-2){1'b0}}}; // 0x40
     localparam signed [FRAC_BITS-1:0] NEG_ONE_EXPLODED = {1'b1, 1'b0, {(FRAC_BITS-2){1'b0}}}; // 0x80
     localparam signed [FRAC_BITS-1:0] POS_ONE_VANISHED = {2'b00, 1'b1, {(FRAC_BITS-3){1'b0}}}; // 0x20
     localparam signed [FRAC_BITS-1:0] NEG_ONE_VANISHED = {2'b11, {(FRAC_BITS-2){1'b0}}};       // 0xC0
 
-    // Undefined prefix constants — match src/core/undefined.rs exactly.
+    // Undefined prefix constants.
     localparam integer UPAD = (FRAC_BITS > 8) ? FRAC_BITS - 8 : 0;
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF   = {8'h1A, {UPAD{1'b0}}}; // ℘⬆+⬆ TRANSFINITE_PLUS_TRANSFINITE
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF   = {8'hE5, {UPAD{1'b0}}}; // ℘⬆-⬆ TRANSFINITE_MINUS_TRANSFINITE
-    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1D, {UPAD{1'b0}}}; // ℘↓+↓ VANISHED_PLUS_VANISHED
-    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE2, {UPAD{1'b0}}}; // ℘↓-↓ VANISHED_MINUS_VANISHED
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}}; // ℘⬆+ TRANSFINITE_PLUS_FINITE
-    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}}; // ℘⬆- TRANSFINITE_MINUS_FINITE
-    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h1B, {UPAD{1'b0}}}; // ℘+⬆ FINITE_PLUS_TRANSFINITE
-    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE4, {UPAD{1'b0}}}; // ℘-⬆ FINITE_MINUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_TF   = {8'h1A, {UPAD{1'b0}}}; // TRANSFINITE_PLUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_TF   = {8'hE5, {UPAD{1'b0}}}; // TRANSFINITE_MINUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_P_VAN = {8'h1D, {UPAD{1'b0}}}; // VANISHED_PLUS_VANISHED
+    localparam signed [FRAC_BITS-1:0] UNDEF_VAN_M_VAN = {8'hE2, {UPAD{1'b0}}}; // VANISHED_MINUS_VANISHED
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_P_FIN  = {8'h1C, {UPAD{1'b0}}}; // TRANSFINITE_PLUS_FINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_TF_M_FIN  = {8'hE3, {UPAD{1'b0}}}; // TRANSFINITE_MINUS_FINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_P_TF  = {8'h1B, {UPAD{1'b0}}}; // FINITE_PLUS_TRANSFINITE
+    localparam signed [FRAC_BITS-1:0] UNDEF_FIN_M_TF  = {8'hE4, {UPAD{1'b0}}}; // FINITE_MINUS_TRANSFINITE
 
-    // ========== State detection =================================================
+    // State detection
 
     wire a_is_ambig = (a_exp == AMBIG_EXP);
     wire b_is_ambig = (b_exp == AMBIG_EXP);
@@ -2169,7 +2166,7 @@ module spirix_addsub #(
 
     wire any_non_normal = ~a_is_normal | ~b_is_normal;
 
-    // ========== Spirix negation of b (for sub edge cases) =======================
+    // Spirix negation of b
     //
     // N0 normal negation:
     //   POS_ONE_NORMAL (0x80) → (NEG_ONE_NORMAL, exp-1) or NEG_ONE_VANISHED if exp-1==AMBIG
@@ -2219,7 +2216,7 @@ module spirix_addsub #(
     wire signed [FRAC_BITS-1:0] neg_b_frac = b_is_ambig ? neg_b_frac_nonnorm : neg_b_frac_normal;
     wire [EXP_BITS-1:0]         neg_b_exp  = b_is_ambig ? b_exp               : neg_b_exp_normal;
 
-    // ========== Edge case priority (matches Rust scalar_add_scalar) =============
+    // Edge case priority
     //
     // Add:                                          Sub:
     // 1.  a undef           -> a                    1.  a undef           -> a
@@ -2238,7 +2235,7 @@ module spirix_addsub #(
     // 14. fallback          -> a                    14. fallback          -> a
     //
     // [∞] absorbs (signless Riemann singularity, no − op).
-    // Vanished is negligible against exploded: [↑]±[↓]=[↑] (steps 8/9).
+    // Vanished is negligible against exploded: [↑]±[↓]=[↑].
 
     localparam signed [FRAC_BITS-1:0] INF_FRAC = {FRAC_BITS{1'b1}};
     wire sc_a_undef   = a_undef;
@@ -2308,7 +2305,7 @@ module spirix_addsub #(
         sc_b_van         ? a_exp :
                            a_exp;
 
-    // ========== Normal arithmetic (used when !shortcut) ==========================
+    // Normal arithmetic (used when !shortcut)
 
     // Exponent difference + big/small selection. Unsigned operands;
     // zero-extend by one bit to get a signed diff for sign-detection.
@@ -2439,7 +2436,7 @@ module spirix_addsub #(
     wire signed [FRAC_BITS-1:0] exploded_frac = exp_wide[FRAC_BITS-1:0];
     wire signed [FRAC_BITS-1:0] vanished_frac = van_wide[FRAC_BITS-1:0];
 
-    // ========== Output mux ==========================================================
+    // Output mux
     //
     // Priority: shortcut > bypass > zero > overflow > underflow > normal.
 
