@@ -154,6 +154,53 @@ def clean_document_xml(data):
         if (not has_text and not has_break and not has_sect) or is_env:
             p.getparent().remove(p)
 
+    # Table cleanup: tex4ht renders each LaTeX \hline as an empty filler row.
+    # Strip them so the table has only header + data rows, and add vMerge on
+    # the first column header so "Operation" spans the two-row header block
+    # like the source \multirow{2}{*}{...} declares.
+    for tbl in body.iter(f'{{{W}}}tbl'):
+        rows = tbl.findall(f'{{{W}}}tr')
+        for tr in list(rows):
+            cells = tr.findall(f'{{{W}}}tc')
+            all_empty = all(
+                not any((t.text or '').strip()
+                        for t in tc.iter(f'{{{W}}}t'))
+                for tc in cells
+            )
+            if all_empty:
+                tr.getparent().remove(tr)
+
+        # After filler removal, the layout for the synthesis-comparison
+        # table is: Row 0 = Operation | Invention(span3) | Reference(span3);
+        # Row 1 = (empty) | Fmax | Cycles | LUT4 | Fmax | Cycles | LUT4.
+        # Mark the "Operation" cell as a vertical merge start and the empty
+        # cell below it as the merge continuation so Word renders it as one
+        # tall header cell spanning both rows.
+        rows = tbl.findall(f'{{{W}}}tr')
+        if len(rows) >= 2:
+            tc0 = rows[0].find(f'{{{W}}}tc')
+            tc1 = rows[1].find(f'{{{W}}}tc')
+            tc0_text = ''.join((t.text or '')
+                               for t in (tc0 or []).iter(f'{{{W}}}t')).strip()
+            tc1_text = ''.join((t.text or '')
+                               for t in (tc1 or []).iter(f'{{{W}}}t')).strip()
+            if tc0 is not None and tc1 is not None and tc0_text and not tc1_text:
+                def ensure_tcPr(tc):
+                    tcPr = tc.find(f'{{{W}}}tcPr')
+                    if tcPr is None:
+                        tcPr = etree.SubElement(tc, f'{{{W}}}tcPr')
+                        tc.insert(0, tcPr)
+                    return tcPr
+                tcPr0 = ensure_tcPr(tc0)
+                tcPr1 = ensure_tcPr(tc1)
+                # Drop any existing vMerge before adding a fresh one.
+                for tcPr in (tcPr0, tcPr1):
+                    for vm in tcPr.findall(f'{{{W}}}vMerge'):
+                        tcPr.remove(vm)
+                vm_start = etree.SubElement(tcPr0, f'{{{W}}}vMerge')
+                vm_start.set(f'{{{W}}}val', 'restart')
+                etree.SubElement(tcPr1, f'{{{W}}}vMerge')
+
     return etree.tostring(root, xml_declaration=True,
                           encoding='UTF-8', standalone=True)
 
