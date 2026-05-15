@@ -106,13 +106,31 @@ def clean_document_xml(data):
             else:
                 break
 
-        # 2) Inline-justify any remaining "both"/"justify" alignment to left.
+        # 2) Strip trailing whitespace from the LAST <w:t> in the paragraph
+        #    (tex4ht emits ". " at paragraph ends because LaTeX absorbs the
+        #    newline-before-\par into a space). Walk back from the end of
+        #    the text stream and rstrip the last non-empty <w:t>.
+        text_elems = list(p.iter(f'{{{W}}}t'))
+        for t in reversed(text_elems):
+            txt = t.text or ''
+            if txt == '':
+                continue
+            if txt.rstrip() != txt:
+                t.text = txt.rstrip() or None
+                # If we emptied it, drop the xml:space="preserve" attribute
+                # to avoid an orphan preserve marker on a now-empty element.
+                if t.text is None:
+                    t.attrib.pop('{http://www.w3.org/XML/1998/namespace}space',
+                                 None)
+            break  # only the last non-empty <w:t>
+
+        # 3) Inline-justify any remaining "both"/"justify" alignment to left.
         for jc in p.iter(f'{{{W}}}jc'):
             if jc.get(f'{{{W}}}val') in ('both', 'justify'):
                 jc.set(f'{{{W}}}val', 'left')
 
-        # 3) Drop the paragraph entirely if it has no visible content:
-        #    no <w:t> text, no <w:br>, no <w:sectPr>.
+        # 4) Drop the paragraph entirely if it has no visible content:
+        #    no non-empty <w:t> text, no <w:br>, no <w:sectPr>.
         has_text = any((t.text or '').strip() != '' for t in p.iter(f'{{{W}}}t'))
         has_break = p.find(f'.//{{{W}}}br') is not None
         has_sect = p.find(f'.//{{{W}}}sectPr') is not None
