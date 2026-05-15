@@ -5,7 +5,7 @@
 const FRAC: i32 = 25;
 const PROD_BITS: i32 = 2 * FRAC - 1; // 49
 const INT_BITS: i32 = PROD_BITS + 3; // 52
-const AMB_EXP: i8 = i8::MIN; // -128
+const AMB_EXP: i8 = i8::MAX; // 127 — matches Rust src `ambiguous_exponent() = E::max_value()`
 
 // ── f32 ↔ Spirix conversion ────────────────────────────────────────────────
 
@@ -103,6 +103,8 @@ fn spirix_fma(
     // Product exponent (parallel with DSP)
     let prod_exp_raw = (a_exp as i16) + (b_exp as i16);
     let prod_exp = prod_exp_raw - (norm_shift as i16);
+    // Placeholder "very small" exp for zeroed product so it shifts out of the
+    // way of c during alignment. Not AMBIG; just below any normal c_exp.
     let prod_exp_safe: i16 = if prod_is_zero {
         i8::MIN as i16
     } else {

@@ -7,7 +7,7 @@
 const FRAC: i32 = 25;
 const EXP: i32 = 8;
 const INT_BITS: i32 = FRAC + 3; // 28
-const AMB_EXP: i8 = i8::MIN; // -128
+const AMB_EXP: i8 = i8::MAX; // 127 — matches Rust src `ambiguous_exponent() = E::max_value()`
 
 // ── f32 ↔ Spirix conversion (lossless for normal f32) ──────────────────────
 

@@ -134,14 +134,18 @@ where
             if scalar.is_undefined() {
                 return *scalar;
             }
-            // Zero is the exact identity for subtraction: X - [0] = X and [0] - X = -X. Checked before the transfinite branches so [↑]-[0], [0]-[↑], [∞]-[0], [0]-[∞] produce the right-hand side (possibly negated) instead of a transfinite-minus-finite undefined.
+            // Infinity absorbs everything. [∞] is signless so −[∞] is a no-op; [∞]−X and X−[∞] both yield [∞].
+            if self.is_infinite() || scalar.is_infinite() {
+                return Self::INFINITY;
+            }
+            // Zero identity: X−[0] = X and [0]−X = −X.
             if scalar.is_zero() {
                 return *self;
             }
             if self.is_zero() {
                 return -scalar;
             }
-            if self.is_transfinite() && scalar.is_transfinite() {
+            if self.exploded() && scalar.exploded() {
                 return Self {
                     fraction: TRANSFINITE_MINUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -153,13 +157,19 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_transfinite() {
+            if self.exploded() {
+                if scalar.vanished() {
+                    return *self;
+                }
                 return Self {
                     fraction: TRANSFINITE_MINUS_FINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if scalar.is_transfinite() {
+            if scalar.exploded() {
+                if self.vanished() {
+                    return -scalar;
+                }
                 return Self {
                     fraction: FINITE_MINUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -174,7 +184,7 @@ where
             return *self;
         }
 
-        let big_is_self = self.exponent > scalar.exponent;
+        let big_is_self = self.v01_exp() > scalar.v01_exp();
         let (big, small) = if big_is_self {
             (self, scalar)
         } else {
@@ -208,12 +218,13 @@ where
         let leading = result.leading_same();
         let fb = Self::fraction_bits();
         let delta: isize = fb.wrapping_sub(leading);
-        // v0.1 ruler + AMBIG=E::MAX: widened-compare against normal-range bounds.
+        // v0.1-form arithmetic: read v01_exp, compute offset, compare against v01-form
+        // bounds, then XOR back via from_v01_exp on the storage write.
         // |delta| ≤ FRAC so isize never overflows.
-        let small_exp_wide: isize = small.exponent.saturate();
+        let small_exp_wide: isize = small.v01_exp().saturate();
         let offset_wide: isize = small_exp_wide.wrapping_add(delta);
-        let max_exp_wide: isize = Self::max_exponent().saturate();
-        let min_exp_wide: isize = Self::min_exponent().saturate();
+        let max_exp_wide: isize = Self::v01_max_exponent().saturate();
+        let min_exp_wide: isize = Self::v01_min_exponent().saturate();
         if offset_wide > max_exp_wide {
             return Self {
                 fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
@@ -226,7 +237,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let offset: E = offset_wide.as_();
+        let offset: E = Self::from_v01_exp(offset_wide.as_());
         // Main path extraction: `result << L >> FRAC` composed as a net shift of (L - FRAC). Writing it directly avoids the Rust shift-overflow semantics that bite when L == wide_bits (result = -1, full sign extension).
         let shl_amount = leading.wrapping_sub(fb);
         let canonical = if shl_amount >= 0 {

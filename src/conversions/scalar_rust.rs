@@ -98,7 +98,7 @@ where
                 _ => unreachable!(),
             };
             let base = base_i64 as f64;
-            let exponent: i32 = self.exponent.saturate();
+            let exponent: i32 = self.v01_exp().saturate();
             // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1). +1 compensates the ruler shift.
             let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             // Adjust the f64 bit-exponent of `base` directly to avoid precision loss from powi() multiplication chains at extreme exponents.
@@ -233,7 +233,7 @@ where
                 _ => unreachable!(),
             };
             let base = base_i32 as f32;
-            let exponent: i32 = self.exponent.saturate();
+            let exponent: i32 = self.v01_exp().saturate();
             // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1).
             let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             if base == 0.0 { return 0.0; }
@@ -526,7 +526,7 @@ fn into(self) -> $i {
     }
 
     // Normal path (v0.1): value = inflate(stored) * 2^(exp - FRAC_BITS + 1). Compute in I256 to handle any F width (including i128 stored).
-    let exp: isize = self.exponent.saturate();
+    let exp: isize = self.v01_exp().saturate();
     let frac_bits = Scalar::<F, E>::fraction_bits();
     let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
 
@@ -711,7 +711,7 @@ macro_rules! impl_into_uint {
         }
 
         // Normal positive path (v0.1): value = inflate(stored) * 2^(exp - FRAC_BITS + 1).
-        let exp: isize = self.exponent.saturate();
+        let exp: isize = self.v01_exp().saturate();
         let frac_bits = Scalar::<F, E>::fraction_bits();
         let target_bits = (core::mem::size_of::<$u>() as isize).wrapping_shl(3);
 
@@ -906,7 +906,7 @@ macro_rules! impl_to_f32 {
                     (abs_frac, 0i32)
                 };
                 let mantissa = (abs_frac_n >> 7) & 0x7F_FFFF;
-                let raw_exp_i = (self.exponent as i32) + 126 + exp_adj;
+                let raw_exp_i = (self.v01_exp() as i32) + 126 + exp_adj;
                 if raw_exp_i >= 255 {
                     return if sign_bit != 0 {
                         f32::NEG_INFINITY
@@ -969,7 +969,7 @@ macro_rules! impl_to_f64 {
                     (abs_frac, 0i64)
                 };
                 let mantissa = (abs_frac_n >> 10) & 0x000F_FFFF_FFFF_FFFF;
-                let raw_exp_i = (self.exponent as i64) + 1022 + exp_adj;
+                let raw_exp_i = (self.v01_exp() as i64) + 1022 + exp_adj;
                 if raw_exp_i >= 2047 {
                     return if sign_bit != 0 {
                         f64::NEG_INFINITY
@@ -1019,22 +1019,22 @@ impl Scalar<i16, i16> {
         let raw_exp = ((bits >> 52) & 0x7FF) as i16;
         let mantissa = bits & 0x000F_FFFF_FFFF_FFFF;
 
-        // Special values
+        // Special values. New AMBIG=0 convention: sentinel at the all-zeros bit pattern.
         if raw_exp == 0x7FF {
             if mantissa != 0 {
                 // NaN → undefined (generic N-3 prefix)
-                return Scalar { fraction: 0xE000u16 as i16, exponent: i16::MIN };
+                return Scalar { fraction: 0xE000u16 as i16, exponent: 0 };
             }
             return if sign != 0 {
                 // -Inf → EXPLODED_NEG
-                Scalar { fraction: i16::MIN, exponent: i16::MIN }
+                Scalar { fraction: i16::MIN, exponent: 0 }
             } else {
                 // +Inf → EXPLODED_POS
-                Scalar { fraction: -(i16::MIN >> 1), exponent: i16::MIN }
+                Scalar { fraction: -(i16::MIN >> 1), exponent: 0 }
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            return Scalar { fraction: 0, exponent: i16::MIN };
+            return Scalar { fraction: 0, exponent: 0 };
         }
 
         // Build positive magnitude (mantissa with implicit leading 1 for normals).
@@ -1046,9 +1046,9 @@ impl Scalar<i16, i16> {
 
         let leading = abs_mantissa.leading_zeros() as i16;
         let significant: i16 = 64 - leading;
-        // spirix_exp = ieee_scale + significant. For subnormals (raw_exp=0), IEEE uses effective exp=1 (not 0), so we add 1 to compensate.
+        // spirix_exp = ieee_scale + significant. For subnormals (raw_exp=0), IEEE uses effective exp=1 (not 0), so we add 1 to compensate. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp = if raw_exp == 0 { 1 } else { raw_exp };
-        let spirix_exp: i16 = eff_exp - 1075 + significant;
+        let spirix_exp: i16 = eff_exp - 1076 + significant;
 
         // Position MSB at bit FRAC-1 = 15 (FRAC=16 for Scalar<i16, i16>).
         let shift = 16 - significant;
@@ -1061,14 +1061,14 @@ impl Scalar<i16, i16> {
         };
 
         if sign == 0 {
-            return Scalar { fraction: fraction_pos, exponent: spirix_exp };
+            return Scalar { fraction: fraction_pos, exponent: spirix_exp ^ i16::MIN };
         }
 
         // Negation: handle pos_one_normal boundary (i16::MIN → {0, exp-1}).
         if fraction_pos == i16::MIN {
-            return Scalar { fraction: 0, exponent: spirix_exp - 1 };
+            return Scalar { fraction: 0, exponent: (spirix_exp - 1) ^ i16::MIN };
         }
-        Scalar { fraction: -fraction_pos, exponent: spirix_exp }
+        Scalar { fraction: -fraction_pos, exponent: spirix_exp ^ i16::MIN }
     }
 }
 #[cfg(test)]

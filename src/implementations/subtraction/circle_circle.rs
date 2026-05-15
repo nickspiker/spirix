@@ -140,6 +140,16 @@ where
             if circle.is_undefined() {
                 return *circle;
             }
+            // Infinity absorbs everything; signless [∞] makes [∞]−X = X−[∞] = [∞]−[∞] = [∞].
+            if self.is_infinite() || circle.is_infinite() {
+                return Self::INFINITY;
+            }
+            if circle.is_zero() {
+                return *self;
+            }
+            if self.is_zero() {
+                return -circle;
+            }
             if self.exploded() && circle.exploded() {
                 let prefix: F = TRANSFINITE_MINUS_TRANSFINITE.prefix.sa();
                 return Circle {
@@ -157,6 +167,9 @@ where
                 };
             }
             if self.exploded() {
+                if circle.vanished() {
+                    return *self;
+                }
                 let prefix: F = TRANSFINITE_MINUS_FINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -165,6 +178,9 @@ where
                 };
             }
             if circle.exploded() {
+                if self.vanished() {
+                    return -circle;
+                }
                 let prefix: F = FINITE_MINUS_TRANSFINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -177,9 +193,6 @@ where
             }
             if circle.vanished() {
                 return *self;
-            }
-            if self.is_zero() {
-                return -circle;
             }
             return *self;
         }

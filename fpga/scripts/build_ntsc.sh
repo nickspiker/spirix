@@ -24,11 +24,31 @@ PROGRAM="${2:-}"
 mkdir -p "$BUILD"
 cd "$FPGA_DIR"
 
+# Stage decimal_glyphs.mem in the yosys cwd for $readmemh when RING mode is on
+# (top_ntsc.v's freq counter render path loads it). yosys runs in $FPGA_DIR.
+if [ -n "${RING:-}" ]; then
+    cp -f "$FPGA_DIR/data/decimal_glyphs.mem" "$FPGA_DIR/decimal_glyphs.mem"
+fi
+
 # -------------------------------------------------------------------------
-# Compute PLL parameters (skip if 25 MHz)
+# Clock source: PLL (default) or internal ring oscillator (RING=N env var).
+# When RING is set, sys_clk = N-stage single-NOT ring oscillator output.
+# The freq counter in top_ntsc.v measures the ring against the 25 MHz
+# crystal and displays the count on OLED band 0.
 # -------------------------------------------------------------------------
 PLL_DEFINES=""
-if [ "$FREQ" != "25" ]; then
+RING="${RING:-}"
+if [ -n "$RING" ]; then
+    if [ "$RING" -lt 1 ]; then
+        echo "ERROR: RING=$RING must be ≥ 1" >&2
+        exit 1
+    fi
+    PLL_DEFINES="-DRING_STAGES=$RING"
+    echo "================================================================"
+    echo " NTSC self-test on ring oscillator: 1 NOT + $((RING-1)) BUFs ($RING stages)"
+    echo " sys_clk = ring output (frequency unknown, measured on OLED top)"
+    echo "================================================================"
+elif [ "$FREQ" != "25" ]; then
     PLL_OUT=$(ecppll -i 25 -o "$FREQ" -f /dev/null 2>&1)
     CLKI=$(echo "$PLL_OUT"  | awk '/Refclk divisor:/  {print $3}')
     CLKFB=$(echo "$PLL_OUT" | awk '/Feedback divisor:/ {print $3}')
@@ -100,19 +120,19 @@ case "$DUT" in
         ;;
     fpn_fma)
         DUT_DEFINE="-DDUT_FPN_FMA"
-        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_fma_fp32.v"
+        FPN_V="$SCRIPT_DIR/../bench/fpnew_v/fpnew_fma_fp32.v"
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew FMA (native IEEE 754)"
         ;;
     fpn_mul)
         DUT_DEFINE="-DDUT_FPN_MUL"
-        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_fma_fp32.v"
+        FPN_V="$SCRIPT_DIR/../bench/fpnew_v/fpnew_fma_fp32.v"
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew multiply (native IEEE 754)"
         ;;
     fpn_add)
         DUT_DEFINE="-DDUT_FPN_ADD"
-        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_fma_fp32.v"
+        FPN_V="$SCRIPT_DIR/../bench/fpnew_v/fpnew_fma_fp32.v"
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew add/sub (native IEEE 754)"
         ;;
@@ -157,6 +177,30 @@ case "$DUT" in
     spirix_sqrt_iter)
         DUT_DEFINE="-DDUT_SPIRIX_SQRT_ITER"
         echo "  DUT: Spirix sqrt_iter (iterative, 0 DSP)"
+        ;;
+    spirix_div_p4)
+        DUT_DEFINE="-DDUT_SPIRIX_DIV_P4"
+        SKIP_BENCH="spirix_divide.v spirix_divide_iter.v spirix_divmod_nr.v spirix_nr_divsqrt.v"
+        HF_FILES="read_verilog $SCRIPT_DIR/../../paper/comparison/verilog/spirix_divide.v;"
+        echo "  DUT: Spirix divide PARALLEL=4 (paper-comparison FRAC=24, 7 cyc, 0 DSP)"
+        ;;
+    spirix_sqrt_p4)
+        DUT_DEFINE="-DDUT_SPIRIX_SQRT_P4"
+        SKIP_BENCH="spirix_sqrt.v spirix_sqrt_iter.v spirix_sqrt_nr.v spirix_nr_divsqrt.v"
+        HF_FILES="read_verilog $SCRIPT_DIR/../../paper/comparison/verilog/spirix_sqrt.v;"
+        echo "  DUT: Spirix sqrt PARALLEL=4 (paper-comparison FRAC=24, 8 cyc, 0 DSP)"
+        ;;
+    spirix_addsub_p4)
+        DUT_DEFINE="-DDUT_SPIRIX_ADDSUB_P4"
+        SKIP_BENCH="spirix_addsub.v spirix_addsub_pipe2.v spirix_fma.v"
+        HF_FILES="read_verilog $SCRIPT_DIR/../../paper/comparison/verilog/spirix_addsub.v;"
+        echo "  DUT: Spirix add/sub paper-comparison (FRAC=24, banker's RNE, 0 DSP)"
+        ;;
+    spirix_mul_p4)
+        DUT_DEFINE="-DDUT_SPIRIX_MUL_P4"
+        SKIP_BENCH="spirix_multiply.v spirix_multiply_pipe2.v spirix_fma.v"
+        HF_FILES="read_verilog $SCRIPT_DIR/../../paper/comparison/verilog/spirix_multiply.v;"
+        echo "  DUT: Spirix multiply paper-comparison (FRAC=24, banker's RNE, 0 DSP)"
         ;;
     spirix_addbit)
         DUT_DEFINE="-DDUT_SPIRIX_ADDBIT"
@@ -245,13 +289,13 @@ case "$DUT" in
         ;;
     fpn_div)
         DUT_DEFINE="-DDUT_FPN_DIV"
-        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_divsqrt_fp32.v"
+        FPN_V="$SCRIPT_DIR/../bench/fpnew_v/fpnew_divsqrt_fp32.v"
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew div (fpnew_divsqrt_th_32, op=DIV)"
         ;;
     fpn_sqrt)
         DUT_DEFINE="-DDUT_FPN_SQRT"
-        FPN_V="$SCRIPT_DIR/../rtl/fpnew_v/fpnew_divsqrt_fp32.v"
+        FPN_V="$SCRIPT_DIR/../bench/fpnew_v/fpnew_divsqrt_fp32.v"
         HF_FILES="read_verilog $FPN_V;"
         echo "  DUT: FPnew sqrt (fpnew_divsqrt_th_32, op=SQRT)"
         ;;
@@ -263,11 +307,16 @@ case "$DUT" in
         TRNG_ALU_MODE=1
         echo "  DUT: Spirix ALU random (576 RO TRNG, OLED demo)"
         ;;
+    blake3)
+        DUT_DEFINE="-DDUT_BLAKE3"
+        HF_FILES="read_verilog $RTL/blake3.v;"
+        echo "  DUT: BLAKE3 compression core (iterative, ~30 cyc/hash, 512b→32b fold)"
+        ;;
     "")
         echo "  DUT: Spirix FMA (default)"
         ;;
     *)
-        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/addbit_pipe/bitwise/unified/basic/minmax/round/mul_ops/mul_ops_pipe/divsqrt/random/trng/core, or empty."
+        echo "ERROR: unknown DUT='$DUT'. Use: hf_fma/mul/add/div/sqrt, fpn_fma/mul/add/div/sqrt, spirix_addsub/addsub_pipe2/mul/mul_pipe2/div_iter/divmod_nr/sqrt_nr/sqrt_iter/nr_div/nr_sqrt/addbit/addbit_pipe/bitwise/unified/basic/minmax/round/mul_ops/mul_ops_pipe/divsqrt/random/trng/core/blake3, or empty."
         exit 1
         ;;
 esac
@@ -277,7 +326,12 @@ esac
 # -------------------------------------------------------------------------
 RTL_FILES=""
 for f in "$RTL"/spirix_*.v; do
-    RTL_FILES="$RTL_FILES read_verilog $f;"
+    fname=$(basename "$f")
+    skip=0
+    for sf in $SKIP_BENCH; do
+        if [ "$fname" = "$sf" ]; then skip=1; break; fi
+    done
+    [ $skip -eq 0 ] && RTL_FILES="$RTL_FILES read_verilog $f;"
 done
 
 # -------------------------------------------------------------------------
@@ -354,7 +408,7 @@ echo ""
 echo "--- Place & Route ---"
 SEED="${SEED:-1}"
 PNR_EXTRA=""
-if [ -n "$TRNG_MODE" ] || [ -n "$TRNG_ALU_MODE" ]; then
+if [ -n "$TRNG_MODE" ] || [ -n "$TRNG_ALU_MODE" ] || [ -n "$RING" ]; then
     PNR_EXTRA="--ignore-loops --timing-allow-fail"
 fi
 nextpnr-ecp5 --25k --package CABGA256 --speed 6 --seed "$SEED" \

@@ -137,7 +137,17 @@ where
             if circle.is_undefined() {
                 return *circle;
             }
-            if self.is_transfinite() && circle.is_transfinite() {
+            // Infinity absorbs everything. [∞] is the signless Riemann-sphere point reached only by n/0; −∞ is a no-op so [∞]−[∞] = [∞] too.
+            if self.is_infinite() || circle.is_infinite() {
+                return Self::INFINITY;
+            }
+            if self.is_zero() {
+                return *circle;
+            }
+            if circle.is_zero() {
+                return *self;
+            }
+            if self.exploded() && circle.exploded() {
                 return Self {
                     real: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
@@ -151,14 +161,20 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_transfinite() {
+            if self.exploded() {
+                if circle.vanished() {
+                    return *self;
+                }
                 return Self {
                     real: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if circle.is_transfinite() {
+            if circle.exploded() {
+                if self.vanished() {
+                    return *circle;
+                }
                 return Self {
                     real: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: FINITE_PLUS_TRANSFINITE.prefix.sa(),
@@ -170,9 +186,6 @@ where
             }
             if circle.vanished() {
                 return *self;
-            }
-            if self.is_zero() {
-                return *circle;
             }
             return *self;
         }

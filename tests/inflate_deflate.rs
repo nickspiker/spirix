@@ -437,8 +437,8 @@ fn addition_basic() {
     assert!((zero + zero) == zero, "[0]+[0]=[0]");
     assert!((zero + pos_vanished).vanished(), "[0]+[+↓]=[↓]");
     assert!((zero + one) == one, "[0]+[#]=[#]");
-    assert!((zero + pos_exploded).is_undefined(), "[0]+[+↑]=[℘]");
-    assert!((zero + inf).is_undefined(), "[0]+[∞]=[℘]");
+    assert!((zero + pos_exploded).exploded(), "[0]+[+↑]=[↑] (zero identity)");
+    assert!((zero + inf).is_infinite(), "[0]+[∞]=[∞] (∞ absorbs)");
     assert!((zero + undef).is_undefined(), "[0]+[℘]=[℘]");
 
     // [↓] row
@@ -449,37 +449,37 @@ fn addition_basic() {
     );
     assert!((pos_vanished + one) == one, "[+↓]+[#]=[#]");
     assert!(
-        (pos_vanished + pos_exploded).is_undefined(),
-        "[+↓]+[+↑]=[℘]"
+        (pos_vanished + pos_exploded).exploded(),
+        "[+↓]+[+↑]=[↑] (vanished negligible)"
     );
-    assert!((pos_vanished + inf).is_undefined(), "[+↓]+[∞]=[℘]");
+    assert!((pos_vanished + inf).is_infinite(), "[+↓]+[∞]=[∞]");
     assert!((pos_vanished + undef).is_undefined(), "[+↓]+[℘]=[℘]");
 
     // [#] row (normal + special)
     assert!((one + zero) == one, "[#]+[0]=[#]");
     assert!((one + pos_vanished) == one, "[#]+[+↓]=[#]");
-    assert!((one + pos_exploded).is_undefined(), "[#]+[+↑]=[℘]");
-    assert!((one + inf).is_undefined(), "[#]+[∞]=[℘]");
+    assert!((one + pos_exploded).is_undefined(), "[#]+[+↑]=[℘+⬆]");
+    assert!((one + inf).is_infinite(), "[#]+[∞]=[∞]");
     assert!((one + undef).is_undefined(), "[#]+[℘]=[℘]");
 
     // [↑] row
-    assert!((pos_exploded + zero).is_undefined(), "[+↑]+[0]=[℘]");
+    assert!((pos_exploded + zero).exploded(), "[+↑]+[0]=[↑]");
     assert!(
-        (pos_exploded + pos_vanished).is_undefined(),
-        "[+↑]+[+↓]=[℘]"
+        (pos_exploded + pos_vanished).exploded(),
+        "[+↑]+[+↓]=[↑] (vanished negligible)"
     );
-    assert!((pos_exploded + one).is_undefined(), "[+↑]+[#]=[℘]");
+    assert!((pos_exploded + one).is_undefined(), "[+↑]+[#]=[℘⬆+]");
     assert!(
         (pos_exploded + pos_exploded).is_undefined(),
-        "[+↑]+[+↑]=[℘]"
+        "[+↑]+[+↑]=[℘⬆+⬆]"
     );
-    assert!((pos_exploded + inf).is_undefined(), "[+↑]+[∞]=[℘]");
+    assert!((pos_exploded + inf).is_infinite(), "[+↑]+[∞]=[∞]");
     assert!((pos_exploded + undef).is_undefined(), "[+↑]+[℘]=[℘]");
 
-    // [∞] row
-    assert!((inf + zero).is_undefined(), "[∞]+[0]=[℘]");
-    assert!((inf + one).is_undefined(), "[∞]+[#]=[℘]");
-    assert!((inf + inf).is_undefined(), "[∞]+[∞]=[℘]");
+    // [∞] row (infinity absorbs everything; signless [∞] makes ∞-∞ = ∞ too)
+    assert!((inf + zero).is_infinite(), "[∞]+[0]=[∞]");
+    assert!((inf + one).is_infinite(), "[∞]+[#]=[∞]");
+    assert!((inf + inf).is_infinite(), "[∞]+[∞]=[∞]");
     assert!((inf + undef).is_undefined(), "[∞]+[℘]=[℘]");
 
     // [℘] row
@@ -506,7 +506,7 @@ fn addition_basic() {
     );
 
     // Negative escaped interactions
-    assert!((neg_exploded + zero).is_undefined(), "[-↑]+[0]=[℘]");
+    assert!((neg_exploded + zero).exploded(), "[-↑]+[0]=[-↑]");
     assert!((neg_exploded + one).is_undefined(), "[-↑]+[#]=[℘]");
     assert!(
         (neg_exploded + neg_exploded).is_undefined(),

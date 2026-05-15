@@ -85,7 +85,7 @@ When a value exceeds the normal exponent range, Spirix doesn't simply truncate t
 - **Exploded** values (↑): Extremely large numbers that maintain their sign/orientation
 - **Vanished** values (↓): Extremely small numbers that maintain their sign/orientation
 
-These escaped values can continue to participate in absolute mathematical operations, like multiplication and division, allowing calculations to proceed even with results beyond the exponent range. Escaped Scalars maintain their sign, escaped Circles maintain their angle/complex sign thru absolute operations.
+These escaped values continue to participate in all arithmetic operations under magnitude-class dominance rules: vanished is negligible against larger classes, infinity absorbs anything else, and exploded preserves its phase thru multiplication, division, and most addition/subtraction cases. Escaped Scalars maintain their sign; escaped Circles maintain their angle/complex orientation.
 
 ## The Type System
 
@@ -103,7 +103,9 @@ Both types are parameterized to allow independent selection of fraction and expo
 Spirix provides a flexible configuration system allowing independent selection of fraction and exponent sizes. This enables applications to precisely tune numerical behavior based on their specific needs.
 
 
-| | 2.2 digits | 4.6 digits | 9.4 digits | 19 digits | 38.3 digits |
+Precision shown as Scalar / Circle digits per component (floored).
+
+| | 2.4 / 2.1 digits | 4.8 / 4.5 digits | 9.6 / 9.3 digits | 19.2 / 18.9 digits | 38.5 / 38.2 digits |
 |-------|-----------|-----------|-----------|-----------|-----------|
 | 10^±2.1 | F3E3<br>⟨i8, i8⟩ | F4E3<br>⟨i16, i8⟩ | F5E3<br>⟨i32, i8⟩ | F6E3<br>⟨i64, i8⟩ | F7E3<br>⟨i128, i8⟩ |
 | 10^±4.5 | F3E4<br>⟨i8, i16⟩ | F4E4<br>⟨i16, i16⟩ | F5E4<br>⟨i32, i16⟩ | F6E4<br>⟨i64, i16⟩ | F7E4<br>⟨i128, i16⟩ |
@@ -170,7 +172,7 @@ When values exceed the representable range, they become "escaped" values. Unlike
   □□■xxxxx... N-2 fraction with AMBIGUOUS_EXPONENT - Positive vanished [+↓]
   ■■□xxxxx... N-2 fraction with AMBIGUOUS_EXPONENT - Negative vanished [-↓]
   ```
-Escaped values maintain mathematical continuity and can participate in absolute operations while preserving phase information.
+Escaped values maintain mathematical continuity and can participate in all arithmetic operations while preserving phase information.
 
 ### Undefined States [℘]
 
@@ -248,7 +250,7 @@ to `[0]` or `[↓]`.
 | **[#]** | [0] | [℘&] | [#], [0], [↓] | [℘&] | [#] | [℘?] |
 | **[↑]** | [0] | [0], [↑] | [℘&] | [℘&] | [↑] | [℘?] |
 | **[∞]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Bitwise OR
 
@@ -265,7 +267,7 @@ ambiguous frame, so `[↓] | [↑]` lands in `[↓]` or `[↑]` depending on sig
 | **[#]** | [#] | [℘\|] | [#], [↓] | [℘\|] | [∞] | [℘?] |
 | **[↑]** | [↑] | [↓], [↑] | [℘\|] | [℘\|] | [∞] | [℘?] |
 | **[∞]** | [∞] | [∞] | [∞] | [∞] | [∞] | [∞] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Bitwise XOR
 
@@ -283,38 +285,33 @@ always cancels to `[0]`.
 | **[#]** | [#] | [℘⊻] | [0], [↓], [#] | [℘⊻] | [#] | [℘?] |
 | **[↑]** | [↑] | [↑] | [℘⊻] | [℘⊻] | [↑] | [℘?] |
 | **[∞]** | [∞] | [↓] | [#] | [↑] | [0] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Addition
 
-Adding two normals can land anywhere in `[0]`, `[↓]`, `[#]`, or `[↑]` depending
-on magnitudes and signs. Transfinite + anything-finite is an indeterminate form
-(`[℘ +⬆]`), and two transfinites collide into `[℘ ⬆+⬆]`. Zero is the exact
-additive identity, so the zero cells pass the other operand through unchanged.
+Addition follows magnitude-class dominance: when one operand is utterly negligible against the other, the larger class wins and carries its phase. Vanished is negligible against everything larger — it cannot move exploded back into normal range, nor affect infinity. **Infinity absorbs everything** — it is the singularity reached only by `n / 0`, and negation of infinity is a no-op, so there is no `∞ − ∞` problem (it just stays `∞`). Indeterminate cells remain only where partial cancellation could land the result anywhere: normal against exploded (phases unknown, could cancel back into normal range), and same-class collisions where opposing phases could partially cancel. Adding two normals can land anywhere in `[0]`, `[↓]`, `[#]`, or `[↑]` depending on magnitudes and phases. Zero is the exact additive identity; zero cells pass the other operand thru unchanged.
 
 | + | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 |---|-----|-----|-----|-----|-----|------|
 | **[0]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-| **[↓]** | [↓] | [℘↓+↓] | [#] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
-| **[#]** | [#] | [#] | [0], [#], [↓], [↑] | [℘ ⬆+] | [℘ ⬆+] | [℘?] |
-| **[↑]** | [↑] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
-| **[∞]** | [∞] | [℘ +⬆] | [℘ +⬆] | [℘ ⬆+⬆] | [℘ ⬆+⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[↓]** | [↓] | [℘↓+↓] | [#] | [↑] | [∞] | [℘?] |
+| **[#]** | [#] | [#] | [0], [#], [↓], [↑] | [℘ ⬆+] | [∞] | [℘?] |
+| **[↑]** | [↑] | [↑] | [℘ +⬆] | [℘ ⬆+⬆] | [∞] | [℘?] |
+| **[∞]** | [∞] | [∞] | [∞] | [∞] | [∞] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Subtraction
 
-Mirror of addition, but cancellation is now common: `[#] - [#]` can reach any
-class from `[0]` up through `[↑]`. Transfinite cases match addition's pattern.
-Zero cells pass the other operand (negated on the right-hand side) through unchanged.
+Each cell shows `col − row` (the row label is the subtrahend). Same magnitude-class dominance applies as in addition, and since `−∞ = ∞` is a no-op (signless infinity), `[a] − [∞] = [∞]` for any `a` and `[∞] − [∞] = [∞]`. Vanished is negligible against larger classes. Subtracting a normal involves a negation step that can spill into edge classes (MIN normal → `+exploded`), giving multi-outcome cells in the `[#]` row's `[0]` and `[↓]` columns. Zero cells pass the other operand thru unchanged.
 
 | - | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 |---|-----|-----|-----|-----|-----|------|
 | **[0]** | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
-| **[↓]** | [↓] | [℘↓-↓] | [#] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
-| **[#]** | [#], [↓], [↑] | [#], [↓], [↑] | [0], [#], [↓], [↑] | [℘ ⬆-] | [℘ ⬆-] | [℘?] |
-| **[↑]** | [↑] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
-| **[∞]** | [∞] | [℘ -⬆] | [℘ -⬆] | [℘ ⬆-⬆] | [℘ ⬆-⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[↓]** | [↓] | [℘↓-↓] | [#] | [↑] | [∞] | [℘?] |
+| **[#]** | [#], [↓], [↑] | [#], [↓], [↑] | [0], [#], [↓], [↑] | [℘ ⬆-] | [∞] | [℘?] |
+| **[↑]** | [↑] | [↑] | [℘ -⬆] | [℘ ⬆-⬆] | [∞] | [℘?] |
+| **[∞]** | [∞] | [∞] | [∞] | [∞] | [∞] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Multiplication
 
@@ -329,7 +326,7 @@ stays `[↓]`; exploded × exploded goes to `[↑]`.
 | **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
 | **[↑]** | [0] | [℘⬇×⬆] | [↑] | [↑] | [∞] | [℘?] |
 | **[∞]** | [℘⬇×⬆] | [∞] | [∞] | [∞] | [∞] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Division
 
@@ -344,11 +341,11 @@ The indeterminate forms are `[0] ÷ [0]` / `[↓] ÷ [↓]` (`[℘ ⬇/⬇]`) an
 | **[#]** | [0] | [↓] | [#], [↓], [↑] | [↑] | [∞] | [℘?] |
 | **[↑]** | [0] | [↓] | [↓] | [℘ ⬆/⬆] | [∞] | [℘?] |
 | **[∞]** | [0] | [0] | [0] | [0] | [℘ ⬆/⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 #### Proper Modulus
 
-Sign of the result follows the period (divisor), not the dividend — so `[↑] % [↓]`
+Sign of the result follows the period, not the moduland — so `[↑] % [↓]`
 resolves to `[↓]` when signs agree and `[#]` when they don't. Row header
 distinguishes `[↑]` vs `[∞]` even when output tags are identical, because the
 undefined sub-states differ.
@@ -360,7 +357,7 @@ undefined sub-states differ.
 | **[#]** | [0] | [↓] / [#] | [0], [↓], [#] | [℘⬆%] | [℘⬆%] | [℘?] |
 | **[↑]** | [0] | [↓] / [↑] | [#] / [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
 | **[∞]** | [0] | [℘%⬆] | [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
-| **[℘?]** | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
 
 ### Unary Operations
 
@@ -370,7 +367,7 @@ treats them differently.
 #### Negation (`-x`)
 
 Sign flips for any value that has one. Signless classes (`[0]`, `[∞]`, `[℘?]`)
-pass through unchanged — there's no sign to flip. Normal values can escape
+pass thru unchanged — there's no sign to flip. Normal values can escape
 their class at the exponent boundaries: negating `pos_one_normal` at `MIN_EXP`
 drops the result to `neg_one_vanished` (the extra exp step falls below valid
 range); negating `neg_one_normal` at `MAX_EXP` bumps to `pos_one_exploded`.
@@ -940,7 +937,7 @@ Spirix provides production-ready GPU kernels for batch ScalarF4E4 operations via
 
 ### Performance (AMD RX 6800, 60 CUs)
 
-| Operation | Throughput | Instructions | VGPRs | vs f32 |
+| Operation | Thruput | Instructions | VGPRs | vs f32 |
 |-----------|------------|--------------|-------|--------|
 | Addition | 27.22 GOPS | 56 | 10 | 0.69x |
 | Subtraction | ~27 GOPS | 56 | 10 | 0.69x |
@@ -952,6 +949,6 @@ Division outperforms multiply despite more instructions: Newton-Raphson iteratio
 
 ### WebGPU Cross-Platform
 
-The HIP kernels port trivially to WGSL because Spirix already uses 32-bit integer arithmetic throughout. Performance: 85-87% of native HIP across all operations. Runs on any GPU (AMD, NVIDIA, Intel, Apple) via browser.
+The HIP kernels port trivially to WGSL because Spirix already uses 32-bit integer arithmetic thruout. Performance: 85-87% of native HIP across all operations. Runs on any GPU (AMD, NVIDIA, Intel, Apple) via browser.
 
 See [gpu/README.md](gpu/README.md) for kernel details, benchmarks, and API usage.

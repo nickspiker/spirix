@@ -136,32 +136,42 @@ fn addition_truth_table() {
     // [#]+[#] = [0],[↓],[#],[↑]
     check("+", np, nn, np + nn, &[Zero, Vanished, Normal, Exploded]);
     check("+", np, np, np + np, &[Zero, Vanished, Normal, Exploded]);
-    // [↑]+anything_finite = [℘]
-    check("+", ep, z, ep + z, &[Undefined]);
-    check("+", ep, vp, ep + vp, &[Undefined]);
+    // [↑]+[0] = [↑] (zero is additive identity)
+    check("+", ep, z, ep + z, &[Exploded]);
+    check("+", en, z, en + z, &[Exploded]);
+    // [↑]+[↓] = [↑] (vanished is negligible against exploded)
+    check("+", ep, vp, ep + vp, &[Exploded]);
+    check("+", ep, vn, ep + vn, &[Exploded]);
+    // [↑]+[#] = [℘] (could partially cancel back into normal range)
     check("+", ep, np, ep + np, &[Undefined]);
-    check("+", en, z, en + z, &[Undefined]);
-    // anything_finite+[↑] = [℘]
-    check("+", z, ep, z + ep, &[Undefined]);
-    check("+", vp, ep, vp + ep, &[Undefined]);
+    // [0]+[↑] = [↑]
+    check("+", z, ep, z + ep, &[Exploded]);
+    // [↓]+[↑] = [↑]
+    check("+", vp, ep, vp + ep, &[Exploded]);
+    // [#]+[↑] = [℘]
     check("+", np, ep, np + ep, &[Undefined]);
-    // [↑]+[↑] = [℘]
+    // [↑]+[↑] = [℘] (opposing phases could cancel)
     check("+", ep, ep, ep + ep, &[Undefined]);
     check("+", ep, en, ep + en, &[Undefined]);
-    // [∞]+anything = [℘]
-    check("+", inf, z, inf + z, &[Undefined]);
-    check("+", inf, np, inf + np, &[Undefined]);
-    check("+", inf, ep, inf + ep, &[Undefined]);
-    check("+", inf, inf, inf + inf, &[Undefined]);
-    // anything+[∞] = [℘]
-    check("+", z, inf, z + inf, &[Undefined]);
-    check("+", np, inf, np + inf, &[Undefined]);
-    // [℘]+anything = [℘]
+    // [∞]+anything = [∞] (infinity absorbs everything; −∞ no-op so ∞−∞ = ∞ too)
+    check("+", inf, z, inf + z, &[Infinity]);
+    check("+", inf, vp, inf + vp, &[Infinity]);
+    check("+", inf, np, inf + np, &[Infinity]);
+    check("+", inf, ep, inf + ep, &[Infinity]);
+    check("+", inf, inf, inf + inf, &[Infinity]);
+    // anything+[∞] = [∞]
+    check("+", z, inf, z + inf, &[Infinity]);
+    check("+", vp, inf, vp + inf, &[Infinity]);
+    check("+", np, inf, np + inf, &[Infinity]);
+    check("+", ep, inf, ep + inf, &[Infinity]);
+    // [℘]+anything = [℘] (undefined propagates, but is checked before infinity)
     check("+", und, z, und + z, &[Undefined]);
     check("+", und, np, und + np, &[Undefined]);
+    check("+", und, inf, und + inf, &[Undefined]);
     // anything+[℘] = [℘]
     check("+", z, und, z + und, &[Undefined]);
     check("+", np, und, np + und, &[Undefined]);
+    check("+", inf, und, inf + und, &[Undefined]);
 }
 
 // ============================================================
@@ -191,22 +201,38 @@ fn subtraction_truth_table() {
     // [#]-[#] = [0],[↓],[#],[↑]
     check("-", np, np, np - np, &[Zero, Vanished, Normal, Exploded]);
     check("-", np, nn, np - nn, &[Zero, Vanished, Normal, Exploded]);
-    // [↑]-anything_finite = [℘]
-    check("-", ep, z, ep - z, &[Undefined]);
+    // [↑]-[0] = [↑] (zero identity)
+    check("-", ep, z, ep - z, &[Exploded]);
+    // [↑]-[↓] = [↑] (vanished negligible)
+    check("-", ep, vp, ep - vp, &[Exploded]);
+    check("-", ep, vn, ep - vn, &[Exploded]);
+    // [↑]-[#] = [℘]
     check("-", ep, np, ep - np, &[Undefined]);
-    // anything_finite-[↑] = [℘]
-    check("-", z, ep, z - ep, &[Undefined]);
+    // [0]-[↑] = [↑] (negation of exploded is exploded; signed exploded retains class)
+    check("-", z, ep, z - ep, &[Exploded]);
+    // [↓]-[↑] = [↑]
+    check("-", vp, ep, vp - ep, &[Exploded]);
+    // [#]-[↑] = [℘]
     check("-", np, ep, np - ep, &[Undefined]);
     // [↑]-[↑] = [℘]
     check("-", ep, ep, ep - ep, &[Undefined]);
-    // [∞]-anything = [℘]
-    check("-", inf, z, inf - z, &[Undefined]);
-    check("-", inf, np, inf - np, &[Undefined]);
-    // anything-[∞] = [℘]
-    check("-", z, inf, z - inf, &[Undefined]);
+    // [∞]-anything = [∞] (infinity absorbs; −∞ no-op so ∞−∞ = ∞)
+    check("-", inf, z, inf - z, &[Infinity]);
+    check("-", inf, vp, inf - vp, &[Infinity]);
+    check("-", inf, np, inf - np, &[Infinity]);
+    check("-", inf, ep, inf - ep, &[Infinity]);
+    check("-", inf, inf, inf - inf, &[Infinity]);
+    // anything-[∞] = [∞]
+    check("-", z, inf, z - inf, &[Infinity]);
+    check("-", vp, inf, vp - inf, &[Infinity]);
+    check("-", np, inf, np - inf, &[Infinity]);
+    check("-", ep, inf, ep - inf, &[Infinity]);
     // [℘]-anything = [℘]
     check("-", und, np, und - np, &[Undefined]);
+    check("-", und, inf, und - inf, &[Undefined]);
+    // anything-[℘] = [℘]
     check("-", np, und, np - und, &[Undefined]);
+    check("-", inf, und, inf - und, &[Undefined]);
 }
 
 // ============================================================

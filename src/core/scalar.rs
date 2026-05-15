@@ -81,6 +81,6 @@ pub struct Scalar<F: Integer, E: Integer> {
     /// The normalized fraction component representing the significand. The fraction size determines the precision of the value. The prefix bit pattern determines the number's state (normal, Zero, Infinity, exploded, vanished, undefined).
     pub fraction: F,
 
-    /// The exponent component determining the scale of the value. The exponent size determines the range of the value. When equal to AMBIGUOUS_EXPONENT (0b1000000...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined).
+    /// The exponent component determining the scale of the value. The exponent size determines the range of the value. The stored field is an unsigned modular integer in Z/2^EXP Z; the bit pattern all-zeros marks AMBIGUOUS_EXPONENT (sentinel for Zero, Infinity, exploded, vanished, or undefined states), so a wholly zero-initialized value reads as Spirix Zero. Normal stored exponents occupy positions 1..2^EXP-1 monotonically around the cycle; the unit binades containing +1.0 and -1.0 sit at the cycle's middle (bit patterns 0x80...0 = E::MIN signed, and 0x7F...F = E::MAX signed, respectively). Overflow past MAX_EXP and underflow past MIN_EXP both reach 0 = AMBIG via opposite traversals of the modular cycle.
     pub exponent: E,
 }

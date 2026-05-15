@@ -291,7 +291,7 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{\textbf{"Infinity"} refers to a specific representation of mathematical infinity as a singularity within the numeric space. Unlike IEEE 754's approach with separate positive and negative infinities, this invention treats infinity as a unified concept.}
 
-\ppara{\textbf{"Zero"} refers to the representation of mathematical zero as a singularity. Unlike IEEE 754's separate $\pm 0$, this invention treats zero as one signless point at the middle of the continuous number line. Zero is encoded as the all-zeros fraction paired with AMBIGUOUS\_EXPONENT (also all-zeros), so any zero-filled Scalar reads as Zero. Circle behaves the same way: a zero-filled (real, imaginary, exponent) encodes the complex origin. Default-initialized struct fields, BSS-section globals, zero-filled allocations, cleared CPU registers, and the results of \texttt{memset(buffer, 0, size)} therefore yield Zero without explicit per-value initialization. The encoding is symmetric in the opposite direction as well: the all-ones bit pattern coincides with both the maximum-magnitude N0 fraction and the largest representable stored exponent (the cycle position adjacent to AMBIGUOUS\_EXPONENT in the opposite traversal direction), so \texttt{memset(buffer, 0xFF, size)} yields the largest representable normal value. No prior-art floating-point encoding combines zeroed-memory-equals-zero with signless infinity, signless zero, distinct vanished and exploded classes, and cause-encoded undefined states.}
+\ppara{\textbf{"Zero"} refers to the representation of mathematical zero as a single signless point. Zero is encoded as the all-zeros fraction paired with AMBIGUOUS\_EXPONENT. For Circle, the complex origin is encoded as zero real, zero imaginary, and AMBIGUOUS\_EXPONENT.}
 
 \newpage
 
@@ -529,7 +529,7 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{Comparison with IEEE 754 required care at the representational boundaries. The invention's exploded states correspond to magnitudes that have exceeded the representable range while preserving phase, whereas IEEE 754 truncates to $\pm \infty$ at this boundary; these cases were classified as architecturally distinct rather than treated as accuracy mismatches. Similarly, the invention's vanished states correspond to magnitudes below the representable range with phase preserved, whereas IEEE 754 truncates to zero or to denormals at reduced precision; these cases were also classified as architecturally distinct. The invention's MIN and MAX differ from IEEE 754's because the invention reserves a single exponent for all ambiguous values and does not denormalize the fraction; operand pairs at or near these boundaries were verified to confirm the architecturally correct transition behavior.}
 
-\ppara{Silicon verification was performed via a clock-enable-gated self-test harness on Lattice ECP5 FPGA hardware. The harness runs the device-under-test twice over an identical pseudorandom input sequence: first with the device clock-enabled at one cycle in 256 (providing ample settle time at any frequency, establishing a reference output hash), then again clock-enabled every cycle (operating at full PLL frequency). A hash mismatch indicates a timing failure; a hash match confirms correct operation at the given frequency. This methodology measures true silicon operating frequency rather than relying on static timing estimates, which were observed to underestimate by factors of 1.5 to 3.7$\times$ on this platform.}
+\ppara{Silicon verification was performed via a clock-enable-gated self-test harness on Lattice ECP5 FPGA hardware. The harness runs the device-under-test twice over an identical pseudorandom input sequence: first with the device clock-enabled at one cycle in 256 (providing ample settle time at any frequency, establishing a reference output hash), then again clock-enabled every cycle (operating at full PLL frequency). A hash mismatch indicates a timing failure; a hash match confirms correct operation at the given frequency. This methodology measures true silicon operating frequency rather than relying on static timing estimates, which were observed to underestimate by factors of 1.5 to 3.7× on this platform.}
 
 \ppara{The following table summarizes representative silicon Fmax and area measurements obtained on the reference platform (Lattice ECP5-25F, speed grade 6) under the methodology described above. Measurements are example values; results will vary depending on target platform, synthesis tool version, placement seed, and implementation choices.}
 
@@ -645,24 +645,24 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \begin{enumerate}
     \item\label{cl:scalar-system} A floating-point arithmetic system for representing and processing numerical values, comprising:
-          \begin{enumerate}
-              \item a processor; and
-              \item a memory storing instructions which, when executed by the processor, implement a floating-point arithmetic system that:
-                    \begin{enumerate}
-                        \item represents normal floating-point values using a two's complement fraction and an unsigned modular exponent (the exponent being a member of the cyclic group of integers modulo $2^{\text{EXP\_BITS}}$, with arithmetic naturally modular at the field's native width), wherein neither component stores a sign bit (the fraction's sign being the inverse of its stored MSB by the normalization invariant and recoverable by a unary NOT; the exponent's sign being derived during arithmetic from the stored field's position relative to the cyclic origin) and all stored fraction bits contribute directly to the value;
-                        \item utilizes a single reserved exponent value (the ambiguous exponent) to identify all values outside normal representation;
-                        \item encodes multiple distinct non-normal states at the ambiguous exponent, differentiated by the leading same bit count of the fraction component, including:
-                              \begin{enumerate}
-                                  \item exploded values with a leading same bit count of 1 (the first two bits differ) representing values that have exceeded maximum representable magnitude, with the direction of the bit transition encoding the phase;
-                                  \item vanished values with a leading same bit count of 2 (two identical leading bits followed by a differing bit) representing values that have fallen below minimum representable magnitude, with the leading bit pattern encoding the phase;
-                                  \item zero represented by a uniform all-zeros fraction;
-                                  \item infinity represented by a uniform all-ones fraction; and
-                                  \item undefined states with a non-uniform leading same bit count of 3 or more, encoding the specific cause of the undefined result;
-                              \end{enumerate}
-                        \item performs basic arithmetic operations (add, subtract, multiply, divide) as ordinary two's complement integer arithmetic on the fractions, with no sign metadata stored with the value, no sign-magnitude format conversion, and no sign-dependent control flow;
-                        \item transitions results to the appropriate non-normal state when overflow or underflow occurs rather than truncating to infinity or zero.
-                    \end{enumerate}
-          \end{enumerate}
+    \begin{enumerate}
+        \item a processor; and
+        \item a memory storing instructions which, when executed by the processor, implement a floating-point arithmetic system that:
+              \begin{enumerate}
+                  \item represents normal floating-point values using a two's complement fraction and a modular exponent, wherein neither component stores a sign bit and all stored fraction bits contribute to the value, the exponent forming a cyclic field of width $2^{\text{EXP\_BITS}}$ with arithmetic naturally modular at that width;
+                  \item utilizes a single reserved exponent value (the ambiguous exponent) to identify all values outside normal representation;
+                  \item encodes multiple distinct non-normal states at the ambiguous exponent, differentiated by the leading same bit count of the fraction component, including:
+                        \begin{enumerate}
+                            \item exploded values with a leading same bit count of 1 (the first two bits differ) representing values that have exceeded maximum representable magnitude, with the direction of the bit transition encoding the phase;
+                            \item vanished values with a leading same bit count of 2 (two identical leading bits followed by a differing bit) representing values that have fallen below minimum representable magnitude, with the leading bit pattern encoding the phase;
+                            \item zero represented by a uniform all-zeros fraction;
+                            \item infinity represented by a uniform all-ones fraction; and
+                            \item undefined states with a non-uniform leading same bit count of 3 or more, encoding the specific cause of the undefined result;
+                        \end{enumerate}
+                  \item performs basic arithmetic operations (add, subtract, multiply, divide) as ordinary two's complement integer arithmetic on the fractions, with no sign metadata stored with the value, no sign-magnitude format conversion, and no sign-dependent control flow;
+                  \item transitions results to the appropriate non-normal state when overflow or underflow occurs rather than truncating to infinity or zero.
+              \end{enumerate}
+    \end{enumerate}
 
     \item The system of claim~\ref{cl:scalar-system}, wherein the two's complement fraction representation operates such that:
           \begin{enumerate}
@@ -711,7 +711,7 @@ As used herein, the following terms shall have the following meanings, unless th
               \item the same property extends to Circle: zeroed (real, imaginary, exponent) triples encode the complex origin.
           \end{enumerate}
 
-    \item\label{cl:scalar-method} A method for processing floating-point values in a computing system, comprising:
+          \item\label{cl:scalar-method} A method for processing floating-point values in a computing system, comprising:
           \begin{enumerate}
               \item representing normal floating-point values using a two's complement fraction and an unsigned modular exponent encoded on a cyclic group of integers modulo $2^{\text{EXP\_BITS}}$, wherein the fraction contains no dedicated sign field and the exponent's sign emerges during arithmetic from the field's position relative to a designated cyclic origin rather than being stored;
               \item designating a single reserved exponent value as the ambiguous exponent;
@@ -748,7 +748,7 @@ As used herein, the following terms shall have the following meanings, unless th
               \item classifying and encoding non-normal states (zero, infinity, exploded, vanished, undefined) via the leading same bit count of the fraction paired with a single reserved exponent value, without sign-dependent enumeration or masking.
           \end{enumerate}
 
-    \item\label{cl:circle-system} A system for complex number processing, comprising:
+          \item\label{cl:circle-system} A system for complex number processing, comprising:
           \begin{enumerate}
               \item a processor; and
               \item a memory storing instructions which, when executed by the processor, implement:
@@ -775,7 +775,7 @@ As used herein, the following terms shall have the following meanings, unless th
               \item providing distinct remainder operations: mathematical modulus based on complex division semantics and component-wise modulo that performs independent modulo on each component.
           \end{enumerate}
 
-    \item\label{cl:bitwise-method} A method for implementing bitwise operations directly on floating-point values in a two's complement floating-point arithmetic system, comprising:
+          \item\label{cl:bitwise-method} A method for implementing bitwise operations directly on floating-point values in a two's complement floating-point arithmetic system, comprising:
           \begin{enumerate}
               \item aligning operands by exponent adjustment to ensure bits of equivalent mathematical significance are paired, including:
                     \begin{enumerate}
@@ -814,7 +814,7 @@ As used herein, the following terms shall have the following meanings, unless th
                               \begin{enumerate}
                                   \item align two's complement fractions by checked exponent adjustment when performing addition or subtraction, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring $a - b = 0$ if and only if $a = b$, and $MAX + MAX \neq \infty$;
                                   \item multiply two's complement fractions while adding exponents, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring $a \times b = 0$ if and only if $a = 0$ or $b = 0$, and $MAX \times MAX \neq \infty$;
-                                  \item divide two's complement fractions while subtracting exponents, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring non-zero $\div$ non-zero never produces zero or infinity, non-zero $\div$ 0 produces infinity, and 0 $\div$ non-zero produces zero;
+                                  \item divide two's complement fractions while subtracting exponents, transitioning to exploded states rather than infinity when overflow occurs and to vanished states rather than zero when underflow occurs, thereby ensuring non-zero ÷ non-zero never produces zero or infinity, non-zero ÷ 0 produces infinity, and 0 ÷ non-zero produces zero;
                               \end{enumerate}
                         \item state transition mechanisms that:
                               \begin{enumerate}

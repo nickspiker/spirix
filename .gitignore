@@ -39,8 +39,12 @@ patent/Spirix*.pdf
 
 # FPGA synthesis artifacts
 fpga/build/
+fpga/build_extclk/
 fpga/sim/
 fpga/tools/gen_font_rom/target/
+
+# LibreOffice lock files
+**/.~lock.*#
 
 # Paper comparison crate build artifacts
 paper/comparison/target/

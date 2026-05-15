@@ -190,10 +190,14 @@ where
         let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
         let stored: F = c << leading;
         let shift_e: E = (leading - 1isize).as_();
-        let new_exp = self.exponent.wrapping_sub(&shift_e);
+        // Circle uses v0.0.x exponent convention; Scalar uses AMBIG=0 unsigned-modular.
+        // The exp derived above (circle_exp - shift_e) is in v0.0.x form; convert to
+        // Scalar's stored form by translating to v0.1 (subtract 1 for ruler-shift) then
+        // XOR with E::MIN. The two operations compose into a single arithmetic step.
+        let new_exp_v01 = self.exponent.wrapping_sub(&shift_e);
         Scalar {
             fraction: stored,
-            exponent: new_exp,
+            exponent: Scalar::<F, E>::from_v01_exp(new_exp_v01),
         }
     }
 

@@ -196,18 +196,18 @@ where
         }
 
         if sign == 0 {
-            return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
+            return Self { fraction: fraction_pos, exponent: Self::from_v01_exp(spirix_exp.as_()) };
         }
         // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent because its magnitude straddles the boundary between exp buckets.
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: (spirix_exp.wrapping_sub(1)).as_(),
+                exponent: Self::from_v01_exp((spirix_exp.wrapping_sub(1)).as_()),
             }
         } else {
             Self {
                 fraction: F::zero() - fraction_pos,
-                exponent: spirix_exp.as_(),
+                exponent: Self::from_v01_exp(spirix_exp.as_()),
             }
         }
     }
@@ -379,17 +379,17 @@ where
         }
 
         if sign == 0 {
-            return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
+            return Self { fraction: fraction_pos, exponent: Self::from_v01_exp(spirix_exp.as_()) };
         }
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: (spirix_exp.wrapping_sub(1)).as_(),
+                exponent: Self::from_v01_exp((spirix_exp.wrapping_sub(1)).as_()),
             }
         } else {
             Self {
                 fraction: F::zero() - fraction_pos,
-                exponent: spirix_exp.as_(),
+                exponent: Self::from_v01_exp(spirix_exp.as_()),
             }
         }
     }
@@ -473,7 +473,7 @@ macro_rules! impl_from_int {
                         // value = MIN = -2^(bits-1). Under v0.1 ruler, represent as neg_one_normal at exp = bits-2.
                         return Self {
                             fraction: Self::neg_one_normal(),
-                            exponent: bits.wrapping_sub(2).as_(),
+                            exponent: Self::from_v01_exp(bits.wrapping_sub(2).as_()),
                         };
                     } else if negative {
                         value.wrapping_neg()
@@ -504,7 +504,7 @@ macro_rules! impl_from_int {
                     };
 
                     if !negative {
-                        return Self { fraction: fraction_pos, exponent: spirix_exp.as_() };
+                        return Self { fraction: fraction_pos, exponent: Self::from_v01_exp(spirix_exp.as_()) };
                     }
 
                     // Negation: power-of-2 boundary requires exponent shift. {pos_one_normal, e} negated → {neg_one_normal, e-1}
@@ -512,12 +512,12 @@ macro_rules! impl_from_int {
                     if fraction_pos == Self::pos_one_normal() {
                         Self {
                             fraction: Self::neg_one_normal(),
-                            exponent: spirix_exp.wrapping_sub(1).as_(),
+                            exponent: Self::from_v01_exp(spirix_exp.wrapping_sub(1).as_()),
                         }
                     } else {
                         Self {
                             fraction: F::zero() - fraction_pos,
-                            exponent: spirix_exp.as_(),
+                            exponent: Self::from_v01_exp(spirix_exp.as_()),
                         }
                     }
                 }
@@ -730,7 +730,7 @@ macro_rules! impl_from_uint {
                         let intermediate: F = value.as_();
                         intermediate << shift as usize
                     };
-                    Self { fraction, exponent: spirix_exp.as_() }
+                    Self { fraction, exponent: Self::from_v01_exp(spirix_exp.as_()) }
                 }
             }
             impl<F: Integer+FullInt, E: Integer+FullInt> From<&mut $u> for Scalar<F, E>
@@ -871,22 +871,22 @@ impl Scalar<i16, i16> {
         let raw_exp = ((bits >> 23) & 0xFF) as i16;
         let mantissa = bits & 0x7F_FFFF;
 
-        // Special values. v0.1: AMBIG sentinel at E::MAX.
+        // Special values. New AMBIG=0 convention: sentinel at the all-zeros bit pattern.
         if raw_exp == 0xFF {
             if mantissa != 0 {
                 // NaN → undefined (generic N-3 prefix)
-                return Scalar { fraction: 0xE000u16 as i16, exponent: i16::MAX };
+                return Scalar { fraction: 0xE000u16 as i16, exponent: 0 };
             }
             return if sign != 0 {
                 // -Inf → EXPLODED_NEG
-                Scalar { fraction: i16::MIN, exponent: i16::MAX }
+                Scalar { fraction: i16::MIN, exponent: 0 }
             } else {
                 // +Inf → EXPLODED_POS
-                Scalar { fraction: -(i16::MIN >> 1), exponent: i16::MAX }
+                Scalar { fraction: -(i16::MIN >> 1), exponent: 0 }
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            return Scalar { fraction: 0, exponent: i16::MAX };
+            return Scalar { fraction: 0, exponent: 0 };
         }
 
         // Build positive magnitude (mantissa with implicit leading 1 for normals).
@@ -911,13 +911,13 @@ impl Scalar<i16, i16> {
         };
 
         if sign == 0 {
-            return Scalar { fraction: fraction_pos, exponent: spirix_exp };
+            return Scalar { fraction: fraction_pos, exponent: spirix_exp ^ i16::MIN };
         }
 
         if fraction_pos == i16::MIN {
-            return Scalar { fraction: 0, exponent: spirix_exp - 1 };
+            return Scalar { fraction: 0, exponent: (spirix_exp - 1) ^ i16::MIN };
         }
-        Scalar { fraction: -fraction_pos, exponent: spirix_exp }
+        Scalar { fraction: -fraction_pos, exponent: spirix_exp ^ i16::MIN }
     }
 }
 

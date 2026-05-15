@@ -63,9 +63,9 @@ fn test_undefined_state_generation() {
     let zero_div_zero = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
     assert!(zero_div_zero.is_undefined());
 
-    // Infinity minus infinity
+    // Infinity minus infinity: signless [∞] makes −∞ a no-op, so ∞ − ∞ = ∞ (absorbs).
     let inf_minus_inf = ScalarF5E3::INFINITY - ScalarF5E3::INFINITY;
-    assert!(inf_minus_inf.is_undefined());
+    assert!(inf_minus_inf.is_infinite());
 
     // Infinity divided by infinity
     let inf_div_inf = ScalarF5E3::INFINITY / ScalarF5E3::INFINITY;
@@ -263,8 +263,8 @@ fn test_zero_and_infinity_special_cases() {
     // 1/0 = ∞ in Spirix (only 0/0 = ℘)
     assert!((normal / zero).is_infinite());
 
-    // Infinity operations ∞ + finite = ℘ (transfinite plus finite is undefined in Spirix)
-    assert!((infinity + normal).is_undefined());
+    // Infinity operations: signless [∞] absorbs everything additive.
+    assert!((infinity + normal).is_infinite());
     // ∞ * finite = ∞ (multiplication preserves infinity)
     assert!((infinity * normal).is_infinite());
     assert!((normal / infinity) == zero);

@@ -26,8 +26,12 @@ FIG=/tmp/patent_figures.tex
     echo "\\end{document}"
 } > "$FIG"
 
+PATENT_DIR=$(pwd)
 cd /tmp
 # Two passes for cross-references (the brief-description figure numbers etc).
+# TEXINPUTS lets xelatex find image files (Number line.pdf, truth tables, etc.)
+# that live alongside the source in the patent directory.
+export TEXINPUTS="$PATENT_DIR:$TEXINPUTS"
 xelatex -interaction=nonstopmode patent_figures.tex > /tmp/figs1.log 2>&1 || true
 xelatex -interaction=nonstopmode patent_figures.tex > /tmp/figs2.log 2>&1 || true
 

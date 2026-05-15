@@ -38,7 +38,8 @@ module top_extclk #(
     output wire ntsc_sync,      // C4 — held low (CRT not used)
     output wire ntsc_vid,       // D4
     output wire oled_scl,       // P2
-    output wire oled_sda        // R2
+    output wire oled_sda,       // R2
+    inout  wire p27, p28, p44, p49, p50, p51, p56, p57, p62, p63  // dozenal keypad
 );
 
     // =========================================================================
@@ -67,22 +68,34 @@ module top_extclk #(
     assign ntsc_vid  = 1'b0;
 
 `ifdef RING_TEST
-    // 7-stage internal ring oscillator (pure fabric, no I/O round trip).
-    // Each LUT4 with INIT=0x5555 is a NOT on input A. (* keep *) prevents
-    // yosys from optimizing the combinational loop to a constant.
-    // (* noglobal *) prevents nextpnr from promoting count_clk to a DCCA
-    // global clock buffer, which would inject ~3-5 ns into the loop.
-    (* noglobal *) wire [6:0] ring_q;
+`ifndef RING_STAGES
+  `define RING_STAGES 13
+`endif
+    // Single-inverter ring oscillator. Stage 0 is a NOT (LUT4 INIT=h5555 →
+    // Z=~A); stages 1..N-1 are BUFs (LUT4 INIT=hAAAA → Z=A). Exactly one
+    // inversion per loop, so RING_STAGES can be any integer ≥ 1 (no parity
+    // restriction). (* keep *) on each LUT4 prevents yosys from optimizing
+    // the BUFs away. (* noglobal *) on count_clk prevents nextpnr from
+    // promoting it to a DCCA global clock buffer.
+    (* noglobal *) wire [`RING_STAGES-1:0] ring_q;
+
+    (* keep *) LUT4 #(.INIT(16'h5555)) ring_inv (
+        .A(ring_q[`RING_STAGES-1]),
+        .B(1'b0), .C(1'b0), .D(1'b0),
+        .Z(ring_q[0])
+    );
+
     genvar ri;
     generate
-        for (ri = 0; ri < 7; ri = ri + 1) begin : ring_stages
-            (* keep *) LUT4 #(.INIT(16'h5555)) inv (
-                .A(ring_q[(ri == 0) ? 6 : ri - 1]),
+        for (ri = 1; ri < `RING_STAGES; ri = ri + 1) begin : ring_buf_stage
+            (* keep *) LUT4 #(.INIT(16'hAAAA)) ring_buf (
+                .A(ring_q[ri - 1]),
                 .B(1'b0), .C(1'b0), .D(1'b0),
                 .Z(ring_q[ri])
             );
         end
     endgenerate
+
     (* noglobal *) wire count_clk = ring_q[0];
 `elsif PLL_TEST
 `ifndef PLL_FBDIV
@@ -129,102 +142,190 @@ module top_extclk #(
         .LOCK(pll_locked)
     );
     wire count_clk = pll_clk;
+`elsif DDS_TEST
+`ifndef DDS_PLL_FBDIV
+  `define DDS_PLL_FBDIV 40
+`endif
+`ifndef DDS_K
+  `define DDS_K 32'h4000_0000
+`endif
+    // 25 MHz × DDS_PLL_FBDIV = high-freq PLL (default 1000 MHz, FBDIV=40)
+    // 32-bit DDS phase accumulator clocked at PLL rate.
+    // Output (count_clk) = MSB of accumulator, average freq = K × PLL / 2^32.
+    // Jitter ±1 PLL cycle on individual edges, but average freq is exact.
+    wire dds_pll_clk;
+    wire dds_pll_locked;
+    (* FREQUENCY_PIN_CLKI="25" *)
+    (* FREQUENCY_PIN_CLKOP="1000" *)
+    (* ICP_CURRENT="12" *) (* LPF_RESISTOR="8" *)
+    (* MFG_ENABLE_FILTEROPAMP="1" *) (* MFG_GMCREF_SEL="2" *)
+    EHXPLLL #(
+        .PLLRST_ENA("DISABLED"),
+        .INTFB_WAKE("DISABLED"),
+        .STDBY_ENABLE("DISABLED"),
+        .DPHASE_SOURCE("DISABLED"),
+        .OUTDIVIDER_MUXA("DIVA"),
+        .OUTDIVIDER_MUXB("DIVB"),
+        .OUTDIVIDER_MUXC("DIVC"),
+        .OUTDIVIDER_MUXD("DIVD"),
+        .CLKI_DIV(1),
+        .CLKOP_ENABLE("ENABLED"),
+        .CLKOP_DIV(1),
+        .CLKOP_CPHASE(0),
+        .CLKOP_FPHASE(0),
+        .FEEDBK_PATH("CLKOP"),
+        .CLKFB_DIV(`DDS_PLL_FBDIV)
+    ) dds_pll_i (
+        .RST(1'b0),
+        .STDBY(1'b0),
+        .CLKI(clk),
+        .CLKOP(dds_pll_clk),
+        .CLKFB(dds_pll_clk),
+        .CLKINTFB(),
+        .PHASESEL0(1'b0),
+        .PHASESEL1(1'b0),
+        .PHASEDIR(1'b1),
+        .PHASESTEP(1'b1),
+        .PHASELOADREG(1'b1),
+        .PLLWAKESYNC(1'b0),
+        .ENCLKOP(1'b0),
+        .LOCK(dds_pll_locked)
+    );
+
+    // Runtime-adjustable K register (clk domain). Step = 2^32 / 1000 ≈ 1 MHz.
+    localparam [31:0] K_STEP_1MHZ = 32'd4294967;
+    reg [31:0] dds_k_reg = `DDS_K;
+    always @(posedge clk) begin
+        if (ter_press)    dds_k_reg <= dds_k_reg + K_STEP_1MHZ;
+        if (teror_press)  dds_k_reg <= dds_k_reg - K_STEP_1MHZ;
+    end
+
+    // Sync K into dds_pll_clk domain (single FF — partial-update glitches are
+    // harmless for DDS, just adds 1 cycle of phase noise at update time).
+    reg [31:0] dds_k_pll;
+    always @(posedge dds_pll_clk) dds_k_pll <= dds_k_reg;
+
+    reg [31:0] dds_phase = 0;
+    always @(posedge dds_pll_clk) dds_phase <= dds_phase + dds_k_pll;
+
+    wire count_clk = dds_phase[31];
 `else
     wire count_clk = ext_clk;
 `endif
 
     // =========================================================================
-    // Counter — 32-stage async ripple, gated by `counter_enable`,
-    // async-resettable via `counter_reset`. Both signals are driven from the
-    // 25 MHz reference domain and synchronized into count_clk before use.
+    // Keypad — pure combinational decoder for ter (p44+p62) and teror (p44+p49).
+    // Drive p44 LOW continuously; tristate every other matrix pin. Only buttons
+    // connecting to p44 can pull a column LOW, so column reads directly identify
+    // ter/teror with no scan, no FSM, no settle wait, no clock counters.
+    // =========================================================================
+    wire [9:0] kp_in;
+    // pin_t[i] = 1 → tristate. p44 (idx 2) is the only driven row; everything else high-Z.
+    localparam [9:0] KP_T = 10'b11_11111011;  // bit 2 (p44) = 0, all others = 1
+    localparam [9:0] KP_DRV = 10'd0;          // when not tristate, drive LOW
+
+    BB bb_p27 (.B(p27), .I(KP_DRV[0]), .T(KP_T[0]), .O(kp_in[0]));
+    BB bb_p28 (.B(p28), .I(KP_DRV[1]), .T(KP_T[1]), .O(kp_in[1]));
+    BB bb_p44 (.B(p44), .I(KP_DRV[2]), .T(KP_T[2]), .O(kp_in[2]));
+    BB bb_p49 (.B(p49), .I(KP_DRV[3]), .T(KP_T[3]), .O(kp_in[3]));
+    BB bb_p50 (.B(p50), .I(KP_DRV[4]), .T(KP_T[4]), .O(kp_in[4]));
+    BB bb_p51 (.B(p51), .I(KP_DRV[5]), .T(KP_T[5]), .O(kp_in[5]));
+    BB bb_p56 (.B(p56), .I(KP_DRV[6]), .T(KP_T[6]), .O(kp_in[6]));
+    BB bb_p57 (.B(p57), .I(KP_DRV[7]), .T(KP_T[7]), .O(kp_in[7]));
+    BB bb_p62 (.B(p62), .I(KP_DRV[8]), .T(KP_T[8]), .O(kp_in[8]));
+    BB bb_p63 (.B(p63), .I(KP_DRV[9]), .T(KP_T[9]), .O(kp_in[9]));
+
+    // Active-low column reads. Pullup HIGH when no button connects p44 to that col.
+    wire is_ter   = !kp_in[8];   // p62 LOW → ter pressed
+    wire is_teror = !kp_in[3];   // p49 LOW → teror pressed
+
+    // Single-FF rising-edge detect per signal (one decode = one event).
+    reg ter_prev = 0, teror_prev = 0;
+    reg ter_press = 0, teror_press = 0;
+    always @(posedge clk) begin
+        ter_press   <= is_ter   && !ter_prev;
+        teror_press <= is_teror && !teror_prev;
+        ter_prev    <= is_ter;
+        teror_prev  <= is_teror;
+    end
+
+    // =========================================================================
+    // Counter — synchronous binary on count_clk, single-pulse snap-and-reset
+    // from the clk-domain 60 Hz window pulse.
     //
-    // The buffer LUT on count_clk_buf isolates the counter chain's load from
-    // the bare ext_clk pin, so any backwards-driven activity in the counter
-    // logic doesn't perturb the RC oscillator loop.
-    // =========================================================================
-    reg counter_enable = 1;
-    reg counter_reset  = 0;
-
-    reg [1:0] ena_sync;
-    reg [1:0] rst_sync;
-    always @(posedge count_clk) begin
-        ena_sync <= {ena_sync[0], counter_enable};
-        rst_sync <= {rst_sync[0], counter_reset};
-    end
-    wire ena_ext = ena_sync[1];
-    wire rst_ext = rst_sync[1];
-
-    reg [31:0] count;
-    always @(posedge count_clk or posedge rst_ext) begin
-        if (rst_ext)        count[0] <= 1'b0;
-        else if (ena_ext)   count[0] <= ~count[0];
-    end
-    genvar gi;
-    generate
-        for (gi = 1; gi < 32; gi = gi + 1) begin : ripple
-            always @(negedge count[gi-1] or posedge rst_ext) begin
-                if (rst_ext) count[gi] <= 1'b0;
-                else         count[gi] <= ~count[gi];
-            end
-        end
-    endgenerate
-
-    // =========================================================================
-    // 60 Hz windowed FSM
-    //   state 0  SAMPLE       — counter accumulating, window_cnt → SNAP_INTERVAL
-    //   state 1  DISCONNECT   — gate off, wait `settle` cycles for ripple to clear
-    //   state 2  READ         — snapshot count → count_snap, fire snap_pulse
-    //   state 3  RESET        — assert counter_reset, wait `settle` cycles
-    //   state 4  RECONNECT    — drop reset, re-enable, restart window → state 0
+    // Design:
+    //   - count_clk drives a synchronous 32-bit counter. All bits update on
+    //     the same edge → safe to sample any time (no ripple-flight hazard).
+    //   - clk emits a 60 Hz toggle (cap_tgl) per SNAP_INTERVAL. CDC'd into
+    //     count_clk via 2-FF sync + edge-detect → one count_clk pulse per
+    //     window. On that pulse, count_clk does
+    //       count_snapped <= count; count <= 1;
+    //     in the same cycle — register and reset together.
+    //   - count_snapped is 2-FF synced back to clk and latched into
+    //     count_snap on the NEXT window pulse (16.67 ms later), so the
+    //     multi-bit CDC always sees a fully-settled value.
+    //
+    // Replaces the old gated-ripple + 5-state FSM design that became
+    // unreliable at sub-MHz count_clk: the disable/enable signals took 2
+    // count_clk cycles to propagate via CDC, but the FSM only waited 4 clk
+    // cycles (160 ns), so the counter was still actively incrementing
+    // during READ at low frequencies. The single-pulse handshake removes
+    // the disable/enable entirely; correct at any count_clk.
     // =========================================================================
     localparam integer SNAP_INTERVAL = 25_000_000 / 60;  // = 416,666
 
-    reg [19:0] window_cnt = 0;
-    reg [3:0]  state      = 0;
-    reg [3:0]  settle     = 0;
+    // ---- clk domain: 60 Hz window pulse + toggle ----
+    reg [19:0] window_cnt    = 0;
+    reg        window_at_top = 0;
+    reg        cap_tgl       = 0;
+    always @(posedge clk) begin
+        window_at_top <= 1'b0;
+        if (global_reset) begin
+            window_cnt <= 0;
+        end else if (window_cnt == SNAP_INTERVAL - 1) begin
+            window_cnt    <= 0;
+            cap_tgl       <= ~cap_tgl;
+            window_at_top <= 1'b1;
+        end else begin
+            window_cnt <= window_cnt + 1;
+        end
+    end
+
+    // ---- count_clk domain: toggle CDC + edge detect ----
+    reg [1:0] cap_sync_ext = 0;
+    reg       cap_prev_ext = 0;
+    always @(posedge count_clk) begin
+        cap_sync_ext <= {cap_sync_ext[0], cap_tgl};
+        cap_prev_ext <= cap_sync_ext[1];
+    end
+    wire snap_ext = cap_sync_ext[1] ^ cap_prev_ext;
+
+    // ---- count_clk domain: synchronous counter + single-pulse snap-and-reset ----
+    reg [31:0] count         = 0;
+    reg [31:0] count_snapped = 0;
+    always @(posedge count_clk) begin
+        if (snap_ext) begin
+            count_snapped <= count;
+            count         <= 32'd1;   // this edge counts as 1 toward the new window
+        end else begin
+            count <= count + 1'b1;
+        end
+    end
+
+    // ---- clk domain: 2-FF sync of count_snapped + latch on next window pulse ----
+    reg [31:0] snap_sync1 = 0, snap_sync2 = 0;
+    always @(posedge clk) begin
+        snap_sync1 <= count_snapped;
+        snap_sync2 <= snap_sync1;
+    end
+
     reg [31:0] count_snap = 0;
     reg        snap_pulse = 0;
-
     always @(posedge clk) begin
         snap_pulse <= 1'b0;
-        if (global_reset) begin
-            state          <= 0;
-            window_cnt     <= 0;
-            settle         <= 0;
-            counter_enable <= 1;
-            counter_reset  <= 0;
-        end else begin
-            case (state)
-                4'd0: begin // SAMPLE
-                    window_cnt <= window_cnt + 1;
-                    if (window_cnt == SNAP_INTERVAL - 1) begin
-                        counter_enable <= 1'b0;
-                        settle         <= 0;
-                        state          <= 4'd1;
-                    end
-                end
-                4'd1: begin // DISCONNECT (settle ripple)
-                    settle <= settle + 1;
-                    if (settle == 4'd4) state <= 4'd2;
-                end
-                4'd2: begin // READ
-                    count_snap <= count;
-                    snap_pulse <= 1'b1;
-                    settle     <= 0;
-                    state      <= 4'd3;
-                end
-                4'd3: begin // RESET counter
-                    counter_reset <= 1'b1;
-                    settle        <= settle + 1;
-                    if (settle == 4'd4) state <= 4'd4;
-                end
-                4'd4: begin // RECONNECT
-                    counter_reset  <= 1'b0;
-                    counter_enable <= 1'b1;
-                    window_cnt     <= 0;
-                    state          <= 4'd0;
-                end
-            endcase
+        if (window_at_top) begin
+            count_snap <= snap_sync2;
+            snap_pulse <= 1'b1;
         end
     end
 
@@ -298,13 +399,167 @@ module top_extclk #(
     initial $readmemh("decimal_glyphs.mem", glyph_rom);
 
     // =========================================================================
-    // LFSR dither (32-bit Galois, period 2^32-1)
+    // LFSR dither (32-bit Galois, period 2^32-1) — clk domain, OLED greyscale
     // =========================================================================
     reg [31:0] lfsr = 32'hCAFE_BABE;
     always @(posedge clk) begin
         lfsr <= {lfsr[0], lfsr[31:1]} ^ ({32{lfsr[0]}} & 32'h80200003);
     end
     wire [7:0] dither = lfsr[7:0];
+
+`ifdef BENCH
+    // =========================================================================
+    // Bench harness — count_clk (= PLL) domain
+    // Phase: IDLE → GOLD (CE=1/256) → SWITCH (LFSR replay) → TEST (CE=1) → DONE
+    // 18-bit protocol counter: warmup [0..32767], accumulate [32768..131071]
+    // 32-bit accumulator captures gold then test; mismatch = gold ^ test
+    // =========================================================================
+    localparam [2:0] PH_IDLE   = 3'd0,
+                     PH_GOLD   = 3'd1,
+                     PH_SWITCH = 3'd2,
+                     PH_TEST   = 3'd3,
+                     PH_DONE   = 3'd4;
+    reg [2:0] bench_phase = PH_IDLE;
+
+    // 64-bit Galois LFSR, taps x^64+x^63+x^61+x^60
+    localparam [63:0] LFSR_SEED = 64'hCAFE_BABE_DEAD_BEEF;
+    localparam [63:0] LFSR_TAPS = 64'hD800000000000000;
+    reg  [63:0] dut_lfsr;
+    wire        dut_lfsr_fb = dut_lfsr[0];
+    wire [63:0] dut_lfsr_next = {1'b0, dut_lfsr[63:1]} ^ (dut_lfsr_fb ? LFSR_TAPS : 64'b0);
+    reg  [63:0] captured_seed;
+
+    // Free-running entropy counter in clk domain, sampled into count_clk at IDLE
+    reg [63:0] entropy = 0;
+    always @(posedge clk) entropy <= entropy + 1;
+    reg [63:0] entropy_sync;
+    always @(posedge count_clk) entropy_sync <= entropy;
+
+    // Sync global_reset into count_clk domain
+    reg [1:0] bench_rst_sync;
+    always @(posedge count_clk) bench_rst_sync <= {bench_rst_sync[0], global_reset};
+    wire bench_reset = bench_rst_sync[1];
+
+    // CE generator — gold = 1 every 256 count_clk, test = every count_clk
+    reg [7:0] ce_div_dut = 0;
+    reg       ce_dut = 0;
+    always @(posedge count_clk) begin
+        ce_div_dut <= (ce_div_dut == 8'd255) ? 8'd0 : ce_div_dut + 1;
+        ce_dut     <= (bench_phase == PH_TEST) || (ce_div_dut == 8'd255);
+    end
+
+    // 18-bit split protocol counter (registered carry between halves)
+    reg [8:0] proto_lo;
+    reg [8:0] proto_hi;
+    reg       proto_carry;
+    wire      proto_done    = proto_hi[8];
+    // `accumulating` is intended to mean "proto_hi >= 64" — a single
+    // contiguous window from sample 32768 to 131071. The original code used a
+    // bare bit-tap `proto_hi[6]` which is NOT equivalent: bit 6 toggles 4
+    // times across the 0..256 sweep (off / on / off / on), giving two
+    // disjoint accumulating windows. Replace with `>= 64` implemented as
+    // `proto_hi[7] | proto_hi[6]` — same 1-LUT cost, correct single-window.
+    wire      accumulating  = (proto_hi[7] | proto_hi[6]) & ~proto_done;
+
+    // DUT — 32-bit registered passthrough
+    wire [31:0] dut_in   = dut_lfsr[31:0];
+    reg  [31:0] dut_out_r;
+    always @(posedge count_clk) if (ce_dut) dut_out_r <= dut_in;
+    wire [31:0] dut_out  = dut_out_r;
+
+    reg [31:0] accum;
+    reg [31:0] gold_reg = 0;
+    reg [31:0] test_reg = 0;
+    // Toggles on each PH_TEST → PH_DONE transition. CDC'd to clk for edge-
+    // detect so display_miss latches exactly once per real capture (not
+    // continuously, which lets it transiently show garbage during PH_GOLD
+    // where gold_reg has accumulated but test_reg is still zero).
+    reg        capture_tick = 0;
+
+    always @(posedge count_clk) begin
+        if (bench_reset) begin
+            bench_phase   <= PH_IDLE;
+            dut_lfsr      <= LFSR_SEED;
+            captured_seed <= LFSR_SEED;
+            proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
+            accum    <= 0;
+            gold_reg <= 0;
+            test_reg <= 0;
+        end else begin
+            case (bench_phase)
+                PH_IDLE: begin
+                    captured_seed <= dut_lfsr ^ entropy_sync;
+                    dut_lfsr      <= dut_lfsr ^ entropy_sync;
+                    proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
+                    accum    <= 0;
+                    bench_phase <= PH_GOLD;
+                end
+                PH_GOLD: begin
+                    if (proto_done) begin
+                        gold_reg    <= accum;
+                        bench_phase <= PH_SWITCH;
+                    end
+                end
+                PH_SWITCH: begin
+                    dut_lfsr <= captured_seed;
+                    proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
+                    accum    <= 0;
+                    bench_phase <= PH_TEST;
+                end
+                PH_TEST: begin
+                    if (proto_done) begin
+                        test_reg     <= accum;
+                        capture_tick <= ~capture_tick;
+                        bench_phase  <= PH_DONE;
+                    end
+                end
+                PH_DONE: ;  // hold values
+            endcase
+
+            // CE-gated datapath — only during GOLD/TEST
+            if (ce_dut && (bench_phase == PH_GOLD || bench_phase == PH_TEST)) begin
+                dut_lfsr <= dut_lfsr_next;
+
+                if (!proto_done) begin
+                    proto_lo    <= proto_lo + 1;
+                    proto_carry <= &proto_lo;
+                    proto_hi    <= proto_hi + {8'b0, proto_carry};
+                end
+
+                if (accumulating)
+                    accum <= {accum[30:0], accum[31]} ^ dut_out;
+            end
+        end
+    end
+
+    // CDC: gold_reg, test_reg → clk domain (change rarely, 2-FF sync is safe)
+    reg [31:0] gold_sync1, gold_sync2;
+    reg [31:0] test_sync1, test_sync2;
+    always @(posedge clk) begin
+        gold_sync1 <= gold_reg; gold_sync2 <= gold_sync1;
+        test_sync1 <= test_reg; test_sync2 <= test_sync1;
+    end
+    wire [31:0] display_gold = gold_sync2;
+    wire [31:0] display_test = test_sync2;
+
+    // capture_tick toggle CDC + edge-detect: pulse high one clk cycle per
+    // PH_TEST → PH_DONE transition.
+    reg [1:0] cap_sync = 0;
+    reg       cap_prev = 0;
+    always @(posedge clk) begin
+        cap_sync <= {cap_sync[0], capture_tick};
+        cap_prev <= cap_sync[1];
+    end
+    wire capture_pulse = cap_sync[1] ^ cap_prev;
+
+    // display_miss is latched on capture_pulse — between captures gold_reg
+    // gets reset/refilled while test_reg may still hold the prior cycle, so
+    // a live XOR would show transient "fail" patterns in band 3.
+    reg [31:0] display_miss = 0;
+    always @(posedge clk) begin
+        if (capture_pulse) display_miss <= display_gold ^ display_test;
+    end
+`endif
 
     // =========================================================================
     // 8bpp framebuffer (128 × 64), continuous write at 25 MHz
@@ -316,7 +571,13 @@ module top_extclk #(
 
     // Bands
     wire in_freq_band   = (wr_row < 6'd16);                                // rows 0..15
+`ifdef BENCH
+    wire in_gold_band   = (wr_row >= 6'd16) && (wr_row < 6'd32);           // rows 16..31
+    wire in_test_band   = (wr_row >= 6'd32) && (wr_row < 6'd48);           // rows 32..47
+    wire in_miss_band   = (wr_row >= 6'd48);                                // rows 48..63
+`else
     wire in_binary_band = (wr_row >= 6'd16) && (wr_row < 6'd32);           // rows 16..31
+`endif
 
 `ifdef FONT_TEST
     // ----- Font test: 10 cells × 12 wide showing digits 0-9 at top -----
@@ -408,17 +669,36 @@ module top_extclk #(
     wire [7:0]  freq_pixel  = (in_freq_band && in_digit_area && freq_slot_valid)
                               ? glyph_pixel : 8'h00;
 
-    // ----- Binary ruler: 32 cells × 4 px wide × 16 rows tall -----
-    // Cell N (col 4N..4N+3) shows display_count[31 - N]. MSB on the left.
-    // Light grey (0xC0) for 1, dark grey (0x40) for 0.
+    // ----- Bit display (32 cells × 4 px wide) -----
+    // Alternating bright/dark pairs per bit position so adjacent bits are
+    // always visually distinct AND the bit value is readable at a glance:
+    //   even bit index: 0 → 0   (black),     1 → 191 (light grey)
+    //   odd  bit index: 0 → 32  (dark grey), 1 → 255 (white)
     wire [4:0] bit_idx       = wr_col[6:2];                  // 0..31
+    wire       bit_pos_odd   = bit_idx[0];
+
+`ifdef BENCH
+    wire [31:0] band_value = in_gold_band ? display_gold :
+                             in_test_band ? display_test :
+                                            display_miss;
+    wire        bit_value   = band_value[5'd31 - bit_idx];   // MSB on left
+    wire [7:0]  bit_pixel   = bit_pos_odd ? (bit_value ? 8'd255 : 8'd32)
+                                          : (bit_value ? 8'd191 : 8'd0);
+
+    wire [7:0] fb_wr_pixel =
+        in_freq_band                                ? freq_pixel :
+        (in_gold_band || in_test_band || in_miss_band) ? bit_pixel :
+                                                      8'h00;
+`else
     wire       bin_bit_value = display_count[5'd31 - bit_idx];
-    wire [7:0] binary_pixel  = bin_bit_value ? 8'hC0 : 8'h40;
+    wire [7:0] binary_pixel  = bit_pos_odd ? (bin_bit_value ? 8'd255 : 8'd32)
+                                            : (bin_bit_value ? 8'd191 : 8'd0);
 
     wire [7:0] fb_wr_pixel =
         in_freq_band   ? freq_pixel   :
         in_binary_band ? binary_pixel :
                          8'h00;
+`endif
 
     always @(posedge clk) begin
         fb[fb_wr_addr] <= fb_wr_pixel;

@@ -131,7 +131,12 @@ where
     /// ```
     pub(crate) fn scalar_add_scalar(&self, scalar: &Self) -> Self {
         if self.is_normal() && scalar.is_normal() {
-            let (big, small) = if self.exponent > scalar.exponent {
+            // Magnitude comparison on the cyclic unsigned-stored exponent: convert both
+            // operands to v0.1 form (XOR with E::MIN) so that signed `>` gives the
+            // correct cyclic-magnitude ordering. The XOR cancels in the subtraction
+            // below (since (a^M) - (b^M) ≡ a - b mod 2^N), so exp_diff is convention-
+            // independent.
+            let (big, small) = if self.v01_exp() > scalar.v01_exp() {
                 (self, scalar)
             } else {
                 (scalar, self)
@@ -143,7 +148,7 @@ where
 
             let shift: isize = exp_diff.saturate();
             // x86 implementation note: Spirix's signless design wants to drop small only when shift ≥ FRAC. But Wide = 2*FRAC bits, and the inflated form reaches 2^FRAC magnitude at the ±1.0 boundary, so big_f<<shift + small_f needs 2*FRAC+2 bits in the worst case — one bit more than Rust/x86 provides at any power-of-2 width. Tightening the threshold to FRAC-1 guarantees the sum fits in the signed 2*FRAC-bit intermediate, letting us use pure two's-complement arithmetic with no sign branching. Cost: dropping small at shift == FRAC-1 loses ≤1 ULP of its contribution. In Verilog this tightening is unnecessary — we just declare a 2*FRAC+2-bit intermediate and keep full precision.
-            if shift > Self::fraction_bits() {
+            if shift >= Self::fraction_bits().wrapping_sub(1) {
                 return *big;
             }
             let big_f = big.fraction.inflate(true).w_shl(shift);
@@ -158,12 +163,15 @@ where
             let leading = result.leading_same();
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading);
-            // v0.1 ruler + AMBIG=E::MAX: compute offset in a wider signed type (isize) and compare directly against the normal-range bounds.
-            // No wrap games — bounded by |delta| ≤ FRAC so isize never overflows.
-            let small_exp_wide: isize = small.exponent.saturate();
+            // v0.1 ruler arithmetic: compute the exponent offset in a wider signed type
+            // (isize), then convert to stored (new) form at the end via from_v01_exp.
+            // small.v01_exp() gives the v0.1-form interpretation of the stored exp; the
+            // range bounds use the v0.1-form helpers so the comparisons remain meaningful.
+            // Bounded by |delta| ≤ FRAC so isize never overflows.
+            let small_exp_wide: isize = small.v01_exp().saturate();
             let offset_wide: isize = small_exp_wide.wrapping_add(delta);
-            let max_exp_wide: isize = Self::max_exponent().saturate();
-            let min_exp_wide: isize = Self::min_exponent().saturate();
+            let max_exp_wide: isize = Self::v01_max_exponent().saturate();
+            let min_exp_wide: isize = Self::v01_min_exponent().saturate();
             if offset_wide > max_exp_wide {
                 return Self {
                     fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
@@ -176,7 +184,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            let offset: E = offset_wide.as_();
+            let offset: E = Self::from_v01_exp(offset_wide.as_());
             // Main path: `result << L >> FRAC` composed as a net shift of L-FRAC. Written directly to sidestep Rust's shift-overflow semantics when L == wide_bits (result is all sign bits).
             let shl_amount = leading.wrapping_sub(fb);
             let canonical = if shl_amount >= 0 {
@@ -195,37 +203,51 @@ where
         if scalar.is_undefined() {
             return *scalar;
         }
-        // Zero is the exact additive identity: X + [0] = [0] + X = X for every X, including transfinite. Checked before the transfinite branches so [↑]+[0], [0]+[↑], [∞]+[0], [0]+[∞] pass the non-zero operand through instead of producing a transfinite-plus-finite undefined.
+        // Infinity absorbs everything. [∞] is the signless Riemann-sphere point reached only by n/0; −∞ is a no-op so [∞]−[∞] = [∞] too. Checked before zero-identity and before any exploded/vanished branches so the [∞] row/column of the truth table absorbs uniformly.
+        if self.is_infinite() || scalar.is_infinite() {
+            return Self::INFINITY;
+        }
+        // Zero is the additive identity for every remaining class.
         if self.is_zero() {
             return *scalar;
         }
         if scalar.is_zero() {
             return *self;
         }
-        if self.is_transfinite() && scalar.is_transfinite() {
+        // [↑]+[↑] indeterminate: opposing phases could partially cancel back into normal range.
+        if self.exploded() && scalar.exploded() {
             return Self {
                 fraction: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        // [↓]+[↓] indeterminate: same-magnitude vanished collisions are non-recoverable.
         if self.vanished() && scalar.vanished() {
             return Self {
                 fraction: VANISHED_PLUS_VANISHED.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if self.is_transfinite() {
+        // [↑] vs normal/vanished: vanished is negligible so [↑]+[↓] = [↑]; normal could cancel so [↑]+[#] = ℘.
+        if self.exploded() {
+            if scalar.vanished() {
+                return *self;
+            }
             return Self {
                 fraction: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if scalar.is_transfinite() {
+        if scalar.exploded() {
+            if self.vanished() {
+                return *scalar;
+            }
             return Self {
                 fraction: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        // Remaining: vanished + normal → normal (vanished negligible).
         if self.vanished() {
             return *scalar;
         }

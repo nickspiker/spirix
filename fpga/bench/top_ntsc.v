@@ -9,7 +9,8 @@
 
 module top_ntsc (
     input  wire clk,       // 25 MHz oscillator (P6)
-    output reg  led,       // LED on T6 (active-low)
+    output reg  led,       // LED on T6 (active-low) — geiger random (alive indicator)
+    output wire ext_led,   // T2 (J4 pin 6) — keypad LED, solid ON = pass, OFF = fail
     input  wire btn,       // User button on R7 (active-low)
     output reg  ntsc_sync, // J1 R0 (C4) — 560Ω
     output reg  ntsc_vid,  // J1 G0 (D4) — 220Ω
@@ -26,7 +27,43 @@ module top_ntsc (
     reg [3:0] por_cnt = 0;
     wire      por_done = &por_cnt;
 
-`ifdef PLL_CLKFB_DIV
+`ifdef RING_STAGES
+    // Single-inverter ring oscillator drives sys_clk. The 25 MHz crystal
+    // (clk) is reserved for OLED display + windowed freq counter only.
+    // Stage 0 = NOT (LUT4 INIT=h5555). Stages 1..N-1 = BUFs (INIT=hAAAA).
+    // (* keep *) prevents BUF optimization. (* noglobal *) prevents nextpnr
+    // from inserting a DCCA buffer into the loop.
+    (* noglobal *) wire [`RING_STAGES-1:0] ring_q;
+
+    (* keep *) LUT4 #(.INIT(16'h5555)) ring_inv (
+        .A(ring_q[`RING_STAGES-1]),
+        .B(1'b0), .C(1'b0), .D(1'b0),
+        .Z(ring_q[0])
+    );
+    genvar ri;
+    generate
+        for (ri = 1; ri < `RING_STAGES; ri = ri + 1) begin : ring_buf_stage
+            (* keep *) LUT4 #(.INIT(16'hAAAA)) ring_buf (
+                .A(ring_q[ri - 1]),
+                .B(1'b0), .C(1'b0), .D(1'b0),
+                .Z(ring_q[ri])
+            );
+        end
+    endgenerate
+
+    // Explicitly buffer ring_q[0] through a DCCA (global clock network)
+    // for low-skew distribution to all sys_clk-clocked FFs (blake3, FSM,
+    // accumulator, ...). Without DCCA, sys_clk is direct-routed and the
+    // skew across blake3's wide datapath causes setup/hold failures even
+    // at frequencies far below silicon Fmax. The (* noglobal *) on ring_q
+    // keeps the oscillator loop itself fast (no DCCA delay inside the ring).
+    (* keep *) DCCA dcca_sys_clk (
+        .CLKI(ring_q[0]),
+        .CE  (1'b1),
+        .CLKO(sys_clk)
+    );
+    assign pll_lock = 1'b1;
+`elsif PLL_CLKFB_DIV
     (* ICP_CURRENT="12" *) (* LPF_RESISTOR="8" *)
     (* MFG_ENABLE_FILTEROPAMP="1" *) (* MFG_GMCREF_SEL="2" *)
     EHXPLLL #(
@@ -64,15 +101,155 @@ module top_ntsc (
     // Blake3 reset: active-low. Assert during POR and button hold.
     wire b3_reset_n = por_done & pll_lock & ~btn_held_sys;
 
+`ifdef RING_STAGES
+    // =========================================================================
+    // Ring frequency counter — synchronous-counter + single-pulse snap.
+    //
+    // Design:
+    //   - sys_clk drives a synchronous binary counter `fc_count`. All 32 bits
+    //     update simultaneously on each sys_clk edge → safe to sample at any
+    //     time (no ripple-flight hazard).
+    //   - clk emits a 60 Hz toggle (`fc_cap_tgl`) on each FC_SNAP_INTERVAL.
+    //     The toggle is CDC'd into sys_clk (2-FF sync + edge detect) → one
+    //     sys_clk-domain pulse per window.
+    //   - On that pulse sys_clk does fc_snapped <= fc_count and fc_count <= 1
+    //     in the SAME cycle — register and reset together, no lost count.
+    //   - fc_snapped is 2-FF synced back to clk and latched into count_snap
+    //     on the NEXT window pulse (~16.67 ms later), so the multi-bit CDC
+    //     always sees a fully-settled value.
+    //   - Display latency = one window = 16.67 ms, invisible to the eye.
+    //
+    // Replaces the old gated-ripple-counter + 5-state FSM design: the old
+    // design's disable/enable signals took 2 sys_clk cycles to propagate
+    // via CDC, but the FSM only waited 160 ns, so at sub-MHz sys_clk the
+    // counter was still incrementing during READ and the display sprayed
+    // bogus values across MHz ranges. The new design eliminates the
+    // disable/enable handshake entirely and is correct at any sys_clk.
+    //
+    // count_snap × MULT_K >> 32 = milli-MHz integer. MULT_K unchanged.
+    // =========================================================================
+    localparam integer FC_SNAP_INTERVAL = 25_000_000 / 60;  // 416666
+
+    // ---- clk domain: 60 Hz window pulse + toggle ----
+    reg [19:0] fc_window_cnt    = 0;
+    reg        fc_window_at_top = 0;
+    reg        fc_cap_tgl       = 0;
+    wire fc_global_reset = !por_done || btn_held_sys;
+    always @(posedge clk) begin
+        fc_window_at_top <= 1'b0;
+        if (fc_global_reset) begin
+            fc_window_cnt <= 0;
+        end else if (fc_window_cnt == FC_SNAP_INTERVAL - 1) begin
+            fc_window_cnt    <= 0;
+            fc_cap_tgl       <= ~fc_cap_tgl;
+            fc_window_at_top <= 1'b1;
+        end else begin
+            fc_window_cnt <= fc_window_cnt + 1;
+        end
+    end
+
+    // ---- sys_clk domain: toggle CDC + edge detect ----
+    reg [1:0] fc_cap_sync_sys = 0;
+    reg       fc_cap_prev_sys = 0;
+    always @(posedge sys_clk) begin
+        fc_cap_sync_sys <= {fc_cap_sync_sys[0], fc_cap_tgl};
+        fc_cap_prev_sys <= fc_cap_sync_sys[1];
+    end
+    wire fc_snap_sys = fc_cap_sync_sys[1] ^ fc_cap_prev_sys;
+
+    // ---- sys_clk domain: synchronous counter + single-pulse snap-and-reset ----
+    reg [31:0] fc_count   = 0;
+    reg [31:0] fc_snapped = 0;
+    always @(posedge sys_clk) begin
+        if (fc_snap_sys) begin
+            fc_snapped <= fc_count;
+            fc_count   <= 32'd1;   // this edge counts as 1 toward the new window
+        end else begin
+            fc_count <= fc_count + 1'b1;
+        end
+    end
+
+    // ---- clk domain: 2-FF sync fc_snapped + latch on next window pulse ----
+    reg [31:0] snap_sync1 = 0, snap_sync2 = 0;
+    always @(posedge clk) begin
+        snap_sync1 <= fc_snapped;
+        snap_sync2 <= snap_sync1;
+    end
+
+    reg [31:0] count_snap = 0;
+    reg        snap_pulse = 0;
+    always @(posedge clk) begin
+        snap_pulse <= 1'b0;
+        if (fc_window_at_top) begin
+            count_snap <= snap_sync2;
+            snap_pulse <= 1'b1;
+        end
+    end
+
+    // count_snap × MULT_K >> 32 = milli-MHz integer.
+    // K = ceil(25,000 × 2^32 / 416,666) = 257,698,453.
+    localparam [27:0] FC_MULT_K = 28'd257_698_453;
+    wire [59:0] fc_product   = count_snap * FC_MULT_K;
+    wire [22:0] milli_mhz    = fc_product[54:32];
+
+    // Double-dabble: 23-bit milli_mhz → 7 BCD digits (28 bits). 23 cycles.
+    reg snap_pulse_d = 0;
+    always @(posedge clk) snap_pulse_d <= snap_pulse;
+
+    reg [50:0] dd_reg;
+    reg [4:0]  dd_step;
+    reg        dd_busy;
+    reg [27:0] bcd_value = 0;
+
+    wire [50:0] dd_adjusted;
+    assign dd_adjusted[22: 0] = dd_reg[22: 0];
+    assign dd_adjusted[26:23] = (dd_reg[26:23] >= 4'd5) ? dd_reg[26:23] + 4'd3 : dd_reg[26:23];
+    assign dd_adjusted[30:27] = (dd_reg[30:27] >= 4'd5) ? dd_reg[30:27] + 4'd3 : dd_reg[30:27];
+    assign dd_adjusted[34:31] = (dd_reg[34:31] >= 4'd5) ? dd_reg[34:31] + 4'd3 : dd_reg[34:31];
+    assign dd_adjusted[38:35] = (dd_reg[38:35] >= 4'd5) ? dd_reg[38:35] + 4'd3 : dd_reg[38:35];
+    assign dd_adjusted[42:39] = (dd_reg[42:39] >= 4'd5) ? dd_reg[42:39] + 4'd3 : dd_reg[42:39];
+    assign dd_adjusted[46:43] = (dd_reg[46:43] >= 4'd5) ? dd_reg[46:43] + 4'd3 : dd_reg[46:43];
+    assign dd_adjusted[50:47] = (dd_reg[50:47] >= 4'd5) ? dd_reg[50:47] + 4'd3 : dd_reg[50:47];
+    wire [50:0] dd_next = {dd_adjusted[49:0], 1'b0};
+
+    always @(posedge clk) begin
+        if (fc_global_reset) begin
+            dd_busy   <= 0;
+            bcd_value <= 0;
+        end else if (snap_pulse_d) begin
+            dd_reg  <= {28'd0, milli_mhz};
+            dd_step <= 0;
+            dd_busy <= 1;
+        end else if (dd_busy) begin
+            dd_reg  <= dd_next;
+            dd_step <= dd_step + 1;
+            if (dd_step == 5'd22) begin
+                dd_busy   <= 0;
+                bcd_value <= dd_next[50:23];
+            end
+        end
+    end
+
+    reg [27:0] display_bcd = 0;
+    always @(posedge clk) if (snap_pulse) display_bcd <= bcd_value;
+
+    // Glyph ROM — 11 glyphs × 12w × 16h × 8bpp = 2112 bytes. Slot 10 = '.'.
+    reg [7:0] glyph_rom [0:2111];
+    initial $readmemh("decimal_glyphs.mem", glyph_rom);
+`endif
+
     // =========================================================================
     // Constants
     // =========================================================================
     localparam CE_GOLD_DIV = 256;      // gold CE divider (effective freq = PLL/256)
 
     // Protocol: 18-bit counter, bit taps for events (zero comparisons)
-    //   [0..32767]      warmup (LFSR runs, no accumulation)
-    //   [32768..131071] accumulate (98304 cycles, 4× previous protocol)
-    //   bit 17 high     → done (≥131072)
+    //   [0..32767]                       warmup (LFSR runs, no accumulation)
+    //   [32768..65535] + [98304..131071] accumulate (65536 cycles total)
+    //   bit 17 high                      → done (≥131072)
+    // The accumulate window has a 32K hole at counts 65536..98303 because the
+    // bit-tap selects bit 15 (proto_hi[6]) directly instead of doing a ≥32768
+    // comparison. Symmetric across gold/test so the comparison stays valid.
     localparam PROTO_BITS = 18;
 
     // =========================================================================
@@ -506,7 +683,8 @@ module top_ntsc (
     reg iter_start = 0;
     always @(posedge sys_clk) begin
         iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Block iter_start during PH_IDLE/PH_SWITCH so we don't sample stale lfsr.
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             iter_busy <= 0;
         else if (ce && !iter_busy && !dut_busy_w)
             begin iter_start <= 1; iter_busy <= 1; end
@@ -580,7 +758,8 @@ module top_ntsc (
     reg iter_start = 0;
     always @(posedge sys_clk) begin
         iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Block iter_start during PH_IDLE/PH_SWITCH so we don't sample stale lfsr.
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             iter_busy <= 0;
         else if (ce && !iter_busy && !dut_busy_w)
             begin iter_start <= 1; iter_busy <= 1; end
@@ -614,7 +793,8 @@ module top_ntsc (
     reg iter_start = 0;
     always @(posedge sys_clk) begin
         iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Block iter_start during PH_IDLE/PH_SWITCH so we don't sample stale lfsr.
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             iter_busy <= 0;
         else if (ce && !iter_busy && !dut_busy_w)
             begin iter_start <= 1; iter_busy <= 1; end
@@ -648,7 +828,8 @@ module top_ntsc (
     reg iter_start = 0;
     always @(posedge sys_clk) begin
         iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Block iter_start during PH_IDLE/PH_SWITCH so we don't sample stale lfsr.
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             iter_busy <= 0;
         else if (ce && !iter_busy && !dut_busy_w)
             begin iter_start <= 1; iter_busy <= 1; end
@@ -665,6 +846,132 @@ module top_ntsc (
 
     wire [32:0] dut_out = {dut_r_exp, dut_r_frac};
     wire [31:0] mul_fold = dut_out[31:0] ^ {31'b0, dut_out[32]};
+    wire dut_advance = dut_done_w;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_SPIRIX_ADDSUB_P4
+    // ----- Spirix add/sub paper-comparison (FRAC=24, banker's RNE, 0 DSP) -----
+    wire signed [23:0] as_a_frac = lfsr[23:0];
+    wire signed  [7:0] as_a_exp  = lfsr[31:24];
+    wire signed [23:0] as_b_frac = lfsr[55:32];
+    wire signed  [7:0] as_b_exp  = lfsr[63:56];
+    wire               as_sub    = lfsr[0];
+
+    wire signed [23:0] as_r_frac;
+    wire signed  [7:0] as_r_exp;
+
+    spirix_addsub #(.FRAC_BITS(24), .EXP_BITS(8)) dut_as (
+        .a_frac(as_a_frac), .a_exp(as_a_exp),
+        .b_frac(as_b_frac), .b_exp(as_b_exp),
+        .sub(as_sub),
+        .result_frac(as_r_frac), .result_exp(as_r_exp)
+    );
+
+    reg signed [23:0] as_r_frac_r;
+    reg signed  [7:0] as_r_exp_r;
+    always @(posedge sys_clk) if (ce) begin
+        as_r_frac_r <= as_r_frac;
+        as_r_exp_r  <= as_r_exp;
+    end
+
+    wire [31:0] mul_fold = {as_r_exp_r, as_r_frac_r};
+
+`elsif DUT_SPIRIX_MUL_P4
+    // ----- Spirix multiply paper-comparison (FRAC=24, banker's RNE, 0 DSP) -----
+    wire signed [23:0] mp_a_frac = lfsr[23:0];
+    wire signed  [7:0] mp_a_exp  = lfsr[31:24];
+    wire signed [23:0] mp_b_frac = lfsr[55:32];
+    wire signed  [7:0] mp_b_exp  = lfsr[63:56];
+
+    wire signed [23:0] mp_r_frac;
+    wire signed  [7:0] mp_r_exp;
+
+    spirix_multiply #(.FRAC_BITS(24), .EXP_BITS(8)) dut_mp (
+        .a_frac(mp_a_frac), .a_exp(mp_a_exp),
+        .b_frac(mp_b_frac), .b_exp(mp_b_exp),
+        .result_frac(mp_r_frac), .result_exp(mp_r_exp)
+    );
+
+    reg signed [23:0] mp_r_frac_r;
+    reg signed  [7:0] mp_r_exp_r;
+    always @(posedge sys_clk) if (ce) begin
+        mp_r_frac_r <= mp_r_frac;
+        mp_r_exp_r  <= mp_r_exp;
+    end
+
+    wire [31:0] mul_fold = {mp_r_exp_r, mp_r_frac_r};
+
+`elsif DUT_SPIRIX_DIV_P4
+    // ----- Spirix divide PARALLEL=4 (paper-comparison FRAC=24, 7 cyc, 0 DSP) -----
+    wire signed [23:0] dut_a_frac = lfsr[23:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[31:24];
+    wire signed [23:0] dut_b_frac = lfsr[55:32];
+    wire signed  [7:0] dut_b_exp  = lfsr[63:56];
+
+    wire signed [23:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+    wire dut_busy_w, dut_done_w;
+
+    // Block iter_start during PH_IDLE/PH_SWITCH for parity with FPnew reset
+    // gating. Without this, an iter_start in PH_SWITCH samples stale gold-phase
+    // lfsr (captured_seed assignment hasn't taken effect yet), contaminating
+    // the first test-phase result and causing repeatable gold≠test mismatches.
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && !dut_busy_w)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (dut_done_w)
+            iter_busy <= 0;
+    end
+
+    spirix_divide #(.FRAC_BITS(24), .EXP_BITS(8), .PARALLEL(4)) dut (
+        .clk(sys_clk), .start(iter_start),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .b_frac(dut_b_frac), .b_exp(dut_b_exp),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp),
+        .busy(dut_busy_w), .done(dut_done_w)
+    );
+
+    wire [31:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out;
+    wire dut_advance = dut_done_w;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_SPIRIX_SQRT_P4
+    // ----- Spirix sqrt PARALLEL=4 (paper-comparison FRAC=24, 8 cyc, 0 DSP) -----
+    wire signed [23:0] dut_a_frac = lfsr[23:0];
+    wire signed  [7:0] dut_a_exp  = lfsr[31:24];
+
+    wire signed [23:0] dut_r_frac;
+    wire signed  [7:0] dut_r_exp;
+    wire dut_busy_w, dut_done_w;
+
+    // See DUT_SPIRIX_DIV_P4 note above: block iter_start during PH_IDLE/PH_SWITCH.
+    reg iter_busy = 0;
+    reg iter_start = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && !dut_busy_w)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (dut_done_w)
+            iter_busy <= 0;
+    end
+
+    spirix_sqrt #(.FRAC_BITS(24), .EXP_BITS(8), .PARALLEL(4)) dut (
+        .clk(sys_clk), .start(iter_start),
+        .a_frac(dut_a_frac), .a_exp(dut_a_exp),
+        .result_frac(dut_r_frac), .result_exp(dut_r_exp),
+        .busy(dut_busy_w), .done(dut_done_w)
+    );
+
+    wire [31:0] dut_out = {dut_r_exp, dut_r_frac};
+    wire [31:0] mul_fold = dut_out;
     wire dut_advance = dut_done_w;
 `define DUT_ITER_ADVANCE
 
@@ -685,7 +992,8 @@ module top_ntsc (
     reg iter_inValid = 0;
     always @(posedge sys_clk) begin
         iter_inValid <= 0;
-        if (btn_held_sys || !por_done)
+        // Block iter_inValid during PH_IDLE/PH_SWITCH (parity with FPnew/Spirix iterative).
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             iter_busy <= 0;
         else if (ce && !iter_busy && hf_inReady)
             begin iter_inValid <= 1; iter_busy <= 1; end
@@ -730,7 +1038,8 @@ module top_ntsc (
     reg iter_inValid = 0;
     always @(posedge sys_clk) begin
         iter_inValid <= 0;
-        if (btn_held_sys || !por_done)
+        // Block iter_inValid during PH_IDLE/PH_SWITCH (parity with FPnew/Spirix iterative).
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             iter_busy <= 0;
         else if (ce && !iter_busy && hf_inReady)
             begin iter_inValid <= 1; iter_busy <= 1; end
@@ -768,11 +1077,17 @@ module top_ntsc (
     wire [63:0] fpn_result64;
     wire [4:0]  fpn_fflags;
 
+    // Reset between phases so DUT state doesn't leak gold→test.
+    wire fpn_div_rst_n = b3_reset_n && (phase != PH_IDLE) && (phase != PH_SWITCH);
+
     reg iter_busy = 0;
     reg iter_start = 0;
     always @(posedge sys_clk) begin
         iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Clear iter_busy whenever DUT is in reset — otherwise an iter_start
+        // pulse fired during PH_IDLE/PH_SWITCH (when ce ticks but DUT ignores
+        // it) leaves iter_busy stuck at 1 forever and the handshake deadlocks.
+        if (btn_held_sys || !por_done || !fpn_div_rst_n)
             iter_busy <= 0;
         else if (ce && !iter_busy && fpn_ready)
             begin iter_start <= 1; iter_busy <= 1; end
@@ -782,7 +1097,7 @@ module top_ntsc (
 
     div_sqrt_mvp_wrapper #(.PrePipeline_depth_S(0), .PostPipeline_depth_S(0)) dut_fpn_div (
         .Clk_CI          (sys_clk),
-        .Rst_RBI         (b3_reset_n),
+        .Rst_RBI         (fpn_div_rst_n),
         .Div_start_SI    (iter_start),
         .Sqrt_start_SI   (1'b0),
         .Operand_a_DI    ({32'b0, ieee_a}),
@@ -811,21 +1126,24 @@ module top_ntsc (
     wire [63:0] fpn_result64;
     wire [4:0]  fpn_fflags;
 
+    // Reset between phases so DUT state doesn't leak gold→test.
+    wire fpn_sqrt_rst_n = b3_reset_n && (phase != PH_IDLE) && (phase != PH_SWITCH);
+
     reg iter_busy = 0;
     reg iter_start = 0;
     always @(posedge sys_clk) begin
         iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Clear iter_busy whenever DUT is in reset (see fpn_div note above).
+        if (btn_held_sys || !por_done || !fpn_sqrt_rst_n)
             iter_busy <= 0;
         else if (ce && !iter_busy && fpn_ready)
             begin iter_start <= 1; iter_busy <= 1; end
         else if (fpn_done)
             iter_busy <= 0;
     end
-
     div_sqrt_mvp_wrapper #(.PrePipeline_depth_S(0), .PostPipeline_depth_S(0)) dut_fpn_sqrt (
         .Clk_CI          (sys_clk),
-        .Rst_RBI         (b3_reset_n),
+        .Rst_RBI         (fpn_sqrt_rst_n),
         .Div_start_SI    (1'b0),
         .Sqrt_start_SI   (iter_start),
         .Operand_a_DI    ({32'b0, ieee_a}),
@@ -844,6 +1162,85 @@ module top_ntsc (
     always @(posedge sys_clk) if (fpn_done) fpn_out_r <= fpn_result64[31:0];
     wire [31:0] mul_fold = fpn_out_r;
     wire dut_advance = fpn_done;
+`define DUT_ITER_ADVANCE
+
+`elsif DUT_BLAKE3
+    // ----- BLAKE3 compression core (iterative, ~30 cycles per hash) -----
+    // 256-bit chain (BLAKE3 IV), 512-bit message tiled from lfsr/lfsr2,
+    // counter=0, numbytes=64, dflags = ROOT|CHUNK_END|CHUNK_START.
+    // Reset gated through PH_IDLE/PH_SWITCH so internal state doesn't leak
+    // gold→test (parity with FPnew div/sqrt iter pattern, see SYNTH_NOTES.md).
+    wire [255:0] b3_chain_in = {
+        32'h5BE0CD19, 32'h1F83D9AB, 32'h9B05688C, 32'h510E527F,
+        32'hA54FF53A, 32'h3C6EF372, 32'hBB67AE85, 32'h6A09E667
+    };
+    wire [511:0] b3_mblock_in = {
+        ~lfsr,
+        lfsr ^ 64'hAAAA_AAAA_AAAA_AAAA,
+        lfsr + 64'h1234_5678_9ABC_DEF0,
+        lfsr - 64'hFEDC_BA98_7654_3210,
+        lfsr2 ^ lfsr,
+        lfsr2,
+        lfsr2 + 64'h5555_5555_5555_5555,
+        lfsr
+    };
+
+    wire [511:0] b3_hash_out;
+    wire         b3_ready;       // o_valid: high during S_IDLE = ready for next input
+    wire blake3_rst_n = b3_reset_n && (phase != PH_IDLE) && (phase != PH_SWITCH);
+
+    reg iter_busy   = 0;
+    reg iter_start  = 0;
+    reg b3_ready_d  = 0;
+    always @(posedge sys_clk) begin
+        iter_start <= 0;
+        b3_ready_d <= b3_ready;
+        // Clear iter_busy whenever DUT is in reset — same defensive pattern
+        // as fpn_div: prevents handshake deadlock if iter_start fired during
+        // PH_IDLE/PH_SWITCH while DUT was held in reset.
+        if (btn_held_sys || !por_done || !blake3_rst_n)
+            iter_busy <= 0;
+        else if (ce && !iter_busy && b3_ready)
+            begin iter_start <= 1; iter_busy <= 1; end
+        else if (b3_ready && !b3_ready_d)
+            iter_busy <= 0;
+    end
+
+    // i_ce held high so blake3's internal FSM advances every sys_clk inside
+    // a hash. CE-gating happens at iter_start (matches spirix_divide_iter and
+    // FPnew div/sqrt pattern). Without this, blake3 deadlocks: iter_start is a
+    // 1-cycle pulse, but blake3.i_ce is only high 1/256 cycles in PH_GOLD, so
+    // blake3 misses the i_valid window and stays stuck in S_IDLE forever.
+    blake3 dut_blake3 (
+        .i_clk     (sys_clk),
+        .i_reset   (blake3_rst_n),
+        .i_ce      (1'b1),
+        .i_chain   (b3_chain_in),
+        .i_mblock  (b3_mblock_in),
+        .i_counter (64'd0),
+        .i_numbytes(32'd64),
+        .i_dflags  (32'h0000_000B),  // CHUNK_START | CHUNK_END | ROOT
+        .i_valid   (iter_start),
+        .o_hash    (b3_hash_out),
+        .o_valid   (b3_ready)
+    );
+
+    // Latch output on completion (rising edge of b3_ready)
+    reg [511:0] b3_out_r = 0;
+    always @(posedge sys_clk)
+        if (b3_ready && !b3_ready_d) b3_out_r <= b3_hash_out;
+
+    // XOR-fold 512 → 32 (matches xor_fold function pattern — manually unrolled)
+    wire [31:0] mul_fold = b3_out_r[ 31:  0] ^ b3_out_r[ 63: 32]
+                         ^ b3_out_r[ 95: 64] ^ b3_out_r[127: 96]
+                         ^ b3_out_r[159:128] ^ b3_out_r[191:160]
+                         ^ b3_out_r[223:192] ^ b3_out_r[255:224]
+                         ^ b3_out_r[287:256] ^ b3_out_r[319:288]
+                         ^ b3_out_r[351:320] ^ b3_out_r[383:352]
+                         ^ b3_out_r[415:384] ^ b3_out_r[447:416]
+                         ^ b3_out_r[479:448] ^ b3_out_r[511:480];
+
+    wire dut_advance = b3_ready && !b3_ready_d;  // rising edge = hash done
 `define DUT_ITER_ADVANCE
 
 `elsif DUT_SPIRIX_ADDBIT
@@ -1087,7 +1484,8 @@ module top_ntsc (
     reg ds_iter_start = 0;
     always @(posedge sys_clk) begin
         ds_iter_start <= 0;
-        if (btn_held_sys || !por_done)
+        // Block ds_iter_start during PH_IDLE/PH_SWITCH (parity with other iterative DUTs).
+        if (btn_held_sys || !por_done || phase == PH_IDLE || phase == PH_SWITCH)
             ds_iter_busy <= 0;
         else if (ce && !ds_iter_busy && !ds_busy_w)
             begin ds_iter_start <= 1; ds_iter_busy <= 1; end
@@ -1248,10 +1646,23 @@ module top_ntsc (
     reg [8:0] proto_hi;
     reg       proto_carry;  // registered carry from lo to hi
     wire       proto_done = proto_hi[8];             // bit tap: done at 131072
-    wire       accumulating = proto_hi[6] & ~proto_done;  // bit tap: accum from 32768..131071
+    // `accumulating` is intended to mean "proto_hi >= 64" — a single
+    // contiguous window from sample 32768 to 131071. The original code used a
+    // bare bit-tap `proto_hi[6]` which is NOT equivalent: bit 6 toggles 4
+    // times across the 0..256 sweep (off / on / off / on), giving two
+    // disjoint accumulating windows instead of one. Visually that shows up as
+    // the top-right pixel blinking twice per phase. Replace with `>= 64`
+    // implemented as `proto_hi[7] | proto_hi[6]` — same 1-LUT cost, correct
+    // single-window semantics.
+    wire       accumulating = (proto_hi[7] | proto_hi[6]) & ~proto_done;
     reg [31:0] accum;
     reg [31:0] gold_reg = 0, test_reg = 0;
     reg        test_done_sys = 0;
+    // Toggles on each PH_TEST → PH_DONE transition. CDC'd to clk for edge-
+    // detect so display_miss latches exactly once per real capture (not
+    // continuously, which would let it transiently show garbage during the
+    // next cycle's PH_GOLD accumulation).
+    reg        capture_tick = 0;
 
     always @(posedge sys_clk) begin
         if (!pll_lock || !por_done) begin
@@ -1328,6 +1739,7 @@ module top_ntsc (
                     if (proto_done) begin
                         test_reg      <= accum;
                         test_done_sys <= 1;
+                        capture_tick  <= ~capture_tick;
                         phase         <= PH_DONE;
                     end
                 end
@@ -1345,6 +1757,13 @@ module top_ntsc (
                         test_reg      <= 0;
                         phase         <= PH_IDLE;
                     end
+`else
+                    // Continuous-run mode: restart for live pass/fail flicker on
+                    // marginal frequencies. test_done_sys stays high until next test
+                    // captures, so display reflects the most recent comparison.
+                    proto_lo <= 0; proto_hi <= 0; proto_carry <= 0;
+                    accum    <= 0;
+                    phase    <= PH_IDLE;
 `endif
                 end
             endcase
@@ -1375,13 +1794,23 @@ module top_ntsc (
     wire btn_held_sys = ~btn_sync_sys[1];  // 1 when button held (sys_clk domain)
 
     // =========================================================================
-    // CDC: test_done_sys → clk domain
+    // CDC: test_done_sys → clk domain, plus capture_tick toggle for edge-
+    // detected per-capture latching of display_miss in the clk domain.
     // =========================================================================
     reg done_sync1 = 0, done_sync2 = 0;
     always @(posedge clk) begin
         done_sync1 <= test_done_sys;
         done_sync2 <= done_sync1;
     end
+
+    reg [1:0] cap_sync = 0;
+    reg       cap_prev = 0;
+    always @(posedge clk) begin
+        cap_sync <= {cap_sync[0], capture_tick};
+        cap_prev <= cap_sync[1];
+    end
+    // 1-clk pulse on each capture_tick toggle = one event per PH_DONE entry
+    wire capture_pulse = cap_sync[1] ^ cap_prev;
 
     reg lock_sync1 = 0, lock_sync2 = 0;
     always @(posedge clk) begin
@@ -1402,18 +1831,30 @@ module top_ntsc (
                         pass         ? 2'd1 : 2'd2;
 
     // =========================================================================
-    // LED (clk domain)
+    // LEDs:
+    //   led (T6): geiger random toggle, driven from the test-domain lfsr —
+    //     intentionally freezes if the test FSM hangs, so a stuck blinkey is
+    //     a real failure signal (don't mask it with a free-running LFSR).
+    //   ext_led (T2): latched pass/fail (assigned below).
     // =========================================================================
-    reg [24:0] blink_ctr = 0;
-    always @(posedge clk) blink_ctr <= blink_ctr + 1;
-
+    reg [14:0] geiger_cnt = 0;
     always @(posedge clk) begin
-        case (status)
-            2'd0:    led <= blink_ctr[24];
-            2'd2:    led <= (blink_ctr[24:22] != 3'b000);
-            default: led <= (blink_ctr[24:22] == 3'b000);
-        endcase
+        geiger_cnt <= geiger_cnt + 1;
+        if (&geiger_cnt) begin
+            if (led && lfsr[7:0] < 8'd8)
+                led <= 1'b0;
+            else if (!led && lfsr[7:0] < 8'd100)
+                led <= 1'b1;
+        end
     end
+
+    // Keypad LED: LATCHED pass/fail. Drives off the buffered display_miss
+    // (which only updates at the per-capture PH_DONE edge), so the LED
+    // reports the *last completed* gold-vs-test comparison and stays steady
+    // between captures. Previously this was a live `gold_reg == test_reg`
+    // comparison that flickered through every cycle as the registers were
+    // being mutated — useless for visual pass/fail.
+    assign ext_led = (display_miss == 32'd0);
 
     // =========================================================================
     // NTSC display (clk domain = 25 MHz)
@@ -1448,14 +1889,11 @@ module top_ntsc (
     // =========================================================================
     // OLED display (25 MHz clk domain, I2C)
     // =========================================================================
-    // CDC: snapshot sys_clk registers into clk domain (decorative, not critical)
-    // 128-bit wide: full LFSR state, DUT output + accumulators, entropy, control
-    reg [127:0] oled_r0, oled_r1, oled_r2, oled_r3;
-    reg [15:0] oled_gate;
-    always @(posedge clk) begin
 `ifdef DUT_MULTI_COMBO
-        // Live 4×4 grid: 3 states per cell (blank/fail-text/pass-white).
-        // combo_results = pass/fail, combo_tested = has been tested.
+    // 1-bpp overlay grid for unified-ALU width sweep (kept on the simple driver).
+    reg [127:0] oled_r0, oled_r1, oled_r2, oled_r3;
+    reg [15:0]  oled_gate;
+    always @(posedge clk) begin
         oled_gate <= combo_tested;
         oled_r0 <= {{32{combo_results[ 3]}}, {32{combo_results[ 2]}},
                     {32{combo_results[ 1]}}, {32{combo_results[ 0]}}};
@@ -1465,29 +1903,363 @@ module top_ntsc (
                     {32{combo_results[ 9]}}, {32{combo_results[ 8]}}};
         oled_r3 <= {{32{combo_results[15]}}, {32{combo_results[14]}},
                     {32{combo_results[13]}}, {32{combo_results[12]}}};
+    end
+    ssd1306_oled #(.OVERLAY_FILE("build/oled_overlay.mem"), .ENABLE_OVERLAY(1)) oled (
+        .clk(clk), .rst(~pll_lock),
+        .reg0(oled_r0), .reg1(oled_r1), .reg2(oled_r2), .reg3(oled_r3),
+        .overlay_gate(oled_gate),
+        .scl(oled_scl), .sda(oled_sda)
+    );
 `else
-        oled_gate <= 16'hFFFF;  // no gating for non-combo DUTs
-        oled_r0 <= {lfsr, lfsr2};                              // both LFSRs
-        oled_r1 <= {mul_fold, accum, gold_reg, test_reg};      // DUT + test state
-        oled_r2 <= {entropy, captured_seed};                   // entropy + seed
-        oled_r3 <= {captured_seed2, 64'b0};                    // seed2 + spare
-`endif
+    // Greyscale framebuffer + temporal dither (ported from top_extclk.v).
+    // 4 bands × 32 cells × 4-px-wide bit cells, even/odd brightness pairs.
+    //   Band 0 (rows  0..15): mul_fold (live DUT output)
+    //   Band 1 (rows 16..31): gold_reg (slow-CE accumulated hash)
+    //   Band 2 (rows 32..47): test_reg (full-speed accumulated hash)
+    //   Band 3 (rows 48..63): gold_reg ^ test_reg (mismatch pattern — lit = fail)
+
+    // CDC sys_clk → clk (rare-update regs, 2-FF sync safe).
+    reg [31:0] gold_sync1 = 0, gold_sync2 = 0;
+    reg [31:0] test_sync1 = 0, test_sync2 = 0;
+    reg [31:0] mul_sync1  = 0, mul_sync2  = 0;
+    always @(posedge clk) begin
+        gold_sync1 <= gold_reg; gold_sync2 <= gold_sync1;
+        test_sync1 <= test_reg; test_sync2 <= test_sync1;
+        mul_sync1  <= mul_fold; mul_sync2  <= mul_sync1;
+    end
+    wire [31:0] display_mul_live  = mul_sync2;
+    wire [31:0] display_gold_live = gold_sync2;
+    wire [31:0] display_test_live = test_sync2;
+
+    // Latch display values at OLED frame boundary (page wrap 7→0). Without this,
+    // mul_fold updates every clk cycle and band 0 fills with horizontal streaks
+    // since the framebuffer writer races the OLED reader. One snapshot per
+    // ~30 Hz frame → coherent bitmap.
+    reg [31:0] display_mul  = 0;
+    reg [31:0] display_gold = 0;
+    reg [31:0] display_test = 0;
+    // display_miss is latched separately and ONLY updates when phase enters
+    // PH_DONE — otherwise band 3 transiently shows "fail" during PH_GOLD when
+    // gold_reg has accumulated but test_reg is still zero.
+    reg [31:0] display_miss = 0;
+
+    // 32-bit Galois LFSR for per-pixel temporal dither.
+    reg [31:0] dith_lfsr = 32'hCAFE_BABE;
+    always @(posedge clk)
+        dith_lfsr <= {dith_lfsr[0], dith_lfsr[31:1]} ^ ({32{dith_lfsr[0]}} & 32'h80200003);
+    wire [7:0] dither = dith_lfsr[7:0];
+
+    // 8bpp framebuffer (128 × 64), continuous walk-and-write at 25 MHz.
+    reg [7:0]  fb [0:8191];
+    reg [12:0] fb_wr_addr = 0;
+    wire [6:0] wr_col = fb_wr_addr[6:0];
+    wire [5:0] wr_row = fb_wr_addr[12:7];
+
+    wire in_band0 = (wr_row < 6'd16);
+    wire in_band1 = (wr_row >= 6'd16) && (wr_row < 6'd32);
+    wire in_band2 = (wr_row >= 6'd32) && (wr_row < 6'd48);
+    // band3: wr_row >= 48 (implicit else)
+
+    wire [4:0]  bit_idx     = wr_col[6:2];     // 0..31
+    wire        bit_pos_odd = bit_idx[0];
+    wire [31:0] band_value  = in_band0 ? display_mul  :
+                              in_band1 ? display_gold :
+                              in_band2 ? display_test :
+                                         display_miss;
+    wire        bit_value   = band_value[5'd31 - bit_idx];   // MSB on left
+    wire [7:0]  bit_pixel   = bit_pos_odd ? (bit_value ? 8'd255 : 8'd32)
+                                          : (bit_value ? 8'd191 : 8'd0);
+
+`ifdef RING_STAGES
+    // Top band (rows 0..15) renders 8 BCD digit slots: 4 digits + '.' + 3 digits
+    // = 96 px wide, centered cols 16..112. Layout: NNN.NNN MHz with leading-zero
+    // suppression on the first 3 integer-position digits.
+    localparam integer FC_DIGIT_AREA_START = 16;
+    localparam integer FC_DIGIT_AREA_END   = 16 + 8 * 12;  // 112
+    wire fc_in_digit_area = (wr_col >= FC_DIGIT_AREA_START[6:0])
+                         && (wr_col < FC_DIGIT_AREA_END[6:0]);
+    wire [6:0] fc_rel_col = wr_col - FC_DIGIT_AREA_START[6:0];
+
+    reg [2:0] fc_freq_pos;
+    reg [3:0] fc_gx_in_cell;
+    always @(*) begin
+        if      (fc_rel_col < 7'd12) begin fc_freq_pos = 3'd0; fc_gx_in_cell = fc_rel_col[3:0]; end
+        else if (fc_rel_col < 7'd24) begin fc_freq_pos = 3'd1; fc_gx_in_cell = (fc_rel_col - 7'd12); end
+        else if (fc_rel_col < 7'd36) begin fc_freq_pos = 3'd2; fc_gx_in_cell = (fc_rel_col - 7'd24); end
+        else if (fc_rel_col < 7'd48) begin fc_freq_pos = 3'd3; fc_gx_in_cell = (fc_rel_col - 7'd36); end
+        else if (fc_rel_col < 7'd60) begin fc_freq_pos = 3'd4; fc_gx_in_cell = (fc_rel_col - 7'd48); end
+        else if (fc_rel_col < 7'd72) begin fc_freq_pos = 3'd5; fc_gx_in_cell = (fc_rel_col - 7'd60); end
+        else if (fc_rel_col < 7'd84) begin fc_freq_pos = 3'd6; fc_gx_in_cell = (fc_rel_col - 7'd72); end
+        else                          begin fc_freq_pos = 3'd7; fc_gx_in_cell = (fc_rel_col - 7'd84); end
+    end
+    wire [3:0] fc_gy = wr_row[3:0];
+
+    wire fc_suppress_p0 = (display_bcd[27:24] == 4'd0);
+    wire fc_suppress_p1 = fc_suppress_p0 && (display_bcd[23:20] == 4'd0);
+    wire fc_suppress_p2 = fc_suppress_p1 && (display_bcd[19:16] == 4'd0);
+
+    reg [3:0] fc_freq_slot;
+    reg       fc_freq_slot_valid;
+    always @(*) begin
+        case (fc_freq_pos)
+            3'd0: begin fc_freq_slot = display_bcd[27:24]; fc_freq_slot_valid = !fc_suppress_p0; end
+            3'd1: begin fc_freq_slot = display_bcd[23:20]; fc_freq_slot_valid = !fc_suppress_p1; end
+            3'd2: begin fc_freq_slot = display_bcd[19:16]; fc_freq_slot_valid = !fc_suppress_p2; end
+            3'd3: begin fc_freq_slot = display_bcd[15:12]; fc_freq_slot_valid = 1'b1; end
+            3'd4: begin fc_freq_slot = 4'd10;              fc_freq_slot_valid = 1'b1; end // '.'
+            3'd5: begin fc_freq_slot = display_bcd[11: 8]; fc_freq_slot_valid = 1'b1; end
+            3'd6: begin fc_freq_slot = display_bcd[ 7: 4]; fc_freq_slot_valid = 1'b1; end
+            3'd7: begin fc_freq_slot = display_bcd[ 3: 0]; fc_freq_slot_valid = 1'b1; end
+        endcase
     end
 
-`ifdef DUT_MULTI_COMBO
-    ssd1306_oled #(.OVERLAY_FILE("build/oled_overlay.mem"), .ENABLE_OVERLAY(1)) oled (
+    reg [11:0] fc_slot_offset;
+    always @(*) begin
+        case (fc_freq_slot)
+            4'd0:  fc_slot_offset = 12'd0;
+            4'd1:  fc_slot_offset = 12'd192;
+            4'd2:  fc_slot_offset = 12'd384;
+            4'd3:  fc_slot_offset = 12'd576;
+            4'd4:  fc_slot_offset = 12'd768;
+            4'd5:  fc_slot_offset = 12'd960;
+            4'd6:  fc_slot_offset = 12'd1152;
+            4'd7:  fc_slot_offset = 12'd1344;
+            4'd8:  fc_slot_offset = 12'd1536;
+            4'd9:  fc_slot_offset = 12'd1728;
+            4'd10: fc_slot_offset = 12'd1920;
+            default: fc_slot_offset = 12'd0;
+        endcase
+    end
+    wire [7:0]  fc_gy_x12     = ({4'd0, fc_gy} << 3) + ({4'd0, fc_gy} << 2);
+    wire [11:0] fc_glyph_addr = fc_slot_offset + {4'd0, fc_gy_x12} + {8'd0, fc_gx_in_cell};
+    wire [7:0]  fc_glyph_pixel = glyph_rom[fc_glyph_addr];
+    wire [7:0]  fc_freq_pixel  = (in_band0 && fc_in_digit_area && fc_freq_slot_valid)
+                                 ? fc_glyph_pixel : 8'h00;
+
+    wire [7:0] fb_wr_pixel = in_band0 ? fc_freq_pixel : bit_pixel;
 `else
-    ssd1306_oled oled (
+    wire [7:0] fb_wr_pixel = bit_pixel;
 `endif
-        .clk(clk),
-        .rst(~pll_lock),
-        .reg0(oled_r0),
-        .reg1(oled_r1),
-        .reg2(oled_r2),
-        .reg3(oled_r3),
-        .overlay_gate(oled_gate),
-        .scl(oled_scl),
-        .sda(oled_sda)
+
+    always @(posedge clk) begin
+        fb[fb_wr_addr] <= fb_wr_pixel;
+        fb_wr_addr     <= fb_wr_addr + 1;
+    end
+
+    // I2C clock-enable (one ce pulse per CLK_DIV ref cycles).
+    // CLK_DIV=7 matches working top_extclk.v setting (25 MHz/7 ≈ 3.57 MHz SCL — well above spec).
+    localparam OLED_CLK_DIV = 7;
+    reg [$clog2(OLED_CLK_DIV)-1:0] oled_cnt = 0;
+    wire oled_at_top = (oled_cnt == OLED_CLK_DIV - 1);
+    always @(posedge clk) oled_cnt <= oled_at_top ? 0 : oled_cnt + 1;
+    reg oled_ce = 0;
+    always @(posedge clk) oled_ce <= oled_at_top;
+
+    reg  [7:0] i2c_data;
+    reg        i2c_start;
+    reg        i2c_send_stop;
+    wire       i2c_busy;
+
+    ssd1306_i2c #(.CLK_DIV(OLED_CLK_DIV)) i2c (
+        .clk(clk), .rst(~pll_lock),
+        .data(i2c_data),
+        .start(i2c_start),
+        .send_start(1'b0),
+        .send_stop(i2c_send_stop),
+        .busy(i2c_busy),
+        .scl(oled_scl), .sda(oled_sda)
     );
+
+    localparam OLED_I2C_ADDR    = 8'h78;
+    localparam OLED_CMD_PREFIX  = 8'h00;
+    localparam OLED_DATA_PREFIX = 8'h40;
+    localparam OLED_INIT_LEN    = 25;
+    reg [7:0] oled_init_cmds [0:OLED_INIT_LEN-1];
+    initial begin
+        oled_init_cmds[ 0] = 8'hAE; oled_init_cmds[ 1] = 8'hD5;
+        oled_init_cmds[ 2] = 8'h80; oled_init_cmds[ 3] = 8'hA8;
+        oled_init_cmds[ 4] = 8'h3F; oled_init_cmds[ 5] = 8'hD3;
+        oled_init_cmds[ 6] = 8'h00; oled_init_cmds[ 7] = 8'h40;
+        oled_init_cmds[ 8] = 8'h8D; oled_init_cmds[ 9] = 8'h14;
+        oled_init_cmds[10] = 8'hAD; oled_init_cmds[11] = 8'h8B;
+        oled_init_cmds[12] = 8'hA1; oled_init_cmds[13] = 8'hC8;
+        oled_init_cmds[14] = 8'hDA; oled_init_cmds[15] = 8'h12;
+        oled_init_cmds[16] = 8'h81; oled_init_cmds[17] = 8'hCF;
+        oled_init_cmds[18] = 8'hD9; oled_init_cmds[19] = 8'hF1;
+        oled_init_cmds[20] = 8'hDB; oled_init_cmds[21] = 8'h40;
+        oled_init_cmds[22] = 8'hA4; oled_init_cmds[23] = 8'hA6;
+        oled_init_cmds[24] = 8'hAF;
+    end
+
+    localparam [2:0]
+        OST_RESET   = 3'd0, OST_SEND    = 3'd1, OST_WAIT    = 3'd2,
+        OST_NEXT    = 3'd3, OST_BUSFREE = 3'd4, OST_GATHER  = 3'd5;
+    localparam [1:0]
+        OPH_INIT      = 2'd0, OPH_PAGE_CMD  = 2'd1, OPH_PAGE_DATA = 2'd2;
+
+    reg [2:0]  oled_state       = OST_RESET;
+    reg [1:0]  oled_phase       = OPH_INIT;
+    reg [19:0] oled_reset_cnt   = 0;
+    reg [9:0]  oled_busfree_cnt = 0;
+    reg [4:0]  oled_cmd_idx     = 0;
+    reg [2:0]  oled_page        = 0;
+    reg [2:0]  oled_page_prev   = 0;
+    reg [6:0]  oled_col         = 0;
+    reg [7:0]  oled_px_byte     = 0;
+    reg [3:0]  oled_gather_cnt  = 0;
+    reg [7:0]  oled_fb_dout     = 0;
+
+    // Frame-start strobe: pulse on page wrap 7→0 (start of new OLED refresh).
+    wire oled_frame_start = (oled_page == 3'd0) && (oled_page_prev == 3'd7);
+    always @(posedge clk) if (oled_ce) oled_page_prev <= oled_page;
+
+    always @(posedge clk) if (oled_frame_start) begin
+        display_mul  <= display_mul_live;
+        display_gold <= display_gold_live;
+        display_test <= display_test_live;
+        // display_gold / display_test continuously sample the live values
+        // (so the gold/test bands stay lively as accumulation runs). But
+        // display_miss must NOT continuously update — between captures
+        // gold_reg gets reset/refilled while test_reg still holds the prior
+        // cycle, so a live XOR would show transient "fail" patterns.
+        // → see the always block below: latch exactly once per real capture.
+    end
+
+    // Per-test latch on display_miss. Fires when capture_pulse goes high
+    // (one clk cycle per PH_TEST → PH_DONE transition, edge-detected through
+    // a toggle CDC). At that moment both gold_reg and test_reg are stable
+    // and reflect the SAME cycle's gold/test accumulators.
+    always @(posedge clk) begin
+        if (capture_pulse) display_miss <= display_gold_live ^ display_test_live;
+    end
+
+    always @(posedge clk) if (oled_ce) begin
+        oled_fb_dout <= fb[{oled_page, oled_gather_cnt[2:0], oled_col}];
+        i2c_start    <= 0;
+
+        case (oled_state)
+            OST_RESET: begin
+                oled_reset_cnt <= oled_reset_cnt + 1;
+                if (&oled_reset_cnt) begin
+                    oled_phase   <= OPH_INIT;
+                    oled_cmd_idx <= 0;
+                    oled_page    <= 0;
+                    oled_col     <= 0;
+                    oled_state   <= OST_SEND;
+                end
+            end
+            OST_SEND: begin
+                if (!i2c_busy) begin
+                    case (oled_phase)
+                        OPH_INIT: begin
+                            if (oled_cmd_idx == 0) begin
+                                i2c_data      <= OLED_I2C_ADDR;
+                                i2c_send_stop <= 0;
+                            end else if (oled_cmd_idx == 1) begin
+                                i2c_data      <= OLED_CMD_PREFIX;
+                                i2c_send_stop <= 0;
+                            end else begin
+                                i2c_data      <= oled_init_cmds[oled_cmd_idx - 2];
+                                i2c_send_stop <= (oled_cmd_idx == OLED_INIT_LEN + 1);
+                            end
+                        end
+                        OPH_PAGE_CMD: begin
+                            case (oled_cmd_idx[2:0])
+                                3'd0: begin i2c_data <= OLED_I2C_ADDR;             i2c_send_stop <= 0; end
+                                3'd1: begin i2c_data <= OLED_CMD_PREFIX;           i2c_send_stop <= 0; end
+                                3'd2: begin i2c_data <= 8'hB0 | {5'd0, oled_page}; i2c_send_stop <= 0; end
+                                3'd3: begin i2c_data <= 8'h02;                     i2c_send_stop <= 0; end
+                                3'd4: begin i2c_data <= 8'h10;                     i2c_send_stop <= 1; end
+                                default: ;
+                            endcase
+                        end
+                        OPH_PAGE_DATA: begin
+                            if (oled_cmd_idx == 0) begin
+                                i2c_data      <= OLED_I2C_ADDR;
+                                i2c_send_stop <= 0;
+                            end else if (oled_cmd_idx == 1) begin
+                                i2c_data      <= OLED_DATA_PREFIX;
+                                i2c_send_stop <= 0;
+                            end else begin
+                                i2c_data      <= oled_px_byte;
+                                i2c_send_stop <= (oled_col == 7'd127);
+                            end
+                        end
+                    endcase
+                    i2c_start  <= 1;
+                    oled_state <= OST_WAIT;
+                end
+            end
+            OST_WAIT: begin
+                if (i2c_busy) oled_state <= OST_NEXT;
+            end
+            OST_NEXT: begin
+                if (!i2c_busy) begin
+                    case (oled_phase)
+                        OPH_INIT: begin
+                            if (oled_cmd_idx == OLED_INIT_LEN + 1) begin
+                                oled_phase   <= OPH_PAGE_CMD;
+                                oled_cmd_idx <= 0;
+                                oled_page    <= 0;
+                                oled_state   <= OST_BUSFREE;
+                            end else begin
+                                oled_cmd_idx <= oled_cmd_idx + 1;
+                                oled_state   <= OST_SEND;
+                            end
+                        end
+                        OPH_PAGE_CMD: begin
+                            if (oled_cmd_idx == 4) begin
+                                oled_phase      <= OPH_PAGE_DATA;
+                                oled_cmd_idx    <= 0;
+                                oled_col        <= 0;
+                                oled_gather_cnt <= 0;
+                                oled_state      <= OST_BUSFREE;
+                            end else begin
+                                oled_cmd_idx <= oled_cmd_idx + 1;
+                                oled_state   <= OST_SEND;
+                            end
+                        end
+                        OPH_PAGE_DATA: begin
+                            if (oled_cmd_idx < 2) begin
+                                oled_cmd_idx <= oled_cmd_idx + 1;
+                                if (oled_cmd_idx == 1) begin
+                                    oled_gather_cnt <= 0;
+                                    oled_state      <= OST_GATHER;
+                                end else begin
+                                    oled_state <= OST_SEND;
+                                end
+                            end else if (oled_col == 7'd127) begin
+                                oled_phase   <= OPH_PAGE_CMD;
+                                oled_cmd_idx <= 0;
+                                oled_page    <= (oled_page == 3'd7) ? 3'd0 : oled_page + 1;
+                                oled_state   <= OST_BUSFREE;
+                            end else begin
+                                oled_col        <= oled_col + 1;
+                                oled_gather_cnt <= 0;
+                                oled_state      <= OST_GATHER;
+                            end
+                        end
+                    endcase
+                end
+            end
+            OST_BUSFREE: begin
+                oled_busfree_cnt <= oled_busfree_cnt + 1;
+                if (&oled_busfree_cnt) begin
+                    oled_busfree_cnt <= 0;
+                    oled_state <= OST_SEND;
+                end
+            end
+            OST_GATHER: begin
+                oled_gather_cnt <= oled_gather_cnt + 1;
+                if (oled_gather_cnt >= 4'd1)
+                    oled_px_byte <= {(oled_fb_dout > dither), oled_px_byte[7:1]};
+                if (oled_gather_cnt == 4'd8) begin
+                    oled_gather_cnt <= 0;
+                    oled_state      <= OST_SEND;
+                end
+            end
+        endcase
+    end
+`endif
 
 endmodule

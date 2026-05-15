@@ -202,17 +202,15 @@ fn test_infinity_arithmetic_edge_cases() {
     let normal = ScalarF5E3::from(42.0);
     let zero = ScalarF5E3::ZERO;
 
-    // Infinity + Infinity = Undefined (transfinite + transfinite)
+    // Infinity is signless and absorbs: [∞]+[∞] = [∞], [∞]−[∞] = [∞] (no sign to cancel).
     let inf_plus_inf = infinity + infinity;
-    assert!(inf_plus_inf.is_undefined());
+    assert!(inf_plus_inf.is_infinite());
 
-    // Infinity - Infinity = Undefined
     let inf_minus_inf = infinity - infinity;
-    assert!(inf_minus_inf.is_undefined());
+    assert!(inf_minus_inf.is_infinite());
 
-    // Infinity + (-Infinity) = Undefined
     let inf_plus_neg_inf = infinity + neg_infinity;
-    assert!(inf_plus_neg_inf.is_undefined());
+    assert!(inf_plus_neg_inf.is_infinite());
 
     // Infinity * normal = Infinity (with correct sign)
     let inf_times_pos = infinity * normal;

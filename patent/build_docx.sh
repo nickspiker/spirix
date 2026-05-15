@@ -96,6 +96,33 @@ def clean_document_xml(data):
     if body is None:
         return data
 
+    # Strip Word field framing (fldChar begin/separate/end + instrText).
+    # tex4ht wraps the bibliography in a BIBLIOGRAPHY field, which Word
+    # renders with field shading (a grey box) around the entire reference
+    # list. Removing the fldChar/instrText runs leaves the visible
+    # bibliography text intact but kills the field, eliminating the shading.
+    for r in list(body.iter(f'{{{W}}}r')):
+        if (r.find(f'{{{W}}}fldChar') is not None or
+                r.find(f'{{{W}}}instrText') is not None):
+            r.getparent().remove(r)
+
+    # Unwrap internal hyperlinks (\ref cross-references) and strip the
+    # Hyperlink rStyle so the text renders as plain. tex4ht emits these as
+    # <w:hyperlink w:anchor="..."><w:r><w:rPr><w:rStyle w:val="Hyperlink"/>
+    # </w:rPr><w:t>N</w:t></w:r></w:hyperlink>, which Word draws with field
+    # shading (a grey box) plus navy+underlined text. None of that is wanted
+    # in a USPTO submission — the cross-ref text reads fine as plain.
+    for hl in list(body.iter(f'{{{W}}}hyperlink')):
+        parent = hl.getparent()
+        idx = list(parent).index(hl)
+        for child in list(hl):
+            for rstyle in child.findall(f'.//{{{W}}}rStyle'):
+                if rstyle.get(f'{{{W}}}val') == 'Hyperlink':
+                    rstyle.getparent().remove(rstyle)
+            parent.insert(idx, child)
+            idx += 1
+        parent.remove(hl)
+
     for p in list(body.iter(f'{{{W}}}p')):
         # 0) Strip page breaks from paragraphs with no text content. (Forced
         #    page breaks belong inside text-bearing paragraphs; stray ones in
@@ -144,6 +171,10 @@ def clean_document_xml(data):
 
         # 4) Drop the paragraph entirely if it has no visible content:
         #    no non-empty <w:t> text, no <w:br>, no <w:sectPr>.
+        #    EXCEPT: every <w:tc> must contain at least one block-level
+        #    child (typically <w:p>) per the OOXML spec. If we strip the
+        #    only paragraph in a cell, Word/LibreOffice collapses the cell
+        #    to zero width and shifts the rest of the row left.
         has_text = any((t.text or '').strip() != '' for t in p.iter(f'{{{W}}}t'))
         has_break = p.find(f'.//{{{W}}}br') is not None
         has_sect = p.find(f'.//{{{W}}}sectPr') is not None
@@ -151,8 +182,12 @@ def clean_document_xml(data):
         pstyle = p.find(f'.//{{{W}}}pStyle')
         is_env = (pstyle is not None and
                   pstyle.get(f'{{{W}}}val') in ('begin-env-p', 'end-env-p'))
-        if (not has_text and not has_break and not has_sect) or is_env:
-            p.getparent().remove(p)
+        parent = p.getparent()
+        in_table_cell = parent is not None and parent.tag == f'{{{W}}}tc'
+        only_p_in_cell = in_table_cell and len(parent.findall(f'{{{W}}}p')) == 1
+        if ((not has_text and not has_break and not has_sect) or is_env) \
+                and not only_p_in_cell:
+            parent.remove(p)
 
     # Table cleanup: tex4ht renders each LaTeX \hline as an empty filler row.
     # Strip them so the table has only header + data rows, and add vMerge on

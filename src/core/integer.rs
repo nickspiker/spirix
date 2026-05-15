@@ -346,7 +346,6 @@ impl Inflate for i128 {
     fn inflate(self, is_normal: bool) -> i256::I256 {
         let wide: i256::I256 = self.into();
         if is_normal {
-            // Flip bits above FRAC=128. Works regardless of From's extension behavior.
             let mask: i256::I256 = i256::I256::from(-1i128) << 128;
             wide ^ mask
         } else {

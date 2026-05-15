@@ -7,10 +7,10 @@ use spirix::*;
 type S = ScalarF3E3;
 const FRAC: i32 = 8;
 const EXP_BITS: i32 = 8;
-const INT_BITS: i32 = 2 * FRAC;
-const AMBIG_EXP: i8 = i8::MIN;
-const MIN_EXP: i16 = AMBIG_EXP as i16 + 1;
-const MAX_EXP: i16 = i8::MAX as i16;
+const WORK_BITS: i32 = FRAC + 2;
+const AMBIG_EXP: i8 = i8::MAX;          // = 0x7F = E::MAX
+const MIN_EXP: i16 = i8::MIN as i16;    // = -0x80 (now a valid normal exp)
+const MAX_EXP: i16 = AMBIG_EXP as i16 - 1; // = AMBIG - 1
 
 // Bit patterns shared with Rust undefined.rs (match src/core/undefined.rs).
 const POS_ONE_NORMAL: i8 = i8::MIN;                // 0x80
@@ -77,28 +77,49 @@ fn neg_spirix(f: i8, e: i8) -> (i8, i8) {
     if is_ambig(e) { neg_nonnormal(f, e) } else { neg_normal(f, e) }
 }
 
-// N0 inflate: wide = {{FRAC{~f[FRAC-1]}}, f}
+// N0 inflate: wide = {{FRAC{~f[FRAC-1]}}, f} — yields a FRAC+1-bit signed value.
 fn inflate(f: i8) -> i16 {
     let wide = f as i16;
     let mask = (-1i16) << FRAC;
     wide ^ mask
 }
 
-// Leading-same count on 16-bit signed.
+// Sign-extend a value already in FRAC+1 bits to the full i16 representation
+// (the upper bits are filled with the sign for clean arith downstream).
+fn to_frac_plus_1(v: i16) -> i16 {
+    // inflate already returns a sign-correct i16, but normalize anyway.
+    let sign_bit = 1i16 << FRAC;
+    let mask = (1i16 << (FRAC + 1)) - 1;
+    let masked = v & mask;
+    if (masked & sign_bit) != 0 { masked | !mask } else { masked }
+}
+
+// Leading-same count on a WORK_BITS-bit signed value held in i16.
+// Returns the count of MSBs of `v` (interpreted as WORK_BITS-wide signed) that
+// match the sign bit at position WORK_BITS-1.
 fn leading_same(v: i16) -> i32 {
     let u = v as u16;
-    (u.leading_zeros().max((!u).leading_zeros())) as i32
+    let masked = u & ((1u16 << WORK_BITS) - 1);
+    let sign = (masked >> (WORK_BITS - 1)) & 1;
+    for k in 0..WORK_BITS {
+        let bit = (masked >> (WORK_BITS - 1 - k)) & 1;
+        if bit != sign { return k; }
+    }
+    WORK_BITS
 }
 
 // Main addsub function, mirror of Verilog spirix_addsub.
 fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     let a_undef = is_undef(a_f, a_e);
     let b_undef = is_undef(b_f, b_e);
-    let a_trans = is_transf(a_f, a_e);
-    let b_trans = is_transf(b_f, b_e);
+    let a_inf = is_inf(a_f, a_e);
+    let b_inf = is_inf(b_f, b_e);
+    let a_zero_ = is_zero(a_f, a_e);
+    let b_zero_ = is_zero(b_f, b_e);
+    let a_exp_ = is_exploded(a_f, a_e);
+    let b_exp_ = is_exploded(b_f, b_e);
     let a_van = is_vanished(a_f, a_e);
     let b_van = is_vanished(b_f, b_e);
-    let a_zero = is_zero(a_f, a_e);
     let a_norm = is_normal(a_e);
     let b_norm = is_normal(b_e);
     let any_non_normal = !a_norm || !b_norm;
@@ -107,14 +128,16 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     let (neg_b_f, neg_b_e) = neg_spirix(b_f, b_e);
 
     if any_non_normal {
-        // Edge-case priority (matches Rust + Verilog shortcut order).
+        // Edge-case priority (matches Verilog shortcut mux and Rust src):
         if a_undef { return (a_f, a_e); }
         if b_undef { return (b_f, b_e); }
-        // Zero early: X ± [0] = X, [0] ± X = ±X. Checked before transfinite so the 4 zero-plus-transfinite cells pass through instead of becoming transfinite-plus-finite undefined.
-        if a_zero { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
-        let b_zero_ = is_zero(b_f, b_e);
+        // [∞] absorbs everything (signless Riemann singularity).
+        if a_inf || b_inf { return (-1i8, AMBIG_EXP); }
+        // Zero identity.
+        if a_zero_ { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
         if b_zero_ { return (a_f, a_e); }
-        if a_trans && b_trans {
+        // Both same escape class → undefined.
+        if a_exp_ && b_exp_ {
             let p = if sub { UNDEF_TF_M_TF } else { UNDEF_TF_P_TF };
             return (p, AMBIG_EXP);
         }
@@ -122,23 +145,28 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
             let p = if sub { UNDEF_VAN_M_VAN } else { UNDEF_VAN_P_VAN };
             return (p, AMBIG_EXP);
         }
-        if a_trans {
+        // Vanished negligible against exploded.
+        if a_exp_ && b_van { return (a_f, a_e); }
+        if a_van && b_exp_ { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
+        // Exploded vs normal → undefined.
+        if a_exp_ {
             let p = if sub { UNDEF_TF_M_FIN } else { UNDEF_TF_P_FIN };
             return (p, AMBIG_EXP);
         }
-        if b_trans {
+        if b_exp_ {
             let p = if sub { UNDEF_FIN_M_TF } else { UNDEF_FIN_P_TF };
             return (p, AMBIG_EXP);
         }
+        // Vanished vs normal → normal.
         if a_van { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
         if b_van { return (a_f, a_e); }
         return (a_f, a_e); // fallback
     }
 
-    // Both normal
+    // Both normal — shift-small-RIGHT in FRAC+2 working bits with a sticky flag.
     let raw_diff = (a_e as i16) - (b_e as i16);
     let a_is_big = raw_diff >= 0;
-    let (big_f, big_e, small_f, small_e) = if a_is_big {
+    let (big_f, big_e, small_f, _small_e) = if a_is_big {
         (a_f, a_e, b_f, b_e)
     } else {
         (b_f, b_e, a_f, a_e)
@@ -147,7 +175,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     let negate_small = sub && a_is_big;
     let negate_big = sub && !a_is_big;
 
-    // Negligible bypass (shift ≥ FRAC-1).
+    // Negligible bypass (shift ≥ FRAC-1), matching Rust ref.
     if exp_diff >= FRAC as i16 - 1 {
         if negate_big {
             let (nbf, nbe) = neg_normal(big_f, big_e);
@@ -157,33 +185,84 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     }
 
     let shift = exp_diff as i32;
-    let big_inf = inflate(big_f);
-    let small_inf = inflate(small_f);
-    let big_shifted = big_inf << shift;
 
-    // Add/sub with carry chain.
-    let big_op = if negate_big { big_shifted.wrapping_neg() } else { big_shifted };
-    let small_op = if negate_small { small_inf.wrapping_neg() } else { small_inf };
-    let sum = big_op.wrapping_add(small_op);
+    // N0 inflate to FRAC+1, sign-extend to WORK_BITS (= FRAC+2).
+    let big_infl = to_frac_plus_1(inflate(big_f));
+    let small_infl = to_frac_plus_1(inflate(small_f));
 
-    if sum == 0 { return (0, AMBIG_EXP); }
+    // Sign-extend FRAC+1 → WORK_BITS = FRAC+2 (no-op in i16 since to_frac_plus_1
+    // already sign-extended into the upper bits).
+    let big_ext = big_infl;
+    let small_ext = small_infl;
 
-    let leading = leading_same(sum);
-    let shl_amount = leading - FRAC;
-    let canonical = if shl_amount >= 0 { sum << shl_amount } else { sum >> (-shl_amount) };
+    // Conditional negation in WORK_BITS bits (avoids MIN_VALUE overflow).
+    let big_eff = if negate_big { big_ext.wrapping_neg() } else { big_ext };
+    let small_eff = if negate_small { small_ext.wrapping_neg() } else { small_ext };
+
+    // Guard bit: bit at position (shift - 1) of small_eff. This is the highest
+    // bit discarded by the arith-shr. For floor at canonical LSB it's exactly
+    // what we need (lower bits floor away).
+    let guard = if shift > 0 { ((small_eff >> (shift - 1)) & 1) != 0 } else { false };
+
+    // Big never shifts. Small shifts right by `shift` (arith shift, sign-preserving).
+    let small_aligned: i16 = small_eff >> shift;
+
+    let sum = big_eff.wrapping_add(small_aligned);
+
+    // Mask sum to WORK_BITS for consistent leading-same / shift logic, then
+    // sign-extend back into i16 for arithmetic.
+    let mask_work = (1i16 << WORK_BITS) - 1;
+    let sign_bit_work = 1i16 << (WORK_BITS - 1);
+    let sum_masked = sum & mask_work;
+    let sum_sext: i16 = if (sum_masked & sign_bit_work) != 0 {
+        sum_masked | !mask_work
+    } else {
+        sum_masked
+    };
+    let is_zero_sum = sum_sext == 0;
+
+    // Extended sum: append guard bit at position -1. This puts us at the same
+    // scale as Rust's shift-big-LEFT (small_exp scale for shift=1). Working
+    // width is WORK_BITS+1 = FRAC+3 here, with target leading-same = 3.
+    let extended_sum: i32 = ((sum_sext as i32) << 1) | (if guard { 1 } else { 0 });
+
+    if extended_sum == 0 {
+        return (0, AMBIG_EXP);  // exact zero
+    }
+
+    // Leading-same on extended_sum at WORK_BITS+1 bits.
+    let work_ext = WORK_BITS + 1;
+    let leading_ext: i32 = {
+        let u = extended_sum as u32;
+        let masked = u & ((1u32 << work_ext) - 1);
+        let sign = (masked >> (work_ext - 1)) & 1;
+        let mut k = 0;
+        while k < work_ext {
+            let bit = (masked >> (work_ext - 1 - k)) & 1;
+            if bit != sign { break; }
+            k += 1;
+        }
+        k
+    };
+    let shl_amount_ext = leading_ext - 3;
+
+    let canonical = if shl_amount_ext >= 0 {
+        extended_sum << shl_amount_ext
+    } else {
+        extended_sum >> (-shl_amount_ext)
+    };
     let out_frac = canonical as i8;
-    let exp_calc = (small_e as i32) - shl_amount;
+    // Working at extended scale (= big_exp - 1), so out_exp shifts by one extra.
+    let exp_calc = (big_e as i32) - 1 - shl_amount_ext;
 
     if exp_calc > MAX_EXP as i32 {
-        // Overflow → exploded (N-1 shape, input sign preserved).
-        let exp_shl = leading - 1 - FRAC;
-        let w = if exp_shl >= 0 { sum << exp_shl } else { sum >> (-exp_shl) };
+        let exp_shl = shl_amount_ext - 1;
+        let w = if exp_shl >= 0 { extended_sum << exp_shl } else { extended_sum >> (-exp_shl) };
         return (w as i8, AMBIG_EXP);
     }
     if exp_calc < MIN_EXP as i32 {
-        // Underflow → vanished (N-2 shape).
-        let van_shl = leading - 2 - FRAC;
-        let w = if van_shl >= 0 { sum << van_shl } else { sum >> (-van_shl) };
+        let van_shl = shl_amount_ext - 2;
+        let w = if van_shl >= 0 { extended_sum << van_shl } else { extended_sum >> (-van_shl) };
         return (w as i8, AMBIG_EXP);
     }
 

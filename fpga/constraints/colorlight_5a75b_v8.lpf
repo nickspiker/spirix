@@ -7,6 +7,10 @@ IOBUF PORT "clk" IO_TYPE=LVCMOS33;
 LOCATE COMP "led" SITE "T6";
 IOBUF PORT "led" IO_TYPE=LVCMOS33;
 
+# External keypad pass/fail LED (J4 pin 6 via 74HC245T buffer on T2)
+LOCATE COMP "ext_led" SITE "T2";
+IOBUF PORT "ext_led" IO_TYPE=LVCMOS33;
+
 # J1 HUB75 connector — accent accent NTSC composite output
 LOCATE COMP "ntsc_sync" SITE "C4";
 IOBUF PORT "ntsc_sync" IO_TYPE=LVCMOS33;
@@ -14,11 +18,11 @@ IOBUF PORT "ntsc_sync" IO_TYPE=LVCMOS33;
 LOCATE COMP "ntsc_vid" SITE "D4";
 IOBUF PORT "ntsc_vid" IO_TYPE=LVCMOS33;
 
-# J1 HUB75 — OLED I2C
-LOCATE COMP "oled_scl" SITE "E4";
+# J4 HUB75 — OLED I2C (matches physical wiring on the spirix board)
+LOCATE COMP "oled_scl" SITE "P2";
 IOBUF PORT "oled_scl" IO_TYPE=LVCMOS33;
 
-LOCATE COMP "oled_sda" SITE "D3";
+LOCATE COMP "oled_sda" SITE "R2";
 IOBUF PORT "oled_sda" IO_TYPE=LVCMOS33;
 
 # User button (active-low)
