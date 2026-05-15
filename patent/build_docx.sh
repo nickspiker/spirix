@@ -44,14 +44,17 @@ LABELS_FILE=/tmp/patent_clip_labels.tex
     grep "newlabel{fig:" "$AUX" \
         | sed -E 's/^(\\newlabel\{fig:[^}]+\})\{\{([0-9]+)\}.*$/\1{{\2}{}{}{}{}}/'
 } > "$LABELS_FILE"
-head -$CLIP_LINE "$SRC" | sed '/\\usepackage{pdfpages}/d' | awk -v labels_file="$LABELS_FILE" '
-    /^\\begin\{document\}/ {
-        while ((getline line < labels_file) > 0) print line
-        close(labels_file)
-        print ""
-    }
-    { print }
-' > "$CLIP"
+head -$CLIP_LINE "$SRC" \
+    | sed '/\\usepackage{pdfpages}/d' \
+    | sed 's/\\newpage//g' \
+    | awk -v labels_file="$LABELS_FILE" '
+        /^\\begin\{document\}/ {
+            while ((getline line < labels_file) > 0) print line
+            close(labels_file)
+            print ""
+        }
+        { print }
+    ' > "$CLIP"
 echo "\\end{document}" >> "$CLIP"
 
 # ── 4. make4ht to ODT ────────────────────────────────────────────────────────
@@ -94,6 +97,16 @@ def clean_document_xml(data):
         return data
 
     for p in list(body.iter(f'{{{W}}}p')):
+        # 0) Strip page breaks from paragraphs with no text content. (Forced
+        #    page breaks belong inside text-bearing paragraphs; stray ones in
+        #    empty paragraphs just produce blank pages in Word.)
+        text_elems = list(p.iter(f'{{{W}}}t'))
+        has_text = any((t.text or '').strip() for t in text_elems)
+        if not has_text:
+            for br in p.findall(f'.//{{{W}}}br'):
+                if br.get(f'{{{W}}}type') == 'page':
+                    br.getparent().remove(br)
+
         # 1) Remove trailing runs that contain only whitespace.
         runs = p.findall(f'{{{W}}}r')
         for r in reversed(runs):
