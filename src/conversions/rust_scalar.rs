@@ -160,9 +160,7 @@ where
         let significant = 64isize.wrapping_sub(leading);
         // spirix_exp = ieee_scale + significant_bits. For subnormals (raw_exp=0), IEEE uses effective exp=1 — compensate. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp };
-        let spirix_exp: i16 = eff_exp
-            .wrapping_sub(1076)
-            .wrapping_add(significant as i16);
+        let spirix_exp: i16 = eff_exp.wrapping_sub(1076).wrapping_add(significant as i16);
 
         // Cast to F first, THEN shift — avoids overflow when FRAC > 64 (i.e., i128 fraction).
         let shift = Self::fraction_bits().wrapping_sub(significant);
@@ -196,18 +194,30 @@ where
         }
 
         if sign == 0 {
-            return Self { fraction: fraction_pos, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } };
+            return Self {
+                fraction: fraction_pos,
+                exponent: {
+                    let v: E = spirix_exp.as_();
+                    v ^ E::min_value()
+                },
+            };
         }
         // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent because its magnitude straddles the boundary between exp buckets.
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: { let v: E = (spirix_exp.wrapping_sub(1)).as_(); v ^ E::min_value() },
+                exponent: {
+                    let v: E = (spirix_exp.wrapping_sub(1)).as_();
+                    v ^ E::min_value()
+                },
             }
         } else {
             Self {
                 fraction: F::zero() - fraction_pos,
-                exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() },
+                exponent: {
+                    let v: E = spirix_exp.as_();
+                    v ^ E::min_value()
+                },
             }
         }
     }
@@ -343,9 +353,7 @@ where
         let significant = 32isize.wrapping_sub(leading);
         // For subnormals (raw_exp=0), IEEE uses effective exp=1. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp as i16 };
-        let spirix_exp: i16 = eff_exp
-            .wrapping_sub(151)
-            .wrapping_add(significant as i16);
+        let spirix_exp: i16 = eff_exp.wrapping_sub(151).wrapping_add(significant as i16);
 
         // Cast to F first, then shift — avoids overflow when FRAC > 32.
         let shift = Self::fraction_bits().wrapping_sub(significant);
@@ -379,17 +387,29 @@ where
         }
 
         if sign == 0 {
-            return Self { fraction: fraction_pos, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } };
+            return Self {
+                fraction: fraction_pos,
+                exponent: {
+                    let v: E = spirix_exp.as_();
+                    v ^ E::min_value()
+                },
+            };
         }
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: { let v: E = (spirix_exp.wrapping_sub(1)).as_(); v ^ E::min_value() },
+                exponent: {
+                    let v: E = (spirix_exp.wrapping_sub(1)).as_();
+                    v ^ E::min_value()
+                },
             }
         } else {
             Self {
                 fraction: F::zero() - fraction_pos,
-                exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() },
+                exponent: {
+                    let v: E = spirix_exp.as_();
+                    v ^ E::min_value()
+                },
             }
         }
     }
@@ -874,18 +894,30 @@ impl Scalar<i16, i16> {
         if raw_exp == 0xFF {
             if mantissa != 0 {
                 // NaN → undefined (generic N-3 prefix)
-                return Scalar { fraction: 0xE000u16 as i16, exponent: 0 };
+                return Scalar {
+                    fraction: 0xE000u16 as i16,
+                    exponent: 0,
+                };
             }
             return if sign != 0 {
                 // -Inf → EXPLODED_NEG
-                Scalar { fraction: i16::MIN, exponent: 0 }
+                Scalar {
+                    fraction: i16::MIN,
+                    exponent: 0,
+                }
             } else {
                 // +Inf → EXPLODED_POS
-                Scalar { fraction: -(i16::MIN >> 1), exponent: 0 }
+                Scalar {
+                    fraction: -(i16::MIN >> 1),
+                    exponent: 0,
+                }
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            return Scalar { fraction: 0, exponent: 0 };
+            return Scalar {
+                fraction: 0,
+                exponent: 0,
+            };
         }
 
         // Build positive magnitude (mantissa with implicit leading 1 for normals).
@@ -910,13 +942,22 @@ impl Scalar<i16, i16> {
         };
 
         if sign == 0 {
-            return Scalar { fraction: fraction_pos, exponent: spirix_exp ^ i16::MIN };
+            return Scalar {
+                fraction: fraction_pos,
+                exponent: spirix_exp ^ i16::MIN,
+            };
         }
 
         if fraction_pos == i16::MIN {
-            return Scalar { fraction: 0, exponent: (spirix_exp - 1) ^ i16::MIN };
+            return Scalar {
+                fraction: 0,
+                exponent: (spirix_exp - 1) ^ i16::MIN,
+            };
         }
-        Scalar { fraction: -fraction_pos, exponent: spirix_exp ^ i16::MIN }
+        Scalar {
+            fraction: -fraction_pos,
+            exponent: spirix_exp ^ i16::MIN,
+        }
     }
 }
 

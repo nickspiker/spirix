@@ -47,9 +47,15 @@ fn main() {
             let af: f64 = (*a).into();
             let bf: f64 = (*b).into();
             // f64 oracle is unreliable when f64 loses the magnitude (e.g. very small subnormals → 0, very large → inf). Skip those.
-            if af == 0.0 && !a.is_zero() { continue; }
-            if bf == 0.0 && !b.is_zero() { continue; }
-            if !af.is_finite() || !bf.is_finite() { continue; }
+            if af == 0.0 && !a.is_zero() {
+                continue;
+            }
+            if bf == 0.0 && !b.is_zero() {
+                continue;
+            }
+            if !af.is_finite() || !bf.is_finite() {
+                continue;
+            }
             let f64_cmp = af.partial_cmp(&bf);
             match (spirix_cmp, f64_cmp) {
                 (Some(sc), Some(oc)) => {
@@ -72,8 +78,10 @@ fn main() {
         }
     }
 
-    println!("=== compare() ({} pairs checked, {} ordering mismatches, {} reflex failures) ===",
-             total, sign_errors, reflex_errors);
+    println!(
+        "=== compare() ({} pairs checked, {} ordering mismatches, {} reflex failures) ===",
+        total, sign_errors, reflex_errors
+    );
     println!("  skipped (spirix None): {}", skipped_unorderable);
     println!("  skipped (f64 None, spirix Some): {}", skipped_orderable);
     if let Some((a, b, sc, af, bf)) = first_bad {
@@ -82,6 +90,10 @@ fn main() {
         println!("  first bad:");
         println!("    a = [{:#04x},{}] = {:e}", ab[0] as u8, ab[1], af);
         println!("    b = [{:#04x},{}] = {:e}", bb[0] as u8, bb[1], bf);
-        println!("    spirix says {:?}, f64 says {:?}", sc, af.partial_cmp(&bf));
+        println!(
+            "    spirix says {:?}, f64 says {:?}",
+            sc,
+            af.partial_cmp(&bf)
+        );
     }
 }

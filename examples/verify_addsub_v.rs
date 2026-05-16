@@ -8,56 +8,94 @@ type S = ScalarF3E3;
 const FRAC: i32 = 8;
 const EXP_BITS: i32 = 8;
 const WORK_BITS: i32 = FRAC + 2;
-const AMBIG_EXP: i8 = i8::MAX;          // = 0x7F = E::MAX
-const MIN_EXP: i16 = i8::MIN as i16;    // = -0x80 (now a valid normal exp)
+const AMBIG_EXP: i8 = i8::MAX; // = 0x7F = E::MAX
+const MIN_EXP: i16 = i8::MIN as i16; // = -0x80 (now a valid normal exp)
 const MAX_EXP: i16 = AMBIG_EXP as i16 - 1; // = AMBIG - 1
 
 // Bit patterns shared with Rust undefined.rs (match src/core/undefined.rs).
-const POS_ONE_NORMAL: i8 = i8::MIN;                // 0x80
-const NEG_ONE_NORMAL: i8 = 0;                      // 0x00
+const POS_ONE_NORMAL: i8 = i8::MIN; // 0x80
+const NEG_ONE_NORMAL: i8 = 0; // 0x00
 const POS_ONE_EXPLODED: i8 = 0x40;
-const NEG_ONE_EXPLODED: i8 = i8::MIN;              // 0x80
+const NEG_ONE_EXPLODED: i8 = i8::MIN; // 0x80
 const POS_ONE_VANISHED: i8 = 0x20;
 const NEG_ONE_VANISHED: i8 = 0xC0u8 as i8;
-const UNDEF_TF_P_TF: i8    = 0x1A;
-const UNDEF_TF_M_TF: i8    = 0xE5u8 as i8;
-const UNDEF_VAN_P_VAN: i8  = 0x1D;
-const UNDEF_VAN_M_VAN: i8  = 0xE2u8 as i8;
-const UNDEF_TF_P_FIN: i8   = 0x1C;
-const UNDEF_TF_M_FIN: i8   = 0xE3u8 as i8;
-const UNDEF_FIN_P_TF: i8   = 0x1B;
-const UNDEF_FIN_M_TF: i8   = 0xE4u8 as i8;
+const UNDEF_TF_P_TF: i8 = 0x1A;
+const UNDEF_TF_M_TF: i8 = 0xE5u8 as i8;
+const UNDEF_VAN_P_VAN: i8 = 0x1D;
+const UNDEF_VAN_M_VAN: i8 = 0xE2u8 as i8;
+const UNDEF_TF_P_FIN: i8 = 0x1C;
+const UNDEF_TF_M_FIN: i8 = 0xE3u8 as i8;
+const UNDEF_FIN_P_TF: i8 = 0x1B;
+const UNDEF_FIN_M_TF: i8 = 0xE4u8 as i8;
 
 // State detection (purely on the stored (frac, exp) pair).
-fn is_ambig(e: i8) -> bool { e == AMBIG_EXP }
-fn frac_zero(f: i8) -> bool { f == 0 }
-fn frac_neg1(f: i8) -> bool { f == -1i8 }
-fn n0(f: i8) -> bool { frac_zero(f) || frac_neg1(f) }
-fn bit(f: i8, p: i32) -> bool { ((f as u8 >> p) & 1) != 0 }
+fn is_ambig(e: i8) -> bool {
+    e == AMBIG_EXP
+}
+fn frac_zero(f: i8) -> bool {
+    f == 0
+}
+fn frac_neg1(f: i8) -> bool {
+    f == -1i8
+}
+fn n0(f: i8) -> bool {
+    frac_zero(f) || frac_neg1(f)
+}
+fn bit(f: i8, p: i32) -> bool {
+    ((f as u8 >> p) & 1) != 0
+}
 fn top_same(f: i8, n: i32) -> bool {
     let msb = bit(f, 7);
     (1..n).all(|k| bit(f, 7 - k) == msb)
 }
-fn is_n1(f: i8) -> bool { bit(f, 7) != bit(f, 6) }
-fn is_n2(f: i8) -> bool { !is_n1(f) && !n0(f) && bit(f, 7) != bit(f, 5) }
-fn is_top3(f: i8) -> bool { !n0(f) && top_same(f, 3) }
+fn is_n1(f: i8) -> bool {
+    bit(f, 7) != bit(f, 6)
+}
+fn is_n2(f: i8) -> bool {
+    !is_n1(f) && !n0(f) && bit(f, 7) != bit(f, 5)
+}
+fn is_top3(f: i8) -> bool {
+    !n0(f) && top_same(f, 3)
+}
 
-fn is_zero(f: i8, e: i8)     -> bool { is_ambig(e) && frac_zero(f) }
-fn is_inf(f: i8, e: i8)      -> bool { is_ambig(e) && frac_neg1(f) }
-fn is_exploded(f: i8, e: i8) -> bool { is_ambig(e) && is_n1(f) }
-fn is_transf(f: i8, e: i8)   -> bool { is_inf(f, e) || is_exploded(f, e) }
-fn is_vanished(f: i8, e: i8) -> bool { is_ambig(e) && is_n2(f) }
-fn is_undef(f: i8, e: i8)    -> bool { is_ambig(e) && is_top3(f) }
-fn is_normal(e: i8)          -> bool { !is_ambig(e) }
+fn is_zero(f: i8, e: i8) -> bool {
+    is_ambig(e) && frac_zero(f)
+}
+fn is_inf(f: i8, e: i8) -> bool {
+    is_ambig(e) && frac_neg1(f)
+}
+fn is_exploded(f: i8, e: i8) -> bool {
+    is_ambig(e) && is_n1(f)
+}
+fn is_transf(f: i8, e: i8) -> bool {
+    is_inf(f, e) || is_exploded(f, e)
+}
+fn is_vanished(f: i8, e: i8) -> bool {
+    is_ambig(e) && is_n2(f)
+}
+fn is_undef(f: i8, e: i8) -> bool {
+    is_ambig(e) && is_top3(f)
+}
+fn is_normal(e: i8) -> bool {
+    !is_ambig(e)
+}
 
 // N0 negation (mirrors the Verilog neg_b logic).
 fn neg_normal(f: i8, e: i8) -> (i8, i8) {
     if f == POS_ONE_NORMAL {
         let em1 = e.wrapping_sub(1);
-        if em1 == AMBIG_EXP { (NEG_ONE_VANISHED, AMBIG_EXP) } else { (NEG_ONE_NORMAL, em1) }
+        if em1 == AMBIG_EXP {
+            (NEG_ONE_VANISHED, AMBIG_EXP)
+        } else {
+            (NEG_ONE_NORMAL, em1)
+        }
     } else if f == NEG_ONE_NORMAL {
         let ep1 = e.wrapping_add(1);
-        if ep1 == AMBIG_EXP { (POS_ONE_EXPLODED, AMBIG_EXP) } else { (POS_ONE_NORMAL, ep1) }
+        if ep1 == AMBIG_EXP {
+            (POS_ONE_EXPLODED, AMBIG_EXP)
+        } else {
+            (POS_ONE_NORMAL, ep1)
+        }
     } else {
         (f.wrapping_neg(), e)
     }
@@ -65,16 +103,27 @@ fn neg_normal(f: i8, e: i8) -> (i8, i8) {
 
 fn neg_nonnormal(f: i8, e: i8) -> (i8, i8) {
     // Rust scalar_negate: signless (zero/inf/undef) → no-op; escape poles → canonical swap; anything else → wrapping_neg.
-    if frac_zero(f) || frac_neg1(f) || is_top3(f) { (f, e) }
-    else if f == POS_ONE_EXPLODED { (NEG_ONE_EXPLODED, e) }
-    else if f == NEG_ONE_EXPLODED { (POS_ONE_EXPLODED, e) }
-    else if f == POS_ONE_VANISHED { (NEG_ONE_VANISHED, e) }
-    else if f == NEG_ONE_VANISHED { (POS_ONE_VANISHED, e) }
-    else { (f.wrapping_neg(), e) }
+    if frac_zero(f) || frac_neg1(f) || is_top3(f) {
+        (f, e)
+    } else if f == POS_ONE_EXPLODED {
+        (NEG_ONE_EXPLODED, e)
+    } else if f == NEG_ONE_EXPLODED {
+        (POS_ONE_EXPLODED, e)
+    } else if f == POS_ONE_VANISHED {
+        (NEG_ONE_VANISHED, e)
+    } else if f == NEG_ONE_VANISHED {
+        (POS_ONE_VANISHED, e)
+    } else {
+        (f.wrapping_neg(), e)
+    }
 }
 
 fn neg_spirix(f: i8, e: i8) -> (i8, i8) {
-    if is_ambig(e) { neg_nonnormal(f, e) } else { neg_normal(f, e) }
+    if is_ambig(e) {
+        neg_nonnormal(f, e)
+    } else {
+        neg_normal(f, e)
+    }
 }
 
 // N0 inflate: wide = {{FRAC{~f[FRAC-1]}}, f} — yields a FRAC+1-bit signed value.
@@ -91,7 +140,11 @@ fn to_frac_plus_1(v: i16) -> i16 {
     let sign_bit = 1i16 << FRAC;
     let mask = (1i16 << (FRAC + 1)) - 1;
     let masked = v & mask;
-    if (masked & sign_bit) != 0 { masked | !mask } else { masked }
+    if (masked & sign_bit) != 0 {
+        masked | !mask
+    } else {
+        masked
+    }
 }
 
 // Leading-same count on a WORK_BITS-bit signed value held in i16.
@@ -103,7 +156,9 @@ fn leading_same(v: i16) -> i32 {
     let sign = (masked >> (WORK_BITS - 1)) & 1;
     for k in 0..WORK_BITS {
         let bit = (masked >> (WORK_BITS - 1 - k)) & 1;
-        if bit != sign { return k; }
+        if bit != sign {
+            return k;
+        }
     }
     WORK_BITS
 }
@@ -129,25 +184,43 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
 
     if any_non_normal {
         // Edge-case priority (matches Verilog shortcut mux and Rust src):
-        if a_undef { return (a_f, a_e); }
-        if b_undef { return (b_f, b_e); }
+        if a_undef {
+            return (a_f, a_e);
+        }
+        if b_undef {
+            return (b_f, b_e);
+        }
         // [∞] absorbs everything (signless Riemann singularity).
-        if a_inf || b_inf { return (-1i8, AMBIG_EXP); }
+        if a_inf || b_inf {
+            return (-1i8, AMBIG_EXP);
+        }
         // Zero identity.
-        if a_zero_ { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
-        if b_zero_ { return (a_f, a_e); }
+        if a_zero_ {
+            return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) };
+        }
+        if b_zero_ {
+            return (a_f, a_e);
+        }
         // Both same escape class → undefined.
         if a_exp_ && b_exp_ {
             let p = if sub { UNDEF_TF_M_TF } else { UNDEF_TF_P_TF };
             return (p, AMBIG_EXP);
         }
         if a_van && b_van {
-            let p = if sub { UNDEF_VAN_M_VAN } else { UNDEF_VAN_P_VAN };
+            let p = if sub {
+                UNDEF_VAN_M_VAN
+            } else {
+                UNDEF_VAN_P_VAN
+            };
             return (p, AMBIG_EXP);
         }
         // Vanished negligible against exploded.
-        if a_exp_ && b_van { return (a_f, a_e); }
-        if a_van && b_exp_ { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
+        if a_exp_ && b_van {
+            return (a_f, a_e);
+        }
+        if a_van && b_exp_ {
+            return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) };
+        }
         // Exploded vs normal → undefined.
         if a_exp_ {
             let p = if sub { UNDEF_TF_M_FIN } else { UNDEF_TF_P_FIN };
@@ -158,8 +231,12 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
             return (p, AMBIG_EXP);
         }
         // Vanished vs normal → normal.
-        if a_van { return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) }; }
-        if b_van { return (a_f, a_e); }
+        if a_van {
+            return if sub { (neg_b_f, neg_b_e) } else { (b_f, b_e) };
+        }
+        if b_van {
+            return (a_f, a_e);
+        }
         return (a_f, a_e); // fallback
     }
 
@@ -196,13 +273,25 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     let small_ext = small_infl;
 
     // Conditional negation in WORK_BITS bits (avoids MIN_VALUE overflow).
-    let big_eff = if negate_big { big_ext.wrapping_neg() } else { big_ext };
-    let small_eff = if negate_small { small_ext.wrapping_neg() } else { small_ext };
+    let big_eff = if negate_big {
+        big_ext.wrapping_neg()
+    } else {
+        big_ext
+    };
+    let small_eff = if negate_small {
+        small_ext.wrapping_neg()
+    } else {
+        small_ext
+    };
 
     // Guard bit: bit at position (shift - 1) of small_eff. This is the highest
     // bit discarded by the arith-shr. For floor at canonical LSB it's exactly
     // what we need (lower bits floor away).
-    let guard = if shift > 0 { ((small_eff >> (shift - 1)) & 1) != 0 } else { false };
+    let guard = if shift > 0 {
+        ((small_eff >> (shift - 1)) & 1) != 0
+    } else {
+        false
+    };
 
     // Big never shifts. Small shifts right by `shift` (arith shift, sign-preserving).
     let small_aligned: i16 = small_eff >> shift;
@@ -227,7 +316,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     let extended_sum: i32 = ((sum_sext as i32) << 1) | (if guard { 1 } else { 0 });
 
     if extended_sum == 0 {
-        return (0, AMBIG_EXP);  // exact zero
+        return (0, AMBIG_EXP); // exact zero
     }
 
     // Leading-same on extended_sum at WORK_BITS+1 bits.
@@ -239,7 +328,9 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
         let mut k = 0;
         while k < work_ext {
             let bit = (masked >> (work_ext - 1 - k)) & 1;
-            if bit != sign { break; }
+            if bit != sign {
+                break;
+            }
             k += 1;
         }
         k
@@ -257,12 +348,20 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
 
     if exp_calc > MAX_EXP as i32 {
         let exp_shl = shl_amount_ext - 1;
-        let w = if exp_shl >= 0 { extended_sum << exp_shl } else { extended_sum >> (-exp_shl) };
+        let w = if exp_shl >= 0 {
+            extended_sum << exp_shl
+        } else {
+            extended_sum >> (-exp_shl)
+        };
         return (w as i8, AMBIG_EXP);
     }
     if exp_calc < MIN_EXP as i32 {
         let van_shl = shl_amount_ext - 2;
-        let w = if van_shl >= 0 { extended_sum << van_shl } else { extended_sum >> (-van_shl) };
+        let w = if van_shl >= 0 {
+            extended_sum << van_shl
+        } else {
+            extended_sum >> (-van_shl)
+        };
         return (w as i8, AMBIG_EXP);
     }
 
@@ -314,16 +413,18 @@ fn main() {
         let ab = unsafe { std::mem::transmute::<S, [i8; 2]>(a) };
         let bb = unsafe { std::mem::transmute::<S, [i8; 2]>(b) };
         let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(r) };
-        println!("  first bad + : a=[{:#04x},{}] b=[{:#04x},{}] rust=[{:#04x},{}] verilog=[{:#04x},{}]",
-                 ab[0] as u8, ab[1], bb[0] as u8, bb[1],
-                 rb[0] as u8, rb[1], v.0 as u8, v.1);
+        println!(
+            "  first bad + : a=[{:#04x},{}] b=[{:#04x},{}] rust=[{:#04x},{}] verilog=[{:#04x},{}]",
+            ab[0] as u8, ab[1], bb[0] as u8, bb[1], rb[0] as u8, rb[1], v.0 as u8, v.1
+        );
     }
     if let Some((a, b, r, v)) = first_bad_sub {
         let ab = unsafe { std::mem::transmute::<S, [i8; 2]>(a) };
         let bb = unsafe { std::mem::transmute::<S, [i8; 2]>(b) };
         let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(r) };
-        println!("  first bad - : a=[{:#04x},{}] b=[{:#04x},{}] rust=[{:#04x},{}] verilog=[{:#04x},{}]",
-                 ab[0] as u8, ab[1], bb[0] as u8, bb[1],
-                 rb[0] as u8, rb[1], v.0 as u8, v.1);
+        println!(
+            "  first bad - : a=[{:#04x},{}] b=[{:#04x},{}] rust=[{:#04x},{}] verilog=[{:#04x},{}]",
+            ab[0] as u8, ab[1], bb[0] as u8, bb[1], rb[0] as u8, rb[1], v.0 as u8, v.1
+        );
     }
 }

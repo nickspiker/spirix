@@ -5,33 +5,63 @@ use std::collections::{BTreeMap, BTreeSet};
 type S = ScalarF3E3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Class { Zero, Vanished, Normal, Exploded, Infinity, Undefined }
+enum Class {
+    Zero,
+    Vanished,
+    Normal,
+    Exploded,
+    Infinity,
+    Undefined,
+}
 
 fn classify(s: S) -> Class {
-    if s.is_undefined() { Class::Undefined }
-    else if s.is_zero() { Class::Zero }
-    else if s.is_infinite() { Class::Infinity }
-    else if s.exploded() { Class::Exploded }
-    else if s.vanished() { Class::Vanished }
-    else { Class::Normal }
+    if s.is_undefined() {
+        Class::Undefined
+    } else if s.is_zero() {
+        Class::Zero
+    } else if s.is_infinite() {
+        Class::Infinity
+    } else if s.exploded() {
+        Class::Exploded
+    } else if s.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn name(c: Class) -> &'static str {
     match c {
-        Class::Zero => "[0]", Class::Vanished => "[↓]", Class::Normal => "[#]",
-        Class::Exploded => "[↑]", Class::Infinity => "[∞]", Class::Undefined => "[℘?]",
+        Class::Zero => "[0]",
+        Class::Vanished => "[↓]",
+        Class::Normal => "[#]",
+        Class::Exploded => "[↑]",
+        Class::Infinity => "[∞]",
+        Class::Undefined => "[℘?]",
     }
 }
 
 #[derive(Copy, Clone)]
-enum Op { And, Or, Xor }
+enum Op {
+    And,
+    Or,
+    Xor,
+}
 
 fn op_name(o: Op) -> &'static str {
-    match o { Op::And => "&", Op::Or => "|", Op::Xor => "⊻" }
+    match o {
+        Op::And => "&",
+        Op::Or => "|",
+        Op::Xor => "⊻",
+    }
 }
 
 fn apply(o: Op, a: S, b: S) -> S {
-    match o { Op::And => a & b, Op::Or => a | b, Op::Xor => a ^ b }
+    match o {
+        Op::And => a & b,
+        Op::Or => a | b,
+        Op::Xor => a ^ b,
+    }
 }
 
 fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
@@ -39,35 +69,98 @@ fn expected(o: Op, a: Class, b: Class) -> BTreeSet<Class> {
     let mut s = BTreeSet::new();
     match o {
         Op::And => match (a, b) {
-            (Undefined, _) | (_, Undefined) => { s.insert(Undefined); }
-            (Infinity, x) | (x, Infinity)   => { s.insert(x); }
-            (Zero, _) | (_, Zero)           => { s.insert(Zero); }
-            (Vanished, Vanished) | (Vanished, Normal) | (Normal, Vanished)
-            | (Exploded, Exploded) | (Exploded, Normal) | (Normal, Exploded) => { s.insert(Undefined); }
-            (Vanished, Exploded) | (Exploded, Vanished) => { s.insert(Zero); s.insert(Exploded); }
-            (Normal, Normal) => { s.insert(Normal); s.insert(Zero); s.insert(Vanished); }
+            (Undefined, _) | (_, Undefined) => {
+                s.insert(Undefined);
+            }
+            (Infinity, x) | (x, Infinity) => {
+                s.insert(x);
+            }
+            (Zero, _) | (_, Zero) => {
+                s.insert(Zero);
+            }
+            (Vanished, Vanished)
+            | (Vanished, Normal)
+            | (Normal, Vanished)
+            | (Exploded, Exploded)
+            | (Exploded, Normal)
+            | (Normal, Exploded) => {
+                s.insert(Undefined);
+            }
+            (Vanished, Exploded) | (Exploded, Vanished) => {
+                s.insert(Zero);
+                s.insert(Exploded);
+            }
+            (Normal, Normal) => {
+                s.insert(Normal);
+                s.insert(Zero);
+                s.insert(Vanished);
+            }
         },
         Op::Or => match (a, b) {
-            (Undefined, _) | (_, Undefined) => { s.insert(Undefined); }
-            (Infinity, _) | (_, Infinity)   => { s.insert(Infinity); }
-            (Zero, x) | (x, Zero)           => { s.insert(x); }
-            (Vanished, Vanished) | (Vanished, Normal) | (Normal, Vanished)
-            | (Exploded, Normal) | (Normal, Exploded) | (Exploded, Exploded) => { s.insert(Undefined); }
-            (Vanished, Exploded) | (Exploded, Vanished) => { s.insert(Vanished); s.insert(Exploded); }
-            (Normal, Normal) => { s.insert(Normal); s.insert(Vanished); }
+            (Undefined, _) | (_, Undefined) => {
+                s.insert(Undefined);
+            }
+            (Infinity, _) | (_, Infinity) => {
+                s.insert(Infinity);
+            }
+            (Zero, x) | (x, Zero) => {
+                s.insert(x);
+            }
+            (Vanished, Vanished)
+            | (Vanished, Normal)
+            | (Normal, Vanished)
+            | (Exploded, Normal)
+            | (Normal, Exploded)
+            | (Exploded, Exploded) => {
+                s.insert(Undefined);
+            }
+            (Vanished, Exploded) | (Exploded, Vanished) => {
+                s.insert(Vanished);
+                s.insert(Exploded);
+            }
+            (Normal, Normal) => {
+                s.insert(Normal);
+                s.insert(Vanished);
+            }
         },
         Op::Xor => match (a, b) {
-            (Undefined, _) | (_, Undefined) => { s.insert(Undefined); }
-            (Infinity, Zero) | (Zero, Infinity) => { s.insert(Infinity); }
-            (Infinity, Vanished) | (Vanished, Infinity) => { s.insert(Vanished); }
-            (Infinity, Normal) | (Normal, Infinity) => { s.insert(Normal); }
-            (Infinity, Exploded) | (Exploded, Infinity) => { s.insert(Exploded); }
-            (Infinity, Infinity) => { s.insert(Zero); }
-            (Zero, x) | (x, Zero) => { s.insert(x); }
-            (Vanished, Exploded) | (Exploded, Vanished) => { s.insert(Exploded); }
-            (Normal, Normal) => { s.insert(Normal); s.insert(Zero); s.insert(Vanished); }
-            (Vanished, Vanished) | (Vanished, Normal) | (Normal, Vanished)
-            | (Exploded, Normal) | (Normal, Exploded) | (Exploded, Exploded) => { s.insert(Undefined); }
+            (Undefined, _) | (_, Undefined) => {
+                s.insert(Undefined);
+            }
+            (Infinity, Zero) | (Zero, Infinity) => {
+                s.insert(Infinity);
+            }
+            (Infinity, Vanished) | (Vanished, Infinity) => {
+                s.insert(Vanished);
+            }
+            (Infinity, Normal) | (Normal, Infinity) => {
+                s.insert(Normal);
+            }
+            (Infinity, Exploded) | (Exploded, Infinity) => {
+                s.insert(Exploded);
+            }
+            (Infinity, Infinity) => {
+                s.insert(Zero);
+            }
+            (Zero, x) | (x, Zero) => {
+                s.insert(x);
+            }
+            (Vanished, Exploded) | (Exploded, Vanished) => {
+                s.insert(Exploded);
+            }
+            (Normal, Normal) => {
+                s.insert(Normal);
+                s.insert(Zero);
+                s.insert(Vanished);
+            }
+            (Vanished, Vanished)
+            | (Vanished, Normal)
+            | (Normal, Vanished)
+            | (Exploded, Normal)
+            | (Normal, Exploded)
+            | (Exploded, Exploded) => {
+                s.insert(Undefined);
+            }
         },
     }
     s
@@ -81,11 +174,17 @@ fn reps() -> Vec<(Class, Vec<S>)> {
             by_class.entry(classify(s)).or_default().push(s);
         }
     }
-    [Class::Zero, Class::Vanished, Class::Normal,
-     Class::Exploded, Class::Infinity, Class::Undefined]
-        .iter()
-        .map(|c| (*c, by_class.remove(c).unwrap_or_default()))
-        .collect()
+    [
+        Class::Zero,
+        Class::Vanished,
+        Class::Normal,
+        Class::Exploded,
+        Class::Infinity,
+        Class::Undefined,
+    ]
+    .iter()
+    .map(|c| (*c, by_class.remove(c).unwrap_or_default()))
+    .collect()
 }
 
 fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
@@ -111,14 +210,25 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
             }
         }
     }
-    println!("\n=== {} ({} pairs, {} mismatches) ===", op_name(o), total, fails);
+    println!(
+        "\n=== {} ({} pairs, {} mismatches) ===",
+        op_name(o),
+        total,
+        fails
+    );
     if fails > 0 {
         for ((ca, cb), got) in &mismatches {
             let exp = expected(o, *ca, *cb);
             let exp_s: Vec<_> = exp.iter().map(|c| name(*c)).collect();
             let got_s: Vec<_> = got.iter().map(|c| name(*c)).collect();
-            println!("  OUT-OF-SET {} {} {} — expected {:?}, also got {:?}",
-                     name(*ca), op_name(o), name(*cb), exp_s, got_s);
+            println!(
+                "  OUT-OF-SET {} {} {} — expected {:?}, also got {:?}",
+                name(*ca),
+                op_name(o),
+                name(*cb),
+                exp_s,
+                got_s
+            );
         }
     }
     let mut any_missing = false;
@@ -129,11 +239,20 @@ fn run_op(o: Op, reps: &[(Class, Vec<S>)]) {
             let seen = observed.get(&(*ca, *cb)).unwrap_or(&empty);
             let missing: Vec<Class> = exp.iter().filter(|c| !seen.contains(c)).copied().collect();
             if !missing.is_empty() {
-                if !any_missing { println!("  Coverage gaps:"); any_missing = true; }
+                if !any_missing {
+                    println!("  Coverage gaps:");
+                    any_missing = true;
+                }
                 let exp_s: Vec<_> = exp.iter().map(|c| name(*c)).collect();
                 let miss_s: Vec<_> = missing.iter().map(|c| name(*c)).collect();
-                println!("    {} {} {} — expected {:?}, missing {:?}",
-                         name(*ca), op_name(o), name(*cb), exp_s, miss_s);
+                println!(
+                    "    {} {} {} — expected {:?}, missing {:?}",
+                    name(*ca),
+                    op_name(o),
+                    name(*cb),
+                    exp_s,
+                    miss_s
+                );
             }
         }
     }
@@ -182,22 +301,37 @@ fn run_not(reps: &[(Class, Vec<S>)]) {
         }
     }
 
-    println!("\n=== ~ ({} inputs, {} class mismatches, {} sign mismatches) ===",
-             total, class_fails, sign_fails);
+    println!(
+        "\n=== ~ ({} inputs, {} class mismatches, {} sign mismatches) ===",
+        total, class_fails, sign_fails
+    );
     for (c, (a, r)) in &class_mismatch_samples {
         let ab = unsafe { std::mem::transmute::<S, [i8; 2]>(*a) };
         let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(*r) };
-        println!("  class: ~{} [{:#04x},{}] → classified as {} [{:#04x},{}] (expected {})",
-                 name(*c), ab[0] as u8, ab[1],
-                 name(classify(*r)), rb[0] as u8, rb[1],
-                 name(not_expected_class(*c)));
+        println!(
+            "  class: ~{} [{:#04x},{}] → classified as {} [{:#04x},{}] (expected {})",
+            name(*c),
+            ab[0] as u8,
+            ab[1],
+            name(classify(*r)),
+            rb[0] as u8,
+            rb[1],
+            name(not_expected_class(*c))
+        );
     }
     for (c, (a, r)) in &sign_mismatch_samples {
         let ab = unsafe { std::mem::transmute::<S, [i8; 2]>(*a) };
         let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(*r) };
-        println!("  sign:  ~{} [{:#04x},{}] sign={} → [{:#04x},{}] sign={} (expected flip)",
-                 name(*c), ab[0] as u8, ab[1], if a.is_negative() { "-" } else { "+" },
-                 rb[0] as u8, rb[1], if r.is_negative() { "-" } else { "+" });
+        println!(
+            "  sign:  ~{} [{:#04x},{}] sign={} → [{:#04x},{}] sign={} (expected flip)",
+            name(*c),
+            ab[0] as u8,
+            ab[1],
+            if a.is_negative() { "-" } else { "+" },
+            rb[0] as u8,
+            rb[1],
+            if r.is_negative() { "-" } else { "+" }
+        );
     }
 }
 

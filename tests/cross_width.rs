@@ -2,12 +2,12 @@
 
 use spirix::*;
 
-type S33 = Scalar<i8, i8>;     // F3E3
-type S43 = Scalar<i16, i8>;    // F4E3
-type S53 = Scalar<i32, i8>;    // F5E3
-type S63 = Scalar<i64, i8>;    // F6E3
-type S73 = Scalar<i128, i8>;   // F7E3
-type S37 = Scalar<i8, i128>;   // F3E7 — small fraction, huge exp
+type S33 = Scalar<i8, i8>; // F3E3
+type S43 = Scalar<i16, i8>; // F4E3
+type S53 = Scalar<i32, i8>; // F5E3
+type S63 = Scalar<i64, i8>; // F6E3
+type S73 = Scalar<i128, i8>; // F7E3
+type S37 = Scalar<i8, i128>; // F3E7 — small fraction, huge exp
 type S77 = Scalar<i128, i128>; // F7E7 — gold
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,11 +32,22 @@ fn infinity_preserved_widening() {
     let i33 = S33::INFINITY;
     assert!(i33.is_infinite(), "F3E3 INFINITY should be infinite");
     let i43: S43 = (&i33).into();
-    assert!(i43.is_infinite(), "F3E3 INFINITY → F4E3 should still be infinite (got frac={}, exp={})", i43.fraction, i43.exponent);
+    assert!(
+        i43.is_infinite(),
+        "F3E3 INFINITY → F4E3 should still be infinite (got frac={}, exp={})",
+        i43.fraction,
+        i43.exponent
+    );
     let i63: S63 = (&i33).into();
-    assert!(i63.is_infinite(), "F3E3 INFINITY → F6E3 should still be infinite");
+    assert!(
+        i63.is_infinite(),
+        "F3E3 INFINITY → F6E3 should still be infinite"
+    );
     let i73: S73 = (&i33).into();
-    assert!(i73.is_infinite(), "F3E3 INFINITY → F7E3 should still be infinite");
+    assert!(
+        i73.is_infinite(),
+        "F3E3 INFINITY → F7E3 should still be infinite"
+    );
 }
 
 #[test]
@@ -44,7 +55,10 @@ fn infinity_preserved_narrowing() {
     let i73 = S73::INFINITY;
     assert!(i73.is_infinite());
     let i33: S33 = (&i73).into();
-    assert!(i33.is_infinite(), "F7E3 INFINITY → F3E3 should still be infinite");
+    assert!(
+        i33.is_infinite(),
+        "F7E3 INFINITY → F3E3 should still be infinite"
+    );
 }
 
 #[test]
@@ -52,8 +66,14 @@ fn exploded_pos_preserved() {
     let e33 = S33::EXPLODED_POS;
     let e43: S43 = (&e33).into();
     let e63: S63 = (&e33).into();
-    assert!(e43.exploded() && e43.is_positive(), "F3E3 +EXP → F4E3 lost class");
-    assert!(e63.exploded() && e63.is_positive(), "F3E3 +EXP → F6E3 lost class");
+    assert!(
+        e43.exploded() && e43.is_positive(),
+        "F3E3 +EXP → F4E3 lost class"
+    );
+    assert!(
+        e63.exploded() && e63.is_positive(),
+        "F3E3 +EXP → F6E3 lost class"
+    );
 }
 
 #[test]
@@ -61,8 +81,14 @@ fn exploded_neg_preserved() {
     let e33 = S33::EXPLODED_NEG;
     let e43: S43 = (&e33).into();
     let e63: S63 = (&e33).into();
-    assert!(e43.exploded() && e43.is_negative(), "F3E3 -EXP → F4E3 lost class/sign");
-    assert!(e63.exploded() && e63.is_negative(), "F3E3 -EXP → F6E3 lost class/sign");
+    assert!(
+        e43.exploded() && e43.is_negative(),
+        "F3E3 -EXP → F4E3 lost class/sign"
+    );
+    assert!(
+        e63.exploded() && e63.is_negative(),
+        "F3E3 -EXP → F6E3 lost class/sign"
+    );
 }
 
 #[test]
@@ -70,8 +96,14 @@ fn vanished_pos_preserved() {
     let v33 = S33::VANISHED_POS;
     let v43: S43 = (&v33).into();
     let v63: S63 = (&v33).into();
-    assert!(v43.vanished() && v43.is_positive(), "F3E3 +VAN → F4E3 lost class");
-    assert!(v63.vanished() && v63.is_positive(), "F3E3 +VAN → F6E3 lost class");
+    assert!(
+        v43.vanished() && v43.is_positive(),
+        "F3E3 +VAN → F4E3 lost class"
+    );
+    assert!(
+        v63.vanished() && v63.is_positive(),
+        "F3E3 +VAN → F6E3 lost class"
+    );
 }
 
 #[test]
@@ -105,7 +137,11 @@ fn integer_widening_then_narrowing_preserves() {
         let narrowed: S33 = (&widened).into();
         let original: f64 = s33.into();
         let result: f64 = narrowed.into();
-        assert_eq!(original, result, "F3E3 {} → F7E3 → F3E3 round-trip failed: {} → {}", v, original, result);
+        assert_eq!(
+            original, result,
+            "F3E3 {} → F7E3 → F3E3 round-trip failed: {} → {}",
+            v, original, result
+        );
     }
 }
 
@@ -119,7 +155,11 @@ fn f64_via_widening() {
         let s73_direct = S73::from(*v);
         let v_direct: f64 = s73_direct.into();
         let v33: f64 = s33.into();
-        assert_eq!(v_via, v33, "widening {} via F3E3: {} (via) vs {} (direct F3E3 value)", v, v_via, v33);
+        assert_eq!(
+            v_via, v33,
+            "widening {} via F3E3: {} (via) vs {} (direct F3E3 value)",
+            v, v_via, v33
+        );
         // The direct F7E3 value should be the original
         assert_eq!(v_direct, *v);
     }
@@ -180,8 +220,20 @@ macro_rules! crosswidth_zero_inf {
         let i_src = <$src>::INFINITY;
         let z_dst: $dst = (&z_src).into();
         let i_dst: $dst = (&i_src).into();
-        assert!(z_dst.is_zero(), "{} ZERO → not zero (frac={}, exp={})", $tag, z_dst.fraction, z_dst.exponent);
-        assert!(i_dst.is_infinite(), "{} INFINITY → not infinite (frac={}, exp={})", $tag, i_dst.fraction, i_dst.exponent);
+        assert!(
+            z_dst.is_zero(),
+            "{} ZERO → not zero (frac={}, exp={})",
+            $tag,
+            z_dst.fraction,
+            z_dst.exponent
+        );
+        assert!(
+            i_dst.is_infinite(),
+            "{} INFINITY → not infinite (frac={}, exp={})",
+            $tag,
+            i_dst.fraction,
+            i_dst.exponent
+        );
     };
 }
 
@@ -221,7 +273,10 @@ fn all_widths_zero_inf_pairs() {
 fn sign_preserved_widening() {
     let neg = S33::from(-3i8);
     let widened: S73 = (&neg).into();
-    assert!(widened.is_negative(), "F3E3 -3 → F7E3 should still be negative");
+    assert!(
+        widened.is_negative(),
+        "F3E3 -3 → F7E3 should still be negative"
+    );
     let f: f64 = widened.into();
     assert!(f < 0.0, "value should be negative, got {}", f);
 }
@@ -230,7 +285,10 @@ fn sign_preserved_widening() {
 fn sign_preserved_narrowing() {
     let neg = S73::from(-100i64);
     let narrowed: S43 = (&neg).into();
-    assert!(narrowed.is_negative(), "F7E3 -100 → F4E3 should still be negative");
+    assert!(
+        narrowed.is_negative(),
+        "F7E3 -100 → F4E3 should still be negative"
+    );
     let f: f64 = narrowed.into();
     assert!(f < 0.0);
 }
@@ -290,7 +348,11 @@ fn into_int_saturation_huge_positive() {
 fn into_int_saturation_huge_negative() {
     let huge_neg = S77::MIN;
     let i32_v: i32 = huge_neg.into();
-    assert_eq!(i32_v, i32::MIN, "very negative → i32 should saturate to MIN");
+    assert_eq!(
+        i32_v,
+        i32::MIN,
+        "very negative → i32 should saturate to MIN"
+    );
 }
 
 // ───────────────────────────────────────────────────────────────────────────── f32 round trip ─────────────────────────────────────────────────────────────────────────────
@@ -299,7 +361,7 @@ fn into_int_saturation_huge_negative() {
 fn f32_roundtrip_powers_of_2() {
     for exp in -10i32..=10 {
         let v = 2.0f32.powi(exp);
-        let s = S63::from(v as f64);  // From<f32> not directly impl'd, go via f64
+        let s = S63::from(v as f64); // From<f32> not directly impl'd, go via f64
         let back: f64 = s.into();
         assert_eq!(back as f32, v, "2^{} via f32 round-trip", exp);
     }
@@ -316,6 +378,12 @@ fn f64_to_f3e3_precision() {
         let back: f64 = s.into();
         let rel = (back - v).abs() / v.abs();
         // F3E3 has ~7 bits of precision (2^-7 ≈ 0.78%)
-        assert!(rel < 0.05, "F3E3 round-trip {} → {} (rel={:.2e})", v, back, rel);
+        assert!(
+            rel < 0.05,
+            "F3E3 round-trip {} → {} (rel={:.2e})",
+            v,
+            back,
+            rel
+        );
     }
 }

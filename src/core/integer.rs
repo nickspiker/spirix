@@ -209,11 +209,13 @@ pub trait WideOps: Sized + Copy {
 
 /// Restore the implicit sign bits into a wider type for arithmetic.
 pub trait Inflate: Sized + Copy {
-    type Wide: WideOps + Deflate<Self>;
+    type Wide: WideOps + Deflate<Self> + Ord + Copy;
     fn sign_extend(self) -> Self::Wide;
     fn left_hand_load(self) -> Self::Wide;
     /// Branchless inflate-or-sign-extend. Normal class: inflate (XOR mask). Escaped class: sign_extend (no XOR).
     fn inflate(self, is_normal: bool) -> Self::Wide;
+    /// Zero-extends the stored bit pattern into Wide, treating self as an unsigned cycle position. Used by AMBIG=0 native exponent arithmetic so cycle position math has enough headroom to detect wrap without the i8/i16/i32-only `isize` widening trap. For i8 (Wide=i16) this is `(self as u8) as i16`; for i128 (Wide=I256) it's a zero-padded byte-copy through I256::from_le_bytes.
+    fn cycle_widen(self) -> Self::Wide;
 }
 
 /// Extract stored fraction from wide result (take low FRAC bits).
@@ -241,6 +243,13 @@ macro_rules! impl_wide_ops {
                 let wide = self as $wide;
                 let mask = (-(is_normal as $wide)) & ((-1 as $wide) << $frac);
                 wide ^ mask
+            }
+
+            #[inline]
+            fn cycle_widen(self) -> $wide {
+                // Cast through SAME-WIDTH unsigned (zero-extension) — NOT through $uwide
+                // which is the unsigned-of-Wide and sign-extends.
+                (self as <$stored as IntConvert>::Unsigned) as $wide
             }
         }
 
@@ -365,6 +374,15 @@ impl Inflate for i128 {
         } else {
             wide
         }
+    }
+
+    #[inline]
+    fn cycle_widen(self) -> i256::I256 {
+        // Zero-extend the i128's bit pattern into the low half of an I256, high half zero.
+        let lo = (self as u128).to_le_bytes();
+        let mut bytes = [0u8; 32];
+        bytes[..16].copy_from_slice(&lo);
+        i256::I256::from_le_bytes(bytes)
     }
 }
 

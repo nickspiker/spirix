@@ -134,13 +134,15 @@ where
         debug_assert!(shift >= 0);
         let fraction = q.w_shl(shift).deflate();
 
-        // AMBIG=0 native: stored_pos = pa - pb + bo - shift. The +bo is the division's bias correction (subtracting two stored exps cancels both binade_origin offsets, so we add one back). Single widened compute + bounds check against the normal cycle range [min_pos, max_pos].
-        let pa: isize = self.exponent.into_unsigned().as_();
-        let pb: isize = other.exponent.into_unsigned().as_();
-        let bo: isize = Self::binade_origin().into_unsigned().as_();
-        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
-        let min_pos: isize = Self::min_exponent().as_();
-        let stored_pos: isize = pa.wrapping_sub(pb).wrapping_add(bo).wrapping_sub(shift);
+        // AMBIG=0 native: stored_pos = pa - pb + bo - shift. The +bo is the division's bias correction (subtracting two stored exps cancels both binade_origin offsets, so we add one back). `cycle_widen` zero-extends each exponent into <E as Inflate>::Wide for clean wrap detection at any E width.
+        let pa = self.exponent.cycle_widen();
+        let pb = other.exponent.cycle_widen();
+        let bo = Self::binade_origin().cycle_widen();
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
+        let shift_e: E = shift.as_();
+        let w_shift = shift_e.cycle_widen();
+        let stored_pos = pa.w_sub(pb).w_add(bo).w_sub(w_shift);
         let result_neg = q.w_is_negative();
         if stored_pos > max_pos {
             return Self {
@@ -162,7 +164,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let exponent: E = stored_pos.as_();
+        let exponent: E = stored_pos.deflate();
         Self { fraction, exponent }
     }
 

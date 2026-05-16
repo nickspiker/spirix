@@ -218,11 +218,13 @@ where
         let leading = result.leading_same();
         let fb = Self::fraction_bits();
         let delta: isize = fb.wrapping_sub(leading);
-        // AMBIG=0 native: view small.exponent as an unsigned cycle position, add the normalization delta, and bounds-check against the cycle's normal range [min_pos, max_pos]. |delta| ≤ FRAC so isize never overflows.
-        let small_pos: isize = small.exponent.into_unsigned().as_();
-        let offset_pos: isize = small_pos.wrapping_add(delta);
-        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
-        let min_pos: isize = Self::min_exponent().as_();
+        // AMBIG=0 native: view small.exponent as an unsigned cycle position via `cycle_widen` (2x widening into <E as Inflate>::Wide), add the normalization delta (sign-extended since it can be negative), and bounds-check against the cycle's normal range [min_pos, max_pos].
+        let small_pos = small.exponent.cycle_widen();
+        let delta_e: E = delta.as_();
+        let w_delta = delta_e.sign_extend();
+        let offset_pos = small_pos.w_add(w_delta);
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
         if offset_pos > max_pos {
             return Self {
                 fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
@@ -235,7 +237,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let offset: E = offset_pos.as_();
+        let offset: E = offset_pos.deflate();
         // Main path extraction: `result << L >> FRAC` composed as a net shift of (L - FRAC). Writing it directly avoids the Rust shift-overflow semantics that bite when L == wide_bits (result = -1, full sign extension).
         let shl_amount = leading.wrapping_sub(fb);
         let canonical = if shl_amount >= 0 {

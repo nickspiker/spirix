@@ -6,21 +6,39 @@ use std::collections::{BTreeMap, BTreeSet};
 type S = ScalarF3E3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Class { Zero, Vanished, Normal, Exploded, Infinity, Undefined }
+enum Class {
+    Zero,
+    Vanished,
+    Normal,
+    Exploded,
+    Infinity,
+    Undefined,
+}
 
 fn classify(s: S) -> Class {
-    if s.is_undefined() { Class::Undefined }
-    else if s.is_zero() { Class::Zero }
-    else if s.is_infinite() { Class::Infinity }
-    else if s.exploded() { Class::Exploded }
-    else if s.vanished() { Class::Vanished }
-    else { Class::Normal }
+    if s.is_undefined() {
+        Class::Undefined
+    } else if s.is_zero() {
+        Class::Zero
+    } else if s.is_infinite() {
+        Class::Infinity
+    } else if s.exploded() {
+        Class::Exploded
+    } else if s.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn name(c: Class) -> &'static str {
     match c {
-        Class::Zero => "[0]", Class::Vanished => "[↓]", Class::Normal => "[#]",
-        Class::Exploded => "[↑]", Class::Infinity => "[∞]", Class::Undefined => "[℘?]",
+        Class::Zero => "[0]",
+        Class::Vanished => "[↓]",
+        Class::Normal => "[#]",
+        Class::Exploded => "[↑]",
+        Class::Infinity => "[∞]",
+        Class::Undefined => "[℘?]",
     }
 }
 
@@ -29,15 +47,36 @@ fn expected(a: Class, b: Class) -> BTreeSet<Class> {
     use Class::*;
     let mut s = BTreeSet::new();
     match (a, b) {
-        (Undefined, _) | (_, Undefined) => { s.insert(Undefined); }
-        (Zero, _) | (_, Zero)  => { s.insert(Zero); }
-        (Infinity, x) | (x, Infinity) => { s.insert(x); }
-        (Vanished, Vanished) => { s.insert(Undefined); }
-        (Vanished, Normal) | (Normal, Vanished) => { s.insert(Undefined); }
-        (Vanished, Exploded) | (Exploded, Vanished) => { s.insert(Zero); s.insert(Exploded); }
-        (Normal, Normal) => { s.insert(Normal); s.insert(Zero); s.insert(Vanished); }
-        (Normal, Exploded) | (Exploded, Normal) => { s.insert(Undefined); }
-        (Exploded, Exploded) => { s.insert(Undefined); }
+        (Undefined, _) | (_, Undefined) => {
+            s.insert(Undefined);
+        }
+        (Zero, _) | (_, Zero) => {
+            s.insert(Zero);
+        }
+        (Infinity, x) | (x, Infinity) => {
+            s.insert(x);
+        }
+        (Vanished, Vanished) => {
+            s.insert(Undefined);
+        }
+        (Vanished, Normal) | (Normal, Vanished) => {
+            s.insert(Undefined);
+        }
+        (Vanished, Exploded) | (Exploded, Vanished) => {
+            s.insert(Zero);
+            s.insert(Exploded);
+        }
+        (Normal, Normal) => {
+            s.insert(Normal);
+            s.insert(Zero);
+            s.insert(Vanished);
+        }
+        (Normal, Exploded) | (Exploded, Normal) => {
+            s.insert(Undefined);
+        }
+        (Exploded, Exploded) => {
+            s.insert(Undefined);
+        }
     }
     s
 }
@@ -52,11 +91,17 @@ fn reps() -> Vec<(Class, Vec<S>)> {
         }
     }
     // Include edge cases and don't cap — every Scalar value is a rep.
-    [Class::Zero, Class::Vanished, Class::Normal,
-     Class::Exploded, Class::Infinity, Class::Undefined]
-        .iter()
-        .map(|c| (*c, by_class.remove(c).unwrap_or_default()))
-        .collect()
+    [
+        Class::Zero,
+        Class::Vanished,
+        Class::Normal,
+        Class::Exploded,
+        Class::Infinity,
+        Class::Undefined,
+    ]
+    .iter()
+    .map(|c| (*c, by_class.remove(c).unwrap_or_default()))
+    .collect()
 }
 
 fn main() {
@@ -91,7 +136,12 @@ fn main() {
     for ((ca, cb), cases) in &mismatches {
         let exp = expected(*ca, *cb);
         let exp_str: Vec<&str> = exp.iter().map(|c| name(*c)).collect();
-        println!("\nOUT-OF-SET: {} & {} — expected {:?}, got:", name(*ca), name(*cb), exp_str);
+        println!(
+            "\nOUT-OF-SET: {} & {} — expected {:?}, got:",
+            name(*ca),
+            name(*cb),
+            exp_str
+        );
         let mut seen: BTreeSet<Class> = BTreeSet::new();
         for (a, b, rc) in cases.iter().take(200) {
             if seen.insert(*rc) {
@@ -116,8 +166,13 @@ fn main() {
                 missing_anywhere = true;
                 let miss_str: Vec<&str> = missing.iter().map(|c| name(*c)).collect();
                 let exp_str: Vec<&str> = exp.iter().map(|c| name(*c)).collect();
-                println!("  {} & {} — expected {:?}, missing {:?}",
-                         name(*ca), name(*cb), exp_str, miss_str);
+                println!(
+                    "  {} & {} — expected {:?}, missing {:?}",
+                    name(*ca),
+                    name(*cb),
+                    exp_str,
+                    miss_str
+                );
             }
         }
     }

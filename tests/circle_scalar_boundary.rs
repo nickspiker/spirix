@@ -18,12 +18,19 @@ enum Class {
 }
 
 fn classify_scalar(s: &S) -> Class {
-    if s.is_undefined() { Class::Undefined }
-    else if s.is_zero() { Class::Zero }
-    else if s.is_infinite() { Class::Infinity }
-    else if s.exploded() { Class::Exploded }
-    else if s.vanished() { Class::Vanished }
-    else { Class::Normal }
+    if s.is_undefined() {
+        Class::Undefined
+    } else if s.is_zero() {
+        Class::Zero
+    } else if s.is_infinite() {
+        Class::Infinity
+    } else if s.exploded() {
+        Class::Exploded
+    } else if s.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn class_name(c: Class) -> &'static str {
@@ -41,14 +48,26 @@ fn check_extraction(label: &str, c: C, expected_r: &[Class], expected_i: &[Class
     let rc = classify_scalar(&c.r());
     let ic = classify_scalar(&c.i());
     if !expected_r.contains(&rc) {
-        panic!("{}: r() class = {}, expected one of {:?}",
-            label, class_name(rc),
-            expected_r.iter().map(|c| class_name(*c)).collect::<Vec<_>>());
+        panic!(
+            "{}: r() class = {}, expected one of {:?}",
+            label,
+            class_name(rc),
+            expected_r
+                .iter()
+                .map(|c| class_name(*c))
+                .collect::<Vec<_>>()
+        );
     }
     if !expected_i.contains(&ic) {
-        panic!("{}: i() class = {}, expected one of {:?}",
-            label, class_name(ic),
-            expected_i.iter().map(|c| class_name(*c)).collect::<Vec<_>>());
+        panic!(
+            "{}: i() class = {}, expected one of {:?}",
+            label,
+            class_name(ic),
+            expected_i
+                .iter()
+                .map(|c| class_name(*c))
+                .collect::<Vec<_>>()
+        );
     }
 }
 
@@ -70,10 +89,10 @@ fn circle_infinity_extracts_to_infinities() {
 #[test]
 fn circle_normal_nonzero_components() {
     // Both components normal
-    check_extraction("1+1i",   C::from((1.0, 1.0)), &[Normal], &[Normal]);
-    check_extraction("3+4i",   C::from((3.0, 4.0)), &[Normal], &[Normal]);
-    check_extraction("-2+5i",  C::from((-2.0, 5.0)), &[Normal], &[Normal]);
-    check_extraction("42+1.5i",C::from((42.0, 1.5)), &[Normal], &[Normal]);
+    check_extraction("1+1i", C::from((1.0, 1.0)), &[Normal], &[Normal]);
+    check_extraction("3+4i", C::from((3.0, 4.0)), &[Normal], &[Normal]);
+    check_extraction("-2+5i", C::from((-2.0, 5.0)), &[Normal], &[Normal]);
+    check_extraction("42+1.5i", C::from((42.0, 1.5)), &[Normal], &[Normal]);
 }
 
 #[test]
@@ -89,10 +108,20 @@ fn circle_exploded_extracts_to_exploded() {
     let e_pos = C::from((f64::MAX, 0.0)); // should explode the real
     let e_neg = C::from((-f64::MAX, 0.0));
     if e_pos.exploded() {
-        check_extraction("EXPLODED+", e_pos, &[Exploded, Infinity], &[Exploded, Zero, Infinity]);
+        check_extraction(
+            "EXPLODED+",
+            e_pos,
+            &[Exploded, Infinity],
+            &[Exploded, Zero, Infinity],
+        );
     }
     if e_neg.exploded() {
-        check_extraction("EXPLODED-", e_neg, &[Exploded, Infinity], &[Exploded, Zero, Infinity]);
+        check_extraction(
+            "EXPLODED-",
+            e_neg,
+            &[Exploded, Infinity],
+            &[Exploded, Zero, Infinity],
+        );
     }
 }
 
@@ -126,26 +155,33 @@ fn reps() -> [(&'static str, Class, S); 9] {
     let inf = S::INFINITY;
     let und = S::ZERO / S::ZERO;
     [
-        ("[0]",  Zero,      z),
-        ("[+↓]", Vanished,  vp),
-        ("[-↓]", Vanished,  vn),
-        ("[+#]", Normal,    np),
-        ("[-#]", Normal,    nn),
-        ("[+↑]", Exploded,  ep),
-        ("[-↑]", Exploded,  en),
-        ("[∞]",  Infinity,  inf),
-        ("[℘]",  Undefined, und),
+        ("[0]", Zero, z),
+        ("[+↓]", Vanished, vp),
+        ("[-↓]", Vanished, vn),
+        ("[+#]", Normal, np),
+        ("[-#]", Normal, nn),
+        ("[+↑]", Exploded, ep),
+        ("[-↑]", Exploded, en),
+        ("[∞]", Infinity, inf),
+        ("[℘]", Undefined, und),
     ]
 }
 
 /// Combine two Scalars into a Circle via from_ri, check Circle's class.
 fn circle_class(c: C) -> Class {
-    if c.is_undefined() { Class::Undefined }
-    else if c.is_zero() { Class::Zero }
-    else if c.is_infinite() { Class::Infinity }
-    else if c.exploded() { Class::Exploded }
-    else if c.vanished() { Class::Vanished }
-    else { Class::Normal }
+    if c.is_undefined() {
+        Class::Undefined
+    } else if c.is_zero() {
+        Class::Zero
+    } else if c.is_infinite() {
+        Class::Infinity
+    } else if c.exploded() {
+        Class::Exploded
+    } else if c.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn expect_circle(real: S, imag: S, real_name: &str, imag_name: &str, allowed: &[Class]) {
@@ -226,18 +262,34 @@ fn from_ri_exploded_or_vanished_collapses_to_undefined() {
 // Offset magnitudes — normalization stress (the motivating cases) ─────────────────────────────────────────────────────────────────────────────
 
 fn close(a: f64, b: f64, rel: f64) -> bool {
-    if a == b { return true; }
-    if b == 0.0 { return a.abs() < rel; }
+    if a == b {
+        return true;
+    }
+    if b == 0.0 {
+        return a.abs() < rel;
+    }
     ((a - b).abs() / b.abs()) < rel
 }
 
 fn check_values(label: &str, c: C, expected_r: f64, expected_i: f64, rel: f64) {
     let r: f64 = c.r().into();
     let i: f64 = c.i().into();
-    assert!(close(r, expected_r, rel),
-        "{}: r()={} expected {} (rel tol {})", label, r, expected_r, rel);
-    assert!(close(i, expected_i, rel),
-        "{}: i()={} expected {} (rel tol {})", label, i, expected_i, rel);
+    assert!(
+        close(r, expected_r, rel),
+        "{}: r()={} expected {} (rel tol {})",
+        label,
+        r,
+        expected_r,
+        rel
+    );
+    assert!(
+        close(i, expected_i, rel),
+        "{}: i()={} expected {} (rel tol {})",
+        label,
+        i,
+        expected_i,
+        rel
+    );
 }
 
 #[test]
@@ -286,8 +338,14 @@ fn offset_all_four_sign_quadrants() {
 #[test]
 fn round_trip_stability() {
     let cases: &[(f64, f64)] = &[
-        (1.0, 1.0), (3.0, 4.0), (42.0, 1.5), (-2.0, 3.0), (0.5, 0.25),
-        (100.0, 0.01), (0.01, 100.0), (-42.0, -1.5),
+        (1.0, 1.0),
+        (3.0, 4.0),
+        (42.0, 1.5),
+        (-2.0, 3.0),
+        (0.5, 0.25),
+        (100.0, 0.01),
+        (0.01, 100.0),
+        (-42.0, -1.5),
     ];
     for &(r, i) in cases {
         let c1 = C::from((r, i));

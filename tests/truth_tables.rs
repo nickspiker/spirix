@@ -440,7 +440,7 @@ fn sqrt_unary_truth_table() {
     let z = S::ZERO;
     let vp = S::VANISHED_POS;
     let vn = S::VANISHED_NEG;
-    let np = S::from(4);  // sqrt(4) = 2
+    let np = S::from(4); // sqrt(4) = 2
     let nn = S::from(-4); // sqrt(-4) = undefined
     let ep = S::EXPLODED_POS;
     let en = S::EXPLODED_NEG;
@@ -463,9 +463,9 @@ fn lb_unary_truth_table() {
     let z = S::ZERO;
     let vp = S::VANISHED_POS;
     let vn = S::VANISHED_NEG;
-    let np = S::from(2);   // lb(2) = 1
-    let nn = S::from(-2);  // lb(-2) = undefined
-    let one = S::ONE;       // lb(1) = 0
+    let np = S::from(2); // lb(2) = 1
+    let nn = S::from(-2); // lb(-2) = undefined
+    let one = S::ONE; // lb(1) = 0
     let ep = S::EXPLODED_POS;
     let en = S::EXPLODED_NEG;
     let inf = S::INFINITY;
@@ -475,7 +475,7 @@ fn lb_unary_truth_table() {
     check_unary("lb", "[+↓]", vp, vp.lb(), &[Undefined]);
     check_unary("lb", "[-↓]", vn, vn.lb(), &[Undefined]);
     check_unary("lb", "[+# >1]", np, np.lb(), &[Normal]);
-    check_unary("lb", "[+# =1]", one, one.lb(), &[Zero, Normal]);  // lb(1) = 0
+    check_unary("lb", "[+# =1]", one, one.lb(), &[Zero, Normal]); // lb(1) = 0
     check_unary("lb", "[-#]", nn, nn.lb(), &[Undefined]);
     check_unary("lb", "[+↑]", ep, ep.lb(), &[Undefined]);
     check_unary("lb", "[-↑]", en, en.lb(), &[Undefined]);
@@ -503,20 +503,26 @@ fn exp_unary_truth_table() {
     let z = S::ZERO;
     let vp = S::VANISHED_POS;
     let vn = S::VANISHED_NEG;
-    let np = S::from(2);  // exp(2) ≈ 7.39
+    let np = S::from(2); // exp(2) ≈ 7.39
     let nn = S::from(-2); // exp(-2) ≈ 0.135
     let ep = S::EXPLODED_POS;
     let en = S::EXPLODED_NEG;
     let inf = S::INFINITY;
     let und = S::ZERO / S::ZERO;
 
-    check_unary("exp", "[0]", z, z.exp(), &[Normal]);  // e^0 = 1
-    check_unary("exp", "[+↓]", vp, vp.exp(), &[Normal]);  // ≈ 1
-    check_unary("exp", "[-↓]", vn, vn.exp(), &[Normal]);  // ≈ 1
+    check_unary("exp", "[0]", z, z.exp(), &[Normal]); // e^0 = 1
+    check_unary("exp", "[+↓]", vp, vp.exp(), &[Normal]); // ≈ 1
+    check_unary("exp", "[-↓]", vn, vn.exp(), &[Normal]); // ≈ 1
     check_unary("exp", "[+#]", np, np.exp(), &[Normal, Exploded]);
     check_unary("exp", "[-#]", nn, nn.exp(), &[Normal, Vanished, Zero]);
-    check_unary("exp", "[+↑]", ep, ep.exp(), &[Exploded, Infinity, Undefined]);
-    check_unary("exp", "[-↑]", en, en.exp(), &[Zero]);  // e^-∞ = 0
+    check_unary(
+        "exp",
+        "[+↑]",
+        ep,
+        ep.exp(),
+        &[Exploded, Infinity, Undefined],
+    );
+    check_unary("exp", "[-↑]", en, en.exp(), &[Zero]); // e^-∞ = 0
     check_unary("exp", "[∞]", inf, inf.exp(), &[Infinity]);
     check_unary("exp", "[℘]", und, und.exp(), &[Undefined]);
 }
@@ -551,8 +557,19 @@ fn not_unary_truth_table() {
     ];
     for (name, x, expected_class) in cases {
         let r: S = (!*x).into();
-        assert_eq!(classify(&r), *expected_class, "NOT({}) class should be {:?}", name, expected_class);
-        assert_ne!(x.is_negative(), r.is_negative(), "NOT({}) should flip sign", name);
+        assert_eq!(
+            classify(&r),
+            *expected_class,
+            "NOT({}) class should be {:?}",
+            name,
+            expected_class
+        );
+        assert_ne!(
+            x.is_negative(),
+            r.is_negative(),
+            "NOT({}) should flip sign",
+            name
+        );
     }
 
     // Undefined preserved
@@ -574,8 +591,20 @@ fn square_unary_truth_table() {
     check_unary("square", "[0]", z, z.square(), &[Zero]);
     check_unary("square", "[+↓]", vp, vp.square(), &[Vanished, Zero]);
     check_unary("square", "[-↓]", vn, vn.square(), &[Vanished, Zero]);
-    check_unary("square", "[+#]", np, np.square(), &[Normal, Vanished, Exploded]);
-    check_unary("square", "[-#]", nn, nn.square(), &[Normal, Vanished, Exploded]);
+    check_unary(
+        "square",
+        "[+#]",
+        np,
+        np.square(),
+        &[Normal, Vanished, Exploded],
+    );
+    check_unary(
+        "square",
+        "[-#]",
+        nn,
+        nn.square(),
+        &[Normal, Vanished, Exploded],
+    );
     check_unary("square", "[+↑]", ep, ep.square(), &[Exploded]);
     check_unary("square", "[-↑]", en, en.square(), &[Exploded]);
     check_unary("square", "[∞]", inf, inf.square(), &[Infinity]);
@@ -585,7 +614,11 @@ fn square_unary_truth_table() {
     for &x in &[np, nn, ep, en] {
         let sq = x.square();
         if sq.is_normal() {
-            assert!(!sq.is_negative(), "square({:?}) should be non-negative, got negative", x);
+            assert!(
+                !sq.is_negative(),
+                "square({:?}) should be non-negative, got negative",
+                x
+            );
         }
     }
 }

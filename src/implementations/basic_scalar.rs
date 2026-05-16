@@ -60,7 +60,6 @@ impl_scalar_new! {
     i128, i128
 }
 
-
 #[allow(private_bounds)]
 impl<
         F: Integer

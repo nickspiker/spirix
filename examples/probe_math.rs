@@ -44,7 +44,10 @@ fn main() {
 
     println!("\n=== Round-trips ===");
     p("exp(ln(5)) expect 5", ScalarF5E3::from(5).ln().exp());
-    p("sqrt(square(7)) expect 7", ScalarF5E3::from(7).square().sqrt());
+    p(
+        "sqrt(square(7)) expect 7",
+        ScalarF5E3::from(7).square().sqrt(),
+    );
     p("sin^2 + cos^2 @ 0.3", {
         let x: S = 0.3.into();
         let s = x.sin();
@@ -56,7 +59,9 @@ fn main() {
     let nums: [S; 5] = [1.into(), 2.into(), 3.into(), 4.into(), 5.into()];
     // mean requires slice or iterator API — just try manual
     let mut sum = S::ZERO;
-    for n in &nums { sum = sum + *n; }
+    for n in &nums {
+        sum = sum + *n;
+    }
     let n5: S = 5.into();
     p("mean(1..5) expect 3", sum / n5);
 

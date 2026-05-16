@@ -137,9 +137,7 @@ where
             return Circle::<F, E>::INFINITY;
         }
         // Both exploded or both vanished → magnitude indeterminate.
-        if (real.exploded() && imaginary.exploded())
-            || (real.vanished() && imaginary.vanished())
-        {
+        if (real.exploded() && imaginary.exploded()) || (real.vanished() && imaginary.vanished()) {
             let prefix: F = INDETERMINATE.prefix.sa();
             return Circle {
                 real: prefix,

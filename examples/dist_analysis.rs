@@ -18,8 +18,8 @@ fn main() {
     const EXP_MIN: i32 = -127;
     const EXP_MAX: i32 = 127;
 
-    let per_exp: u64 = 1u64 << FRAC_BITS;               // 2^32 patterns per exponent
-    let half_per_exp: u64 = per_exp >> 1;                // 2^31 positives, 2^31 negatives
+    let per_exp: u64 = 1u64 << FRAC_BITS; // 2^32 patterns per exponent
+    let half_per_exp: u64 = per_exp >> 1; // 2^31 positives, 2^31 negatives
 
     // Below 1 strictly (|v| < 1): exp=-127..-1 (127 exps): all 2^32 patterns each exp=0 : all 2^32 except neg_one (which is = 1)
     let below_1: u64 = 127 * per_exp + (per_exp - 1);
@@ -34,21 +34,35 @@ fn main() {
 
     println!("=== F5E3 representable normals ({total} total) ===");
     println!();
-    println!("  |v| < 1:  {below_1:>14} ({:.4}%)",
-             100.0 * below_1 as f64 / total as f64);
-    println!("  |v| = 1:  {eq_1:>14} ({:.8}%) — just -1 and +1",
-             100.0 * eq_1 as f64 / total as f64);
-    println!("  |v| > 1:  {above_1:>14} ({:.4}%)",
-             100.0 * above_1 as f64 / total as f64);
+    println!(
+        "  |v| < 1:  {below_1:>14} ({:.4}%)",
+        100.0 * below_1 as f64 / total as f64
+    );
+    println!(
+        "  |v| = 1:  {eq_1:>14} ({:.8}%) — just -1 and +1",
+        100.0 * eq_1 as f64 / total as f64
+    );
+    println!(
+        "  |v| > 1:  {above_1:>14} ({:.4}%)",
+        100.0 * above_1 as f64 / total as f64
+    );
     println!("  verify:   {}", below_1 + eq_1 + above_1);
     println!();
-    println!("Difference: {} patterns more below 1 than above 1",
-             (below_1 as i128) - (above_1 as i128));
+    println!(
+        "Difference: {} patterns more below 1 than above 1",
+        (below_1 as i128) - (above_1 as i128)
+    );
     println!("            = 2^32 (one whole exponent bucket).");
     println!();
     println!("Per-exponent breakdown (magnitude range):");
-    println!("  exp={:>4}: magnitudes [2^{:>4}, 2^{:>4}) pos, (2^{:>4}, 2^{:>4}] neg",
-             EXP_MIN, EXP_MIN-1, EXP_MIN, EXP_MIN-1, EXP_MIN);
+    println!(
+        "  exp={:>4}: magnitudes [2^{:>4}, 2^{:>4}) pos, (2^{:>4}, 2^{:>4}] neg",
+        EXP_MIN,
+        EXP_MIN - 1,
+        EXP_MIN,
+        EXP_MIN - 1,
+        EXP_MIN
+    );
     println!("   ...");
     println!("  exp=   0: magnitudes [2^-1, 2^0) pos = [0.5, 1)");
     println!("            magnitudes (2^-1, 2^0] neg = (0.5, 1]  ← includes -1");
@@ -57,8 +71,14 @@ fn main() {
     println!("   ...");
     println!();
     println!("Exponent partition around 1:");
-    println!("  exps with |v|≤1:  e in [-127, 0]  → 128 exponents × 2^32 = {}", 128_u64 * per_exp);
-    println!("  exps with |v|≥1:  e in [1, 127]   → 127 exponents × 2^32 = {}", 127_u64 * per_exp);
+    println!(
+        "  exps with |v|≤1:  e in [-127, 0]  → 128 exponents × 2^32 = {}",
+        128_u64 * per_exp
+    );
+    println!(
+        "  exps with |v|≥1:  e in [1, 127]   → 127 exponents × 2^32 = {}",
+        127_u64 * per_exp
+    );
 
     let _ = half_per_exp;
 }

@@ -90,8 +90,8 @@ where
                     let eff_shifted = eff >> 65usize;
                     let bytes = eff_shifted.to_le_bytes();
                     let v = i64::from_le_bytes([
-                        bytes[0], bytes[1], bytes[2], bytes[3],
-                        bytes[4], bytes[5], bytes[6], bytes[7],
+                        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6],
+                        bytes[7],
                     ]);
                     (v, 65i64)
                 }
@@ -100,16 +100,23 @@ where
             let base = base_i64 as f64;
             let exponent: i32 = (self.exponent ^ E::min_value()).saturate();
             // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1). +1 compensates the ruler shift.
-            let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
+            let scale_exp =
+                exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             // Adjust the f64 bit-exponent of `base` directly to avoid precision loss from powi() multiplication chains at extreme exponents.
-            if base == 0.0 { return 0.0; }
+            if base == 0.0 {
+                return 0.0;
+            }
             let bits = base.to_bits();
             let sign = bits & 0x8000_0000_0000_0000;
             let biased = ((bits >> 52) & 0x7FF) as i64;
             let mantissa = bits & 0x000F_FFFF_FFFF_FFFF;
             let new_biased = biased + scale_exp;
             if new_biased >= 2047 {
-                return if sign != 0 { f64::NEG_INFINITY } else { f64::INFINITY };
+                return if sign != 0 {
+                    f64::NEG_INFINITY
+                } else {
+                    f64::INFINITY
+                };
             }
             if new_biased <= 0 {
                 // Subnormal or zero
@@ -235,15 +242,22 @@ where
             let base = base_i32 as f32;
             let exponent: i32 = (self.exponent ^ E::min_value()).saturate();
             // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1).
-            let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
-            if base == 0.0 { return 0.0; }
+            let scale_exp =
+                exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
+            if base == 0.0 {
+                return 0.0;
+            }
             let bits = base.to_bits();
             let sign = bits & 0x8000_0000;
             let biased = ((bits >> 23) & 0xFF) as i64;
             let mantissa = bits & 0x007F_FFFF;
             let new_biased = biased + scale_exp;
             if new_biased >= 255 {
-                return if sign != 0 { f32::NEG_INFINITY } else { f32::INFINITY };
+                return if sign != 0 {
+                    f32::NEG_INFINITY
+                } else {
+                    f32::INFINITY
+                };
             }
             if new_biased <= 0 {
                 let shift = (1 - new_biased) as u32;
@@ -1023,18 +1037,30 @@ impl Scalar<i16, i16> {
         if raw_exp == 0x7FF {
             if mantissa != 0 {
                 // NaN → undefined (generic N-3 prefix)
-                return Scalar { fraction: 0xE000u16 as i16, exponent: 0 };
+                return Scalar {
+                    fraction: 0xE000u16 as i16,
+                    exponent: 0,
+                };
             }
             return if sign != 0 {
                 // -Inf → EXPLODED_NEG
-                Scalar { fraction: i16::MIN, exponent: 0 }
+                Scalar {
+                    fraction: i16::MIN,
+                    exponent: 0,
+                }
             } else {
                 // +Inf → EXPLODED_POS
-                Scalar { fraction: -(i16::MIN >> 1), exponent: 0 }
+                Scalar {
+                    fraction: -(i16::MIN >> 1),
+                    exponent: 0,
+                }
             };
         }
         if raw_exp == 0 && mantissa == 0 {
-            return Scalar { fraction: 0, exponent: 0 };
+            return Scalar {
+                fraction: 0,
+                exponent: 0,
+            };
         }
 
         // Build positive magnitude (mantissa with implicit leading 1 for normals).
@@ -1061,14 +1087,23 @@ impl Scalar<i16, i16> {
         };
 
         if sign == 0 {
-            return Scalar { fraction: fraction_pos, exponent: spirix_exp ^ i16::MIN };
+            return Scalar {
+                fraction: fraction_pos,
+                exponent: spirix_exp ^ i16::MIN,
+            };
         }
 
         // Negation: handle pos_one_normal boundary (i16::MIN → {0, exp-1}).
         if fraction_pos == i16::MIN {
-            return Scalar { fraction: 0, exponent: (spirix_exp - 1) ^ i16::MIN };
+            return Scalar {
+                fraction: 0,
+                exponent: (spirix_exp - 1) ^ i16::MIN,
+            };
         }
-        Scalar { fraction: -fraction_pos, exponent: spirix_exp ^ i16::MIN }
+        Scalar {
+            fraction: -fraction_pos,
+            exponent: spirix_exp ^ i16::MIN,
+        }
     }
 }
 #[cfg(test)]
@@ -1238,7 +1273,7 @@ mod tests_scalar_ieee {
         assert!(S44::from(f32::NAN).to_f64().is_nan());
         assert!(S44::from(f32::INFINITY).to_f64().is_infinite());
         assert!(S44::from(f32::NEG_INFINITY).to_f64().is_infinite()); // sign lost
-        // Spirix ZERO is signless — both ±0.0 map to the same ZERO, round-tripping to +0.0. Sign is intentionally not preserved.
+                                                                      // Spirix ZERO is signless — both ±0.0 map to the same ZERO, round-tripping to +0.0. Sign is intentionally not preserved.
         assert_eq!(S44::from(0.0_f32).to_f64().to_bits(), 0u64);
         assert_eq!(S44::from(-0.0_f32).to_f64().to_bits(), 0u64);
     }

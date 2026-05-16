@@ -11,12 +11,19 @@ fn main() {
 
     for _ in 0..100_000 {
         let r: ScalarF3E3 = ScalarF3E3::random();
-        if r.is_undefined() { undef += 1; }
-        else if r.is_zero() { zero += 1; }
-        else if r.is_infinite() { infinite += 1; }
-        else if r.exploded() { exploded += 1; }
-        else if r.vanished() { vanished += 1; }
-        else { normal += 1; }
+        if r.is_undefined() {
+            undef += 1;
+        } else if r.is_zero() {
+            zero += 1;
+        } else if r.is_infinite() {
+            infinite += 1;
+        } else if r.exploded() {
+            exploded += 1;
+        } else if r.vanished() {
+            vanished += 1;
+        } else {
+            normal += 1;
+        }
     }
 
     println!("F3E3 random 100k trials:");

@@ -69,53 +69,69 @@ where
             // Edge cases delegate to multiplication (same tables, same logic).
             return self.scalar_multiply_scalar(self);
         }
-        // AMBIG=0 native: cycle-position arithmetic with widened bounds. Matches multiplication's pattern. `pa` is the operand's unsigned cycle position (0=AMBIG, 1..MAX_POS = normal). Direction-aware: `stored_pos > max_pos` means we wrapped UP past AMBIG → exploded, `< min_pos` means we wrapped DOWN past AMBIG (or hit AMBIG exactly) → vanished.
-        let pa: isize = self.exponent.into_unsigned().as_();
-        let bo: isize = Self::binade_origin().into_unsigned().as_();
-        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
-        let min_pos: isize = Self::min_exponent().as_();
+        // AMBIG=0 native: cycle-position arithmetic with 2x widening via `cycle_widen`. Matches multiplication's pattern. `pa` is the operand's unsigned cycle position (0=AMBIG, 1..MAX_POS = normal). Direction-aware: `stored_pos > max_pos` → exploded, `< min_pos` → vanished (or AMBIG hit).
+        let pa = self.exponent.cycle_widen();
+        let bo = Self::binade_origin().cycle_widen();
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
+        let w_one = E::one().cycle_widen();
 
         // NEG_ONE_NORMAL @ logical k represents -2^(k+1), so (val)² = 2^(2k+2). Cycle position: stored_pos = 2*pa - bo + 2.
         if self.fraction == Self::neg_one_normal() {
-            let stored_pos: isize = pa.wrapping_add(pa).wrapping_sub(bo).wrapping_add(2);
+            let stored_pos = w_one.w_add(w_one).w_add(pa).w_add(pa).w_sub(bo);
             if stored_pos > max_pos {
-                return Self { fraction: Self::pos_one_exploded(), exponent: Self::ambiguous_exponent() };
+                return Self {
+                    fraction: Self::pos_one_exploded(),
+                    exponent: Self::ambiguous_exponent(),
+                };
             }
             if stored_pos < min_pos {
-                return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
+                return Self {
+                    fraction: Self::pos_one_vanished(),
+                    exponent: Self::ambiguous_exponent(),
+                };
             }
-            return Self { fraction: Self::pos_one_normal(), exponent: stored_pos.as_() };
+            return Self {
+                fraction: Self::pos_one_normal(),
+                exponent: stored_pos.deflate(),
+            };
         }
         // Normal path: one inflate, one w_mul, positive result → leading_zeros.
         let inflated = self.fraction.inflate(true);
         let product = inflated.w_mul(inflated);
         let leading = product.w_leading_zeros();
-        // Cycle position: stored_pos = 2*pa - bo + 1 - leading. The +1 is the per-mul ruler offset, `-leading` normalizes the product.
-        let stored_pos: isize = pa
-            .wrapping_add(pa)
-            .wrapping_sub(bo)
-            .wrapping_add(1)
-            .wrapping_sub(leading);
+        // Cycle position: stored_pos = 2*pa - bo + 1 - leading. `leading` from w_leading_zeros is non-negative; sign_extend and cycle_widen agree, use cycle_widen for symmetry with the cycle ops.
+        let leading_e: E = leading.as_();
+        let w_leading = leading_e.cycle_widen();
+        let stored_pos = w_one.w_add(pa).w_add(pa).w_sub(bo).w_sub(w_leading);
         if stored_pos > max_pos {
-            // Exponent overflow → exploded. Fraction extraction unchanged from v0.1 form (depends only on `leading`, not on exponent convention).
+            // Exponent overflow → exploded. Fraction extraction unchanged (depends only on `leading`).
             let fraction = product
                 .w_shl(leading.wrapping_sub(1))
                 .w_shr(Self::fraction_bits())
                 .deflate();
-            return Self { fraction, exponent: Self::ambiguous_exponent() };
+            return Self {
+                fraction,
+                exponent: Self::ambiguous_exponent(),
+            };
         }
         if stored_pos < min_pos {
-            // Exponent underflow → vanished. Fraction extraction unchanged.
+            // Exponent underflow → vanished.
             let shift = leading.wrapping_sub(2);
             let fraction = if shift >= 0 {
                 product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
             } else {
-                product.w_shr(Self::fraction_bits().wrapping_sub(shift)).deflate()
+                product
+                    .w_shr(Self::fraction_bits().wrapping_sub(shift))
+                    .deflate()
             };
-            return Self { fraction, exponent: Self::ambiguous_exponent() };
+            return Self {
+                fraction,
+                exponent: Self::ambiguous_exponent(),
+            };
         }
-        // Normal: bounds check has guaranteed stored_pos is in [min_pos, max_pos], i.e. a representable non-AMBIG exponent. Fraction extraction is the simple `product << leading >> FRAC`.
-        let exponent: E = stored_pos.as_();
+        // Normal: bounds check has guaranteed stored_pos is in [min_pos, max_pos], i.e. a representable non-AMBIG exponent.
+        let exponent: E = stored_pos.deflate();
         let fraction = product
             .w_shl(leading)
             .w_shr(Self::fraction_bits())
@@ -300,7 +316,8 @@ where
                 let bytes = root.to_le_bytes();
                 let r_low = i128::from_le_bytes([
                     bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-                    bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
+                    bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14],
+                    bytes[15],
                 ]);
                 r_low.as_()
             }
@@ -462,15 +479,32 @@ where
 
         // Convert characteristic (E type) to Scalar and combine.
         let characteristic_scalar = match Self::exponent_bits() {
-            8 => { let e: i8 = characteristic.as_(); Self::from(e) }
-            16 => { let e: i16 = characteristic.as_(); Self::from(e) }
-            32 => { let e: i32 = characteristic.as_(); Self::from(e) }
-            64 => { let e: i64 = characteristic.as_(); Self::from(e) }
-            128 => { let e: i128 = characteristic.as_(); Self::from(e) }
-            _ => return Self {
-                fraction: GENERAL.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            },
+            8 => {
+                let e: i8 = characteristic.as_();
+                Self::from(e)
+            }
+            16 => {
+                let e: i16 = characteristic.as_();
+                Self::from(e)
+            }
+            32 => {
+                let e: i32 = characteristic.as_();
+                Self::from(e)
+            }
+            64 => {
+                let e: i64 = characteristic.as_();
+                Self::from(e)
+            }
+            128 => {
+                let e: i128 = characteristic.as_();
+                Self::from(e)
+            }
+            _ => {
+                return Self {
+                    fraction: GENERAL.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                }
+            }
         };
 
         characteristic_scalar + fractional

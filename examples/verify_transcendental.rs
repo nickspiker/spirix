@@ -4,29 +4,41 @@ use spirix::*;
 type S = ScalarF3E3;
 
 #[derive(Copy, Clone, Debug)]
-enum Op { Sqrt, Exp, Ln, Sin, Cos }
+enum Op {
+    Sqrt,
+    Exp,
+    Ln,
+    Sin,
+    Cos,
+}
 
 fn op_name(o: Op) -> &'static str {
-    match o { Op::Sqrt => "sqrt", Op::Exp => "exp", Op::Ln => "ln", Op::Sin => "sin", Op::Cos => "cos" }
+    match o {
+        Op::Sqrt => "sqrt",
+        Op::Exp => "exp",
+        Op::Ln => "ln",
+        Op::Sin => "sin",
+        Op::Cos => "cos",
+    }
 }
 
 fn spirix_op(o: Op, a: S) -> S {
     match o {
         Op::Sqrt => a.sqrt(),
-        Op::Exp  => a.exp(),
-        Op::Ln   => a.ln(),
-        Op::Sin  => a.sin(),
-        Op::Cos  => a.cos(),
+        Op::Exp => a.exp(),
+        Op::Ln => a.ln(),
+        Op::Sin => a.sin(),
+        Op::Cos => a.cos(),
     }
 }
 
 fn f64_op(o: Op, a: f64) -> f64 {
     match o {
         Op::Sqrt => a.sqrt(),
-        Op::Exp  => a.exp(),
-        Op::Ln   => a.ln(),
-        Op::Sin  => a.sin(),
-        Op::Cos  => a.cos(),
+        Op::Exp => a.exp(),
+        Op::Ln => a.ln(),
+        Op::Sin => a.sin(),
+        Op::Cos => a.cos(),
     }
 }
 
@@ -39,18 +51,40 @@ fn main() {
         for f in -128i8..=127 {
             for e in -128i8..=127 {
                 let s = unsafe { std::mem::transmute::<[i8; 2], S>([f, e]) };
-                if !s.is_normal() { continue; }
+                if !s.is_normal() {
+                    continue;
+                }
                 // Restrict oracle's input range per op
                 let af: f64 = s.into();
-                if !af.is_finite() || af == 0.0 { continue; }
+                if !af.is_finite() || af == 0.0 {
+                    continue;
+                }
                 match op {
-                    Op::Sqrt => { if af < 0.0 { continue; } }
-                    Op::Ln   => { if af <= 0.0 { continue; } }
-                    Op::Exp  => { if af > 80.0 || af < -80.0 { continue; } }
-                    Op::Sin | Op::Cos => { if af.abs() > 1e10 { continue; } }
+                    Op::Sqrt => {
+                        if af < 0.0 {
+                            continue;
+                        }
+                    }
+                    Op::Ln => {
+                        if af <= 0.0 {
+                            continue;
+                        }
+                    }
+                    Op::Exp => {
+                        if af > 80.0 || af < -80.0 {
+                            continue;
+                        }
+                    }
+                    Op::Sin | Op::Cos => {
+                        if af.abs() > 1e10 {
+                            continue;
+                        }
+                    }
                 }
                 let expected = f64_op(op, af);
-                if !expected.is_finite() { continue; }
+                if !expected.is_finite() {
+                    continue;
+                }
                 let r = spirix_op(op, s);
                 let _rf: f64 = r.into();
                 total += 1;
@@ -77,14 +111,21 @@ fn main() {
                 }
             }
         }
-        println!("=== {} ({} inputs, {} gross sign errors, {} gross class errors) ===",
-                 op_name(op), total, gross_sign, gross_class);
+        println!(
+            "=== {} ({} inputs, {} gross sign errors, {} gross class errors) ===",
+            op_name(op),
+            total,
+            gross_sign,
+            gross_class
+        );
         for (s, af, r, ef) in &samples {
             let sb = unsafe { std::mem::transmute::<S, [i8; 2]>(*s) };
             let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(*r) };
             let rf: f64 = (*r).into();
-            println!("  [{:#04x},{}]={:e} -> spirix=[{:#04x},{}]={:e} expected={:e}",
-                     sb[0] as u8, sb[1], af, rb[0] as u8, rb[1], rf, ef);
+            println!(
+                "  [{:#04x},{}]={:e} -> spirix=[{:#04x},{}]={:e} expected={:e}",
+                sb[0] as u8, sb[1], af, rb[0] as u8, rb[1], rf, ef
+            );
         }
     }
 }

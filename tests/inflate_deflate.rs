@@ -437,7 +437,10 @@ fn addition_basic() {
     assert!((zero + zero) == zero, "[0]+[0]=[0]");
     assert!((zero + pos_vanished).vanished(), "[0]+[+↓]=[↓]");
     assert!((zero + one) == one, "[0]+[#]=[#]");
-    assert!((zero + pos_exploded).exploded(), "[0]+[+↑]=[↑] (zero identity)");
+    assert!(
+        (zero + pos_exploded).exploded(),
+        "[0]+[+↑]=[↑] (zero identity)"
+    );
     assert!((zero + inf).is_infinite(), "[0]+[∞]=[∞] (∞ absorbs)");
     assert!((zero + undef).is_undefined(), "[0]+[℘]=[℘]");
 

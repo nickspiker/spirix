@@ -31,12 +31,19 @@ enum Signed {
 }
 
 fn classify(s: S) -> Class {
-    if s.is_undefined() { Class::Undefined }
-    else if s.is_zero() { Class::Zero }
-    else if s.is_infinite() { Class::Infinity }
-    else if s.exploded() { Class::Exploded }
-    else if s.vanished() { Class::Vanished }
-    else { Class::Normal }
+    if s.is_undefined() {
+        Class::Undefined
+    } else if s.is_zero() {
+        Class::Zero
+    } else if s.is_infinite() {
+        Class::Infinity
+    } else if s.exploded() {
+        Class::Exploded
+    } else if s.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn classify_signed(s: S) -> Signed {
@@ -44,18 +51,41 @@ fn classify_signed(s: S) -> Signed {
         Class::Zero => Signed::Zero,
         Class::Infinity => Signed::Inf,
         Class::Undefined => Signed::Undef,
-        Class::Vanished => if s.is_negative() { Signed::NegVan } else { Signed::PosVan },
-        Class::Normal => if s.is_negative() { Signed::NegNorm } else { Signed::PosNorm },
-        Class::Exploded => if s.is_negative() { Signed::NegExp } else { Signed::PosExp },
+        Class::Vanished => {
+            if s.is_negative() {
+                Signed::NegVan
+            } else {
+                Signed::PosVan
+            }
+        }
+        Class::Normal => {
+            if s.is_negative() {
+                Signed::NegNorm
+            } else {
+                Signed::PosNorm
+            }
+        }
+        Class::Exploded => {
+            if s.is_negative() {
+                Signed::NegExp
+            } else {
+                Signed::PosExp
+            }
+        }
     }
 }
 
 fn name(c: Signed) -> &'static str {
     match c {
-        Signed::Zero => "[0]", Signed::PosVan => "[+↓]", Signed::NegVan => "[-↓]",
-        Signed::PosNorm => "[+#]", Signed::NegNorm => "[-#]",
-        Signed::PosExp => "[+↑]", Signed::NegExp => "[-↑]",
-        Signed::Inf => "[∞]", Signed::Undef => "[℘?]",
+        Signed::Zero => "[0]",
+        Signed::PosVan => "[+↓]",
+        Signed::NegVan => "[-↓]",
+        Signed::PosNorm => "[+#]",
+        Signed::NegNorm => "[-#]",
+        Signed::PosExp => "[+↑]",
+        Signed::NegExp => "[-↑]",
+        Signed::Inf => "[∞]",
+        Signed::Undef => "[℘?]",
     }
 }
 
@@ -63,16 +93,36 @@ fn expected(input: Signed) -> BTreeSet<Signed> {
     use Signed::*;
     let mut s = BTreeSet::new();
     match input {
-        Zero => { s.insert(Zero); }
-        Inf => { s.insert(Inf); }
-        Undef => { s.insert(Undef); }
-        PosVan => { s.insert(NegVan); }
-        NegVan => { s.insert(PosVan); }
+        Zero => {
+            s.insert(Zero);
+        }
+        Inf => {
+            s.insert(Inf);
+        }
+        Undef => {
+            s.insert(Undef);
+        }
+        PosVan => {
+            s.insert(NegVan);
+        }
+        NegVan => {
+            s.insert(PosVan);
+        }
         // Normal can escape at the exponent boundaries.
-        PosNorm => { s.insert(NegNorm); s.insert(NegVan); }
-        NegNorm => { s.insert(PosNorm); s.insert(PosExp); }
-        PosExp => { s.insert(NegExp); }
-        NegExp => { s.insert(PosExp); }
+        PosNorm => {
+            s.insert(NegNorm);
+            s.insert(NegVan);
+        }
+        NegNorm => {
+            s.insert(PosNorm);
+            s.insert(PosExp);
+        }
+        PosExp => {
+            s.insert(NegExp);
+        }
+        NegExp => {
+            s.insert(PosExp);
+        }
     }
     s
 }
@@ -141,8 +191,16 @@ fn main() {
     }
 
     println!("=== scalar negation exhaustive F3E3 verification ===");
-    println!("  default vs unified: {} mismatches / {}", default_vs_unified_mismatches, all.len());
-    println!("  class transitions : {} mismatches / {}", class_mismatches, all.len());
+    println!(
+        "  default vs unified: {} mismatches / {}",
+        default_vs_unified_mismatches,
+        all.len()
+    );
+    println!(
+        "  class transitions : {} mismatches / {}",
+        class_mismatches,
+        all.len()
+    );
     println!("  -(-x) == x        : {} unexpected / {} (plus {} expected class-escapes at normal-range boundaries)",
              unexpected_identity, all.len(), expected_escapes);
 
@@ -157,12 +215,19 @@ fn main() {
         let exp = expected(*input);
         let exp_s: Vec<_> = exp.iter().map(|c| name(*c)).collect();
         let got_s: Vec<_> = got.iter().map(|c| name(*c)).collect();
-        println!("  class OUT-OF-SET -{} → expected {:?}, also got {:?}", name(*input), exp_s, got_s);
+        println!(
+            "  class OUT-OF-SET -{} → expected {:?}, also got {:?}",
+            name(*input),
+            exp_s,
+            got_s
+        );
     }
     if let Some((x, rr)) = first_unexpected {
         let xb: [i8; 2] = unsafe { std::mem::transmute(x) };
         let rrb: [i8; 2] = unsafe { std::mem::transmute(rr) };
-        println!("  first unexpected -(-x)≠x: x=[{:#04x},{}] -(-x)=[{:#04x},{}]",
-                 xb[0] as u8, xb[1], rrb[0] as u8, rrb[1]);
+        println!(
+            "  first unexpected -(-x)≠x: x=[{:#04x},{}] -(-x)=[{:#04x},{}]",
+            xb[0] as u8, xb[1], rrb[0] as u8, rrb[1]
+        );
     }
 }

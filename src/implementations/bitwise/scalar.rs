@@ -301,13 +301,15 @@ where
         if !self.is_normal() {
             return *self;
         }
-        let new_exp = self.exponent.wrapping_add(shift);
-        // Input sign in N0 normal: stored MSB=1 → positive, MSB=0 → negative.
+        // AMBIG=0 native: stored_pos = pa + shift (cycle-widened). shift is a signed E-typed amount → sign_extend. pa is a cycle position → cycle_widen.
+        let pa = self.exponent.cycle_widen();
+        let w_shift = shift.sign_extend();
+        let stored_pos = pa.w_add(w_shift);
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
+        // N0 sign: MSB=1 stored → positive value, MSB=0 → negative. `is_negative` on stored is true when MSB=1, so invert for the "is the value negative?" bit.
         let neg = !self.fraction.is_negative();
-        // Overflow: both non-negative, sum wrapped negative → true sum > MAX_EXP → Exploded.
-        let overflowed =
-            !shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative();
-        if overflowed {
+        if stored_pos > max_pos {
             return Self {
                 fraction: if neg {
                     Self::neg_one_exploded()
@@ -317,10 +319,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Underflow: either AMBIGUOUS landing (no wrap) or both-negative wrap to non-negative. Both mean true sum ≤ AMBIGUOUS → Vanished.
-        let underflowed = new_exp == Self::ambiguous_exponent()
-            || (shift.is_negative() && self.exponent.is_negative() && !new_exp.is_negative());
-        if underflowed {
+        if stored_pos < min_pos {
             return Self {
                 fraction: if neg {
                     Self::neg_one_vanished()
@@ -332,7 +331,7 @@ where
         }
         Self {
             fraction: self.fraction,
-            exponent: new_exp,
+            exponent: stored_pos.deflate(),
         }
     }
 
@@ -340,12 +339,14 @@ where
         if !self.is_normal() {
             return *self;
         }
-        let new_exp = self.exponent.wrapping_sub(shift);
+        // AMBIG=0 native: stored_pos = pa - shift (cycle-widened). Same shape as shl with sign flipped on the shift.
+        let pa = self.exponent.cycle_widen();
+        let w_shift = shift.sign_extend();
+        let stored_pos = pa.w_sub(w_shift);
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
         let neg = !self.fraction.is_negative();
-        // Overflow: shift negative, self.exp non-negative, diff wrapped negative → true diff > MAX_EXP → Exploded.
-        let overflowed =
-            shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative();
-        if overflowed {
+        if stored_pos > max_pos {
             return Self {
                 fraction: if neg {
                     Self::neg_one_exploded()
@@ -355,10 +356,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Underflow: either AMBIGUOUS landing or shift≥0/self<0 wrap.
-        let underflowed = new_exp == Self::ambiguous_exponent()
-            || (!shift.is_negative() && self.exponent.is_negative() && !new_exp.is_negative());
-        if underflowed {
+        if stored_pos < min_pos {
             return Self {
                 fraction: if neg {
                     Self::neg_one_vanished()
@@ -370,7 +368,7 @@ where
         }
         Self {
             fraction: self.fraction,
-            exponent: new_exp,
+            exponent: stored_pos.deflate(),
         }
     }
 }

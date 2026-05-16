@@ -5,33 +5,60 @@ use std::collections::BTreeMap;
 type S = ScalarF3E3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum Class { Zero, Vanished, Normal, Exploded, Infinity, Undefined }
+enum Class {
+    Zero,
+    Vanished,
+    Normal,
+    Exploded,
+    Infinity,
+    Undefined,
+}
 
 fn classify(s: S) -> Class {
-    if s.is_undefined() { Class::Undefined }
-    else if s.is_zero() { Class::Zero }
-    else if s.is_infinite() { Class::Infinity }
-    else if s.exploded() { Class::Exploded }
-    else if s.vanished() { Class::Vanished }
-    else { Class::Normal }
+    if s.is_undefined() {
+        Class::Undefined
+    } else if s.is_zero() {
+        Class::Zero
+    } else if s.is_infinite() {
+        Class::Infinity
+    } else if s.exploded() {
+        Class::Exploded
+    } else if s.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn name(c: Class) -> &'static str {
     match c {
-        Class::Zero => "[0]", Class::Vanished => "[↓]", Class::Normal => "[#]",
-        Class::Exploded => "[↑]", Class::Infinity => "[∞]", Class::Undefined => "[℘?]",
+        Class::Zero => "[0]",
+        Class::Vanished => "[↓]",
+        Class::Normal => "[#]",
+        Class::Exploded => "[↑]",
+        Class::Infinity => "[∞]",
+        Class::Undefined => "[℘?]",
     }
 }
 
 #[derive(Copy, Clone)]
-enum Op { Shl, Shr }
+enum Op {
+    Shl,
+    Shr,
+}
 
 fn op_name(o: Op) -> &'static str {
-    match o { Op::Shl => "<<", Op::Shr => ">>" }
+    match o {
+        Op::Shl => "<<",
+        Op::Shr => ">>",
+    }
 }
 
 fn apply(o: Op, a: S, n: i32) -> S {
-    match o { Op::Shl => a << n, Op::Shr => a >> n }
+    match o {
+        Op::Shl => a << n,
+        Op::Shr => a >> n,
+    }
 }
 
 // Expected class for Normal input shifted by true_delta (the unbounded exponent change: +n for <<, -n for >>). F3E3 has MIN_EXP=-127, MAX_EXP=127.
@@ -41,16 +68,23 @@ const MAX_EXP: i32 = 127;
 fn expected_normal_class(self_exp: i32, delta: i32) -> Class {
     // Compute unbounded true_new_exp; wrap around can't happen in i32.
     let true_new = self_exp + delta;
-    if true_new > MAX_EXP { Class::Exploded }
-    else if true_new < MIN_EXP { Class::Vanished }
-    else { Class::Normal }
+    if true_new > MAX_EXP {
+        Class::Exploded
+    } else if true_new < MIN_EXP {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
 }
 
 fn expected_class(o: Op, ca: Class, self_exp: i32, n: i32) -> Class {
-    let delta = match o { Op::Shl => n, Op::Shr => -n };
+    let delta = match o {
+        Op::Shl => n,
+        Op::Shr => -n,
+    };
     match ca {
         Class::Zero | Class::Infinity | Class::Undefined => ca,
-        Class::Vanished | Class::Exploded => ca,  // design: non-normal passes through
+        Class::Vanished | Class::Exploded => ca, // design: non-normal passes through
         Class::Normal => expected_normal_class(self_exp, delta),
     }
 }
@@ -80,8 +114,10 @@ fn main() {
                         class_bad.entry((ca, exp_rc)).or_insert((s, n, r));
                     }
                     // Sign-preservation check: for any input that has a sign (not Zero/Infinity/Undefined) and output that has one, shift must preserve sign.
-                    let input_has_sign = matches!(ca, Class::Vanished | Class::Normal | Class::Exploded);
-                    let output_has_sign = matches!(rc, Class::Vanished | Class::Normal | Class::Exploded);
+                    let input_has_sign =
+                        matches!(ca, Class::Vanished | Class::Normal | Class::Exploded);
+                    let output_has_sign =
+                        matches!(rc, Class::Vanished | Class::Normal | Class::Exploded);
                     if input_has_sign && output_has_sign {
                         if s.is_negative() != r.is_negative() {
                             sign_fails += 1;
@@ -93,27 +129,52 @@ fn main() {
                 }
             }
         }
-        println!("\n=== {} ({} tests, {} class mismatches, {} sign mismatches) ===",
-                 op_name(op), total, class_fails, sign_fails);
+        println!(
+            "\n=== {} ({} tests, {} class mismatches, {} sign mismatches) ===",
+            op_name(op),
+            total,
+            class_fails,
+            sign_fails
+        );
         for ((ca, exp_rc), (s, n, r)) in class_bad.iter().take(12) {
             let sb = unsafe { std::mem::transmute::<S, [i8; 2]>(*s) };
             let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(*r) };
             let sf: f64 = (*s).into();
             let rf: f64 = (*r).into();
-            println!("  {} {} {} [n={}] [{:#04x},{}]={} → [{:#04x},{}]={} (got {}, expected {})",
-                     name(*ca), op_name(op), "…", n,
-                     sb[0] as u8, sb[1], sf, rb[0] as u8, rb[1], rf,
-                     name(classify(*r)), name(*exp_rc));
+            println!(
+                "  {} {} {} [n={}] [{:#04x},{}]={} → [{:#04x},{}]={} (got {}, expected {})",
+                name(*ca),
+                op_name(op),
+                "…",
+                n,
+                sb[0] as u8,
+                sb[1],
+                sf,
+                rb[0] as u8,
+                rb[1],
+                rf,
+                name(classify(*r)),
+                name(*exp_rc)
+            );
         }
         for (s, n, r) in sign_bad.iter().take(5) {
             let sb = unsafe { std::mem::transmute::<S, [i8; 2]>(*s) };
             let rb = unsafe { std::mem::transmute::<S, [i8; 2]>(*r) };
             let sf: f64 = (*s).into();
             let rf: f64 = (*r).into();
-            println!("  sign {} [n={}]: [{:#04x},{}]={} (sign={}) → [{:#04x},{}]={} (sign={})",
-                     op_name(op), n,
-                     sb[0] as u8, sb[1], sf, if s.is_negative() { "-" } else { "+" },
-                     rb[0] as u8, rb[1], rf, if r.is_negative() { "-" } else { "+" });
+            println!(
+                "  sign {} [n={}]: [{:#04x},{}]={} (sign={}) → [{:#04x},{}]={} (sign={})",
+                op_name(op),
+                n,
+                sb[0] as u8,
+                sb[1],
+                sf,
+                if s.is_negative() { "-" } else { "+" },
+                rb[0] as u8,
+                rb[1],
+                rf,
+                if r.is_negative() { "-" } else { "+" }
+            );
         }
     }
 }
