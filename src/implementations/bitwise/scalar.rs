@@ -209,7 +209,8 @@ where
 
     /// Generic normal-path bitwise operation. Inflates both operands, aligns by exponent, applies the op in wide effective space, then normalizes and deflates.
     fn bitwise_normal(&self, other: &Scalar<F, E>, op: BitwiseOp) -> Scalar<F, E> {
-        let (big, small) = if self.exponent > other.exponent {
+        // Magnitude-dominant operand. Unsigned compare on AMBIG=0 stored exp matches cyclic-magnitude order.
+        let (big, small) = if self.exponent.into_unsigned() > other.exponent.into_unsigned() {
             (self, other)
         } else {
             (other, self)
