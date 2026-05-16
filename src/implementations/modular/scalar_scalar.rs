@@ -200,8 +200,7 @@ where
         // Both operands are normal. Compute floored modulus using proper restoring-divider style remainder: align fractions by exponent, do integer modulo on inflated wide values, apply floored sign rule.
         //
         // Floored mod: result has the sign of the divisor.
-        //   same signs:    result = a_mag mod b_mag, signed like a/b
-        //   diff signs:    result = b_mag - (a_mag mod b_mag), signed like b
+        //   same signs:    result = a_mag mod b_mag, signed like a/b diff signs:    result = b_mag - (a_mag mod b_mag), signed like b
         //
         // |a| < |b| short-circuit:
         //   same signs:    result = a (already in [0, b) magnitude)

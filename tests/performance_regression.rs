@@ -1,8 +1,7 @@
 use spirix::*;
 use std::time::{Duration, Instant};
 
-/// Performance regression tests to ensure Spirix maintains reasonable performance characteristics
-/// These tests verify that operations complete within expected time bounds
+/// Performance regression tests to ensure Spirix maintains reasonable performance characteristics These tests verify that operations complete within expected time bounds
 
 const PERFORMANCE_ITERATIONS: usize = 10000;
 const MAX_OPERATION_NANOS: u128 = 10000; // 10 microseconds per operation max

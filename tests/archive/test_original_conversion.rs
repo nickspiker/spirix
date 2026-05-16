@@ -2,8 +2,7 @@ use spirix::ScalarF4E4;
 
 #[test]
 fn test_original_u8_conversion_user_case() {
-    // User's case: casting 100, 101, ... 500 to u8
-    // Should saturate at 255
+    // User's case: casting 100, 101, ... 500 to u8 Should saturate at 255
     for i in 100..=500 {
         let s = ScalarF4E4::from(i);
         let result: u8 = s.into();
@@ -21,8 +20,7 @@ fn test_original_u8_conversion_user_case() {
 
 #[test]
 fn test_original_i8_conversion_user_case() {
-    // User's case: casting 100, 101, ... 500 to i8
-    // Should saturate at 127
+    // User's case: casting 100, 101, ... 500 to i8 Should saturate at 127
     for i in 100..=500 {
         let s = ScalarF4E4::from(i);
         let result: i8 = s.into();

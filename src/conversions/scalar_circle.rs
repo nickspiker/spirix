@@ -114,19 +114,22 @@ where
     /// assert!(z.i() > 0);   // Sign is also preserved
     /// ```
     pub(crate) fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
+        // Scalar stores exp in AMBIG=0 form; Circle in v0.1 form (AMBIG=E::MIN).
+        // Convert at every assignment via XOR with E::MIN.
+        let to_circle_exp = |e: E| -> E { e ^ E::min_value() };
         // Undefined propagates: first undefined wins.
         if real.is_undefined() {
             return Circle {
                 real: real.fraction,
                 imaginary: real.fraction,
-                exponent: real.exponent,
+                exponent: to_circle_exp(real.exponent),
             };
         }
         if imaginary.is_undefined() {
             return Circle {
                 real: imaginary.fraction,
                 imaginary: imaginary.fraction,
-                exponent: imaginary.exponent,
+                exponent: to_circle_exp(imaginary.exponent),
             };
         }
         // Infinity beats all other classes.
@@ -165,7 +168,7 @@ where
             return Circle {
                 real: 0.as_(),
                 imaginary: imag_c,
-                exponent: imaginary.exponent,
+                exponent: to_circle_exp(imaginary.exponent),
             };
         }
         if imaginary.vanished() && real.is_normal() {
@@ -173,7 +176,7 @@ where
             return Circle {
                 real: real_c,
                 imaginary: 0.as_(),
-                exponent: real.exponent,
+                exponent: to_circle_exp(real.exponent),
             };
         }
         // Vanished paired with zero: preserve vanished state.
@@ -201,7 +204,7 @@ where
             return Circle {
                 real: 0.as_(),
                 imaginary: imag_c,
-                exponent: imaginary.exponent,
+                exponent: to_circle_exp(imaginary.exponent),
             };
         }
         if imaginary.is_zero() {
@@ -209,7 +212,7 @@ where
             return Circle {
                 real: real_c,
                 imaginary: 0.as_(),
-                exponent: real.exponent,
+                exponent: to_circle_exp(real.exponent),
             };
         }
         // Normal case: translate Scalar→Circle, then align exponents. Scalar fraction s carries implicit sign (~MSB); Circle carries explicit (MSB). For same value: circle = (s >> 1) XOR MSB_MASK — arithmetic shift halves the magnitude, XOR flips the sign convention.
@@ -220,7 +223,7 @@ where
             return Circle {
                 real: real_c,
                 imaginary: imag_c,
-                exponent: real.exponent,
+                exponent: to_circle_exp(real.exponent),
             };
         } else if exp_diff > 0.as_() {
             let shift: isize = exp_diff.as_();
@@ -228,13 +231,13 @@ where
                 return Circle {
                     real: real_c,
                     imaginary: 0.as_(),
-                    exponent: real.exponent,
+                    exponent: to_circle_exp(real.exponent),
                 };
             }
             return Circle {
                 real: real_c,
                 imaginary: imag_c >> shift,
-                exponent: real.exponent,
+                exponent: to_circle_exp(real.exponent),
             };
         } else {
             let zero_e: E = 0.as_();
@@ -243,13 +246,13 @@ where
                 return Circle {
                     real: 0.as_(),
                     imaginary: imag_c,
-                    exponent: imaginary.exponent,
+                    exponent: to_circle_exp(imaginary.exponent),
                 };
             }
             return Circle {
                 real: real_c >> shift,
                 imaginary: imag_c,
-                exponent: imaginary.exponent,
+                exponent: to_circle_exp(imaginary.exponent),
             };
         }
     }

@@ -6,8 +6,7 @@ use core::ops::*;
 use i256::I256;
 use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
-// =====================================================
-// Circle + Rust = Circle operations =====================================================
+// ===================================================== Circle + Rust = Circle operations =====================================================
 macro_rules! impl_circle_op_rust_to_circle {
     ($trait:ident, $method:ident, $circle_method:ident, $($t:ty),*) => {
         $(
@@ -286,8 +285,7 @@ impl_circle_op_rust_to_circle!(
 );
 impl_circle_op_rust_to_circle!(Div, div, circle_divide_scalar, f32, f64);
 
-// =====================================================
-// Circle + Rust = Scalar operations (for Rem) =====================================================
+// ===================================================== Circle + Rust = Scalar operations (for Rem) =====================================================
 macro_rules! impl_circle_op_rust_to_scalar {
     ($trait:ident, $method:ident, $circle_method:ident, $($t:ty),*) => {
         $(
@@ -509,8 +507,7 @@ impl_circle_op_rust_to_scalar!(
 );
 impl_circle_op_rust_to_scalar!(Rem, rem, circle_modulus_scalar, f32, f64);
 
-// =====================================================
-// Circle += Rust operations =====================================================
+// ===================================================== Circle += Rust operations =====================================================
 macro_rules! impl_circle_assign_op_rust {
     ($trait:ident, $method:ident, $circle_method:ident, $($t:ty),*) => {
         $(
@@ -656,8 +653,7 @@ impl_circle_assign_op_rust!(
 );
 impl_circle_assign_op_rust!(DivAssign, div_assign, circle_divide_scalar, f32, f64);
 
-// =====================================================
-// Circle Shift Operations =====================================================
+// ===================================================== Circle Shift Operations =====================================================
 macro_rules! impl_circle_shift_op {
     ($trait:ident, $method:ident, $circle_method:ident, $($rhs_type:ty),*) => {
         $(
@@ -896,8 +892,7 @@ impl_circle_shift_op!(
     isize
 );
 
-// =====================================================
-// Circle Shift Assignment Operations =====================================================
+// ===================================================== Circle Shift Assignment Operations =====================================================
 macro_rules! impl_circle_shift_assign_op {
     ($trait:ident, $method:ident, $circle_method:ident, $($rhs_type:ty),*) => {
         $(
@@ -1002,8 +997,7 @@ impl_circle_shift_assign_op!(
     i128,
     isize
 );
-// =====================================================
-// Circle Powerer Operations =====================================================
+// ===================================================== Circle Powerer Operations =====================================================
 macro_rules! impl_circle_exponent_rust {
     ($trait:ident, $method:ident, $circle_method:ident, $($t:ty),*) => {
         $(
@@ -1260,8 +1254,7 @@ impl_circle_exponent_rust!(
 );
 impl_circle_exponent_rust!(Logarithm, log, circle_logarithm_scalar, f32, f64);
 
-// =====================================================
-// Circle comparison with Rust primitives =====================================================
+// ===================================================== Circle comparison with Rust primitives =====================================================
 macro_rules! impl_circle_cmp_rust {
     ($($t:ty),*) => {
         $(

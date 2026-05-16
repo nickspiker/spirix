@@ -158,8 +158,7 @@ where
             let leading = product.leading_same();
             let n: isize = if result_exploded { 1 } else { 2 };
             let shift = leading.wrapping_sub(n);
-            // Negative shift means product's top bit is above the target
-            // N-level — fold into a single `shr` instead of `shl(negative)`.
+            // Negative shift means product's top bit is above the target N-level — fold into a single `shr` instead of `shl(negative)`.
             let fraction = if shift >= 0 {
                 product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
             } else {
@@ -173,28 +172,25 @@ where
             };
         }
 
-        // Widen all exponent arithmetic to isize up front — bounded by FRAC and by E's
-        // integer width, isize never overflows at any supported width. Use v0.1-form
-        // throughout (XOR with E::MIN reads, XOR back on storage write) so the existing
-        // v0.1 arithmetic carries through unchanged.
-        let ea_wide: isize = self.v01_exp().saturate();
-        let eb_wide: isize = other.v01_exp().saturate();
-        let max_e: isize = Self::v01_max_exponent().saturate();
-        let min_e: isize = Self::v01_min_exponent().saturate();
+        // AMBIG=0 native: view stored exponents as UNSIGNED cycle positions (1..2^N - 1 = normal, 0 = AMBIG). Widen via `into_unsigned().saturate::<isize>()` — zero-extension preserves the cycle position without sign-extending into a logical signed exponent. Arithmetic stays on positions; `bo` (binade_origin = top-bit-only) is subtracted once to undo the doubled bias when adding two stored exps.
+        let pa: isize = self.exponent.into_unsigned().as_();
+        let pb: isize = other.exponent.into_unsigned().as_();
+        let bo: isize = Self::binade_origin().into_unsigned().as_();
+        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
+        let min_pos: isize = Self::min_exponent().as_();
 
-        // Fast-path neg_one_normal × neg_one_normal: both inflate to -2^FRAC, their product = 2^(2*FRAC) overflows the 2*FRAC-bit Wide and wraps to 0. Compute via exponent arithmetic only. v0.1 ruler: result exp = e_a + e_b + 2 (per-op +1 plus +1 from -2^(e+1) × -2^(e+1)).
+        // Fast-path neg_one_normal × neg_one_normal: both inflate to -2^FRAC, their product = 2^(2*FRAC) overflows the 2*FRAC-bit Wide and wraps to 0. Compute via exponent arithmetic only. Cycle math: stored_pos = pa + pb - bo + 2 (per-op +1 plus +1 from -2^(e+1) × -2^(e+1)).
         if self.fraction == Self::neg_one_normal() && other.fraction == Self::neg_one_normal() {
-            let exp_wide = ea_wide.wrapping_add(eb_wide).wrapping_add(2);
-            if exp_wide > max_e {
+            let stored_pos: isize = pa.wrapping_add(pb).wrapping_sub(bo).wrapping_add(2);
+            if stored_pos > max_pos {
                 return Self { fraction: Self::pos_one_exploded(), exponent: Self::ambiguous_exponent() };
             }
-            if exp_wide < min_e {
+            if stored_pos < min_pos {
                 return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
             }
-            return Self { fraction: Self::pos_one_normal(), exponent: Self::from_v01_exp(exp_wide.as_()) };
+            return Self { fraction: Self::pos_one_normal(), exponent: stored_pos.as_() };
         }
-        // x86 implementation note: Why this code is NOT signless
-        // Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog. Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps.
+        // x86 implementation note: Why this code is NOT signless Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog. Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps.
         // The wrap happens to be INVISIBLE for the main-path byte extraction (shift = FRAC - leading ≤ FRAC, so the 2^W wrap correction is 0 mod 2^FRAC), which lets us keep signed arithmetic + arith shr = floor for that path. But for exploded/vanished (shift > FRAC), the wrap correction doesn't vanish mod 2^FRAC, so we reluctantly fall back to the magnitude-dance (compute |p|, logical shr, XOR a sign-flip mask). Those paths represent "too big/small to represent normally" so the magnitude precision is already lossy — rounding mode is moot there. In Verilog all of this dissolves: hardware arith shr is free, register width is whatever we declare, and signed/unsigned interpretation is just wire routing. The code below is overhead paid for x86 ISA quirks, not inherent algorithmic cost.
         let p_signed = self
             .fraction
@@ -227,26 +223,27 @@ where
             }
         };
 
-        // v0.1 widened wrap detection: result_exp = e_a + e_b + 1 - leading. Single compare against max_e / min_e catches overflow and underflow (including the tail cases where exp would land on AMBIG).
-        let exp_wide: isize = ea_wide
-            .wrapping_add(eb_wide)
+        // AMBIG=0 native wrap detection: stored_pos = pa + pb - bo + 1 - leading. Single compare against max_pos / min_pos catches overflow and underflow (including the tail cases where the cycle position would land on AMBIG = 0).
+        let stored_pos: isize = pa
+            .wrapping_add(pb)
+            .wrapping_sub(bo)
             .wrapping_add(1)
             .wrapping_sub(leading);
-        if exp_wide > max_e {
+        if stored_pos > max_pos {
             let k = fb.wrapping_sub(leading).wrapping_add(1);
             return Self {
                 fraction: extract_escaped(k, exploded_flip),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if exp_wide < min_e {
+        if stored_pos < min_pos {
             let k = fb.wrapping_sub(leading).wrapping_add(2);
             return Self {
                 fraction: extract_escaped(k, vanished_flip),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let exponent: E = Self::from_v01_exp(exp_wide.as_());
+        let exponent: E = stored_pos.as_();
 
         // Main path: signed arith shr of p_signed. For k <= FRAC (always true here since k_main = FRAC - leading ≤ FRAC), the wrap correction vanishes mod 2^FRAC, so the byte is correct. Arith shr = floor rounding.
         let k_main = fb.wrapping_sub(leading);

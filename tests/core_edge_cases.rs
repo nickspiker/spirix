@@ -7,8 +7,7 @@ mod precision_boundaries {
 
     #[test]
     fn test_minimal_precision_f3e3() {
-        // F3E3: 8-bit fraction (~2.1 decimal digits), 8-bit exponent
-        // This should have very limited precision
+        // F3E3: 8-bit fraction (~2.1 decimal digits), 8-bit exponent This should have very limited precision
 
         let a = ScalarF3E3::from(1.0);
         let b = ScalarF3E3::from(1.01); // May lose precision
@@ -38,8 +37,7 @@ mod precision_boundaries {
 
     #[test]
     fn test_maximum_precision_f7e7() {
-        // F7E7: 128-bit fraction (~38.2 decimal digits), 128-bit exponent
-        // This should have extreme precision and range
+        // F7E7: 128-bit fraction (~38.2 decimal digits), 128-bit exponent This should have extreme precision and range
 
         let high_precision = ScalarF7E7::from(1.23456789012345678901234567890123456789);
         assert!(high_precision.is_normal());

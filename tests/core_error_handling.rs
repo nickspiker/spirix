@@ -1,7 +1,6 @@
 use spirix::*;
 
-/// Comprehensive error handling tests for undefined states, edge cases, and error propagation
-/// Verify that all error conditions are properly detected and handled
+/// Comprehensive error handling tests for undefined states, edge cases, and error propagation Verify that all error conditions are properly detected and handled
 
 #[test]
 fn test_division_by_zero_handling() {
@@ -305,8 +304,7 @@ fn test_conversion_error_handling() {
     let exploded = ScalarF5E3::MAX * ScalarF5E3::from(10.0);
     let vanished = ScalarF5E3::MIN_POS / ScalarF5E3::from(10.0);
 
-    // Conversion of undefined values
-    // Note: The behavior of converting undefined to f32 is implementation-defined but should not panic or cause undefined behavior
+    // Conversion of undefined values Note: The behavior of converting undefined to f32 is implementation-defined but should not panic or cause undefined behavior
     let undefined_as_f32: f32 = undefined.into();
     assert!(undefined_as_f32.is_nan() || undefined_as_f32.is_infinite());
 

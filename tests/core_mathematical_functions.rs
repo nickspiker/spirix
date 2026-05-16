@@ -1,8 +1,7 @@
 use approx::assert_relative_eq;
 use spirix::*;
 
-/// Test mathematical function accuracy, identities, and special cases
-/// Verify transcendental functions, power operations, and mathematical relationships
+/// Test mathematical function accuracy, identities, and special cases Verify transcendental functions, power operations, and mathematical relationships
 
 #[test]
 fn test_trigonometric_identities() {

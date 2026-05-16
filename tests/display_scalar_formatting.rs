@@ -1,8 +1,7 @@
 use paste::paste;
 use spirix::*;
 
-/// Test display formatting across different scales and precision levels
-/// Verify that numbers format correctly for very small, normal, and very large values
+/// Test display formatting across different scales and precision levels Verify that numbers format correctly for very small, normal, and very large values
 
 macro_rules! test_display_formatting_for_type {
     ($scalar_type:ident) => {

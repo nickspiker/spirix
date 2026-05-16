@@ -101,8 +101,7 @@ fn undefineds() -> Vec<S> {
 
 use Class::*;
 
-// ============================================================
-// Addition truth table (col + row) ============================================================
+// ============================================================ Addition truth table (col + row) ============================================================
 #[test]
 fn addition_truth_table() {
     let z = S::ZERO;
@@ -174,8 +173,7 @@ fn addition_truth_table() {
     check("+", inf, und, inf + und, &[Undefined]);
 }
 
-// ============================================================
-// Subtraction truth table (col - row) ============================================================
+// ============================================================ Subtraction truth table (col - row) ============================================================
 #[test]
 fn subtraction_truth_table() {
     let z = S::ZERO;
@@ -235,8 +233,7 @@ fn subtraction_truth_table() {
     check("-", inf, und, inf - und, &[Undefined]);
 }
 
-// ============================================================
-// Multiplication truth table (col × row) ============================================================
+// ============================================================ Multiplication truth table (col × row) ============================================================
 #[test]
 fn multiplication_truth_table() {
     let z = S::ZERO;
@@ -293,8 +290,7 @@ fn multiplication_truth_table() {
     check("×", np, und, np * und, &[Undefined]);
 }
 
-// ============================================================
-// Division truth table (col ÷ row) ============================================================
+// ============================================================ Division truth table (col ÷ row) ============================================================
 #[test]
 fn division_truth_table() {
     let z = S::ZERO;
@@ -345,8 +341,7 @@ fn division_truth_table() {
     check("÷", np, und, np / und, &[Undefined]);
 }
 
-// ============================================================
-// Modulus truth table (col % row) ============================================================
+// ============================================================ Modulus truth table (col % row) ============================================================
 #[test]
 fn modulus_truth_table() {
     let z = S::ZERO;
@@ -425,8 +420,7 @@ fn modulus_truth_table() {
     check("%", np, und, np % und, &[Undefined]);
 }
 
-// ============================================================
-// Unary operation truth tables: sqrt, lb, ln, exp, powb, square ============================================================
+// ============================================================ Unary operation truth tables: sqrt, lb, ln, exp, powb, square ============================================================
 
 /// Verify the result class of a unary op matches the expected set.
 fn check_unary(op: &str, input_name: &str, x: S, result: S, expected: &[Class]) {
@@ -596,15 +590,13 @@ fn square_unary_truth_table() {
     }
 }
 
-// ============================================================
-// Specific edge case: subtraction with MIN producing exploded ============================================================
+// ============================================================ Specific edge case: subtraction with MIN producing exploded ============================================================
 #[test]
 fn subtraction_min_boundary_exploded() {
     // NEG_ONE at MIN_EXPONENT: negating requires exp+1 which wraps → exploded
     let min_neg = S::MAX_NEG; // smallest magnitude negative normal
     let result = S::ZERO - min_neg;
-    // 0 - (tiny negative) = tiny positive, could be normal or edge-case
-    // But the interesting case: negate MIN at exp boundary
+    // 0 - (tiny negative) = tiny positive, could be normal or edge-case But the interesting case: negate MIN at exp boundary
     let at_boundary = S::ONE; // fraction = POS_ONE_NORMAL (MIN stored), exp=1
     let neg_boundary = S::NEG_ONE; // fraction = NEG_ONE_NORMAL (0 stored), exp=0
                                    // These should negate cleanly

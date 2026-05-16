@@ -35,15 +35,15 @@ use crate::Integer;
 /// ■xxxxxxx  Positive normal [+#]
 /// □xxxxxxx  Negative normal [-#]
 ///
-/// Exploded (N-1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
 /// □■xxxxxx  Positive exploded [+↑]
 /// ■□xxxxxx  Negative exploded [-↑]
 ///
-/// Vanished (N-2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
 /// □□■xxxxx  Positive vanished [+↓] (approaching but not equal to 0)
 /// ■■□xxxxx  Negative vanished [-↓] (approaching but not equal to 0)
 ///
-/// Undefined (N-3+ with AMBIGUOUS_EXPONENT)
+/// Undefined (N3+ with AMBIGUOUS_EXPONENT)
 /// □□□xxxxx | ■■■xxxxx  Specific undefined states
 /// ```
 ///

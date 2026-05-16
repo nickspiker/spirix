@@ -24,8 +24,7 @@ unsafe fn pack_15_i16_to_17bit(values: &[i16; 15]) -> __m256i {
     packed[1] |= ((values[2] as u32 & 0x1FFFF) >> 14) << 16;
     packed[2] |= (values[2] as u32 & 0x1FFFF) >> 30;
 
-    // ... continue for all 15 values
-    // TODO: Complete the bit packing for remaining values
+    // ... continue for all 15 values TODO: Complete the bit packing for remaining values
 
     _mm256_loadu_si256(packed.as_ptr() as *const __m256i)
 }
@@ -46,8 +45,7 @@ unsafe fn unpack_17bit_to_15_i16(packed: __m256i) -> [i16; 15] {
     // Extract val2: bits 34-50
     unpacked[2] = (((bytes[1] >> 2) | (bytes[2] << 30)) & 0x1FFFF) as i16;
 
-    // ... continue for all 15 values
-    // TODO: Complete the bit unpacking for remaining values
+    // ... continue for all 15 values TODO: Complete the bit unpacking for remaining values
 
     unpacked
 }
@@ -82,12 +80,10 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
     let exp_diff = _mm256_sub_epi32(a_exp, b_exp);
     let b_gt_a = _mm256_cmpgt_epi32(b_exp, a_exp); // -1 where b > a
 
-    // Step 2: Compute absolute shift amount
-    // We need abs(exp_diff) to know how much to shift
+    // Step 2: Compute absolute shift amount We need abs(exp_diff) to know how much to shift
     let shift_amount = _mm256_abs_epi32(exp_diff);
 
-    // Step 3: Align fractions by shifting the one with smaller exponent
-    // If a > b: shift b_frac right by (a_exp - b_exp)
+    // Step 3: Align fractions by shifting the one with smaller exponent If a > b: shift b_frac right by (a_exp - b_exp)
     // If b > a: shift a_frac right by (b_exp - a_exp)
     // If equal: no shift needed
 
@@ -95,10 +91,7 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
     let a_frac_shifted = _mm256_srav_epi32(a_frac, shift_amount);
     let b_frac_shifted = _mm256_srav_epi32(b_frac, shift_amount);
 
-    // Select which fraction to use based on exponent comparison
-    // If a_exp > b_exp: use a_frac and b_frac_shifted
-    // If b_exp > a_exp: use a_frac_shifted and b_frac
-    // If equal: use a_frac and b_frac (no shift)
+    // Select which fraction to use based on exponent comparison If a_exp > b_exp: use a_frac and b_frac_shifted If b_exp > a_exp: use a_frac_shifted and b_frac If equal: use a_frac and b_frac (no shift)
     let frac_a_final = _mm256_blendv_epi8(a_frac, a_frac_shifted, b_gt_a);
     let frac_b_final = _mm256_blendv_epi8(b_frac_shifted, b_frac, b_gt_a);
 
@@ -111,13 +104,11 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
     // Step 6: Normalize (TODO: this needs lzcnt and more complex logic)
     // For now, pack without normalization as a starting point
 
-    // Step 7: Pack back to i16 fractions and exponents
-    // Truncate i32 back to i16 using packs (saturates)
+    // Step 7: Pack back to i16 fractions and exponents Truncate i32 back to i16 using packs (saturates)
     let result_frac_i16 = _mm256_packs_epi32(result_frac, result_frac);
     let result_exp_i16 = _mm256_packs_epi32(result_exp, result_exp);
 
-    // Step 8: Interleave fractions and exponents back to [frac|exp] format
-    // Unpack low 64 bits to interleave
+    // Step 8: Interleave fractions and exponents back to [frac|exp] format Unpack low 64 bits to interleave
     let result_lo = _mm256_unpacklo_epi16(result_frac_i16, result_exp_i16);
     let result_hi = _mm256_unpackhi_epi16(result_frac_i16, result_exp_i16);
 
@@ -172,8 +163,7 @@ pub unsafe fn scalar_subtract_batch_avx2_15op_bmi2(
     b: &[ScalarF4E4],
     result: &mut [ScalarF4E4],
 ) {
-    // Similar to 15-op shift version, but uses pdep/pext for packing
-    // TODO: Implement with _pdep_u64() / _pext_u64()
+    // Similar to 15-op shift version, but uses pdep/pext for packing TODO: Implement with _pdep_u64() / _pext_u64()
 
     // Fallback to shift version for now
     scalar_subtract_batch_avx2_15op_shift(a, b, result);

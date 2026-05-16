@@ -21,8 +21,7 @@ impl Integer for i32 {}
 impl Integer for i64 {}
 impl Integer for i128 {}
 
-// Internal traits and implementations
-// These traits are not part of the public API and are used internally for type conversions and bit manipulations.
+// Internal traits and implementations These traits are not part of the public API and are used internally for type conversions and bit manipulations.
 
 /// # FullInt Trait
 ///
@@ -68,6 +67,18 @@ pub(crate) trait FullInt:
 /// - Preserves the value exactly when it fits within the target range
 ///
 pub(crate) trait IntConvert {
+    /// Unsigned integer type of the same bit width as Self. Identity for already-unsigned types. Used to view a stored AMBIG=0 exponent as its cyclic position in [0, 2^N) without sign extension.
+    type Unsigned: PrimInt
+        + AsPrimitive<isize>
+        + AsPrimitive<usize>
+        + AsPrimitive<i32>
+        + AsPrimitive<i64>
+        + AsPrimitive<i128>
+        + 'static;
+
+    /// Reinterpret the bit pattern as the same-width unsigned type. For an i8 stored exponent in AMBIG=0 form, this gives the unsigned cycle position (0 = AMBIG, 1..255 = normal). Widening this through `.saturate::<isize>()` afterward gives a positive integer in [0, 2^N), suitable for native AMBIG=0 arithmetic without XOR translation.
+    fn into_unsigned(self) -> Self::Unsigned;
+
     /// Converts self to type I, saturating at bounds instead of wrapping.
     ///
     /// When a value cannot be represented in the target type:
@@ -114,6 +125,9 @@ macro_rules! impl_int_convert {
     ($($t:ty => $u:ty),*) => {
         $(
             impl IntConvert for $t {
+                type Unsigned = $u;
+                #[inline]
+                fn into_unsigned(self) -> $u { self as $u }
                 #[inline]
                 fn saturate<I: FullInt>(self) -> I {
                     if let Some(val) = I::from(self) {

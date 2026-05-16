@@ -46,8 +46,7 @@ pub struct ScalarColours {
 
 /// Global colour palette used for all debug formatting.
 ///
-/// This constant defines the default colour scheme applied when formatting
-/// Scalar and Circle values with `{:#?}`. Terminal support for 24-bit RGB colours is required to see the colours properly.
+/// This constant defines the default colour scheme applied when formatting Scalar and Circle values with `{:#?}`. Terminal support for 24-bit RGB colours is required to see the colours properly.
 pub const COLOURS: ScalarColours = ScalarColours {
     normal_positive: ColourScheme {
         colour: [0xff, 0x80, 0x80],

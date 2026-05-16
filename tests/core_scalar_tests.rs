@@ -1164,8 +1164,7 @@ mod random_testing {
                 let ratio_1s = $scalar_type::from(within_1_sigma) / total;
                 let ratio_2s = $scalar_type::from(within_2_sigma) / total;
 
-                // For normal distribution: ~68% within 1σ, ~95% within 2σ
-                // We'll be lenient due to small sample size and discrete precision
+                // For normal distribution: ~68% within 1σ, ~95% within 2σ We'll be lenient due to small sample size and discrete precision
                 assert!(
                     ratio_1s > 0.4 && ratio_1s < 0.9,
                     "Gaussian 1-sigma ratio suspicious: {:.2}",

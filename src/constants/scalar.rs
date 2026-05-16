@@ -101,10 +101,8 @@ macro_rules! impl_scalar_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Scalar<$f, $e> {
-    // AMBIG=0 convention: stored exponent is unsigned modular; bit pattern all-zeros marks
-    // the cyclic origin (AMBIG sentinel). Unit binades at <$e>::MIN (= 0x80...0, +1.0)
-    // and <$e>::MAX (= 0x7F...F, -1.0). To translate from the legacy v0.1 signed-exponent
-    // convention (AMBIG at E::MAX, ruler exp=0 → [1,2)), XOR the v0.1 exp with <$e>::MIN.
+    // AMBIG=0 convention: stored exponent is unsigned modular; bit pattern all-zeros marks the cyclic origin (AMBIG sentinel). Unit binades at <$e>::MIN (= 0x80...0, +1.0)
+    // and <$e>::MAX (= 0x7F...F, -1.0). To translate from the legacy v0.1 signed-exponent convention (AMBIG at E::MAX, ruler exp=0 → [1,2)), XOR the v0.1 exp with <$e>::MIN.
     pub const MAX: Self = Self { fraction: -1, exponent: -1 };
     pub const MIN: Self = Self { fraction: 0, exponent: -1 };
     pub const MIN_POS: Self = Self { fraction: <$f>::MIN, exponent: 1 };
@@ -296,19 +294,9 @@ impl<F: Integer, E: Integer> Scalar<F, E> {
 
     // --- Exponent ---
     //
-    // AMBIGUOUS = 0 (all-zeros bit pattern). The exponent field is an unsigned modular integer
-    // in Z/2^EXP Z; arithmetic on it wraps naturally at its native width. The cyclic origin
-    // sits at the all-zeros bit pattern so a wholly zero-initialised value (memset(0)) reads
-    // as Spirix Zero. The unit binades containing ±1.0 sit at the cycle's middle (stored
-    // bit patterns 0x80...0 and 0x7F...F respectively), straddling with no separate slot
-    // between them. Overflow past MAX_EXP (bit pattern all-ones) and underflow past
-    // MIN_EXP (bit pattern 0x00...01) both reach 0 = AMBIG by opposite traversals of the
-    // cycle, so saturation detection collapses to one equality check against zero.
-    //
-    // The encoding's bit layout resembles offset binary but no bias transformation is applied
-    // at runtime — the stored field is what arithmetic operates on directly. To translate
-    // between this convention and the legacy v0.1 signed-exponent convention (AMBIG=E::MAX,
-    // unit binade at exp=0), XOR with E::MIN (the top-bit-only mask).
+    // AMBIGUOUS = 0 (all-zeros bit pattern). The exponent field is an unsigned modular integer in Z/2^EXP Z; arithmetic on it wraps naturally at its native width. The cyclic origin sits at the all-zeros bit pattern so a wholly zero-initialised value (memset(0)) reads as Spirix Zero.
+    // The +1.0 binade sits at bit pattern 0x80...0 (= E::MIN signed), the -1.0 binade at bit pattern 0x7F...F (= E::MAX signed), straddling with no separate slot between them. Overflow past MAX_EXP (bit pattern all-ones) and underflow past MIN_EXP (bit pattern 0x00...01) both reach 0 = AMBIG by opposite traversals of the cycle, so saturation detection collapses to one equality check against zero.
+    // The bit layout resembles offset binary but no bias transformation is applied at runtime — arithmetic operates on the stored field directly. To translate the stored exponent to a logical signed exponent where the +1.0 binade is at 0, XOR with `binade_origin()` (the top-bit-only mask). This is needed only at casting boundaries with non-Spirix exponent conventions (IEEE 754, Circle's v0.0.x ruler); native Spirix arithmetic stays on stored AMBIG=0 form throughout.
     #[inline]
     pub(crate) fn ambiguous_exponent() -> E {
         E::zero()
@@ -321,44 +309,13 @@ impl<F: Integer, E: Integer> Scalar<F, E> {
     pub(crate) fn min_exponent() -> E {
         E::one()
     }
+    /// Bit-pattern offset of the +1.0 binade from AMBIG (= 0) on the cyclic exponent. Always the top-bit-only mask for any width, regardless of signed/unsigned interpretation. Numerically equal to `E::min_value()` for signed E, but exposed as a semantic name because we use it as a binade anchor on the AMBIG=0 cycle, not as the integer type's minimum value.
+    #[inline]
+    pub(crate) fn binade_origin() -> E {
+        E::min_value()
+    }
     #[inline]
     pub(crate) fn exponent_bits() -> isize {
         (core::mem::size_of::<E>() * 8) as isize
-    }
-
-    // --- v0.1-form exponent helpers ---
-    //
-    // The stored exponent (`self.exponent`) is in the AMBIG=0 unsigned-modular
-    // convention: AMBIG at bit pattern 0, +1.0 binade at bit pattern 0x80...0
-    // (= E::MIN signed), -1.0 binade at bit pattern 0x7F...F (= E::MAX signed).
-    //
-    // Internal arithmetic in this crate was written assuming the legacy v0.1
-    // convention (AMBIG at E::MAX, +1.0 binade at exp=0). The bijection between
-    // the two is XOR with the top-bit-only mask (E::MIN):
-    //
-    //     v0.1_exp = stored_exp ^ E::MIN
-    //     stored_exp = v0.1_exp ^ E::MIN
-    //
-    // Use `v01_exp()` to read the stored exponent in v0.1 form, and
-    // `with_v01_exp(v)` (or `from_v01_exp(v) ^ E::MIN`) to construct a stored
-    // value from a v0.1-form computation.
-    #[inline]
-    pub(crate) fn v01_exp(self) -> E {
-        self.exponent ^ E::min_value()
-    }
-    #[inline]
-    pub(crate) fn from_v01_exp(v01: E) -> E {
-        v01 ^ E::min_value()
-    }
-    /// v0.1-form maximum normal exponent (largest valid value when arithmetic
-    /// operates on v0.1-form exponents). For 8-bit E this is +127.
-    #[inline]
-    pub(crate) fn v01_max_exponent() -> E {
-        Self::max_exponent() ^ E::min_value()
-    }
-    /// v0.1-form minimum normal exponent. For 8-bit E this is -127.
-    #[inline]
-    pub(crate) fn v01_min_exponent() -> E {
-        Self::min_exponent() ^ E::min_value()
     }
 }

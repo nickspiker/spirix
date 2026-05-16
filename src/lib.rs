@@ -129,7 +129,7 @@
 //! For convenience, Spirix provides type aliases for all valid Rust fraction and exponent combinations.
 //!
 //! Here are some examples:
-//!```rust
+//! ```rust
 //! // Format: F#E# (Fraction bits, Exponent bits)
 //! pub type ScalarF5E3 = Scalar<i32, i8>;  // 32-bit fraction, 8-bit exponent (similar to f32)
 //! pub type ScalarF6E4 = Scalar<i64, i16>; // 64-bit fraction, 16-bit exponent (similar to f64)
@@ -222,7 +222,7 @@
 //! let undef_sub = infinity - infinity;   // ∞ - ∞ = undefined
 //! assert!(undef_add.is_undefined() && undef_sub.is_undefined());
 //!
-//!// Addition with Infinity is undefined, even with Zero
+//! // Addition with Infinity is undefined, even with Zero
 //! let undef_inf_plus_zero = infinity + 0;  // ∞ + 0 = undefined
 //! assert!(undef_inf_plus_zero.is_undefined());
 //! ```
@@ -365,12 +365,12 @@
 //! let z1 = CircleF5E3::from((7, 4));
 //! let z2 = CircleF5E3::from((3.8, 2.2));
 //! let complex_remainder = z1 % z2;
-//!```
+//! ```
 //! For Circle-Circle operations, this implements:
 //!
 //! (a + b*i) % (c + d*i) = ((a*c + b*d) + (b*c - a*d)*i) % (c² + d²)
 //!
-//!```rust
+//! ```rust
 //! // Circle-Scalar modulus - based on magnitude
 //! let s = ScalarF5E3::from(2);
 //! let magnitude_remainder = z1 % s;

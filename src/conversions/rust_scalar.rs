@@ -174,7 +174,7 @@ where
         };
 
         if Self::exponent_bits() == 8 {
-            if spirix_exp > Self::max_exponent().saturate::<i16>() {
+            if spirix_exp > E::max_value().saturate::<i16>() {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_exploded()
@@ -183,7 +183,7 @@ where
                     },
                     exponent: Self::ambiguous_exponent(),
                 };
-            } else if spirix_exp < Self::min_exponent().saturate::<i16>() {
+            } else if spirix_exp < -(E::max_value().saturate::<i16>()) {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_vanished()
@@ -196,18 +196,18 @@ where
         }
 
         if sign == 0 {
-            return Self { fraction: fraction_pos, exponent: Self::from_v01_exp(spirix_exp.as_()) };
+            return Self { fraction: fraction_pos, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } };
         }
         // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent because its magnitude straddles the boundary between exp buckets.
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: Self::from_v01_exp((spirix_exp.wrapping_sub(1)).as_()),
+                exponent: { let v: E = (spirix_exp.wrapping_sub(1)).as_(); v ^ E::min_value() },
             }
         } else {
             Self {
                 fraction: F::zero() - fraction_pos,
-                exponent: Self::from_v01_exp(spirix_exp.as_()),
+                exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() },
             }
         }
     }
@@ -357,7 +357,7 @@ where
         };
 
         if Self::exponent_bits() == 8 {
-            if spirix_exp > Self::max_exponent().saturate::<i16>() {
+            if spirix_exp > E::max_value().saturate::<i16>() {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_exploded()
@@ -366,7 +366,7 @@ where
                     },
                     exponent: Self::ambiguous_exponent(),
                 };
-            } else if spirix_exp < Self::min_exponent().saturate::<i16>() {
+            } else if spirix_exp < -(E::max_value().saturate::<i16>()) {
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_vanished()
@@ -379,17 +379,17 @@ where
         }
 
         if sign == 0 {
-            return Self { fraction: fraction_pos, exponent: Self::from_v01_exp(spirix_exp.as_()) };
+            return Self { fraction: fraction_pos, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } };
         }
         if fraction_pos == Self::pos_one_normal() {
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: Self::from_v01_exp((spirix_exp.wrapping_sub(1)).as_()),
+                exponent: { let v: E = (spirix_exp.wrapping_sub(1)).as_(); v ^ E::min_value() },
             }
         } else {
             Self {
                 fraction: F::zero() - fraction_pos,
-                exponent: Self::from_v01_exp(spirix_exp.as_()),
+                exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() },
             }
         }
     }
@@ -464,7 +464,7 @@ macro_rules! impl_from_int {
                     let abs_value = if value == <$i>::MIN {
                         // |MIN| = 2^(bits-1) is exactly a power of 2. We can construct directly.
                         let bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
-                        if bits > Self::max_exponent().saturate::<isize>() {
+                        if bits > E::max_value().saturate::<isize>() {
                             return Self {
                                 fraction: Self::neg_one_exploded(),
                                 exponent: Self::ambiguous_exponent(),
@@ -473,7 +473,7 @@ macro_rules! impl_from_int {
                         // value = MIN = -2^(bits-1). Under v0.1 ruler, represent as neg_one_normal at exp = bits-2.
                         return Self {
                             fraction: Self::neg_one_normal(),
-                            exponent: Self::from_v01_exp(bits.wrapping_sub(2).as_()),
+                            exponent: { let v: E = bits.wrapping_sub(2).as_(); v ^ E::min_value() },
                         };
                     } else if negative {
                         value.wrapping_neg()
@@ -487,7 +487,7 @@ macro_rules! impl_from_int {
                     // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1), so exp = significant − 1.
                     let spirix_exp: isize = significant_bits.wrapping_sub(1);
 
-                    if spirix_exp > Self::max_exponent().saturate::<isize>() {
+                    if spirix_exp > E::max_value().saturate::<isize>() {
                         return Self {
                             fraction: if negative { Self::neg_one_exploded() } else { Self::pos_one_exploded() },
                             exponent: Self::ambiguous_exponent(),
@@ -504,7 +504,7 @@ macro_rules! impl_from_int {
                     };
 
                     if !negative {
-                        return Self { fraction: fraction_pos, exponent: Self::from_v01_exp(spirix_exp.as_()) };
+                        return Self { fraction: fraction_pos, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } };
                     }
 
                     // Negation: power-of-2 boundary requires exponent shift. {pos_one_normal, e} negated → {neg_one_normal, e-1}
@@ -512,12 +512,12 @@ macro_rules! impl_from_int {
                     if fraction_pos == Self::pos_one_normal() {
                         Self {
                             fraction: Self::neg_one_normal(),
-                            exponent: Self::from_v01_exp(spirix_exp.wrapping_sub(1).as_()),
+                            exponent: { let v: E = spirix_exp.wrapping_sub(1).as_(); v ^ E::min_value() },
                         }
                     } else {
                         Self {
                             fraction: F::zero() - fraction_pos,
-                            exponent: Self::from_v01_exp(spirix_exp.as_()),
+                            exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() },
                         }
                     }
                 }
@@ -715,7 +715,7 @@ macro_rules! impl_from_uint {
                     // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1), so exp = significant − 1.
                     let spirix_exp: isize = significant_bits.wrapping_sub(1);
 
-                    if spirix_exp > Self::max_exponent().saturate::<isize>() {
+                    if spirix_exp > E::max_value().saturate::<isize>() {
                         return Self {
                             fraction: Self::pos_one_exploded(),
                             exponent: Self::ambiguous_exponent(),
@@ -730,7 +730,7 @@ macro_rules! impl_from_uint {
                         let intermediate: F = value.as_();
                         intermediate << shift as usize
                     };
-                    Self { fraction, exponent: Self::from_v01_exp(spirix_exp.as_()) }
+                    Self { fraction, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } }
                 }
             }
             impl<F: Integer+FullInt, E: Integer+FullInt> From<&mut $u> for Scalar<F, E>
@@ -859,8 +859,7 @@ macro_rules! impl_from_uint {
 impl_from_uint!(u8, u16, u32, u64, u128, usize);
 
 impl Scalar<i16, i16> {
-    /// Convert a normal (finite, non-zero, non-NaN) f32 literal to `Scalar<i16,i16>` at
-    /// compile time.  Panics at compile time if called with NaN, infinity, or zero.
+    /// Convert a normal (finite, non-zero, non-NaN) f32 literal to `Scalar<i16,i16>` at compile time.  Panics at compile time if called with NaN, infinity, or zero.
     ///
     /// Use this for compile-time constants — e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308)`. For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`.
     #[inline(always)]

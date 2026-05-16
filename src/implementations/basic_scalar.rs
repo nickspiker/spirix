@@ -129,15 +129,15 @@ where
     /// ■xxxxxxx  Positive `[+#]`
     /// □xxxxxxx  Negative `[-#]`
     ///
-    /// Exploded (N-1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+    /// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
     /// □■xxxxxx  Positive `[+↑]`
     /// ■□xxxxxx  Negative `[-↑]`
     ///
-    /// Vanished (N-2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+    /// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
     /// □□■xxxxx  Positive `[+↓]`
     /// ■■□xxxxx  Negative `[-↓]`
     ///
-    /// Undefined (N-3+ with AMBIGUOUS_EXPONENT)
+    /// Undefined (N3+ with AMBIGUOUS_EXPONENT)
     /// □□□■xxxx | ■■■□xxxx `[℘?]`
     ///
     /// The prefix is used by methods to determine the Scalar's state and behavior in operations.
@@ -1505,8 +1505,7 @@ where
             return *self;
         }
         let e: isize = self.exponent.as_();
-        // v0.1 ruler: exp < -1 means |value| < 0.5 — round to 0. At exp=-1
-        // (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds 0.5 → 0 (even).
+        // v0.1 ruler: exp < -1 means |value| < 0.5 — round to 0. At exp=-1 (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds 0.5 → 0 (even).
         if e < -1 {
             return Self::ZERO;
         }
@@ -1543,8 +1542,7 @@ where
     ///
     /// # Description
     ///
-    /// Extracts the fractional part of this Scalar by subtracting its floor, following the mathematical definition: frac(x) = x - ⌊x⌋
-    /// This returns a value in the range [0,1). Future implementations will utilize bit masking and normalization
+    /// Extracts the fractional part of this Scalar by subtracting its floor, following the mathematical definition: frac(x) = x - ⌊x⌋ This returns a value in the range [0,1). Future implementations will utilize bit masking and normalization
     ///
     /// # Returns
     ///
@@ -2072,8 +2070,7 @@ where
             if shift == Self::fraction_bits() {
                 // All bits identical — either zero (all 0s) or all 1s
                 if !self.is_negative() {
-                    // All zeros in stored = most negative effective, but with max leading same bits
-                    // This is effectively zero
+                    // All zeros in stored = most negative effective, but with max leading same bits This is effectively zero
                     self.exponent = Self::ambiguous_exponent();
                     return;
                 }

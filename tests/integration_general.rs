@@ -1,8 +1,7 @@
 use approx::assert_relative_eq;
 use spirix::*;
 
-// Integration tests for cross-type operations and real-world scenarios
-// These tests verify that different precision configurations work together and that complex operation chains preserve mathematical correctness
+// Integration tests for cross-type operations and real-world scenarios These tests verify that different precision configurations work together and that complex operation chains preserve mathematical correctness
 
 #[cfg(test)]
 mod cross_precision_operations {
@@ -129,9 +128,7 @@ mod scalar_circle_interactions {
         let _scalar_low = ScalarF4E3::from(2);
         let circle_high = CircleF6E4::from((3.0, 4.0));
 
-        // Operations between different precisions should work
-        // The result precision should be determined by implementation
-        // Convert to same precision for multiplication
+        // Operations between different precisions should work The result precision should be determined by implementation Convert to same precision for multiplication
         let scalar_compat = ScalarF6E4::from(2);
         let product = scalar_compat * circle_high;
 
@@ -182,8 +179,7 @@ mod chained_operations {
 
     #[test]
     fn test_undefined_state_preservation() {
-        // Create an undefined state and verify it propagates through a chain
-        // In Spirix, 1/0 = infinity (not undefined). Only 0/0 = undefined.
+        // Create an undefined state and verify it propagates through a chain In Spirix, 1/0 = infinity (not undefined). Only 0/0 = undefined.
         let undefined_start = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
         assert!(undefined_start.is_undefined());
 
@@ -384,8 +380,7 @@ mod real_world_scenarios {
 
     #[test]
     fn test_financial_calculation() {
-        // Test compound interest calculation with high precision
-        // A = P(1 + r/n)^(nt)
+        // Test compound interest calculation with high precision A = P(1 + r/n)^(nt)
         let principal = ScalarF7E4::from(10000.0); // $10,000
         let rate = ScalarF7E4::from(0.05); // 5% annual rate
         let compounds_per_year = ScalarF7E4::from(12.0); // Monthly compounding
@@ -479,8 +474,7 @@ mod precision_boundary_tests {
         // Should handle gracefully (normal or exploded)
         assert!(bigger.is_normal() || bigger.exploded());
 
-        // Operations near precision limits
-        // Note: 1e-10 is below F5E3 precision, so ONE - 1e-10 = ONE exactly. Use a larger epsilon that F5E3 can actually represent.
+        // Operations near precision limits Note: 1e-10 is below F5E3 precision, so ONE - 1e-10 = ONE exactly. Use a larger epsilon that F5E3 can actually represent.
         let almost_one = ScalarF5E3::ONE - ScalarF5E3::from(0.001);
         let sqrt_almost_one = almost_one.sqrt();
 

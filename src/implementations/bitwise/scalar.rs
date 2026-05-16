@@ -157,8 +157,7 @@ where
 
     /// Bitwise XOR of two Scalars, aligned at the binary point.
     ///
-    /// `[0]` is the identity; `[∞]` inverts (NOT). Both are alignment-independent. Escape operands (`[↓]`, `[↑]`) paired with a normal produce `[℘⊻]` because ambiguous exponents can't align with real ones. At the shared ambiguous frame, `[↓] ⊻ [↑]` collapses to `[↑]` (opposite-rank bit patterns always
-    /// XOR to N-1); same-class escape pairings are `[℘⊻]`.
+    /// `[0]` is the identity; `[∞]` inverts (NOT). Both are alignment-independent. Escape operands (`[↓]`, `[↑]`) paired with a normal produce `[℘⊻]` because ambiguous exponents can't align with real ones. At the shared ambiguous frame, `[↓] ⊻ [↑]` collapses to `[↑]` (opposite-rank bit patterns always XOR to N-1); same-class escape pairings are `[℘⊻]`.
     pub(crate) fn aligned_xor(&self, other: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !other.is_normal() {
             // Undefined propagates first.

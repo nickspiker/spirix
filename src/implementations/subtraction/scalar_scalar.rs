@@ -184,7 +184,7 @@ where
             return *self;
         }
 
-        let big_is_self = self.v01_exp() > scalar.v01_exp();
+        let big_is_self = self.exponent.into_unsigned() > scalar.exponent.into_unsigned();
         let (big, small) = if big_is_self {
             (self, scalar)
         } else {
@@ -218,26 +218,24 @@ where
         let leading = result.leading_same();
         let fb = Self::fraction_bits();
         let delta: isize = fb.wrapping_sub(leading);
-        // v0.1-form arithmetic: read v01_exp, compute offset, compare against v01-form
-        // bounds, then XOR back via from_v01_exp on the storage write.
-        // |delta| ≤ FRAC so isize never overflows.
-        let small_exp_wide: isize = small.v01_exp().saturate();
-        let offset_wide: isize = small_exp_wide.wrapping_add(delta);
-        let max_exp_wide: isize = Self::v01_max_exponent().saturate();
-        let min_exp_wide: isize = Self::v01_min_exponent().saturate();
-        if offset_wide > max_exp_wide {
+        // AMBIG=0 native: view small.exponent as an unsigned cycle position, add the normalization delta, and bounds-check against the cycle's normal range [min_pos, max_pos]. |delta| ≤ FRAC so isize never overflows.
+        let small_pos: isize = small.exponent.into_unsigned().as_();
+        let offset_pos: isize = small_pos.wrapping_add(delta);
+        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
+        let min_pos: isize = Self::min_exponent().as_();
+        if offset_pos > max_pos {
             return Self {
                 fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if offset_wide < min_exp_wide {
+        if offset_pos < min_pos {
             return Self {
                 fraction: result.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let offset: E = Self::from_v01_exp(offset_wide.as_());
+        let offset: E = offset_pos.as_();
         // Main path extraction: `result << L >> FRAC` composed as a net shift of (L - FRAC). Writing it directly avoids the Rust shift-overflow semantics that bite when L == wide_bits (result = -1, full sign extension).
         let shl_amount = leading.wrapping_sub(fb);
         let canonical = if shl_amount >= 0 {

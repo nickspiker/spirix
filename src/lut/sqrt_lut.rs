@@ -1,14 +1,12 @@
 /// Square root lookup table for 8-bit approximations
 ///
-/// For a given 8-bit value, provides sqrt of that value shifted left by 8 bits
-/// This gives a good initial guess for Newton-Raphson on larger bit widths
+/// For a given 8-bit value, provides sqrt of that value shifted left by 8 bits This gives a good initial guess for Newton-Raphson on larger bit widths
 
 const fn generate_sqrt_lut() -> [u8; 256] {
     let mut lut = [0u8; 256];
     let mut i = 0;
     while i < 256 {
-        // We want sqrt((i << 8) | 0xFF) to get the high estimate
-        // Simplified: sqrt of value in range [i.00, i.FF]
+        // We want sqrt((i << 8) | 0xFF) to get the high estimate Simplified: sqrt of value in range [i.00, i.FF]
         let x = ((i as u32) << 8) | 0xFF;
         let mut y = 1u32;
         let mut y_squared = 1u32;
@@ -26,8 +24,7 @@ const fn generate_sqrt_lut() -> [u8; 256] {
     lut
 }
 
-/// Lookup table mapping 8-bit input to approximate sqrt result
-/// LUT[i] ≈ sqrt((i << 8) | 0xFF)
+/// Lookup table mapping 8-bit input to approximate sqrt result LUT[i] ≈ sqrt((i << 8) | 0xFF)
 pub const SQRT_LUT: [u8; 256] = generate_sqrt_lut();
 
 #[cfg(test)]

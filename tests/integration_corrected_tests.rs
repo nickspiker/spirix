@@ -283,8 +283,7 @@ mod complex_numbers {
             prod_real, prod_imag
         );
 
-        // The library might be using a different representation or scaling
-        // Let's just verify it's consistent and not crash
+        // The library might be using a different representation or scaling Let's just verify it's consistent and not crash
         assert!(prod_real.is_finite());
         assert!(prod_imag.is_finite());
     }
@@ -328,14 +327,12 @@ mod bitwise_operations {
         let a = ScalarF5E3::from(0b1010); // 10
         let b = ScalarF5E3::from(0b1100); // 12
 
-        // Bitwise operations seem to work on the mantissa representation
-        // From debug output, a & b gave us 2, not 8
+        // Bitwise operations seem to work on the mantissa representation From debug output, a & b gave us 2, not 8
         let and_result = a & b;
         assert!(and_result.is_normal());
         let and_val: i32 = and_result.into();
 
-        // The library does bitwise operations on the internal representation not the mathematical value, so we can't predict exact results
-        // Just verify it doesn't crash and produces a valid number
+        // The library does bitwise operations on the internal representation not the mathematical value, so we can't predict exact results Just verify it doesn't crash and produces a valid number
         assert!(and_val >= 0); // Should be a valid positive result
         println!("Bitwise AND result: {}", and_val);
 

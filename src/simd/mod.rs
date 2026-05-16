@@ -1,7 +1,6 @@
 //! SIMD-optimized implementations for Spirix operations
 //!
-//! This module provides platform-specific SIMD implementations for common
-//! Spirix operations, with runtime feature detection and fallback to scalar.
+//! This module provides platform-specific SIMD implementations for common Spirix operations, with runtime feature detection and fallback to scalar.
 //!
 //! ## Architecture
 //!

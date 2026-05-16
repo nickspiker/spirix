@@ -155,8 +155,7 @@ where
     /// Circle value per component: `c * 2^(exp - FRAC + 1)`.
     /// Scalar value:              `inflate(c) * 2^(exp - FRAC)`.
     ///
-    /// For normals, `scalar_stored = circle << leading_same(circle)` in F-space: the shift absorbs both the N-1 normalization (leading_same - 1 bits) and the sign-convention flip (+1 bit = the `<< 1` inverse of the forward
-    /// Scalar→Circle transform).
+    /// For normals, `scalar_stored = circle << leading_same(circle)` in F-space: the shift absorbs both the N-1 normalization (leading_same - 1 bits) and the sign-convention flip (+1 bit = the `<< 1` inverse of the forward Scalar→Circle transform).
     fn extract_component(&self, c: F) -> Scalar<F, E> {
         // Escape-class handling — Circle's class determines Scalar's class.
         if self.is_undefined() {
@@ -191,13 +190,11 @@ where
         let stored: F = c << leading;
         let shift_e: E = (leading - 1isize).as_();
         // Circle uses v0.0.x exponent convention; Scalar uses AMBIG=0 unsigned-modular.
-        // The exp derived above (circle_exp - shift_e) is in v0.0.x form; convert to
-        // Scalar's stored form by translating to v0.1 (subtract 1 for ruler-shift) then
-        // XOR with E::MIN. The two operations compose into a single arithmetic step.
+        // The exp derived above (circle_exp - shift_e) is in v0.0.x form; convert to Scalar's stored form by translating to v0.1 (subtract 1 for ruler-shift) then XOR with E::MIN. The two operations compose into a single arithmetic step.
         let new_exp_v01 = self.exponent.wrapping_sub(&shift_e);
         Scalar {
             fraction: stored,
-            exponent: Scalar::<F, E>::from_v01_exp(new_exp_v01),
+            exponent: (new_exp_v01 ^ E::min_value()),
         }
     }
 
@@ -838,12 +835,10 @@ where
             let prefix: i8 = self.real.sa();
             let prefix_i: i8 = self.imaginary.sa();
             if prefix == prefix_i {
-                // Test for undefined, Zero and Infinity
-                // Check if top 3 bits are equal by pushing 5 bits off
+                // Test for undefined, Zero and Infinity Check if top 3 bits are equal by pushing 5 bits off
                 // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
                 let top_three = prefix >> 5;
-                // Then rotate and compare.  If uniform, they will be equal
-                // True for undefined, Zero and Infinity
+                // Then rotate and compare.  If uniform, they will be equal True for undefined, Zero and Infinity
                 if top_three == top_three.rotate_right(1) {
                     return;
                 }
@@ -1154,8 +1149,7 @@ where
     ///
     /// # Description
     ///
-    /// Computes the reciprocal 1/z of this Circle. For a complex number a + b*i,
-    /// the reciprocal is (a - b*i)/(a² + b²), which equals conjugate(z) / |z|².
+    /// Computes the reciprocal 1/z of this Circle. For a complex number a + b*i, the reciprocal is (a - b*i)/(a² + b²), which equals conjugate(z) / |z|².
     ///
     /// # Returns
     ///

@@ -2,8 +2,7 @@ use approx::assert_relative_eq;
 use paste::paste;
 use spirix::*;
 
-/// Test operations between different types: Scalar ↔ Circle, different precisions, and Rust primitives
-/// Verify conversion accuracy, mixed-type arithmetic, and precision preservation
+/// Test operations between different types: Scalar ↔ Circle, different precisions, and Rust primitives Verify conversion accuracy, mixed-type arithmetic, and precision preservation
 
 // Macro to test cross-type operations for all combinations
 macro_rules! test_cross_type_for_types {

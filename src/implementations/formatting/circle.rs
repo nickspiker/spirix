@@ -129,8 +129,7 @@ where
             }
         }
 
-        // Calculate default digit count based on fraction bit precision
-        // For very large fraction types, use a smaller type to avoid overflow
+        // Calculate default digit count based on fraction bit precision For very large fraction types, use a smaller type to avoid overflow
         let mut digits = if Self::fraction_bits() > 100 && Self::exponent_bits() < 12 {
             crate::ScalarF7E4::TWO
                 .pow(Self::fraction_bits())

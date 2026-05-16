@@ -9,10 +9,7 @@ use core::ops::{Add, Mul, Sub};
 
 /// Compute gradient of loss with respect to weights
 ///
-/// For a linear layer: y = W·x + b
-/// Gradient of loss L wrt W: dL/dW = dL/dy · x^T
-/// Gradient of loss wrt b: dL/db = dL/dy
-/// Gradient of loss wrt x: dL/dx = W^T · dL/dy
+/// For a linear layer: y = W·x + b Gradient of loss L wrt W: dL/dW = dL/dy · x^T Gradient of loss wrt b: dL/db = dL/dy Gradient of loss wrt x: dL/dx = W^T · dL/dy
 pub struct LinearGradients<T> {
     pub weight_grad: Tensor<T>,
     pub bias_grad: Tensor<T>,

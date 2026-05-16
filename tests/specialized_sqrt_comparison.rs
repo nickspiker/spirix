@@ -102,8 +102,7 @@ fn test_sqrt_64bit_methods_match() {
 
 #[test]
 fn test_sqrt_128bit_methods_match() {
-    // Test a representative sample
-    // Note: 128-bit sqrt_bb still uses multiplication (no U512 available)
+    // Test a representative sample Note: 128-bit sqrt_bb still uses multiplication (no U512 available)
     for val in (0u16..=10000).step_by(10) {
         let input = ScalarF7E7::from(val);
         if !input.is_normal() {

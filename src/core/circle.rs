@@ -21,7 +21,7 @@ use crate::Integer;
 ///
 /// ## Storage Layout
 ///
-/// Real and imaginary components share the Scalar storage convention. Normal values use N0: no explicit sign bit at the MSB — sign is encoded by the implicit complement of the MSB (stored MSB=1 → positive, MSB=0 → negative). Escaped and singular patterns are tagged by AMBIGUOUS_EXPONENT.
+/// Circle real and imaginary components use the N1 convention: explicit sign bit at the MSB, with the magnitude bit immediately below differing from the sign so that the dominant component carries one leading same bit. The shared exponent locks to the magnitude of whichever component is dominant; the non-dominant component sits at smaller magnitude under the same exponent. This explicit-sign layout is what enables shared-exponent dominance discrimination across the two components — Scalar's N0 convention (no stored sign) is incompatible with this and Circle therefore does NOT share Scalar's storage convention. Escaped and singular patterns are tagged by AMBIGUOUS_EXPONENT.
 ///
 /// ```txt
 /// Position: 01234567...
@@ -30,16 +30,16 @@ use crate::Integer;
 /// □□□□□□□□  Zero [0]
 /// ■■■■■■■■  Infinity [∞]
 ///
-/// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent)
-/// ■xxxxxxx | □xxxxxxx  Positive / negative normal [#]
+/// Normal (N1, explicit sign at MSB; non-AMBIGUOUS exponent)
+/// □■xxxxxx | ■□xxxxxx  Positive / negative normal [#]
 ///
-/// Exploded (N-1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
 /// □■xxxxxx | ■□xxxxxx  Positive / negative exploded [↑]
 ///
-/// Vanished (N-2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
+/// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
 /// □□■xxxxx | ■■□xxxxx  Positive / negative vanished [↓]
 ///
-/// Undefined (N-3+ with AMBIGUOUS_EXPONENT)
+/// Undefined (N3+ with AMBIGUOUS_EXPONENT)
 /// □□□xxxxx | ■■■xxxxx
 /// ```
 ///

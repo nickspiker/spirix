@@ -131,12 +131,8 @@ where
     /// ```
     pub(crate) fn scalar_add_scalar(&self, scalar: &Self) -> Self {
         if self.is_normal() && scalar.is_normal() {
-            // Magnitude comparison on the cyclic unsigned-stored exponent: convert both
-            // operands to v0.1 form (XOR with E::MIN) so that signed `>` gives the
-            // correct cyclic-magnitude ordering. The XOR cancels in the subtraction
-            // below (since (a^M) - (b^M) ≡ a - b mod 2^N), so exp_diff is convention-
-            // independent.
-            let (big, small) = if self.v01_exp() > scalar.v01_exp() {
+            // Magnitude comparison on the AMBIG=0 cyclic exponent: unsigned compare of the stored fields gives the correct cyclic-magnitude ordering directly (smallest unsigned = furthest "down" from +1.0 binade, largest = furthest "up"). The subsequent `wrapping_sub` is convention-independent — works on either signed or unsigned interpretation.
+            let (big, small) = if self.exponent.into_unsigned() > scalar.exponent.into_unsigned() {
                 (self, scalar)
             } else {
                 (scalar, self)
@@ -163,28 +159,24 @@ where
             let leading = result.leading_same();
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading);
-            // v0.1 ruler arithmetic: compute the exponent offset in a wider signed type
-            // (isize), then convert to stored (new) form at the end via from_v01_exp.
-            // small.v01_exp() gives the v0.1-form interpretation of the stored exp; the
-            // range bounds use the v0.1-form helpers so the comparisons remain meaningful.
-            // Bounded by |delta| ≤ FRAC so isize never overflows.
-            let small_exp_wide: isize = small.v01_exp().saturate();
-            let offset_wide: isize = small_exp_wide.wrapping_add(delta);
-            let max_exp_wide: isize = Self::v01_max_exponent().saturate();
-            let min_exp_wide: isize = Self::v01_min_exponent().saturate();
-            if offset_wide > max_exp_wide {
+            // AMBIG=0 native: view the small operand's stored exponent as an unsigned cycle position, add the normalization delta, and bounds-check against the cycle's normal range [min_pos, max_pos]. Bounded by |delta| ≤ FRAC so isize never overflows.
+            let small_pos: isize = small.exponent.into_unsigned().as_();
+            let offset_pos: isize = small_pos.wrapping_add(delta);
+            let max_pos: isize = Self::max_exponent().into_unsigned().as_();
+            let min_pos: isize = Self::min_exponent().as_();
+            if offset_pos > max_pos {
                 return Self {
                     fraction: result.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if offset_wide < min_exp_wide {
+            if offset_pos < min_pos {
                 return Self {
                     fraction: result.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            let offset: E = Self::from_v01_exp(offset_wide.as_());
+            let offset: E = offset_pos.as_();
             // Main path: `result << L >> FRAC` composed as a net shift of L-FRAC. Written directly to sidestep Rust's shift-overflow semantics when L == wide_bits (result is all sign bits).
             let shl_amount = leading.wrapping_sub(fb);
             let canonical = if shl_amount >= 0 {

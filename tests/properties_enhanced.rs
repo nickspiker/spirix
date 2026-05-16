@@ -2,8 +2,7 @@ use approx::assert_relative_eq;
 use proptest::prelude::*;
 use spirix::*;
 
-/// Enhanced property-based tests for mathematical invariants and edge cases
-/// Tests two's complement representation properties and numerical stability
+/// Enhanced property-based tests for mathematical invariants and edge cases Tests two's complement representation properties and numerical stability
 
 // Property test strategies for different value ranges
 fn small_finite_scalar() -> impl Strategy<Value = ScalarF5E3> {

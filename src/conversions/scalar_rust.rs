@@ -98,7 +98,7 @@ where
                 _ => unreachable!(),
             };
             let base = base_i64 as f64;
-            let exponent: i32 = self.v01_exp().saturate();
+            let exponent: i32 = (self.exponent ^ E::min_value()).saturate();
             // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1). +1 compensates the ruler shift.
             let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             // Adjust the f64 bit-exponent of `base` directly to avoid precision loss from powi() multiplication chains at extreme exponents.
@@ -233,7 +233,7 @@ where
                 _ => unreachable!(),
             };
             let base = base_i32 as f32;
-            let exponent: i32 = self.v01_exp().saturate();
+            let exponent: i32 = (self.exponent ^ E::min_value()).saturate();
             // v0.1 ruler: value = inflate × 2^(exp − FRAC + 1).
             let scale_exp = exponent as i64 + 1 - Scalar::<F, E>::fraction_bits() as i64 + scale_adjust;
             if base == 0.0 { return 0.0; }
@@ -526,7 +526,7 @@ fn into(self) -> $i {
     }
 
     // Normal path (v0.1): value = inflate(stored) * 2^(exp - FRAC_BITS + 1). Compute in I256 to handle any F width (including i128 stored).
-    let exp: isize = self.v01_exp().saturate();
+    let exp: isize = (self.exponent ^ E::min_value()).saturate();
     let frac_bits = Scalar::<F, E>::fraction_bits();
     let target_bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
 
@@ -711,7 +711,7 @@ macro_rules! impl_into_uint {
         }
 
         // Normal positive path (v0.1): value = inflate(stored) * 2^(exp - FRAC_BITS + 1).
-        let exp: isize = self.v01_exp().saturate();
+        let exp: isize = (self.exponent ^ E::min_value()).saturate();
         let frac_bits = Scalar::<F, E>::fraction_bits();
         let target_bits = (core::mem::size_of::<$u>() as isize).wrapping_shl(3);
 
@@ -906,7 +906,7 @@ macro_rules! impl_to_f32 {
                     (abs_frac, 0i32)
                 };
                 let mantissa = (abs_frac_n >> 7) & 0x7F_FFFF;
-                let raw_exp_i = (self.v01_exp() as i32) + 126 + exp_adj;
+                let raw_exp_i = ((self.exponent ^ <$exp>::min_value()) as i32) + 126 + exp_adj;
                 if raw_exp_i >= 255 {
                     return if sign_bit != 0 {
                         f32::NEG_INFINITY
@@ -969,7 +969,7 @@ macro_rules! impl_to_f64 {
                     (abs_frac, 0i64)
                 };
                 let mantissa = (abs_frac_n >> 10) & 0x000F_FFFF_FFFF_FFFF;
-                let raw_exp_i = (self.v01_exp() as i64) + 1022 + exp_adj;
+                let raw_exp_i = ((self.exponent ^ <$exp>::min_value()) as i64) + 1022 + exp_adj;
                 if raw_exp_i >= 2047 {
                     return if sign_bit != 0 {
                         f64::NEG_INFINITY
@@ -1301,8 +1301,7 @@ mod tests_scalar_ieee {
     fn from_f64_infinity() {
         // from_f64 is a const fn for normal finite values only. Infinity/NaN inputs will decode as very large exponents (overflow), but the key guarantee is they do not panic and produce *some* S44 value. For the runtime path, use S44::from(f64_val).
         let pos = S44::from_f64(f64::INFINITY);
-        // raw_exp = 2047 → exp = 2047-1012 = 1035; frac_u = 0 (mantissa=0) → vanish path
-        // Result is implementation-defined for special inputs; just verify it doesn't panic
+        // raw_exp = 2047 → exp = 2047-1012 = 1035; frac_u = 0 (mantissa=0) → vanish path Result is implementation-defined for special inputs; just verify it doesn't panic
         let _ = pos.to_f64();
 
         let neg = S44::from_f64(f64::NEG_INFINITY);

@@ -1,7 +1,6 @@
 use spirix::*;
 
-/// Test state transitions between normal, exploded, vanished, and undefined states
-/// Verify that state transitions follow the expected patterns and preserve mathematical consistency
+/// Test state transitions between normal, exploded, vanished, and undefined states Verify that state transitions follow the expected patterns and preserve mathematical consistency
 
 #[test]
 fn test_normal_to_exploded_transitions() {

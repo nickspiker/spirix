@@ -2,8 +2,7 @@ use approx::assert_relative_eq;
 use paste::paste;
 use spirix::*;
 
-/// Test precision boundaries and overflow/underflow behavior across all precision levels
-/// Tests the transition between normal, exploded, and vanished states
+/// Test precision boundaries and overflow/underflow behavior across all precision levels Tests the transition between normal, exploded, and vanished states
 
 macro_rules! test_precision_boundaries_for_type {
     ($scalar_type:ident, $fraction_bits:literal, $exponent_bits:literal) => {

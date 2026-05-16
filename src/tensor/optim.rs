@@ -70,8 +70,7 @@ mod tests {
         // Learning rate: 0.5
         let optimizer = SGD::new(ScalarF4E4::from(0.5));
 
-        // Update: w = w - lr * g
-        // Expected: [1.0 - 0.5*0.1, 2.0 - 0.5*0.2, 3.0 - 0.5*0.3] = [0.95, 1.9, 2.85]
+        // Update: w = w - lr * g Expected: [1.0 - 0.5*0.1, 2.0 - 0.5*0.2, 3.0 - 0.5*0.3] = [0.95, 1.9, 2.85]
         optimizer.step(&mut weights, &gradients);
 
         assert!((weights.data[0].to_f64() - 0.95).abs() < 0.01);

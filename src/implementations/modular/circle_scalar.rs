@@ -64,8 +64,7 @@ where
     /// Mathematical modulus operation for Circle with Scalar
     ///
     /// Performs complex modulus using magnitude:
-    /// (a + bi) % s = |a + bi| % s
-    /// where |a + bi| = √(a² + b²)
+    /// (a + bi) % s = |a + bi| % s where |a + bi| = √(a² + b²)
     ///
     /// Returns UNDEFINED if:
     /// - Either number is escaped

@@ -134,8 +134,7 @@ where
             }
         }
 
-        // Calculate default digit count based on fraction bit precision
-        // For very large fraction types, use a smaller type to avoid overflow in the calculation
+        // Calculate default digit count based on fraction bit precision For very large fraction types, use a smaller type to avoid overflow in the calculation
         let mut digits = if Self::fraction_bits() > 100 && Self::exponent_bits() < 12 {
             crate::ScalarF7E4::TWO
                 .pow(Self::fraction_bits())
@@ -336,8 +335,7 @@ where
     ///
     /// # Important Note
     ///
-    /// The `to_u8()` call is ONLY used for converting already-extracted single digits (0-35) to their character representation. The actual digit extraction uses
-    /// Spirix division and multiplication, which works for any base and precision.
+    /// The `to_u8()` call is ONLY used for converting already-extracted single digits (0-35) to their character representation. The actual digit extraction uses Spirix division and multiplication, which works for any base and precision.
     fn format_scalar(&self, base: u8, digits: isize) -> String {
         if !self.is_normal() {
             if self.is_undefined() {

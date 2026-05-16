@@ -1,8 +1,7 @@
 use approx::assert_relative_eq;
 use spirix::*;
 
-/// Tests that verify all code examples from documentation compile and work correctly
-/// Ensures that documentation stays in sync with actual implementation
+/// Tests that verify all code examples from documentation compile and work correctly Ensures that documentation stays in sync with actual implementation
 
 #[test]
 fn test_readme_basic_examples() {

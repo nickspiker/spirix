@@ -590,8 +590,7 @@ where
 
     // d = Self::ONE / d; delta = c * d; f = f * delta;
 
-    // // Check for convergence if (delta - Self::ONE).magnitude() < Self::POS_NORMAL_EPSILON
-    // || j > (Self::fraction_bits() >> 1) { break; }
+    // // Check for convergence if (delta - Self::ONE).magnitude() < Self::POS_NORMAL_EPSILON || j > (Self::fraction_bits() >> 1) { break; }
 
     // j = j + Self::ONE; }
 
@@ -605,8 +604,7 @@ where
     //         * inv_x_sqrt_pi
     //         * (Self::ONE - Self::ONE / (Self::TWO * x_squared) + 3 / (4 * x_squared.square()));
 
-    //     if sign.is_positive() {
-    // Self::ONE - correction } else { -Self::ONE + correction } }
+    //     if sign.is_positive() { Self::ONE - correction } else { -Self::ONE + correction } }
 }
 
 #[cfg(feature = "alloc")]

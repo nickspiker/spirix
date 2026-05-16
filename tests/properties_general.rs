@@ -2,8 +2,7 @@ use approx::assert_relative_eq;
 use proptest::prelude::*;
 use spirix::*;
 
-// Property-based tests for mathematical invariants and properties
-// These tests use randomly generated inputs to verify mathematical properties hold
+// Property-based tests for mathematical invariants and properties These tests use randomly generated inputs to verify mathematical properties hold
 
 #[cfg(test)]
 mod scalar_properties {

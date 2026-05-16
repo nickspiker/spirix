@@ -65,8 +65,7 @@ where
     ///
     /// Performs complex modulus using the mathematical formula derived from complex division: (a + bi) % (c + di) = ((ac + bd) + (bc - ad)i) % (c² + d²)
     ///
-    /// Note: This is NOT simply applying the magnitude-based scalar modulus. For magnitude-based modulus, use cincle % scalar
-    /// Instead, it's based on the principles of complex division followed by modulus:
+    /// Note: This is NOT simply applying the magnitude-based scalar modulus. For magnitude-based modulus, use cincle % scalar Instead, it's based on the principles of complex division followed by modulus:
     /// - Complex division gives us: (a + bi)/(c + di) = (ac + bd)/(c² + d²) + (bc - ad)/(c² + d²)i
     /// - For modulus, we extract the remainder after division
     /// - This approach preserves the algebraic properties expected of modular arithmetic in the complex plane
