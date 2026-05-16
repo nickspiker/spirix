@@ -101,28 +101,53 @@ macro_rules! impl_scalar_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Scalar<$f, $e> {
-    // AMBIG=0 convention: stored exponent is unsigned modular; bit pattern all-zeros marks the cyclic origin (AMBIG sentinel). Unit binades at <$e>::MIN (= 0x80...0, +1.0)
-    // and <$e>::MAX (= 0x7F...F, -1.0). To translate from the legacy v0.1 signed-exponent convention (AMBIG at E::MAX, ruler exp=0 → [1,2)), XOR the v0.1 exp with <$e>::MIN.
-    pub const MAX: Self = Self { fraction: -1, exponent: -1 };
-    pub const MIN: Self = Self { fraction: 0, exponent: -1 };
-    pub const MIN_POS: Self = Self { fraction: <$f>::MIN, exponent: 1 };
-    pub const MAX_NEG: Self = Self { fraction: !<$f>::MIN, exponent: 1 };
-    pub const POS_NORMAL_EPSILON: Self = Self { fraction: <$f>::MIN, exponent: ((0isize.wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e) ^ <$e>::MIN };
-    pub const NEG_NORMAL_EPSILON: Self = Self { fraction: 0, exponent: (((-1isize).wrapping_sub(((core::mem::size_of::<$f>() * 8) as isize) as isize)) as $e) ^ <$e>::MIN };
-    pub const MAX_CONTIGUOUS: Self = Self { fraction: -1, exponent: ((((core::mem::size_of::<$f>() * 8) as isize).wrapping_sub(1)) as $e) ^ <$e>::MIN };
-    pub const MIN_CONTIGUOUS: Self = Self { fraction: 0 + 1, exponent: ((((core::mem::size_of::<$f>() * 8) as isize).wrapping_sub(1)) as $e) ^ <$e>::MIN };
-    pub const ZERO: Self = Self { fraction: 0, exponent: 0 };
-    pub const INFINITY: Self = Self { fraction: -1, exponent: 0 };
-    pub const ONE: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MIN };
-    pub const NEG_ONE: Self = Self { fraction: 0, exponent: <$e>::MAX };
-    pub const EFFECTIVELY_POS_ONE: Self = Self { fraction: -1, exponent: <$e>::MAX };
-    pub const EFFECTIVELY_NEG_ONE: Self = Self { fraction: 0 + 1, exponent: <$e>::MAX };
-    pub const TWO: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MIN ^ 1 };
-    pub const HALF: Self = Self { fraction: <$f>::MIN, exponent: <$e>::MAX };
-    pub const EXPLODED_POS: Self = Self { fraction: (-(<$f>::MIN >> 1)), exponent: 0 };
-    pub const EXPLODED_NEG: Self = Self { fraction: <$f>::MIN, exponent: 0 };
-    pub const VANISHED_POS: Self = Self { fraction: ((-(<$f>::MIN >> 1)) >> 1), exponent: 0 };
-    pub const VANISHED_NEG: Self = Self { fraction: (<$f>::MIN >> 1), exponent: 0 };
+    // ──────────────────────────────────────────────────────────────────────
+    // Constant encoding conventions
+    //
+    // Fraction (N0): no stored sign bit; the MSB encodes value sign via implicit complement.
+    //   <$f>::MIN  (bit pattern 0x80...0, MSB=1)  → magnitude +1.0
+    //   <$f>::MAX  (bit pattern 0x7F...F, MSB=0)  → magnitude ≈ -1.0 (just above -2.0)
+    //   -1         (bit pattern 0xFF...F)         → magnitude ≈ +2.0 (just below)
+    //   0          (bit pattern 0x00...0)         → magnitude -2.0 (most-negative)
+    //   1          (bit pattern 0x00...01)        → magnitude ≈ -2.0 (just above)
+    //
+    // Exponent (AMBIG=0): stored is unsigned modular; bit pattern 0 = AMBIG sentinel.
+    //   stored = logical ^ <$e>::MIN   (XOR with top-bit-only mask is the bijection)
+    //   <$e>::MIN  (0x80...0)  → logical 0   → +1.0 binade
+    //   <$e>::MAX  (0x7F...F)  → logical -1  → 0.5 binade
+    //   -1         (0xFF...F)  → logical 127 → MAX_NORMAL
+    //   1          (0x00...01) → logical -127 → MIN_NORMAL
+    //
+    // Constants written below use the most direct of these forms; the XOR form
+    // `<logical> ^ <$e>::MIN` appears when the logical exponent doesn't coincide
+    // with a named bit-pattern shortcut.
+    // ──────────────────────────────────────────────────────────────────────
+    pub const MAX:     Self = Self { fraction: -1,         exponent: -1 };
+    pub const MIN:     Self = Self { fraction: 0,          exponent: -1 };
+    pub const MIN_POS: Self = Self { fraction: <$f>::MIN,  exponent: 1 };
+    pub const MAX_NEG: Self = Self { fraction: <$f>::MAX,  exponent: 1 };
+    // Epsilon / contiguous: logical exps at ±FRAC_BITS and ±(FRAC_BITS-1) — the binade boundaries of an FRAC_BITS-wide fraction.
+    pub const POS_NORMAL_EPSILON: Self = Self { fraction: <$f>::MIN, exponent: (-((core::mem::size_of::<$f>() * 8) as isize) as $e) ^ <$e>::MIN };
+    pub const NEG_NORMAL_EPSILON: Self = Self { fraction: 0,         exponent: (-1 - (core::mem::size_of::<$f>() * 8) as isize) as $e ^ <$e>::MIN };
+    pub const MAX_CONTIGUOUS:     Self = Self { fraction: -1,        exponent: ((core::mem::size_of::<$f>() * 8 - 1) as $e) ^ <$e>::MIN };
+    pub const MIN_CONTIGUOUS:     Self = Self { fraction: 1,         exponent: ((core::mem::size_of::<$f>() * 8 - 1) as $e) ^ <$e>::MIN };
+    pub const ZERO:                Self = Self { fraction: 0,          exponent: 0 };
+    pub const INFINITY:            Self = Self { fraction: -1,         exponent: 0 };
+    pub const ONE:                 Self = Self { fraction: <$f>::MIN,  exponent: <$e>::MIN };
+    pub const NEG_ONE:             Self = Self { fraction: 0,          exponent: <$e>::MAX };
+    pub const EFFECTIVELY_POS_ONE: Self = Self { fraction: -1,         exponent: <$e>::MAX };
+    pub const EFFECTIVELY_NEG_ONE: Self = Self { fraction: 1,          exponent: <$e>::MAX };
+    pub const TWO:                 Self = Self { fraction: <$f>::MIN,  exponent: 1 ^ <$e>::MIN };
+    pub const HALF:                Self = Self { fraction: <$f>::MIN,  exponent: <$e>::MAX };
+    // Escape patterns at AMBIG exponent. Fraction encodes class via leading-same-bit count:
+    //   N1 exploded: bit patterns 0b01xx... (positive) / 0b10xx... (negative)
+    //   N2 vanished: bit patterns 0b001x... (positive) / 0b110x... (negative)
+    // `<$f>::MIN >> 1` arithmetic-shifts the top bit down, giving 0b11000000 (negative N2).
+    // Negating that gives 0b01000000 (positive N1 exploded). Shifting again gives 0b00100000 (positive N2 vanished).
+    pub const EXPLODED_POS: Self = Self { fraction:  -(<$f>::MIN >> 1),        exponent: 0 };
+    pub const EXPLODED_NEG: Self = Self { fraction:    <$f>::MIN,              exponent: 0 };
+    pub const VANISHED_POS: Self = Self { fraction:  -(<$f>::MIN >> 1) >> 1,   exponent: 0 };
+    pub const VANISHED_NEG: Self = Self { fraction:    <$f>::MIN  >> 1,        exponent: 0 };
 
     // All hex constants below are stored fractions derived from basecalc (MPFR), floored to 128 bits. The shift >> (128 - FRACTION_BITS) truncates to the target fraction width (SA cast). Negative variants use wrapping_neg on the stored fraction. v0.1: every transcendental exponent decreased by 1 for the ruler shift.
 
