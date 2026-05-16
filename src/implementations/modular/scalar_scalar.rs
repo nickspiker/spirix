@@ -210,8 +210,8 @@ where
         let b_neg = modulus.is_negative();
         let signs_differ = a_neg != b_neg;
 
-        // |a| < |b|: shortcut with sign correction.
-        if self.exponent < modulus.exponent {
+        // |a| < |b|: shortcut with sign correction. Unsigned compare on AMBIG=0 cycle position gives the correct cyclic-magnitude ordering.
+        if self.exponent.into_unsigned() < modulus.exponent.into_unsigned() {
             if !signs_differ {
                 // Same sign: a is already the remainder.
                 return *self;

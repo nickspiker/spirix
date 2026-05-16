@@ -134,14 +134,15 @@ where
         debug_assert!(shift >= 0);
         let fraction = q.w_shl(shift).deflate();
 
-        // Exponent: result_exp = self_exp - other_exp + (1 - shift). All arithmetic in E with wrapping ops; over/underflow detected via sign-pattern checks (same approach as multiplication). No widening.
-        let diff = self.exponent.wrapping_sub(&other.exponent);
-        let self_e_neg = self.exponent.is_negative();
-        let other_e_neg = other.exponent.is_negative();
-        let diff_neg = diff.is_negative();
+        // AMBIG=0 native: stored_pos = pa - pb + bo - shift. The +bo is the division's bias correction (subtracting two stored exps cancels both binade_origin offsets, so we add one back). Single widened compute + bounds check against the normal cycle range [min_pos, max_pos].
+        let pa: isize = self.exponent.into_unsigned().as_();
+        let pb: isize = other.exponent.into_unsigned().as_();
+        let bo: isize = Self::binade_origin().into_unsigned().as_();
+        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
+        let min_pos: isize = Self::min_exponent().as_();
+        let stored_pos: isize = pa.wrapping_sub(pb).wrapping_add(bo).wrapping_sub(shift);
         let result_neg = q.w_is_negative();
-        // Subtraction overflow: self ≥ 0, other < 0, diff wrapped to negative → true diff > E::MAX → exploded.
-        if !self_e_neg && other_e_neg && diff_neg {
+        if stored_pos > max_pos {
             return Self {
                 fraction: if result_neg {
                     Self::neg_one_exploded()
@@ -151,8 +152,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Subtraction underflow: self < 0, other ≥ 0, diff wrapped to non-negative → true diff < E::MIN → vanished.
-        if self_e_neg && !other_e_neg && !diff_neg {
+        if stored_pos < min_pos {
             return Self {
                 fraction: if result_neg {
                     Self::neg_one_vanished()
@@ -162,44 +162,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // diff is exact. Add adj = -shift under v0.1 ruler (was 1 - shift under old ruler). The -1 drop matches the per-division ruler offset (each operand's effective magnitude is 2×, canceling under division).
-        let adj: E = (0isize.wrapping_sub(shift)).as_();
-        let adj_neg = adj.is_negative();
-        let exponent = diff.wrapping_add(&adj);
-        let exp_neg = exponent.is_negative();
-        // Addition overflow: both non-negative operands, result wrapped negative.
-        if !diff_neg && !adj_neg && exp_neg {
-            return Self {
-                fraction: if result_neg {
-                    Self::neg_one_exploded()
-                } else {
-                    Self::pos_one_exploded()
-                },
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-        // Addition underflow: both negative operands, result wrapped non-negative.
-        if diff_neg && adj_neg && !exp_neg {
-            return Self {
-                fraction: if result_neg {
-                    Self::neg_one_vanished()
-                } else {
-                    Self::pos_one_vanished()
-                },
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-        // v0.1: Landed exactly on AMBIG (= E::MAX, one above MAX_EXP). Under the new sentinel location this is an OVERFLOW, not underflow — the division went past the valid normal range toward exploded.
-        if exponent == Self::ambiguous_exponent() {
-            return Self {
-                fraction: if result_neg {
-                    Self::neg_one_exploded()
-                } else {
-                    Self::pos_one_exploded()
-                },
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
+        let exponent: E = stored_pos.as_();
         Self { fraction, exponent }
     }
 
