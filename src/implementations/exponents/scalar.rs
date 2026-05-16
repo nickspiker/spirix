@@ -69,36 +69,43 @@ where
             // Edge cases delegate to multiplication (same tables, same logic).
             return self.scalar_multiply_scalar(self);
         }
-        // NEG_ONE_NORMAL has inflate = -2^FRAC; squaring overflows the wide type. v0.1 ruler: neg_one_normal @ e represents -2^(e+1), so (val)² = 2^(2e+2). Needs 2e+2 in the result exp (was 2e+1 under old ruler — +1 ruler offset).
+        // AMBIG=0 native: cycle-position arithmetic with widened bounds. Matches multiplication's pattern. `pa` is the operand's unsigned cycle position (0=AMBIG, 1..MAX_POS = normal). Direction-aware: `stored_pos > max_pos` means we wrapped UP past AMBIG → exploded, `< min_pos` means we wrapped DOWN past AMBIG (or hit AMBIG exactly) → vanished.
+        let pa: isize = self.exponent.into_unsigned().as_();
+        let bo: isize = Self::binade_origin().into_unsigned().as_();
+        let max_pos: isize = Self::max_exponent().into_unsigned().as_();
+        let min_pos: isize = Self::min_exponent().as_();
+
+        // NEG_ONE_NORMAL @ logical k represents -2^(k+1), so (val)² = 2^(2k+2). Cycle position: stored_pos = 2*pa - bo + 2.
         if self.fraction == Self::neg_one_normal() {
-            let mut exp = self.exponent.wrapping_add(&self.exponent);
-            if self.exponent.is_negative() && !exp.is_negative() {
-                return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
-            }
-            exp = exp.wrapping_add(&E::one()).wrapping_add(&E::one());
-            if !self.exponent.is_negative() && exp.is_negative() {
+            let stored_pos: isize = pa.wrapping_add(pa).wrapping_sub(bo).wrapping_add(2);
+            if stored_pos > max_pos {
                 return Self { fraction: Self::pos_one_exploded(), exponent: Self::ambiguous_exponent() };
             }
-            return Self { fraction: Self::pos_one_normal(), exponent: exp };
+            if stored_pos < min_pos {
+                return Self { fraction: Self::pos_one_vanished(), exponent: Self::ambiguous_exponent() };
+            }
+            return Self { fraction: Self::pos_one_normal(), exponent: stored_pos.as_() };
         }
         // Normal path: one inflate, one w_mul, positive result → leading_zeros.
         let inflated = self.fraction.inflate(true);
         let product = inflated.w_mul(inflated);
         let leading = product.w_leading_zeros();
-        // v0.1 ruler: +1 per multiplication (same as mul).
-        let sum = self.exponent.wrapping_add(&self.exponent).wrapping_add(&1u8.as_());
-        let self_neg = self.exponent.is_negative();
-        let sum_neg = sum.is_negative();
-        if !self_neg && sum_neg {
-            // Exponent overflow → exploded (positive × positive doubles into negative).
+        // Cycle position: stored_pos = 2*pa - bo + 1 - leading. The +1 is the per-mul ruler offset, `-leading` normalizes the product.
+        let stored_pos: isize = pa
+            .wrapping_add(pa)
+            .wrapping_sub(bo)
+            .wrapping_add(1)
+            .wrapping_sub(leading);
+        if stored_pos > max_pos {
+            // Exponent overflow → exploded. Fraction extraction unchanged from v0.1 form (depends only on `leading`, not on exponent convention).
             let fraction = product
                 .w_shl(leading.wrapping_sub(1))
                 .w_shr(Self::fraction_bits())
                 .deflate();
             return Self { fraction, exponent: Self::ambiguous_exponent() };
         }
-        if self_neg && !sum_neg {
-            // Exponent underflow → vanished.
+        if stored_pos < min_pos {
+            // Exponent underflow → vanished. Fraction extraction unchanged.
             let shift = leading.wrapping_sub(2);
             let fraction = if shift >= 0 {
                 product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
@@ -107,19 +114,12 @@ where
             };
             return Self { fraction, exponent: Self::ambiguous_exponent() };
         }
-        let adj: E = (leading as isize).as_();
-        let exponent = sum.wrapping_sub(&adj);
-        let fraction = if exponent == Self::ambiguous_exponent() {
-            product
-                .w_shl(leading.wrapping_sub(2))
-                .w_shr(Self::fraction_bits())
-                .deflate()
-        } else {
-            product
-                .w_shl(leading)
-                .w_shr(Self::fraction_bits())
-                .deflate()
-        };
+        // Normal: bounds check has guaranteed stored_pos is in [min_pos, max_pos], i.e. a representable non-AMBIG exponent. Fraction extraction is the simple `product << leading >> FRAC`.
+        let exponent: E = stored_pos.as_();
+        let fraction = product
+            .w_shl(leading)
+            .w_shr(Self::fraction_bits())
+            .deflate();
         Self { fraction, exponent }
     }
     /// Square root — restoring binary, bit-exact floor. Subtractive method on inflated unsigned value, 1 bit per iteration. Matches hardware spirix_sqrt_iter. Double-wide types only, no multiply.
