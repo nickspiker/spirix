@@ -70,7 +70,7 @@ where
             }
             return *self;
         }
-        if self.exponent > Self::fraction_bits().as_() {
+        if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
             return Self {
                 fraction: SINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -141,7 +141,7 @@ where
             return Self::EFFECTIVELY_POS_ONE;
         }
 
-        if self.exponent > Self::fraction_bits().as_() {
+        if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
             return Self {
                 fraction: COSINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -215,7 +215,7 @@ where
             return *self;
         }
         if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_shl(3) {
-            if self.exponent > Self::fraction_bits().as_() {
+            if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
