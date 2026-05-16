@@ -116,17 +116,9 @@ where
             };
         }
         if stored_pos < min_pos {
-            // Exponent underflow → vanished.
-            let shift = leading.wrapping_sub(2);
-            let fraction = if shift >= 0 {
-                product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
-            } else {
-                product
-                    .w_shr(Self::fraction_bits().wrapping_sub(shift))
-                    .deflate()
-            };
+            // Exponent underflow → vanished. Squaring always yields a positive result, so emit the canonical pos_one_vanished bit pattern rather than the leading-2-extracted fraction (which can wrap into N3 = undefined for products that overflowed the signed wide).
             return Self {
-                fraction,
+                fraction: Self::pos_one_vanished(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
@@ -434,20 +426,20 @@ where
             };
         }
 
-        // v0.1 ruler: x in normal form has m in [1, 2) at exp=0, so value = m * 2^exp, lb(x) = lb(m) + exp, lb(m) in [0, 1), floor(lb(x)) = exp.
-        let characteristic = self.exponent;
+        // x in normal form has magnitude m in [1, 2) at the +1.0 binade, so value = m * 2^logical_k, lb(x) = lb(m) + logical_k, lb(m) in [0, 1), floor(lb(x)) = logical_k. The characteristic is the logical exponent; recover it via stored ^ binade_origin.
+        let characteristic = self.exponent ^ Self::binade_origin();
 
-        // Normalize x to [1, 2), which under v0.1 is exp=0.
+        // Normalize x to [1, 2), i.e. anchor at the +1.0 binade.
         let mut x = *self;
-        x.exponent = E::zero();
+        x.exponent = Self::binade_origin();
 
         // Build fractional bits directly into u128 — each iteration is ~1 OR + 1 shift. Bit (FRAC-1) = 0.5 contribution, bit (FRAC-2) = 0.25, etc.
         let mut raw_frac: u128 = 0;
         let mut rotor: u128 = 1u128 << (Self::fraction_bits().wrapping_sub(1) as u32);
         while rotor != 0 {
             x = x.square();
-            // v0.1 ruler: x in [2, 4) after squaring means exp > 0 (not > 1).
-            if x.exponent > E::zero() {
+            // x in [2, 4) after squaring means it left the +1.0 binade upward — unsigned cycle position > binade_origin position.
+            if x.exponent.into_unsigned() > Self::binade_origin().into_unsigned() {
                 raw_frac |= rotor;
                 x.exponent = x.exponent.wrapping_sub(&E::one());
             }
@@ -470,10 +462,11 @@ where
                 128 => (normalized_u as i128).as_(),
                 _ => unreachable!(),
             };
-            // v0.1 ruler: raw_frac has bit (FRAC-1) = 0.5 contribution; converting to Scalar needs exp = -lz - 1 (was -lz under old ruler) to keep the same value meaning.
+            // raw_frac has bit (FRAC-1) = 0.5 contribution; the logical exponent for this Scalar is -lz - 1. Convert that logical k to AMBIG=0 stored form via ^ binade_origin.
+            let logical_exp_e: E = (0isize).wrapping_sub(lz).wrapping_sub(1).as_();
             Self {
                 fraction: stored,
-                exponent: (0isize).wrapping_sub(lz).wrapping_sub(1).as_(),
+                exponent: logical_exp_e ^ Self::binade_origin(),
             }
         };
 
