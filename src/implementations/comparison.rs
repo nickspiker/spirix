@@ -279,9 +279,9 @@ where
                     Ordering::Greater
                 });
             }
-            // Same sign: larger exponent = larger magnitude; for negatives that means smaller value, so reverse.
+            // Same sign: larger exponent = larger magnitude; for negatives that means smaller value, so reverse. Unsigned compare on AMBIG=0 stored exponents gives the correct cyclic-magnitude order across the +1.0 binade boundary.
             if self.exponent != other.exponent {
-                let cmp = self.exponent.cmp(&other.exponent);
+                let cmp = self.exponent.cmp_unsigned(&other.exponent);
                 return Some(if self.is_negative() {
                     cmp.reverse()
                 } else {
