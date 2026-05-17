@@ -130,128 +130,129 @@ where
     /// assert!((huge + huge).is_undefined());
     /// ```
     pub(crate) fn circle_add_circle(&self, circle: &Self) -> Self {
-        if !self.is_normal() || !circle.is_normal() {
-            if self.is_undefined() {
-                return *self;
+        if self.is_normal() && circle.is_normal() {
+            // AMBIG=0 native: dominance via unsigned-cyclic compare on stored exp (matches Scalar add/sub).
+            let (big, small) = if self.exponent.into_unsigned() > circle.exponent.into_unsigned() {
+                (self, circle)
+            } else {
+                (circle, self)
+            };
+
+            let exp_diff = big.exponent.wrapping_sub(&small.exponent);
+            // Under cmp_unsigned ordering, exp_diff (interpreted unsigned) is non-negative. If the unsigned diff exceeds FRAC_BITS, small is negligible against big.
+            let frac_bits_e: E = Self::fraction_bits().as_();
+            if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
+                return *big;
             }
-            if circle.is_undefined() {
-                return *circle;
+
+            // AMBIG=0 native unified pipeline (mirrors Scalar add). Circle's N1 inflation is sign_extend — the explicit sign bit at MSB means widening preserves the signed value without needing the XOR mask Scalar's N0 inflate applies.
+            let shift: isize = exp_diff.saturate();
+            let big_r = big.real.sign_extend().w_shl(shift);
+            let big_i = big.imaginary.sign_extend().w_shl(shift);
+            let small_r = small.real.sign_extend();
+            let small_i = small.imaginary.sign_extend();
+            let result_r = big_r.w_add(small_r);
+            let result_i = big_i.w_add(small_i);
+
+            if result_r.w_is_zero() && result_i.w_is_zero() {
+                return Self::ZERO;
             }
-            // Infinity absorbs everything. [∞] is the signless Riemann-sphere point reached only by n/0; −∞ is a no-op so [∞]−[∞] = [∞] too.
-            if self.is_infinite() || circle.is_infinite() {
-                return Self::INFINITY;
-            }
-            if self.is_zero() {
-                return *circle;
-            }
-            if circle.is_zero() {
-                return *self;
-            }
-            if self.exploded() && circle.exploded() {
+
+            let leading_r = result_r.leading_same();
+            let leading_i = result_i.leading_same();
+            let leading = leading_r.min(leading_i);
+
+            // Result exp = small.exp + delta, delta ∈ [-FRAC, FRAC+1]. The cyclic wrap to AMBIG IS the exploded signal — no cycle_widen bounds check needed for add (mul/div still need it because their delta scales to 2*FRAC).
+            let fb = Self::fraction_bits();
+            let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
+            let delta_e: E = delta.as_();
+            let offset = small.exponent.wrapping_add(&delta_e);
+
+            if offset == Self::ambiguous_exponent() {
+                // Exploded: N1 canonical shape (leading - 1 in narrow).
                 return Self {
-                    real: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
-                    imaginary: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
+                    real: result_r.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
+                    imaginary: result_i.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.vanished() && circle.vanished() {
-                return Self {
-                    real: VANISHED_PLUS_VANISHED.prefix.sa(),
-                    imaginary: VANISHED_PLUS_VANISHED.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if self.exploded() {
-                if circle.vanished() {
-                    return *self;
-                }
-                return Self {
-                    real: TRANSFINITE_PLUS_FINITE.prefix.sa(),
-                    imaginary: TRANSFINITE_PLUS_FINITE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if circle.exploded() {
-                if self.vanished() {
-                    return *circle;
-                }
-                return Self {
-                    real: FINITE_PLUS_TRANSFINITE.prefix.sa(),
-                    imaginary: FINITE_PLUS_TRANSFINITE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if self.vanished() {
-                return *circle;
-            }
-            if circle.vanished() {
-                return *self;
-            }
-            return *self;
-        }
 
-        // AMBIG=0 native: dominance via unsigned-cyclic compare on stored exp (matches Scalar add/sub).
-        let (big, small) = if self.exponent.into_unsigned() > circle.exponent.into_unsigned() {
-            (self, circle)
-        } else {
-            (circle, self)
-        };
-
-        let exp_diff = big.exponent.wrapping_sub(&small.exponent);
-        // Under cmp_unsigned ordering, exp_diff (interpreted unsigned) is non-negative. If the unsigned diff exceeds FRAC_BITS, small is negligible against big.
-        let frac_bits_e: E = Self::fraction_bits().as_();
-        if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
-            return *big;
-        }
-
-        // AMBIG=0 native unified pipeline (mirrors Scalar add). Circle's N1 inflation is just sign_extend — the explicit sign bit at MSB means widening preserves the signed value without needing the XOR mask Scalar's N0 inflate applies.
-        let shift: isize = exp_diff.saturate();
-        let big_r = big.real.sign_extend().w_shl(shift);
-        let big_i = big.imaginary.sign_extend().w_shl(shift);
-        let small_r = small.real.sign_extend();
-        let small_i = small.imaginary.sign_extend();
-        let result_r = big_r.w_add(small_r);
-        let result_i = big_i.w_add(small_i);
-
-        if result_r.w_is_zero() && result_i.w_is_zero() {
-            return Self::ZERO;
-        }
-
-        let leading_r = result_r.leading_same();
-        let leading_i = result_i.leading_same();
-        let leading = leading_r.min(leading_i);
-
-        // Result exp = small.exp + delta, delta ∈ [-FRAC, FRAC+1]. The cyclic wrap to AMBIG IS the exploded signal — no cycle_widen bounds check needed for add (mul/div still need it because their delta scales to 2*FRAC).
-        let fb = Self::fraction_bits();
-        let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
-        let delta_e: E = delta.as_();
-        let offset = small.exponent.wrapping_add(&delta_e);
-
-        if offset == Self::ambiguous_exponent() {
-            // Exploded: N1 canonical shape (leading - 1 in narrow).
+            // Normal path: shift to canonical N1 (wide leading = FRAC + 1). Net shift relative to wide = leading - (FRAC + 1).
+            let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
+            let canonical_r = if shl_amount >= 0 {
+                result_r.w_shl(shl_amount)
+            } else {
+                result_r.w_shr(shl_amount.wrapping_neg())
+            };
+            let canonical_i = if shl_amount >= 0 {
+                result_i.w_shl(shl_amount)
+            } else {
+                result_i.w_shr(shl_amount.wrapping_neg())
+            };
             return Self {
-                real: result_r.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
-                imaginary: result_i.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
-                exponent: Self::ambiguous_exponent(),
+                real: canonical_r.deflate(),
+                imaginary: canonical_i.deflate(),
+                exponent: offset,
             };
         }
 
-        // Normal path: shift to canonical N1 (wide leading = FRAC + 1). Net shift relative to wide = leading - (FRAC + 1).
-        let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
-        let canonical_r = if shl_amount >= 0 {
-            result_r.w_shl(shl_amount)
-        } else {
-            result_r.w_shr(shl_amount.wrapping_neg())
-        };
-        let canonical_i = if shl_amount >= 0 {
-            result_i.w_shl(shl_amount)
-        } else {
-            result_i.w_shr(shl_amount.wrapping_neg())
-        };
-        Self {
-            real: canonical_r.deflate(),
-            imaginary: canonical_i.deflate(),
-            exponent: offset,
+        // Escape-class handling (mirrors Scalar add ordering: undefined first, then infinity absorbs, then zero identity, then escape pair rules).
+        if self.is_undefined() {
+            return *self;
         }
+        if circle.is_undefined() {
+            return *circle;
+        }
+        // Infinity absorbs everything. [∞] is the signless Riemann-sphere point reached only by n/0; −∞ is a no-op so [∞]−[∞] = [∞] too.
+        if self.is_infinite() || circle.is_infinite() {
+            return Self::INFINITY;
+        }
+        if self.is_zero() {
+            return *circle;
+        }
+        if circle.is_zero() {
+            return *self;
+        }
+        if self.exploded() && circle.exploded() {
+            return Self {
+                real: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
+                imaginary: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.vanished() && circle.vanished() {
+            return Self {
+                real: VANISHED_PLUS_VANISHED.prefix.sa(),
+                imaginary: VANISHED_PLUS_VANISHED.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.exploded() {
+            if circle.vanished() {
+                return *self;
+            }
+            return Self {
+                real: TRANSFINITE_PLUS_FINITE.prefix.sa(),
+                imaginary: TRANSFINITE_PLUS_FINITE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if circle.exploded() {
+            if self.vanished() {
+                return *circle;
+            }
+            return Self {
+                real: FINITE_PLUS_TRANSFINITE.prefix.sa(),
+                imaginary: FINITE_PLUS_TRANSFINITE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.vanished() {
+            return *circle;
+        }
+        if circle.vanished() {
+            return *self;
+        }
+        *self
     }
 }
