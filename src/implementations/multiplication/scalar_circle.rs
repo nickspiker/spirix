@@ -124,7 +124,60 @@ where
     /// assert!(half_circle.i() / half_circle.magnitude() == unit_circle.i());
     /// ```
     pub(crate) fn scalar_multiply_circle(&self, other: &Circle<F, E>) -> Circle<F, E> {
-        if !self.is_normal() || !other.is_normal() {
+        if self.is_normal() && other.is_normal() {
+            // AMBIG=0 unified pipeline. Scalar * Circle: scale each Circle component by the (N0→N1) Scalar fraction.
+            let s = ((self.fraction >> 1isize) ^ F::min_value()).sign_extend();
+            let c = other.real.sign_extend();
+            let d = other.imaginary.sign_extend();
+            let fb = Self::fraction_bits();
+
+            let real_product = s.w_mul(c);
+            let imag_product = s.w_mul(d);
+
+            if real_product.w_is_zero() && imag_product.w_is_zero() {
+                return Circle::<F, E>::ZERO;
+            }
+
+            let leading_r = real_product.leading_same();
+            let leading_i = imag_product.leading_same();
+            let leading = leading_r.min(leading_i);
+            let shift = leading.wrapping_sub(1);
+            let real = real_product.w_shl(shift).w_shr(fb).deflate();
+            let imaginary = imag_product.w_shl(shift).w_shr(fb).deflate();
+
+            let pa = self.exponent.cycle_widen();
+            let pb = other.exponent.cycle_widen();
+            let expo_adjust_e: E = leading.wrapping_sub(2).as_();
+            let w_adj = expo_adjust_e.sign_extend();
+            let w_bo = Scalar::<F, E>::binade_origin().cycle_widen();
+            let w_one = E::one().cycle_widen();
+            let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
+            let max_pos = Scalar::<F, E>::max_exponent().cycle_widen();
+            let min_pos = Scalar::<F, E>::min_exponent().cycle_widen();
+
+            return if stored_pos > max_pos {
+                Circle {
+                    real,
+                    imaginary,
+                    exponent: Circle::<F, E>::ambiguous_exponent(),
+                }
+            } else if stored_pos < min_pos {
+                Circle {
+                    real: real >> 1isize,
+                    imaginary: imaginary >> 1isize,
+                    exponent: Circle::<F, E>::ambiguous_exponent(),
+                }
+            } else {
+                Circle {
+                    real,
+                    imaginary,
+                    exponent: stored_pos.deflate(),
+                }
+            };
+        }
+
+        // Escape-class handling (at least one operand non-normal).
+        {
             if self.is_undefined() {
                 return Circle {
                     real: self.fraction,
@@ -299,161 +352,6 @@ where
                     imaginary,
                     exponent: Self::ambiguous_exponent(),
                 };
-            }
-        } else {
-            let real;
-            let imaginary;
-            let expo_adjust: isize;
-            match Self::fraction_bits() {
-                8 => {
-                    let multiplier_r: i16 = other.real.as_();
-                    let multiplier_i: i16 = other.imaginary.as_();
-                    let multiplicand: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                    let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-                    if product_wide_r == 0 && product_wide_i == 0 {
-                        return Circle::<F, E>::ZERO;
-                    }
-                    let leading_r = product_wide_r
-                        .leading_ones()
-                        .max(product_wide_r.leading_zeros());
-                    let leading_i = product_wide_i
-                        .leading_ones()
-                        .max(product_wide_i.leading_zeros());
-                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide_r = product_wide_r << shift;
-                    let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
-                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
-                }
-                16 => {
-                    let multiplier_r: i32 = other.real.as_();
-                    let multiplier_i: i32 = other.imaginary.as_();
-                    let multiplicand: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                    let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-                    if product_wide_r == 0 && product_wide_i == 0 {
-                        return Circle::<F, E>::ZERO;
-                    }
-                    let leading_r = product_wide_r
-                        .leading_ones()
-                        .max(product_wide_r.leading_zeros());
-                    let leading_i = product_wide_i
-                        .leading_ones()
-                        .max(product_wide_i.leading_zeros());
-                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide_r = product_wide_r << shift;
-                    let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
-                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
-                }
-                32 => {
-                    let multiplier_r: i64 = other.real.as_();
-                    let multiplier_i: i64 = other.imaginary.as_();
-                    let multiplicand: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                    let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-                    if product_wide_r == 0 && product_wide_i == 0 {
-                        return Circle::<F, E>::ZERO;
-                    }
-                    let leading_r = product_wide_r
-                        .leading_ones()
-                        .max(product_wide_r.leading_zeros());
-                    let leading_i = product_wide_i
-                        .leading_ones()
-                        .max(product_wide_i.leading_zeros());
-                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide_r = product_wide_r << shift;
-                    let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
-                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
-                }
-                64 => {
-                    let multiplier_r: i128 = other.real.as_();
-                    let multiplier_i: i128 = other.imaginary.as_();
-                    let multiplicand: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                    let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-                    if product_wide_r == 0 && product_wide_i == 0 {
-                        return Circle::<F, E>::ZERO;
-                    }
-                    let leading_r = product_wide_r
-                        .leading_ones()
-                        .max(product_wide_r.leading_zeros());
-                    let leading_i = product_wide_i
-                        .leading_ones()
-                        .max(product_wide_i.leading_zeros());
-                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide_r = product_wide_r << shift;
-                    let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> Self::fraction_bits()).as_();
-                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_();
-                }
-                128 => {
-                    let multiplier_r: I256 = other.real.into();
-                    let multiplier_i: I256 = other.imaginary.into();
-                    let multiplicand: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
-                    let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                    let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-                    if product_wide_r == 0.into() && product_wide_i == 0.into() {
-                        return Circle::<F, E>::ZERO;
-                    }
-                    let leading_r = product_wide_r
-                        .leading_ones()
-                        .max(product_wide_r.leading_zeros());
-                    let leading_i = product_wide_i
-                        .leading_ones()
-                        .max(product_wide_i.leading_zeros());
-                    expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(2);
-                    let shift = expo_adjust.wrapping_add(1);
-                    let normalized_wide_r = product_wide_r << shift;
-                    let normalized_wide_i = product_wide_i << shift;
-                    real = (normalized_wide_r >> Self::fraction_bits()).as_i128().as_();
-                    imaginary = (normalized_wide_i >> Self::fraction_bits()).as_i128().as_();
-                }
-                _ => {
-                    return Circle::<F, E> {
-                        real: GENERAL.prefix.sa(),
-                        imaginary: GENERAL.prefix.sa(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-            }
-
-            // AMBIG=0 native: scalar is converted N0→N1 at multiplicand load (halving its magnitude); the +1 here compensates so the result lands at the correct binade.
-            let pa = self.exponent.cycle_widen();
-            let pb = other.exponent.cycle_widen();
-            let expo_adjust_e: E = expo_adjust.as_();
-            let w_adj = expo_adjust_e.sign_extend();
-            let w_bo = Scalar::<F, E>::binade_origin().cycle_widen();
-            let w_one = E::one().cycle_widen();
-            let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
-
-            let max_pos = Scalar::<F, E>::max_exponent().cycle_widen();
-            let min_pos = Scalar::<F, E>::min_exponent().cycle_widen();
-
-            if stored_pos > max_pos {
-                Circle::<F, E> {
-                    real,
-                    imaginary,
-                    exponent: Circle::<F, E>::ambiguous_exponent(),
-                }
-            } else if stored_pos < min_pos {
-                Circle::<F, E> {
-                    real: real >> 1isize,
-                    imaginary: imaginary >> 1isize,
-                    exponent: Circle::<F, E>::ambiguous_exponent(),
-                }
-            } else {
-                Circle::<F, E> {
-                    real,
-                    imaginary,
-                    exponent: stored_pos.deflate(),
-                }
             }
         }
     }
