@@ -136,6 +136,80 @@ where
     /// assert!((huge + huge_circle).is_undefined());
     /// ```
     pub(crate) fn scalar_add_circle(&self, circle: &Circle<F, E>) -> Circle<F, E> {
+        if self.is_normal() && circle.is_normal() {
+            // AMBIG=0 unified pipeline. self is Scalar (N0); convert fraction to N1 before sign_extend; Scalar's imaginary contribution is 0.
+            let self_is_big =
+                self.exponent.into_unsigned() > circle.exponent.into_unsigned();
+            let (big_exp, small_exp) = if self_is_big {
+                (self.exponent, circle.exponent)
+            } else {
+                (circle.exponent, self.exponent)
+            };
+            let exp_diff = big_exp.wrapping_sub(&small_exp);
+            let frac_bits_e: E = Self::fraction_bits().as_();
+            if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
+                return if self_is_big {
+                    Circle {
+                        real: (self.fraction >> 1isize) ^ F::min_value(),
+                        imaginary: F::zero(),
+                        exponent: self.exponent,
+                    }
+                } else {
+                    *circle
+                };
+            }
+
+            let shift: isize = exp_diff.saturate();
+            let scalar_n1 = (self.fraction >> 1isize) ^ F::min_value();
+            let (big_r, big_i, small_r, small_i) = if self_is_big {
+                (
+                    scalar_n1.sign_extend().w_shl(shift),
+                    F::zero().sign_extend(),
+                    circle.real.sign_extend(),
+                    circle.imaginary.sign_extend(),
+                )
+            } else {
+                (
+                    circle.real.sign_extend().w_shl(shift),
+                    circle.imaginary.sign_extend().w_shl(shift),
+                    scalar_n1.sign_extend(),
+                    F::zero().sign_extend(),
+                )
+            };
+            let result_r = big_r.w_add(small_r);
+            let result_i = big_i.w_add(small_i);
+
+            if result_r.w_is_zero() && result_i.w_is_zero() {
+                return Circle::<F, E>::ZERO;
+            }
+
+            let leading_r = result_r.leading_same();
+            let leading_i = result_i.leading_same();
+            let leading = leading_r.min(leading_i);
+
+            let fb = Self::fraction_bits();
+            let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
+            let delta_e: E = delta.as_();
+            let offset = small_exp.wrapping_add(&delta_e);
+
+            let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
+            let canonical_r = if shl_amount >= 0 {
+                result_r.w_shl(shl_amount)
+            } else {
+                result_r.w_shr(shl_amount.wrapping_neg())
+            };
+            let canonical_i = if shl_amount >= 0 {
+                result_i.w_shl(shl_amount)
+            } else {
+                result_i.w_shr(shl_amount.wrapping_neg())
+            };
+            return Circle::<F, E> {
+                real: canonical_r.deflate(),
+                imaginary: canonical_i.deflate(),
+                exponent: offset,
+            };
+        }
+
         if !self.is_normal() || !circle.is_normal() {
             if self.is_undefined() {
                 return Circle {
@@ -193,472 +267,6 @@ where
                 imaginary: 0.as_(),
                 exponent: self.exponent,
             };
-        }
-
-        // AMBIG=0 native: dominance via unsigned-cyclic compare.
-        if self.exponent.into_unsigned() > circle.exponent.into_unsigned() {
-            // Scalar is bigger
-            let exp_diff = self.exponent.wrapping_sub(&circle.exponent);
-            let frac_bits_e: E = Self::fraction_bits().as_();
-            if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
-                return Circle {
-                    real: (self.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: self.exponent,
-                };
-            }
-
-            match Self::fraction_bits() {
-                8 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    big_r <<= shift;
-                    let small_r: i16 = circle.real.as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let result_i: i16 = circle.imaginary.as_();
-
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = circle
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                16 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    big_r <<= shift;
-                    let small_r: i32 = circle.real.as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let result_i: i32 = circle.imaginary.as_();
-
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = circle
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                32 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    big_r <<= shift;
-                    let small_r: i64 = circle.real.as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let result_i: i64 = circle.imaginary.as_();
-
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = circle
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                64 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    big_r <<= shift;
-                    let small_r: i128 = circle.real.as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let result_i: i128 = circle.imaginary.as_();
-
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = circle
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                128 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
-                    big_r <<= shift;
-                    let small_r: I256 = circle.real.into();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0.into() && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let result_i: I256 = circle.imaginary.into();
-
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros());
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros());
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = circle.exponent.wrapping_add(
-                        &(Self::fraction_bits().wrapping_sub(leading as isize)).as_(),
-                    );
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                _ => {}
-            }
-        } else {
-            // Circle is bigger
-            let exp_diff = circle.exponent.wrapping_sub(&self.exponent);
-            let frac_bits_e: E = Self::fraction_bits().as_();
-            if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
-                return *circle;
-            }
-            match Self::fraction_bits() {
-                8 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i16 = circle.real.as_();
-                    big_r <<= shift;
-                    let small_r: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let mut result_i: i16 = circle.imaginary.as_();
-                    result_i <<= shift;
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = self
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                16 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i32 = circle.real.as_();
-                    big_r <<= shift;
-                    let small_r: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let mut result_i: i32 = circle.imaginary.as_();
-                    result_i <<= shift;
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = self
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                32 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i64 = circle.real.as_();
-                    big_r <<= shift;
-                    let small_r: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let mut result_i: i64 = circle.imaginary.as_();
-                    result_i <<= shift;
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = self
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                64 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: i128 = circle.real.as_();
-                    big_r <<= shift;
-                    let small_r: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0 && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let mut result_i: i128 = circle.imaginary.as_();
-                    result_i <<= shift;
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = self
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                128 => {
-                    let shift: isize = exp_diff.as_();
-                    let mut big_r: I256 = circle.real.into();
-                    big_r <<= shift;
-                    let small_r: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
-                    let result_r = big_r.wrapping_add(small_r);
-
-                    if result_r == 0.into() && circle.imaginary.is_zero() {
-                        return Circle::<F, E>::ZERO;
-                    }
-
-                    let mut result_i: I256 = circle.imaginary.into();
-                    result_i <<= shift;
-                    let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                    let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                    let leading = leading_r.min(leading_i);
-
-                    let offset = self
-                        .exponent
-                        .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                    let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
-                        return Circle {
-                            real: ((result_r << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                            imaginary: ((result_i << (leading.wrapping_sub(2)))
-                                >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                            exponent: Self::ambiguous_exponent(),
-                        };
-                    }
-
-                    return Circle {
-                        real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(1)))
-                            >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                        exponent: offset.wrapping_add(&E::one()),
-                    };
-                }
-                _ => {}
-            }
         }
         Circle::<F, E>::ZERO
     }
