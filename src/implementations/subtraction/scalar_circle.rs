@@ -238,7 +238,11 @@ where
                     let offset = circle.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < circle.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -280,7 +284,11 @@ where
                     let offset = circle.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < circle.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -322,7 +330,11 @@ where
                     let offset = circle.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < circle.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -364,7 +376,11 @@ where
                     let offset = circle.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < circle.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -406,7 +422,11 @@ where
                     let offset = circle.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < circle.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << leading.wrapping_sub(2)) >> Self::fraction_bits())
                                 .as_i128()
@@ -460,7 +480,11 @@ where
                     let offset = self.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < self.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -504,7 +528,11 @@ where
                     let offset = self.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < self.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -547,7 +575,11 @@ where
                     let offset = self.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < self.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -590,7 +622,11 @@ where
                     let offset = self.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < self.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -634,7 +670,11 @@ where
                     let offset = self.exponent.wrapping_add(&o);
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    if final_exp == Self::ambiguous_exponent() {
+                    let one_e: E = 1u8.as_();
+                    if final_exp == Self::ambiguous_exponent()
+                        || offset.wrapping_sub(&one_e).into_unsigned()
+                            < self.exponent.into_unsigned()
+                    {
                         return Circle {
                             real: ((result_r << leading.wrapping_sub(2)) >> Self::fraction_bits())
                                 .as_i128()

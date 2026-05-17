@@ -232,9 +232,13 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                // AMBIG=0 wrap detection: catches both `final_exp == AMBIG` (offset = MAX, +1 wraps to 0) and `offset wrapped past AMBIG to small-positive stored` (offset-1 in unsigned < small.exp.unsigned means the addition crossed the cycle's max/0 boundary).
                 let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
+                let one_e: E = 1u8.as_();
+                if final_exp == Self::ambiguous_exponent()
+                    || offset.wrapping_sub(&one_e).into_unsigned()
+                        < small.exponent.into_unsigned()
+                {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -278,9 +282,13 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                // AMBIG=0 wrap detection: catches both `final_exp == AMBIG` (offset = MAX, +1 wraps to 0) and `offset wrapped past AMBIG to small-positive stored` (offset-1 in unsigned < small.exp.unsigned means the addition crossed the cycle's max/0 boundary).
                 let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
+                let one_e: E = 1u8.as_();
+                if final_exp == Self::ambiguous_exponent()
+                    || offset.wrapping_sub(&one_e).into_unsigned()
+                        < small.exponent.into_unsigned()
+                {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -324,9 +332,13 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                // AMBIG=0 wrap detection: catches both `final_exp == AMBIG` (offset = MAX, +1 wraps to 0) and `offset wrapped past AMBIG to small-positive stored` (offset-1 in unsigned < small.exp.unsigned means the addition crossed the cycle's max/0 boundary).
                 let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
+                let one_e: E = 1u8.as_();
+                if final_exp == Self::ambiguous_exponent()
+                    || offset.wrapping_sub(&one_e).into_unsigned()
+                        < small.exponent.into_unsigned()
+                {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -370,9 +382,13 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                // AMBIG=0 wrap detection: catches both `final_exp == AMBIG` (offset = MAX, +1 wraps to 0) and `offset wrapped past AMBIG to small-positive stored` (offset-1 in unsigned < small.exp.unsigned means the addition crossed the cycle's max/0 boundary).
                 let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
+                let one_e: E = 1u8.as_();
+                if final_exp == Self::ambiguous_exponent()
+                    || offset.wrapping_sub(&one_e).into_unsigned()
+                        < small.exponent.into_unsigned()
+                {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
