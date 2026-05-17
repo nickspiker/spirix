@@ -204,246 +204,66 @@ where
             return *big;
         }
 
-        match Self::fraction_bits() {
-            8 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_r: i16 = big.real.as_();
-                big_r <<= shift;
-                let small_r: i16 = small.real.as_();
-                let result_r = big_r.wrapping_add(small_r);
+        // AMBIG=0 native unified pipeline (mirrors Scalar add). Circle's N1 inflation is just sign_extend — the explicit sign bit at MSB means widening preserves the signed value without needing the XOR mask Scalar's N0 inflate applies.
+        let shift: isize = exp_diff.saturate();
+        let big_r = big.real.sign_extend().w_shl(shift);
+        let big_i = big.imaginary.sign_extend().w_shl(shift);
+        let small_r = small.real.sign_extend();
+        let small_i = small.imaginary.sign_extend();
+        let result_r = big_r.w_add(small_r);
+        let result_i = big_i.w_add(small_i);
 
-                let mut big_i: i16 = big.imaginary.as_();
-                big_i <<= shift;
-                let small_i: i16 = small.imaginary.as_();
-                let result_i = big_i.wrapping_add(small_i);
+        if result_r.w_is_zero() && result_i.w_is_zero() {
+            return Self::ZERO;
+        }
 
-                if result_r.is_zero() && result_i.is_zero() {
-                    return Self {
-                        real: F::zero(),
-                        imaginary: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
+        let leading_r = result_r.leading_same();
+        let leading_i = result_i.leading_same();
+        let leading = leading_r.min(leading_i);
 
-                let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                let leading = leading_r.min(leading_i);
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
+        let fb = Self::fraction_bits();
+        let small_pos = small.exponent.cycle_widen();
+        // N1 canonical wide leading = FRAC + 1 (vs Scalar N0's FRAC). The +1 accounts for the explicit sign bit's slot in the wide representation.
+        let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
+        let delta_e: E = delta.as_();
+        let w_delta = delta_e.sign_extend();
+        let offset_pos = small_pos.w_add(w_delta);
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
 
-                // AMBIG=0: the +1 absorption can land final_exp on the AMBIG sentinel (= 0). Downgrade to the N2 vanished form when that happens.
-                let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
-                    return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: final_exp,
-                };
-            }
-            16 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_r: i32 = big.real.as_();
-                big_r <<= shift;
-                let small_r: i32 = small.real.as_();
-                let result_r = big_r.wrapping_add(small_r);
-
-                let mut big_i: i32 = big.imaginary.as_();
-                big_i <<= shift;
-                let small_i: i32 = small.imaginary.as_();
-                let result_i = big_i.wrapping_add(small_i);
-
-                if result_r.is_zero() && result_i.is_zero() {
-                    return Self {
-                        real: F::zero(),
-                        imaginary: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-
-                let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                let leading = leading_r.min(leading_i);
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                // AMBIG=0: the +1 absorption can land final_exp on the AMBIG sentinel (= 0). Downgrade to the N2 vanished form when that happens.
-                let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
-                    return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: final_exp,
-                };
-            }
-            32 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_r: i64 = big.real.as_();
-                big_r <<= shift;
-                let small_r: i64 = small.real.as_();
-                let result_r = big_r.wrapping_add(small_r);
-
-                let mut big_i: i64 = big.imaginary.as_();
-                big_i <<= shift;
-                let small_i: i64 = small.imaginary.as_();
-                let result_i = big_i.wrapping_add(small_i);
-
-                if result_r.is_zero() && result_i.is_zero() {
-                    return Self {
-                        real: F::zero(),
-                        imaginary: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-
-                let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                let leading = leading_r.min(leading_i);
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                // AMBIG=0: the +1 absorption can land final_exp on the AMBIG sentinel (= 0). Downgrade to the N2 vanished form when that happens.
-                let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
-                    return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: final_exp,
-                };
-            }
-            64 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_r: i128 = big.real.as_();
-                big_r <<= shift;
-                let small_r: i128 = small.real.as_();
-                let result_r = big_r.wrapping_add(small_r);
-
-                let mut big_i: i128 = big.imaginary.as_();
-                big_i <<= shift;
-                let small_i: i128 = small.imaginary.as_();
-                let result_i = big_i.wrapping_add(small_i);
-
-                if result_r.is_zero() && result_i.is_zero() {
-                    return Self {
-                        real: F::zero(),
-                        imaginary: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-
-                let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                let leading = leading_r.min(leading_i);
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                // AMBIG=0: the +1 absorption can land final_exp on the AMBIG sentinel (= 0). Downgrade to the N2 vanished form when that happens.
-                let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
-                    return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2)))
-                            >> Self::fraction_bits())
-                        .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_(),
-                    exponent: final_exp,
-                };
-            }
-            128 => {
-                let shift: isize = exp_diff.as_();
-                let mut big_r: I256 = big.real.into();
-                big_r <<= shift;
-                let small_r: I256 = small.real.into();
-                let result_r = big_r.wrapping_add(small_r);
-
-                let mut big_i: I256 = big.imaginary.into();
-                big_i <<= shift;
-                let small_i: I256 = small.imaginary.into();
-                let result_i = big_i.wrapping_add(small_i);
-
-                if result_r == 0.into() && result_i == 0.into() {
-                    return Self {
-                        real: F::zero(),
-                        imaginary: F::zero(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-
-                let leading_r = result_r.leading_ones().max(result_r.leading_zeros()) as isize;
-                let leading_i = result_i.leading_ones().max(result_i.leading_zeros()) as isize;
-                let leading = leading_r.min(leading_i);
-                let offset = small
-                    .exponent
-                    .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-
-                let final_exp = offset.wrapping_add(&E::one());
-                if final_exp == Self::ambiguous_exponent() {
-                    return Self {
-                        real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
-                            .as_i128()
-                            .as_(),
-                        imaginary: ((result_i << (leading.wrapping_sub(2)))
-                            >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                }
-                return Self {
-                    real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                    imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
-                        .as_i128()
-                        .as_(),
-                    exponent: final_exp,
-                };
-            }
-            _ => Self {
-                real: GENERAL.prefix.sa(),
-                imaginary: GENERAL.prefix.sa(),
+        if offset_pos > max_pos {
+            // Exploded: N1 canonical shape (leading - 1 in narrow).
+            return Self {
+                real: result_r.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
+                imaginary: result_i.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
-            },
+            };
+        }
+        if offset_pos < min_pos {
+            // Vanished: N2 canonical shape (leading - 2 in narrow).
+            return Self {
+                real: result_r.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
+                imaginary: result_i.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+
+        // Normal path: shift to canonical N1 (wide leading = FRAC + 1). Net shift relative to wide = leading - (FRAC + 1).
+        let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
+        let canonical_r = if shl_amount >= 0 {
+            result_r.w_shl(shl_amount)
+        } else {
+            result_r.w_shr(shl_amount.wrapping_neg())
+        };
+        let canonical_i = if shl_amount >= 0 {
+            result_i.w_shl(shl_amount)
+        } else {
+            result_i.w_shr(shl_amount.wrapping_neg())
+        };
+        Self {
+            real: canonical_r.deflate(),
+            imaginary: canonical_i.deflate(),
+            exponent: offset_pos.deflate(),
         }
     }
 }
