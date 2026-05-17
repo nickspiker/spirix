@@ -168,7 +168,7 @@ where
             if self.vanished() {
                 let neg_scalar = -scalar;
                 return Circle {
-                    real: neg_scalar.fraction,
+                    real: (neg_scalar.fraction >> 1isize) ^ F::min_value(),
                     imaginary: F::zero(),
                     exponent: neg_scalar.exponent,
                 };
@@ -179,7 +179,7 @@ where
             if self.is_zero() {
                 let neg_scalar = -scalar;
                 return Circle {
-                    real: neg_scalar.fraction,
+                    real: (neg_scalar.fraction >> 1isize) ^ F::min_value(),
                     imaginary: F::zero(),
                     exponent: neg_scalar.exponent,
                 };
@@ -199,7 +199,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i16 = self.real.as_();
                     big_r <<= shift;
-                    let small_r: i16 = scalar.fraction.as_();
+                    let small_r: i16 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = big_r.wrapping_sub(small_r);
 
                     if result_r == 0 && self.imaginary.is_zero() {
@@ -241,7 +241,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i32 = self.real.as_();
                     big_r <<= shift;
-                    let small_r: i32 = scalar.fraction.as_();
+                    let small_r: i32 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = big_r.wrapping_sub(small_r);
 
                     if result_r == 0 && self.imaginary.is_zero() {
@@ -284,7 +284,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i64 = self.real.as_();
                     big_r <<= shift;
-                    let small_r: i64 = scalar.fraction.as_();
+                    let small_r: i64 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = big_r.wrapping_sub(small_r);
 
                     if result_r == 0 && self.imaginary.is_zero() {
@@ -327,7 +327,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i128 = self.real.as_();
                     big_r <<= shift;
-                    let small_r: i128 = scalar.fraction.as_();
+                    let small_r: i128 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = big_r.wrapping_sub(small_r);
 
                     if result_r == 0 && self.imaginary.is_zero() {
@@ -370,7 +370,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: I256 = self.real.into();
                     big_r <<= shift;
-                    let small_r: I256 = scalar.fraction.into();
+                    let small_r: I256 = ((scalar.fraction >> 1isize) ^ F::min_value()).into();
                     let result_r = big_r.wrapping_sub(small_r);
 
                     if result_r == 0.into() && self.imaginary.is_zero() {
@@ -424,7 +424,8 @@ where
             let exp_diff = scalar.exponent.wrapping_sub(&self.exponent);
             let frac_bits_e: E = Self::fraction_bits().as_();
             if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
-                let negated_scalar_fraction = scalar.fraction.wrapping_neg();
+                let negated_scalar_fraction =
+                    ((scalar.fraction >> 1isize) ^ F::min_value()).wrapping_neg();
                 return Circle {
                     real: negated_scalar_fraction,
                     imaginary: F::zero(),
@@ -435,7 +436,8 @@ where
             #[allow(unused_variables, clippy::no_effect)]
             if false {
                 if false {
-                    let negated_scalar_fraction = scalar.fraction.wrapping_neg();
+                    let negated_scalar_fraction =
+                        ((scalar.fraction >> 1isize) ^ F::min_value()).wrapping_neg();
                     return Circle {
                         real: negated_scalar_fraction,
                         imaginary: F::zero(),
@@ -445,7 +447,8 @@ where
             } else {
                 let exp_diff_isize: isize = exp_diff.as_();
                 if false {
-                    let negated_scalar_fraction = scalar.fraction.wrapping_neg();
+                    let negated_scalar_fraction =
+                        ((scalar.fraction >> 1isize) ^ F::min_value()).wrapping_neg();
                     return Circle {
                         real: negated_scalar_fraction,
                         imaginary: F::zero(),

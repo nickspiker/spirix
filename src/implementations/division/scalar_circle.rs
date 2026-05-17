@@ -117,7 +117,7 @@ where
             };
             let (real, imaginary) = match Self::fraction_bits() {
                 8 => {
-                    let a: i16 = self.fraction.as_();
+                    let a: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let c: i16 = other.real.as_();
                     let d: i16 = other.imaginary.as_();
 
@@ -152,7 +152,7 @@ where
                     )
                 }
                 16 => {
-                    let a: i32 = self.fraction.as_();
+                    let a: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let c: i32 = other.real.as_();
                     let d: i32 = other.imaginary.as_();
 
@@ -187,7 +187,7 @@ where
                     )
                 }
                 32 => {
-                    let a: i64 = self.fraction.as_();
+                    let a: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let c: i64 = other.real.as_();
                     let d: i64 = other.imaginary.as_();
 
@@ -222,7 +222,7 @@ where
                     )
                 }
                 64 => {
-                    let a: i128 = self.fraction.as_();
+                    let a: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let c: i128 = other.real.as_();
                     let d: i128 = other.imaginary.as_();
 
@@ -257,7 +257,7 @@ where
                     )
                 }
                 128 => {
-                    let a: I256 = self.fraction.into();
+                    let a: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
                     let c: I256 = other.real.into();
                     let d: I256 = other.imaginary.into();
 
@@ -305,7 +305,7 @@ where
 
         let (real, imaginary, expo_adjust) = match Self::fraction_bits() {
             8 => {
-                let a: i16 = self.fraction.as_();
+                let a: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                 let c: i16 = other.real.as_();
                 let d: i16 = other.imaginary.as_();
 
@@ -340,7 +340,7 @@ where
                 )
             }
             16 => {
-                let a: i32 = self.fraction.as_();
+                let a: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                 let c: i32 = other.real.as_();
                 let d: i32 = other.imaginary.as_();
 
@@ -375,7 +375,7 @@ where
                 )
             }
             32 => {
-                let a: i64 = self.fraction.as_();
+                let a: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                 let c: i64 = other.real.as_();
                 let d: i64 = other.imaginary.as_();
 
@@ -411,7 +411,7 @@ where
                 )
             }
             64 => {
-                let a: i128 = self.fraction.as_();
+                let a: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                 let c: i128 = other.real.as_();
                 let d: i128 = other.imaginary.as_();
 
@@ -446,7 +446,7 @@ where
                 )
             }
             128 => {
-                let a: I256 = self.fraction.into();
+                let a: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
                 let c: I256 = other.real.into();
                 let d: I256 = other.imaginary.into();
 
@@ -492,13 +492,14 @@ where
             }
         };
 
-        // AMBIG=0 native: cross-type div uses a different expo_adjust formula — no extra binade-offset bias needed.
+        // AMBIG=0 native: scalar is converted N0→N1 at fraction load; -1 compensates for the inverted scale.
         let pa = self.exponent.cycle_widen();
         let pb = other.exponent.cycle_widen();
         let expo_adjust_e: E = expo_adjust.as_();
         let w_adj = expo_adjust_e.sign_extend();
         let w_bo = Scalar::<F, E>::binade_origin().cycle_widen();
-        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo);
+        let w_one = E::one().cycle_widen();
+        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
 
         let max_pos = Scalar::<F, E>::max_exponent().cycle_widen();
         let min_pos = Scalar::<F, E>::min_exponent().cycle_widen();

@@ -198,7 +198,9 @@ where
                     8 => {
                         let multiplier_r: i16 = self.real.as_();
                         let multiplier_i: i16 = self.imaginary.as_();
-                        let multiplicand: i16 = other.fraction.as_();
+                        // N0→N1 conversion at the Scalar/Circle interaction: (s >> 1) ^ F::MIN.
+                        let multiplicand: i16 =
+                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
                         let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                         let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
 
@@ -223,7 +225,8 @@ where
                     16 => {
                         let multiplier_r: i32 = self.real.as_();
                         let multiplier_i: i32 = self.imaginary.as_();
-                        let multiplicand: i32 = other.fraction.as_();
+                        let multiplicand: i32 =
+                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
                         let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                         let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
 
@@ -248,7 +251,8 @@ where
                     32 => {
                         let multiplier_r: i64 = self.real.as_();
                         let multiplier_i: i64 = self.imaginary.as_();
-                        let multiplicand: i64 = other.fraction.as_();
+                        let multiplicand: i64 =
+                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
                         let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                         let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
 
@@ -273,7 +277,8 @@ where
                     64 => {
                         let multiplier_r: i128 = self.real.as_();
                         let multiplier_i: i128 = self.imaginary.as_();
-                        let multiplicand: i128 = other.fraction.as_();
+                        let multiplicand: i128 =
+                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
                         let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                         let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
 
@@ -298,7 +303,8 @@ where
                     128 => {
                         let multiplier_r: I256 = self.real.into();
                         let multiplier_i: I256 = self.imaginary.into();
-                        let multiplicand: I256 = other.fraction.into();
+                        let multiplicand: I256 =
+                            ((other.fraction >> 1isize) ^ F::min_value()).into();
                         let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                         let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
 
@@ -337,7 +343,7 @@ where
                 8 => {
                     let multiplier_r: i16 = self.real.as_();
                     let multiplier_i: i16 = self.imaginary.as_();
-                    let multiplicand: i16 = other.fraction.as_();
+                    let multiplicand: i16 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
                     let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                     let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
                     if product_wide_r == 0 && product_wide_i == 0 {
@@ -359,7 +365,7 @@ where
                 16 => {
                     let multiplier_r: i32 = self.real.as_();
                     let multiplier_i: i32 = self.imaginary.as_();
-                    let multiplicand: i32 = other.fraction.as_();
+                    let multiplicand: i32 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
                     let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                     let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
                     if product_wide_r == 0 && product_wide_i == 0 {
@@ -381,7 +387,7 @@ where
                 32 => {
                     let multiplier_r: i64 = self.real.as_();
                     let multiplier_i: i64 = self.imaginary.as_();
-                    let multiplicand: i64 = other.fraction.as_();
+                    let multiplicand: i64 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
                     let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                     let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
                     if product_wide_r == 0 && product_wide_i == 0 {
@@ -403,7 +409,7 @@ where
                 64 => {
                     let multiplier_r: i128 = self.real.as_();
                     let multiplier_i: i128 = self.imaginary.as_();
-                    let multiplicand: i128 = other.fraction.as_();
+                    let multiplicand: i128 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
                     let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                     let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
                     if product_wide_r == 0 && product_wide_i == 0 {
@@ -425,7 +431,7 @@ where
                 128 => {
                     let multiplier_r: I256 = self.real.into();
                     let multiplier_i: I256 = self.imaginary.into();
-                    let multiplicand: I256 = other.fraction.into();
+                    let multiplicand: I256 = ((other.fraction >> 1isize) ^ F::min_value()).into();
                     let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
                     let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
                     if product_wide_r == 0.into() && product_wide_i == 0.into() {
@@ -453,13 +459,14 @@ where
                 }
             }
 
-            // AMBIG=0 native: cross-type mul uses expo_adjust = leading - 2 (vs -3 in Circle*Circle), so the binade-offset bias is already baked in — no extra ±1 needed.
+            // AMBIG=0 native: scalar is converted N0→N1 at multiplicand load (halving its magnitude); the +1 here compensates so the result lands at the correct binade.
             let pa = self.exponent.cycle_widen();
             let pb = other.exponent.cycle_widen();
             let expo_adjust_e: E = expo_adjust.as_();
             let w_adj = expo_adjust_e.sign_extend();
             let w_bo = Self::binade_origin().cycle_widen();
-            let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo);
+            let w_one = E::one().cycle_widen();
+            let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
 
             let max_pos = Self::max_exponent().cycle_widen();
             let min_pos = Self::min_exponent().cycle_widen();

@@ -171,7 +171,7 @@ where
             }
             if circle.vanished() {
                 return Circle {
-                    real: self.fraction,
+                    real: (self.fraction >> 1isize) ^ F::min_value(),
                     imaginary: F::zero(),
                     exponent: self.exponent,
                 };
@@ -180,7 +180,7 @@ where
                 return -circle;
             }
             return Circle {
-                real: self.fraction,
+                real: (self.fraction >> 1isize) ^ F::min_value(),
                 imaginary: F::zero(),
                 exponent: self.exponent,
             };
@@ -192,7 +192,7 @@ where
             let frac_bits_e: E = Self::fraction_bits().as_();
             if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
                 return Circle {
-                    real: self.fraction,
+                    real: (self.fraction >> 1isize) ^ F::min_value(),
                     imaginary: F::zero(),
                     exponent: self.exponent,
                 };
@@ -220,7 +220,7 @@ where
             match Self::fraction_bits() {
                 8 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i16 = self.fraction.as_();
+                    let mut big_r: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i16 = circle.real.as_();
                     let result_r = big_r.wrapping_sub(small_r);
@@ -261,7 +261,7 @@ where
                 }
                 16 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i32 = self.fraction.as_();
+                    let mut big_r: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i32 = circle.real.as_();
                     let result_r = big_r.wrapping_sub(small_r);
@@ -303,7 +303,7 @@ where
                 }
                 32 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i64 = self.fraction.as_();
+                    let mut big_r: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i64 = circle.real.as_();
                     let result_r = big_r.wrapping_sub(small_r);
@@ -345,7 +345,7 @@ where
                 }
                 64 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i128 = self.fraction.as_();
+                    let mut big_r: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i128 = circle.real.as_();
                     let result_r = big_r.wrapping_sub(small_r);
@@ -387,7 +387,7 @@ where
                 }
                 128 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: I256 = self.fraction.into();
+                    let mut big_r: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
                     big_r <<= shift;
                     let small_r: I256 = circle.real.into();
                     let result_r = big_r.wrapping_sub(small_r);
@@ -442,7 +442,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i16 = circle.real.as_();
                     big_r <<= shift;
-                    let small_r: i16 = self.fraction.as_();
+                    let small_r: i16 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = small_r.wrapping_sub(big_r);
 
                     if result_r == 0 && circle.imaginary.is_zero() {
@@ -485,7 +485,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i32 = circle.real.as_();
                     big_r <<= shift;
-                    let small_r: i32 = self.fraction.as_();
+                    let small_r: i32 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = small_r.wrapping_sub(big_r);
 
                     if result_r == 0 && circle.imaginary.is_zero() {
@@ -529,7 +529,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i64 = circle.real.as_();
                     big_r <<= shift;
-                    let small_r: i64 = self.fraction.as_();
+                    let small_r: i64 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = small_r.wrapping_sub(big_r);
 
                     if result_r == 0 && circle.imaginary.is_zero() {
@@ -572,7 +572,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: i128 = circle.real.as_();
                     big_r <<= shift;
-                    let small_r: i128 = self.fraction.as_();
+                    let small_r: i128 = ((self.fraction >> 1isize) ^ F::min_value()).as_();
                     let result_r = small_r.wrapping_sub(big_r);
 
                     if result_r == 0 && circle.imaginary.is_zero() {
@@ -615,7 +615,7 @@ where
                     let shift: isize = exp_diff.as_();
                     let mut big_r: I256 = circle.real.into();
                     big_r <<= shift;
-                    let small_r: I256 = self.fraction.into();
+                    let small_r: I256 = ((self.fraction >> 1isize) ^ F::min_value()).into();
                     let result_r = small_r.wrapping_sub(big_r);
 
                     if result_r == 0.into() && circle.imaginary.is_zero() {

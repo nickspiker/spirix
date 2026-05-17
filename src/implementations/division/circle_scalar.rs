@@ -120,7 +120,7 @@ where
                 8 => {
                     let numerator_r: i16 = self.real.as_();
                     let numerator_i: i16 = self.imaginary.as_();
-                    let denominator: i16 = other.fraction.as_();
+                    let denominator: i16 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                     let mut quotient_r =
                         (numerator_r << Self::fraction_bits()).div_euclid(denominator);
@@ -142,7 +142,7 @@ where
                 16 => {
                     let numerator_r: i32 = self.real.as_();
                     let numerator_i: i32 = self.imaginary.as_();
-                    let denominator: i32 = other.fraction.as_();
+                    let denominator: i32 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                     let mut quotient_r =
                         (numerator_r << Self::fraction_bits()).div_euclid(denominator);
@@ -164,7 +164,7 @@ where
                 32 => {
                     let numerator_r: i64 = self.real.as_();
                     let numerator_i: i64 = self.imaginary.as_();
-                    let denominator: i64 = other.fraction.as_();
+                    let denominator: i64 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                     let mut quotient_r =
                         (numerator_r << Self::fraction_bits()).div_euclid(denominator);
@@ -186,7 +186,7 @@ where
                 64 => {
                     let numerator_r: i128 = self.real.as_();
                     let numerator_i: i128 = self.imaginary.as_();
-                    let denominator: i128 = other.fraction.as_();
+                    let denominator: i128 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                     let mut quotient_r =
                         (numerator_r << Self::fraction_bits()).div_euclid(denominator);
@@ -208,7 +208,7 @@ where
                 128 => {
                     let numerator_r: I256 = self.real.into();
                     let numerator_i: I256 = self.imaginary.into();
-                    let denominator: I256 = other.fraction.into();
+                    let denominator: I256 = ((other.fraction >> 1isize) ^ F::min_value()).into();
 
                     let mut quotient_r =
                         (numerator_r << Self::fraction_bits()).div_euclid(denominator);
@@ -240,7 +240,7 @@ where
             8 => {
                 let numerator_r: i16 = self.real.as_();
                 let numerator_i: i16 = self.imaginary.as_();
-                let denominator: i16 = other.fraction.as_();
+                let denominator: i16 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                 let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
                 let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
@@ -261,7 +261,7 @@ where
             16 => {
                 let numerator_r: i32 = self.real.as_();
                 let numerator_i: i32 = self.imaginary.as_();
-                let denominator: i32 = other.fraction.as_();
+                let denominator: i32 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                 let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
                 let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
@@ -282,7 +282,7 @@ where
             32 => {
                 let numerator_r: i64 = self.real.as_();
                 let numerator_i: i64 = self.imaginary.as_();
-                let denominator: i64 = other.fraction.as_();
+                let denominator: i64 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                 let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
                 let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
@@ -303,7 +303,7 @@ where
             64 => {
                 let numerator_r: i128 = self.real.as_();
                 let numerator_i: i128 = self.imaginary.as_();
-                let denominator: i128 = other.fraction.as_();
+                let denominator: i128 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
 
                 let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
                 let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
@@ -324,7 +324,7 @@ where
             128 => {
                 let numerator_r: I256 = self.real.into();
                 let numerator_i: I256 = self.imaginary.into();
-                let denominator: I256 = other.fraction.into();
+                let denominator: I256 = ((other.fraction >> 1isize) ^ F::min_value()).into();
 
                 let mut quotient_r = (numerator_r << Self::fraction_bits()).div_euclid(denominator);
                 let mut quotient_i = (numerator_i << Self::fraction_bits()).div_euclid(denominator);
@@ -351,13 +351,14 @@ where
             }
         };
 
-        // AMBIG=0 native: cross-type div uses a different expo_adjust formula — no extra binade-offset bias needed (cf. Circle*Circle div which has -1).
+        // AMBIG=0 native: scalar is converted N0→N1 at denominator load (halving its magnitude); the -1 here compensates for the inverted scale relative to the multiplication path.
         let pa = self.exponent.cycle_widen();
         let pb = other.exponent.cycle_widen();
         let expo_adjust_e: E = expo_adjust.as_();
         let w_adj = expo_adjust_e.sign_extend();
         let w_bo = Self::binade_origin().cycle_widen();
-        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo);
+        let w_one = E::one().cycle_widen();
+        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
 
         let max_pos = Self::max_exponent().cycle_widen();
         let min_pos = Self::min_exponent().cycle_widen();
