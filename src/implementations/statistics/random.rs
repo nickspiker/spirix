@@ -225,80 +225,61 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
+    /// Uniform random Circle in the unit disk (|z| < 1). Geometric distribution over binades (matching Scalar::random's f32-style semantics), with rejection sampling for the unit-disk constraint that only activates at the top binade.
+    ///
+    /// Algorithm: chained leading-zeros over F-sized random words gives the geometric exp distribution; both real and imaginary get full random bits; `normalize()` canonicalizes the dominant component to N1 (which may pull the exp down further); reject if magnitude² ≥ 1.
     #[inline]
     pub fn random() -> Self {
+        let frac_bits: usize = Self::fraction_bits() as usize;
         loop {
-            // Start with random components and zero exponent
-            let mut result = Self {
-                real: F::random(),
-                imaginary: F::random(),
-                exponent: 0.as_(),
-            };
-
-            let leading_r: E = result
-                .real
-                .leading_ones()
-                .max(result.real.leading_zeros())
-                .as_();
-            let leading_i: E = result
-                .imaginary
-                .leading_ones()
-                .max(result.imaginary.leading_zeros())
-                .as_();
-            let leading = leading_r.min(leading_i);
-
-            if leading > E::one() {
-                // Needs normalization
-                let new_exponent = result.exponent.wrapping_sub(&leading);
-                let shift: isize = leading.as_();
-
-                if new_exponent.is_negative() {
-                    // Normal N1 value normalization
-                    result.exponent = new_exponent.wrapping_add(&E::one());
-
-                    // Shift both components while preserving their relationship
-                    result.real = result.real << shift.wrapping_sub(1);
-                    result.imaginary = result.imaginary << shift.wrapping_sub(1);
-
-                    // Fill lower bits with random values
-                    let mask: F =
-                        (Self::pos_one_normal() << shift.wrapping_sub(1)).wrapping_sub(&F::one());
-                    let random_fill_r: F = F::random() & mask;
-                    let random_fill_i: F = F::random() & mask;
-                    result.real = result.real | random_fill_r;
-                    result.imaginary = result.imaginary | random_fill_i;
-                } else {
-                    // Generate a vanished N2 value
-                    result.exponent = Self::ambiguous_exponent();
-
-                    // Keep generating random bits until we get valid N2 patterns for both components
-                    loop {
-                        result.real = F::random();
-                        result.imaginary = F::random();
-
-                        let leading_r: E = result
-                            .real
-                            .leading_ones()
-                            .max(result.real.leading_zeros())
-                            .as_();
-                        let leading_i: E = result
-                            .imaginary
-                            .leading_ones()
-                            .max(result.imaginary.leading_zeros())
-                            .as_();
-
-                        if leading_r.min(leading_i) == (E::one() + E::one()) {
-                            break;
-                        }
-                    }
+            // Geometric exponent via chained leading-zeros, same trick as Scalar::random. stored_exp = MAX_VAL - L lands near the top of the unit disk most often, geometric tail toward zero.
+            let mut leading: usize = 0;
+            loop {
+                let w: F = F::random();
+                let lz = w.leading_zeros() as usize;
+                leading = leading.wrapping_add(lz);
+                if lz < frac_bits {
+                    break;
                 }
             }
 
-            // Check if we have a valid point within the unit circle
-            if !result.magnitude_squared().exponent.is_positive() {
+            let max_val: isize = E::max_value().saturate();
+            if (leading as isize) >= max_val {
+                // Vanished tail — canonical N2 pattern with random low bits on both components.
+                let fr: F = F::random();
+                let fi: F = F::random();
+                let low_mask: F = (F::one() << frac_bits.wrapping_sub(3)).wrapping_sub(&F::one());
+                let base_r = if fr.leading_zeros() == 0 {
+                    Self::neg_one_vanished()
+                } else {
+                    Self::pos_one_vanished()
+                };
+                let base_i = if fi.leading_zeros() == 0 {
+                    Self::neg_one_vanished()
+                } else {
+                    Self::pos_one_vanished()
+                };
+                return Self {
+                    real: base_r ^ (fr & low_mask),
+                    imaginary: base_i ^ (fi & low_mask),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+
+            let stored: E = (max_val.wrapping_sub(leading as isize)).as_();
+            let mut result = Self {
+                real: F::random(),
+                imaginary: F::random(),
+                exponent: stored,
+            };
+            // Canonicalize: dominant component must be N1. normalize() may shift the exp further down for non-canonical input fractions.
+            result.normalize();
+
+            // Unit disk check. Under AMBIG=0 the Scalar returned by magnitude_squared has is_positive iff |m²| < 1 (stored exp positive ↔ logical k < 0). Zero and vanished are trivially inside. Anything else (negative stored exp, exploded, etc.) is outside → retry.
+            let m2 = result.magnitude_squared();
+            if m2.exponent.is_positive() || m2.is_zero() || m2.vanished() {
                 return result;
             }
-            // If outside unit circle, loop and try again
         }
     }
     pub fn random_gauss() -> Self {
@@ -310,7 +291,8 @@ where
             u = Scalar::<F, E>::random();
             v = Scalar::<F, E>::random();
             s = u.square() + v.square();
-            if !s.exponent.is_positive() {
+            // Marsaglia: accept when s ∈ (0, 1). AMBIG=0 Scalar: stored exp positive ↔ |s|<1; combined with !is_zero covers the open interval.
+            if s.exponent.is_positive() && !s.is_zero() {
                 break;
             }
         }
