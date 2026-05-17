@@ -154,383 +154,118 @@ where
     /// assert!(undefined_product.is_undefined());
     /// ```
     pub(crate) fn circle_multiply_circle(&self, other: &Self) -> Self {
-        if !self.is_normal() || !other.is_normal() {
-            if self.is_undefined() {
-                return *self;
-            } else if other.is_undefined() {
-                return *other;
-            } else if self.is_infinite() && other.is_zero() {
-                return Self {
-                    real: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
-                    imaginary: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            } else if self.is_zero() && other.is_infinite() {
-                return Self {
-                    real: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
-                    imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            } else if self.is_zero() || other.is_zero() {
+        if self.is_normal() && other.is_normal() {
+            // AMBIG=0 native unified pipeline. N1 inflation = sign_extend. Complex multiplication: (a + bi)(c + di) = (ac - bd) + (ad + bc)i. The >> 1 on each w_mul keeps the result in wide range (max |a|, |b|, |c|, |d| ~ 2^(FRAC-1), so a*c ~ 2^(2FRAC-2); after >>1 ~ 2^(2FRAC-3); sum/diff stays in wide).
+            let a = self.real.sign_extend();
+            let b = self.imaginary.sign_extend();
+            let c = other.real.sign_extend();
+            let d = other.imaginary.sign_extend();
+            let real_product = a.w_mul(c).w_shr(1).w_sub(b.w_mul(d).w_shr(1));
+            let imag_product = a.w_mul(d).w_shr(1).w_add(b.w_mul(c).w_shr(1));
+
+            if real_product.w_is_zero() && imag_product.w_is_zero() {
                 return Self::ZERO;
-            } else if self.exploded() && other.vanished() {
-                return Self {
-                    real: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
-                    imaginary: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
+            }
+
+            let leading_r = real_product.leading_same();
+            let leading_i = imag_product.leading_same();
+            let leading = leading_r.min(leading_i);
+
+            // Normalize to canonical N1 (narrow leading = 1).
+            let shift = leading.wrapping_sub(1);
+            let fb = Self::fraction_bits();
+            let real = real_product.w_shl(shift).w_shr(fb).deflate();
+            let imaginary = imag_product.w_shl(shift).w_shr(fb).deflate();
+
+            // AMBIG=0 native: stored_pos = pa + pb - expo_adjust - binade_origin + 1. expo_adjust = leading - 3 (= -2 for canonical N1 result), sign_extend so wide subtraction handles the negative correctly. cycle_widen bounds catch overflow/underflow that the bounded add can't.
+            let pa = self.exponent.cycle_widen();
+            let pb = other.exponent.cycle_widen();
+            let expo_adjust_e: E = leading.wrapping_sub(3).as_();
+            let w_adj = expo_adjust_e.sign_extend();
+            let w_bo = Self::binade_origin().cycle_widen();
+            let w_one = E::one().cycle_widen();
+            let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
+            let max_pos = Self::max_exponent().cycle_widen();
+            let min_pos = Self::min_exponent().cycle_widen();
+
+            return if stored_pos > max_pos {
+                Self {
+                    real,
+                    imaginary,
                     exponent: Self::ambiguous_exponent(),
-                };
-            } else if self.vanished() && other.exploded() {
-                return Self {
-                    real: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
-                    imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
+                }
+            } else if stored_pos < min_pos {
+                Self {
+                    real: real >> 1isize,
+                    imaginary: imaginary >> 1isize,
                     exponent: Self::ambiguous_exponent(),
-                };
+                }
             } else {
-                let n_level: isize = if self.exploded() || other.exploded() {
-                    -1
-                } else {
-                    -2
-                };
-
-                let (product_real, product_imaginary) = match Self::fraction_bits() {
-                    8 => {
-                        let a: i16 = self.real.as_();
-                        let b: i16 = self.imaginary.as_();
-                        let c: i16 = other.real.as_();
-                        let d: i16 = other.imaginary.as_();
-
-                        let real_product =
-                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                        let imag_product =
-                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                        let shift_r = real_product
-                            .leading_ones()
-                            .max(real_product.leading_zeros());
-                        let shift_i = imag_product
-                            .leading_ones()
-                            .max(imag_product.leading_zeros());
-                        let shift = shift_r.min(shift_i) as isize;
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_real = real_product << shift_amount;
-                        let normalized_imag = imag_product << shift_amount;
-                        (
-                            (normalized_real >> Self::fraction_bits()).as_(),
-                            (normalized_imag >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    16 => {
-                        let a: i32 = self.real.as_();
-                        let b: i32 = self.imaginary.as_();
-                        let c: i32 = other.real.as_();
-                        let d: i32 = other.imaginary.as_();
-
-                        let real_product =
-                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                        let imag_product =
-                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                        let shift_r = real_product
-                            .leading_ones()
-                            .max(real_product.leading_zeros());
-                        let shift_i = imag_product
-                            .leading_ones()
-                            .max(imag_product.leading_zeros());
-                        let shift = shift_r.min(shift_i) as isize;
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_real = real_product << shift_amount;
-                        let normalized_imag = imag_product << shift_amount;
-                        (
-                            (normalized_real >> Self::fraction_bits()).as_(),
-                            (normalized_imag >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    32 => {
-                        let a: i64 = self.real.as_();
-                        let b: i64 = self.imaginary.as_();
-                        let c: i64 = other.real.as_();
-                        let d: i64 = other.imaginary.as_();
-
-                        let real_product =
-                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                        let imag_product =
-                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                        let shift_r = real_product
-                            .leading_ones()
-                            .max(real_product.leading_zeros());
-                        let shift_i = imag_product
-                            .leading_ones()
-                            .max(imag_product.leading_zeros());
-                        let shift = shift_r.min(shift_i) as isize;
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_real = real_product << shift_amount;
-                        let normalized_imag = imag_product << shift_amount;
-                        (
-                            (normalized_real >> Self::fraction_bits()).as_(),
-                            (normalized_imag >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    64 => {
-                        let a: i128 = self.real.as_();
-                        let b: i128 = self.imaginary.as_();
-                        let c: i128 = other.real.as_();
-                        let d: i128 = other.imaginary.as_();
-
-                        let real_product =
-                            (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                        let imag_product =
-                            (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                        let shift_r = real_product
-                            .leading_ones()
-                            .max(real_product.leading_zeros());
-                        let shift_i = imag_product
-                            .leading_ones()
-                            .max(imag_product.leading_zeros());
-                        let shift = shift_r.min(shift_i) as isize;
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_real = real_product << shift_amount;
-                        let normalized_imag = imag_product << shift_amount;
-                        (
-                            (normalized_real >> Self::fraction_bits()).as_(),
-                            (normalized_imag >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    128 => {
-                        let a: I256 = self.real.into();
-                        let b: I256 = self.imaginary.into();
-                        let c: I256 = other.real.into();
-                        let d: I256 = other.imaginary.into();
-
-                        let real_product: I256 =
-                            (a.wrapping_mul(c) >> 1usize).wrapping_sub(b.wrapping_mul(d) >> 1);
-                        let imag_product: I256 =
-                            (a.wrapping_mul(d) >> 1usize).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                        let shift_r = real_product
-                            .leading_ones()
-                            .max(real_product.leading_zeros());
-                        let shift_i = imag_product
-                            .leading_ones()
-                            .max(imag_product.leading_zeros());
-                        let shift = shift_r.min(shift_i) as isize;
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_real = real_product << shift_amount;
-                        let normalized_imag = imag_product << shift_amount;
-                        (
-                            (normalized_real >> Self::fraction_bits()).as_i128().as_(),
-                            (normalized_imag >> Self::fraction_bits()).as_i128().as_(),
-                        )
-                    }
-                    _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
-                };
-
-                return Self {
-                    real: product_real,
-                    imaginary: product_imaginary,
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+                Self {
+                    real,
+                    imaginary,
+                    exponent: stored_pos.deflate(),
+                }
+            };
         }
 
-        let real;
-        let imaginary;
-        let expo_adjust: isize;
-
-        match Self::fraction_bits() {
-            8 => {
-                let a: i16 = self.real.as_();
-                let b: i16 = self.imaginary.as_();
-                let c: i16 = other.real.as_();
-                let d: i16 = other.imaginary.as_();
-
-                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                if real_product == 0 && imag_product == 0 {
-                    return Self::ZERO;
-                }
-
-                let leading_r = real_product
-                    .leading_ones()
-                    .max(real_product.leading_zeros());
-                let leading_i = imag_product
-                    .leading_ones()
-                    .max(imag_product.leading_zeros());
-
-                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
-                let shift = expo_adjust.wrapping_add(2);
-
-                let normalized_real = real_product << shift;
-                let normalized_imag = imag_product << shift;
-
-                real = (normalized_real >> Self::fraction_bits()).as_();
-                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
-            }
-            16 => {
-                let a: i32 = self.real.as_();
-                let b: i32 = self.imaginary.as_();
-                let c: i32 = other.real.as_();
-                let d: i32 = other.imaginary.as_();
-
-                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                if real_product == 0 && imag_product == 0 {
-                    return Self::ZERO;
-                }
-
-                let leading_r = real_product
-                    .leading_ones()
-                    .max(real_product.leading_zeros());
-                let leading_i = imag_product
-                    .leading_ones()
-                    .max(imag_product.leading_zeros());
-
-                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
-                let shift = expo_adjust.wrapping_add(2);
-
-                let normalized_real = real_product << shift;
-                let normalized_imag = imag_product << shift;
-
-                real = (normalized_real >> Self::fraction_bits()).as_();
-                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
-            }
-            32 => {
-                let a: i64 = self.real.as_();
-                let b: i64 = self.imaginary.as_();
-                let c: i64 = other.real.as_();
-                let d: i64 = other.imaginary.as_();
-
-                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                if real_product == 0 && imag_product == 0 {
-                    return Self::ZERO;
-                }
-
-                let leading_r = real_product
-                    .leading_ones()
-                    .max(real_product.leading_zeros());
-                let leading_i = imag_product
-                    .leading_ones()
-                    .max(imag_product.leading_zeros());
-
-                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
-                let shift = expo_adjust.wrapping_add(2);
-
-                let normalized_real = real_product << shift;
-                let normalized_imag = imag_product << shift;
-
-                real = (normalized_real >> Self::fraction_bits()).as_();
-                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
-            }
-            64 => {
-                let a: i128 = self.real.as_();
-                let b: i128 = self.imaginary.as_();
-                let c: i128 = other.real.as_();
-                let d: i128 = other.imaginary.as_();
-
-                let real_product = (a.wrapping_mul(c) >> 1).wrapping_sub(b.wrapping_mul(d) >> 1);
-                let imag_product = (a.wrapping_mul(d) >> 1).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                if real_product == 0 && imag_product == 0 {
-                    return Self::ZERO;
-                }
-
-                let leading_r = real_product
-                    .leading_ones()
-                    .max(real_product.leading_zeros());
-                let leading_i = imag_product
-                    .leading_ones()
-                    .max(imag_product.leading_zeros());
-
-                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
-                let shift = expo_adjust.wrapping_add(2);
-
-                let normalized_real = real_product << shift;
-                let normalized_imag = imag_product << shift;
-
-                real = (normalized_real >> Self::fraction_bits()).as_();
-                imaginary = (normalized_imag >> Self::fraction_bits()).as_();
-            }
-            128 => {
-                let a: I256 = self.real.into();
-                let b: I256 = self.imaginary.into();
-                let c: I256 = other.real.into();
-                let d: I256 = other.imaginary.into();
-
-                let real_product: I256 =
-                    (a.wrapping_mul(c) >> 1usize).wrapping_sub(b.wrapping_mul(d) >> 1);
-                let imag_product: I256 =
-                    (a.wrapping_mul(d) >> 1usize).wrapping_add(b.wrapping_mul(c) >> 1);
-
-                if real_product == 0.into() && imag_product == 0.into() {
-                    return Self::ZERO;
-                }
-
-                let leading_r = real_product
-                    .leading_ones()
-                    .max(real_product.leading_zeros());
-                let leading_i = imag_product
-                    .leading_ones()
-                    .max(imag_product.leading_zeros());
-
-                expo_adjust = (leading_r.min(leading_i) as isize).wrapping_sub(3);
-                let shift = expo_adjust.wrapping_add(2);
-
-                let normalized_real = real_product << shift;
-                let normalized_imag = imag_product << shift;
-
-                real = (normalized_real >> Self::fraction_bits()).as_i128().as_();
-                imaginary = (normalized_imag >> Self::fraction_bits()).as_i128().as_();
-            }
-            _ => {
-                return Self {
-                    real: GENERAL.prefix.sa(),
-                    imaginary: GENERAL.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+        // Escape-class handling.
+        if self.is_undefined() {
+            return *self;
+        }
+        if other.is_undefined() {
+            return *other;
+        }
+        if self.is_infinite() && other.is_zero() {
+            return Self {
+                real: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
+                imaginary: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.is_zero() && other.is_infinite() {
+            return Self {
+                real: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
+                imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.is_zero() || other.is_zero() {
+            return Self::ZERO;
+        }
+        if self.exploded() && other.vanished() {
+            return Self {
+                real: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
+                imaginary: TRANSFINITE_MULTIPLY_NEGLIGIBLE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.vanished() && other.exploded() {
+            return Self {
+                real: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
+                imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
         }
 
-        // AMBIG=0 native: cycle_widen-based exp arithmetic. Result stored = pa + pb - expo_adjust - binade_origin + 1 (the binade_origin subtraction undoes the doubled bias from summing two stored values; the +1 is the binade-offset adjustment matching how Scalar's mul absorbs a leading-bit position).
-        let pa = self.exponent.cycle_widen();
-        let pb = other.exponent.cycle_widen();
-        // expo_adjust is signed (can be negative for canonical-N1 multiplication). Use sign_extend so subtraction of a negative value works correctly in the wider Wide space.
-        let expo_adjust_e: E = expo_adjust.as_();
-        let w_adj = expo_adjust_e.sign_extend();
-        let w_bo = Self::binade_origin().cycle_widen();
-        let w_one = E::one().cycle_widen();
-        let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
+        // Escape * (normal or escape with same class): compute the product directly, output at AMBIG with N1 (one operand exploded) or N2 (both vanished) shape.
+        let n_level: isize = if self.exploded() || other.exploded() { -1 } else { -2 };
+        let a = self.real.sign_extend();
+        let b = self.imaginary.sign_extend();
+        let c = other.real.sign_extend();
+        let d = other.imaginary.sign_extend();
+        let real_product = a.w_mul(c).w_shr(1).w_sub(b.w_mul(d).w_shr(1));
+        let imag_product = a.w_mul(d).w_shr(1).w_add(b.w_mul(c).w_shr(1));
 
-        let max_pos = Self::max_exponent().cycle_widen();
-        let min_pos = Self::min_exponent().cycle_widen();
-
-        if stored_pos > max_pos {
-            Self {
-                real,
-                imaginary,
-                exponent: Self::ambiguous_exponent(),
-            }
-        } else if stored_pos < min_pos {
-            Self {
-                real: real >> 1isize,
-                imaginary: imaginary >> 1isize,
-                exponent: Self::ambiguous_exponent(),
-            }
-        } else {
-            Self {
-                real,
-                imaginary,
-                exponent: stored_pos.deflate(),
-            }
+        let leading_r = real_product.leading_same();
+        let leading_i = imag_product.leading_same();
+        let leading = leading_r.min(leading_i);
+        let shift = leading.wrapping_add(n_level);
+        let fb = Self::fraction_bits();
+        Self {
+            real: real_product.w_shl(shift).w_shr(fb).deflate(),
+            imaginary: imag_product.w_shl(shift).w_shr(fb).deflate(),
+            exponent: Self::ambiguous_exponent(),
         }
     }
 }
