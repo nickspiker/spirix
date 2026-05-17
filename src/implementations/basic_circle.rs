@@ -188,13 +188,11 @@ where
         // Normal translation: single shift by leading_same in F-space.
         let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
         let stored: F = c << leading;
+        // Unified AMBIG=0: Circle and Scalar share the same stored exp encoding (stored = logical k ^ E::MIN). The leading-same subtraction accounts for the non-dominant component's binade offset; no extra XOR is needed.
         let shift_e: E = (leading - 1isize).as_();
-        // Circle uses v0.0.x exponent convention; Scalar uses AMBIG=0 unsigned-modular.
-        // The exp derived above (circle_exp - shift_e) is in v0.0.x form; convert to Scalar's stored form by translating to v0.1 (subtract 1 for ruler-shift) then XOR with E::MIN. The two operations compose into a single arithmetic step.
-        let new_exp_v01 = self.exponent.wrapping_sub(&shift_e);
         Scalar {
             fraction: stored,
-            exponent: (new_exp_v01 ^ E::min_value()),
+            exponent: self.exponent.wrapping_sub(&shift_e),
         }
     }
 
@@ -1308,25 +1306,28 @@ where
 
         if shift > 1 {
             let shift = shift as isize;
-            let new_exponent;
-            if shift == Self::fraction_bits() {
+            let s: E = if shift == Self::fraction_bits() {
                 if !self.real.is_negative() && !self.imaginary.is_negative() {
                     self.exponent = Self::ambiguous_exponent();
                     return;
                 }
-                let s: E = shift.wrapping_add(1).as_();
-                new_exponent = self.exponent.wrapping_sub(&s);
+                shift.wrapping_add(1).as_()
             } else {
-                let s: E = shift.as_();
-                new_exponent = self.exponent.wrapping_sub(&s);
-            }
+                shift.as_()
+            };
 
-            if self.exponent.is_negative() && !new_exponent.is_negative() {
+            // AMBIG=0 underflow: cycle-widen + w_sub, check against min_pos (= 1). Crossing below means we wrapped past AMBIG and the result is in the vanished region.
+            let pa = self.exponent.cycle_widen();
+            let w_s = s.cycle_widen();
+            let new_pos = pa.w_sub(w_s);
+            let min_pos = Self::min_exponent().cycle_widen();
+            if new_pos < min_pos {
                 self.exponent = Self::ambiguous_exponent();
                 self.real = self.real << shift.wrapping_sub(2);
                 self.imaginary = self.imaginary << shift.wrapping_sub(2);
             } else {
-                self.exponent = new_exponent.wrapping_add(&E::one());
+                // The +1 absorbs the canonical N1 leading bit back into the exponent (net: fraction shifts left by shift-1, exp drops by shift-1).
+                self.exponent = new_pos.deflate().wrapping_add(&E::one());
                 self.real = self.real << shift.wrapping_sub(1);
                 self.imaginary = self.imaginary << shift.wrapping_sub(1);
             }

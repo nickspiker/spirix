@@ -114,9 +114,8 @@ where
     /// assert!(z.i() > 0);   // Sign is also preserved
     /// ```
     pub(crate) fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
-        // Scalar stores exp in AMBIG=0 form; Circle in v0.1 form (AMBIG=E::MIN).
-        // Convert at every assignment via XOR with E::MIN.
-        let to_circle_exp = |e: E| -> E { e ^ E::min_value() };
+        // Unified AMBIG=0 encoding: Scalar and Circle share the same exp form (stored = logical k ^ E::MIN). Fraction encoding still differs (N0 vs N1), but the exp passes through unchanged.
+        let to_circle_exp = |e: E| -> E { e };
         // Undefined propagates: first undefined wins.
         if real.is_undefined() {
             return Circle {
