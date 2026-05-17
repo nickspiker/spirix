@@ -162,22 +162,13 @@ where
             let leading_i = result_i.leading_same();
             let leading = leading_r.min(leading_i);
 
-            // Result exp = small.exp + delta, delta ∈ [-FRAC, FRAC+1]. The cyclic wrap to AMBIG IS the exploded signal — no cycle_widen bounds check needed for add (mul/div still need it because their delta scales to 2*FRAC).
+            // Result exp = small.exp + delta, delta ∈ [-FRAC, FRAC+1]. Delta is bounded so the only escape transition is offset landing on AMBIG = 0, which IS the exploded signal — no explicit bounds check needed. The canonical-N1 fraction shape is the same for normal and exploded outputs (Circle's exploded constants are pos_one_normal / neg_one_normal at AMBIG exp), so a single shift formula handles both.
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
             let delta_e: E = delta.as_();
             let offset = small.exponent.wrapping_add(&delta_e);
 
-            if offset == Self::ambiguous_exponent() {
-                // Exploded: N1 canonical shape (leading - 1 in narrow).
-                return Self {
-                    real: result_r.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
-                    imaginary: result_i.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-
-            // Normal path: shift to canonical N1 (wide leading = FRAC + 1). Net shift relative to wide = leading - (FRAC + 1).
+            // Shift to canonical N1 (wide leading = FRAC + 1). Net shift relative to wide = leading - (FRAC + 1).
             let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
             let canonical_r = if shl_amount >= 0 {
                 result_r.w_shl(shl_amount)
