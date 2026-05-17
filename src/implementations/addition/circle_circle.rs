@@ -221,29 +221,17 @@ where
         let leading_i = result_i.leading_same();
         let leading = leading_r.min(leading_i);
 
+        // Result exp = small.exp + delta, delta ∈ [-FRAC, FRAC+1]. The cyclic wrap to AMBIG IS the exploded signal — no cycle_widen bounds check needed for add (mul/div still need it because their delta scales to 2*FRAC).
         let fb = Self::fraction_bits();
-        let small_pos = small.exponent.cycle_widen();
-        // N1 canonical wide leading = FRAC + 1 (vs Scalar N0's FRAC). The +1 accounts for the explicit sign bit's slot in the wide representation.
         let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
         let delta_e: E = delta.as_();
-        let w_delta = delta_e.sign_extend();
-        let offset_pos = small_pos.w_add(w_delta);
-        let max_pos = Self::max_exponent().cycle_widen();
-        let min_pos = Self::min_exponent().cycle_widen();
+        let offset = small.exponent.wrapping_add(&delta_e);
 
-        if offset_pos > max_pos {
+        if offset == Self::ambiguous_exponent() {
             // Exploded: N1 canonical shape (leading - 1 in narrow).
             return Self {
                 real: result_r.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
                 imaginary: result_i.w_shl(leading.wrapping_sub(1)).w_shr(fb).deflate(),
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-        if offset_pos < min_pos {
-            // Vanished: N2 canonical shape (leading - 2 in narrow).
-            return Self {
-                real: result_r.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
-                imaginary: result_i.w_shl(leading.wrapping_sub(2)).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
@@ -263,7 +251,7 @@ where
         Self {
             real: canonical_r.deflate(),
             imaginary: canonical_i.deflate(),
-            exponent: offset_pos.deflate(),
+            exponent: offset,
         }
     }
 }
