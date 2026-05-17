@@ -62,7 +62,65 @@ where
     I256: From<E>,
 {
     pub(crate) fn circle_divide_circle(&self, other: &Self) -> Self {
-        if !self.is_normal() || !other.is_normal() {
+        if self.is_normal() && other.is_normal() {
+            // AMBIG=0 native unified pipeline. Complex division: (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c² + d²). Reciprocal computed in fixed-point (scale = 2^(2*FRAC-2)) then multiplied with numerators.
+            let a = self.real.sign_extend();
+            let b = self.imaginary.sign_extend();
+            let c = other.real.sign_extend();
+            let d = other.imaginary.sign_extend();
+            let fb = Self::fraction_bits();
+
+            let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
+            let scale = F::one().sign_extend().w_shl(fb.wrapping_shl(1).wrapping_sub(2));
+            let reciprocal = scale.w_div_unsigned(mag_sq.w_shr_logical(fb));
+
+            let real_num = a.w_mul(c).w_add(b.w_mul(d));
+            let imag_num = b.w_mul(c).w_sub(a.w_mul(d));
+            let real_wide = real_num.w_shr(fb).w_mul(reciprocal);
+            let imag_wide = imag_num.w_shr(fb).w_mul(reciprocal);
+
+            let leading_r = real_wide.leading_same();
+            let leading_i = imag_wide.leading_same();
+            let leading = leading_r.min(leading_i);
+            // Canonical N1 result: shift = leading - 1.
+            let shift = leading.wrapping_sub(1);
+            let real = real_wide.w_shl(shift).w_shr(fb).deflate();
+            let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
+
+            // AMBIG=0 exp: stored_pos = pa - pb - expo_adjust + binade_origin - 1. expo_adjust = leading - 3.
+            let pa = self.exponent.cycle_widen();
+            let pb = other.exponent.cycle_widen();
+            let expo_adjust_e: E = leading.wrapping_sub(3).as_();
+            let w_adj = expo_adjust_e.sign_extend();
+            let w_bo = Self::binade_origin().cycle_widen();
+            let w_one = E::one().cycle_widen();
+            let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
+            let max_pos = Self::max_exponent().cycle_widen();
+            let min_pos = Self::min_exponent().cycle_widen();
+
+            return if stored_pos > max_pos {
+                Self {
+                    real,
+                    imaginary,
+                    exponent: Self::ambiguous_exponent(),
+                }
+            } else if stored_pos < min_pos {
+                Self {
+                    real: real >> 1isize,
+                    imaginary: imaginary >> 1isize,
+                    exponent: Self::ambiguous_exponent(),
+                }
+            } else {
+                Self {
+                    real,
+                    imaginary,
+                    exponent: stored_pos.deflate(),
+                }
+            };
+        }
+
+        // Escape-class handling.
+        {
             if self.is_undefined() {
                 return *self;
             }
@@ -106,447 +164,32 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            let n_level = if self.vanished() || other.exploded() {
-                -2
-            } else {
-                -1
-            };
-            let (real, imaginary) = match Self::fraction_bits() {
-                8 => {
-                    let a: i16 = self.real.as_();
-                    let b: i16 = self.imaginary.as_();
-                    let c: i16 = other.real.as_();
-                    let d: i16 = other.imaginary.as_();
+            // Mixed escape: compute the division anyway, output at AMBIG with the right N1/N2 shape via n_level.
+            let n_level: isize = if self.vanished() || other.exploded() { -2 } else { -1 };
+            let a = self.real.sign_extend();
+            let b = self.imaginary.sign_extend();
+            let c = other.real.sign_extend();
+            let d = other.imaginary.sign_extend();
+            let fb = Self::fraction_bits();
 
-                    let cc = c.wrapping_mul(c);
-                    let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc.wrapping_add(dd)) as u16;
-                    let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                            / (mag_sq >> Self::fraction_bits())) as i16;
+            let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
+            let scale = F::one().sign_extend().w_shl(fb.wrapping_shl(1).wrapping_sub(2));
+            let reciprocal = scale.w_div_unsigned(mag_sq.w_shr_logical(fb));
 
-                    let ac = a.wrapping_mul(c);
-                    let bd = b.wrapping_mul(d);
-                    let real_numerator = ac.wrapping_add(bd);
-                    let mut real_wide =
-                        (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                    let ad = a.wrapping_mul(d);
-                    let bc = b.wrapping_mul(c);
-                    let imaginary_numerator = bc.wrapping_sub(ad);
-                    let mut imaginary_wide =
-                        (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
+            let real_num = a.w_mul(c).w_add(b.w_mul(d));
+            let imag_num = b.w_mul(c).w_sub(a.w_mul(d));
+            let real_wide = real_num.w_shr(fb).w_mul(reciprocal);
+            let imag_wide = imag_num.w_shr(fb).w_mul(reciprocal);
 
-                    let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                    let leading_i = imaginary_wide
-                        .leading_ones()
-                        .max(imaginary_wide.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    real_wide <<= shift;
-                    imaginary_wide <<= shift;
-
-                    (
-                        (real_wide >> Self::fraction_bits()).as_(),
-                        (imaginary_wide >> Self::fraction_bits()).as_(),
-                    )
-                }
-                16 => {
-                    let a: i32 = self.real.as_();
-                    let b: i32 = self.imaginary.as_();
-                    let c: i32 = other.real.as_();
-                    let d: i32 = other.imaginary.as_();
-
-                    let cc = c.wrapping_mul(c);
-                    let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc.wrapping_add(dd)) as u32;
-                    let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                            / (mag_sq >> Self::fraction_bits())) as i32;
-
-                    let ac = a.wrapping_mul(c);
-                    let bd = b.wrapping_mul(d);
-                    let real_numerator = ac.wrapping_add(bd);
-                    let mut real_wide =
-                        (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                    let ad = a.wrapping_mul(d);
-                    let bc = b.wrapping_mul(c);
-                    let imaginary_numerator = bc.wrapping_sub(ad);
-                    let mut imaginary_wide =
-                        (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                    let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                    let leading_i = imaginary_wide
-                        .leading_ones()
-                        .max(imaginary_wide.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    real_wide <<= shift;
-                    imaginary_wide <<= shift;
-
-                    (
-                        (real_wide >> Self::fraction_bits()).as_(),
-                        (imaginary_wide >> Self::fraction_bits()).as_(),
-                    )
-                }
-                32 => {
-                    let a: i64 = self.real.as_();
-                    let b: i64 = self.imaginary.as_();
-                    let c: i64 = other.real.as_();
-                    let d: i64 = other.imaginary.as_();
-
-                    let cc = c.wrapping_mul(c);
-                    let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc.wrapping_add(dd)) as u64;
-                    let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                            / (mag_sq >> Self::fraction_bits())) as i64;
-
-                    let ac = a.wrapping_mul(c);
-                    let bd = b.wrapping_mul(d);
-                    let real_numerator = ac.wrapping_add(bd);
-                    let mut real_wide =
-                        (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                    let ad = a.wrapping_mul(d);
-                    let bc = b.wrapping_mul(c);
-                    let imaginary_numerator = bc.wrapping_sub(ad);
-                    let mut imaginary_wide =
-                        (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                    let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                    let leading_i = imaginary_wide
-                        .leading_ones()
-                        .max(imaginary_wide.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    real_wide <<= shift;
-                    imaginary_wide <<= shift;
-
-                    (
-                        (real_wide >> Self::fraction_bits()).as_(),
-                        (imaginary_wide >> Self::fraction_bits()).as_(),
-                    )
-                }
-                64 => {
-                    let a: i128 = self.real.as_();
-                    let b: i128 = self.imaginary.as_();
-                    let c: i128 = other.real.as_();
-                    let d: i128 = other.imaginary.as_();
-
-                    let cc = c.wrapping_mul(c);
-                    let dd = d.wrapping_mul(d);
-                    let mag_sq = (cc.wrapping_add(dd)) as u128;
-                    let reciprocal =
-                        ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                            / (mag_sq >> Self::fraction_bits())) as i128;
-
-                    let ac = a.wrapping_mul(c);
-                    let bd = b.wrapping_mul(d);
-                    let real_numerator = ac.wrapping_add(bd);
-                    let mut real_wide =
-                        (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                    let ad = a.wrapping_mul(d);
-                    let bc = b.wrapping_mul(c);
-                    let imaginary_numerator = bc.wrapping_sub(ad);
-                    let mut imaginary_wide =
-                        (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                    let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                    let leading_i = imaginary_wide
-                        .leading_ones()
-                        .max(imaginary_wide.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    real_wide <<= shift;
-                    imaginary_wide <<= shift;
-
-                    (
-                        (real_wide >> Self::fraction_bits()).as_(),
-                        (imaginary_wide >> Self::fraction_bits()).as_(),
-                    )
-                }
-                128 => {
-                    let a: I256 = self.real.into();
-                    let b: I256 = self.imaginary.into();
-                    let c: I256 = other.real.into();
-                    let d: I256 = other.imaginary.into();
-
-                    let cc = c.wrapping_mul(c);
-                    let dd = d.wrapping_mul(d);
-                    let mag_sq: U256 = (cc.wrapping_add(dd)).as_unsigned();
-                    let one: I256 = 1.into();
-                    let one: U256 = one.as_unsigned();
-                    let reciprocal = (one
-                        << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                        / (mag_sq >> Self::fraction_bits());
-                    let reciprocal = reciprocal.as_signed();
-
-                    let ac = a.wrapping_mul(c);
-                    let bd = b.wrapping_mul(d);
-                    let real_numerator = ac.wrapping_add(bd);
-                    let mut real_wide =
-                        (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                    let ad = a.wrapping_mul(d);
-                    let bc = b.wrapping_mul(c);
-                    let imaginary_numerator = bc.wrapping_sub(ad);
-                    let mut imaginary_wide =
-                        (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                    let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                    let leading_i = imaginary_wide
-                        .leading_ones()
-                        .max(imaginary_wide.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    real_wide <<= shift;
-                    imaginary_wide <<= shift;
-
-                    (
-                        (real_wide >> Self::fraction_bits()).as_i128().as_(),
-                        (imaginary_wide >> Self::fraction_bits()).as_i128().as_(),
-                    )
-                }
-                _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
-            };
+            let leading_r = real_wide.leading_same();
+            let leading_i = imag_wide.leading_same();
+            let leading = leading_r.min(leading_i);
+            let shift = leading.wrapping_add(n_level);
             return Self {
-                real,
-                imaginary,
+                real: real_wide.w_shl(shift).w_shr(fb).deflate(),
+                imaginary: imag_wide.w_shl(shift).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
-        }
-
-        let (real, imaginary, expo_adjust) = match Self::fraction_bits() {
-            8 => {
-                let a: i16 = self.real.as_();
-                let b: i16 = self.imaginary.as_();
-                let c: i16 = other.real.as_();
-                let d: i16 = other.imaginary.as_();
-
-                let cc = c.wrapping_mul(c);
-                let dd = d.wrapping_mul(d);
-                let mag_sq = (cc.wrapping_add(dd)) as u16;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                    / (mag_sq >> Self::fraction_bits())) as i16;
-
-                let ac = a.wrapping_mul(c);
-                let bd = b.wrapping_mul(d);
-                let real_numerator = ac.wrapping_add(bd);
-                let mut real_wide =
-                    (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                let ad = a.wrapping_mul(d);
-                let bc = b.wrapping_mul(c);
-                let imaginary_numerator = bc.wrapping_sub(ad);
-                let mut imaginary_wide =
-                    (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                let leading_i = imaginary_wide
-                    .leading_ones()
-                    .max(imaginary_wide.leading_zeros());
-                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
-
-                real_wide <<= shift;
-                imaginary_wide <<= shift;
-
-                (
-                    (real_wide >> Self::fraction_bits()).as_(),
-                    (imaginary_wide >> Self::fraction_bits()).as_(),
-                    shift.wrapping_sub(1),
-                )
-            }
-            16 => {
-                let a: i32 = self.real.as_();
-                let b: i32 = self.imaginary.as_();
-                let c: i32 = other.real.as_();
-                let d: i32 = other.imaginary.as_();
-
-                let cc = c.wrapping_mul(c);
-                let dd = d.wrapping_mul(d);
-                let mag_sq = (cc.wrapping_add(dd)) as u32;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                    / (mag_sq >> Self::fraction_bits())) as i32;
-
-                let ac = a.wrapping_mul(c);
-                let bd = b.wrapping_mul(d);
-                let real_numerator = ac.wrapping_add(bd);
-                let mut real_wide =
-                    (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                let ad = a.wrapping_mul(d);
-                let bc = b.wrapping_mul(c);
-                let imaginary_numerator = bc.wrapping_sub(ad);
-                let mut imaginary_wide =
-                    (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                let leading_i = imaginary_wide
-                    .leading_ones()
-                    .max(imaginary_wide.leading_zeros());
-                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
-
-                real_wide <<= shift;
-                imaginary_wide <<= shift;
-
-                (
-                    (real_wide >> Self::fraction_bits()).as_(),
-                    (imaginary_wide >> Self::fraction_bits()).as_(),
-                    shift.wrapping_sub(1),
-                )
-            }
-            32 => {
-                let a: i64 = self.real.as_();
-                let b: i64 = self.imaginary.as_();
-                let c: i64 = other.real.as_();
-                let d: i64 = other.imaginary.as_();
-
-                let cc = c.wrapping_mul(c);
-                let dd = d.wrapping_mul(d);
-                let mag_sq = (cc.wrapping_add(dd)) as u64;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                    / (mag_sq >> Self::fraction_bits())) as i64;
-
-                let ac = a.wrapping_mul(c);
-                let bd = b.wrapping_mul(d);
-                let real_numerator = ac.wrapping_add(bd);
-                let mut real_wide =
-                    (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                let ad = a.wrapping_mul(d);
-                let bc = b.wrapping_mul(c);
-                let imaginary_numerator = bc.wrapping_sub(ad);
-                let mut imaginary_wide =
-                    (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                let leading_i = imaginary_wide
-                    .leading_ones()
-                    .max(imaginary_wide.leading_zeros());
-                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
-
-                real_wide <<= shift;
-                imaginary_wide <<= shift;
-
-                (
-                    (real_wide >> Self::fraction_bits()).as_(),
-                    (imaginary_wide >> Self::fraction_bits()).as_(),
-                    shift.wrapping_sub(1),
-                )
-            }
-            64 => {
-                let a: i128 = self.real.as_();
-                let b: i128 = self.imaginary.as_();
-                let c: i128 = other.real.as_();
-                let d: i128 = other.imaginary.as_();
-
-                let cc = c.wrapping_mul(c);
-                let dd = d.wrapping_mul(d);
-                let mag_sq = (cc.wrapping_add(dd)) as u128;
-                let reciprocal = ((1 << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                    / (mag_sq >> Self::fraction_bits())) as i128;
-
-                let ac = a.wrapping_mul(c);
-                let bd = b.wrapping_mul(d);
-                let real_numerator = ac.wrapping_add(bd);
-                let mut real_wide =
-                    (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                let ad = a.wrapping_mul(d);
-                let bc = b.wrapping_mul(c);
-                let imaginary_numerator = bc.wrapping_sub(ad);
-                let mut imaginary_wide =
-                    (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                let leading_i = imaginary_wide
-                    .leading_ones()
-                    .max(imaginary_wide.leading_zeros());
-                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
-
-                real_wide <<= shift;
-                imaginary_wide <<= shift;
-
-                (
-                    (real_wide >> Self::fraction_bits()).as_(),
-                    (imaginary_wide >> Self::fraction_bits()).as_(),
-                    shift.wrapping_sub(1),
-                )
-            }
-            128 => {
-                let a: I256 = self.real.into();
-                let b: I256 = self.imaginary.into();
-                let c: I256 = other.real.into();
-                let d: I256 = other.imaginary.into();
-
-                let cc = c.wrapping_mul(c);
-                let dd = d.wrapping_mul(d);
-                let mag_sq: U256 = (cc.wrapping_add(dd)).as_unsigned();
-                let one: I256 = 1.into();
-                let one: U256 = one.as_unsigned();
-                let reciprocal = (one << (Self::fraction_bits().wrapping_shl(1).wrapping_sub(2)))
-                    / (mag_sq >> Self::fraction_bits());
-                let reciprocal = reciprocal.as_signed();
-
-                let ac = a.wrapping_mul(c);
-                let bd = b.wrapping_mul(d);
-                let real_numerator = ac.wrapping_add(bd);
-                let mut real_wide =
-                    (real_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-                let ad = a.wrapping_mul(d);
-                let bc = b.wrapping_mul(c);
-                let imaginary_numerator = bc.wrapping_sub(ad);
-                let mut imaginary_wide =
-                    (imaginary_numerator >> Self::fraction_bits()).wrapping_mul(reciprocal);
-
-                let leading_r = real_wide.leading_ones().max(real_wide.leading_zeros());
-                let leading_i = imaginary_wide
-                    .leading_ones()
-                    .max(imaginary_wide.leading_zeros());
-                let shift = (leading_r.min(leading_i) as isize).wrapping_sub(1);
-
-                real_wide <<= shift;
-                imaginary_wide <<= shift;
-
-                (
-                    (real_wide >> Self::fraction_bits()).as_i128().as_(),
-                    (imaginary_wide >> Self::fraction_bits()).as_i128().as_(),
-                    shift.wrapping_sub(1),
-                )
-            }
-            _ => {
-                return Self {
-                    real: GENERAL.prefix.sa(),
-                    imaginary: GENERAL.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-        };
-
-        // AMBIG=0 native: stored = pa - pb - expo_adjust + binade_origin - 1. The +binade_origin re-applies the bias (canceled by the subtraction); the -1 is the Circle-specific binade-offset adjustment, mirror of the +1 in multiplication.
-        let pa = self.exponent.cycle_widen();
-        let pb = other.exponent.cycle_widen();
-        let expo_adjust_e: E = expo_adjust.as_();
-        let w_adj = expo_adjust_e.sign_extend();
-        let w_bo = Self::binade_origin().cycle_widen();
-        let w_one = E::one().cycle_widen();
-        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
-
-        let max_pos = Self::max_exponent().cycle_widen();
-        let min_pos = Self::min_exponent().cycle_widen();
-
-        if stored_pos > max_pos {
-            Self {
-                real,
-                imaginary,
-                exponent: Self::ambiguous_exponent(),
-            }
-        } else if stored_pos < min_pos {
-            Self {
-                real: real >> 1isize,
-                imaginary: imaginary >> 1isize,
-                exponent: Self::ambiguous_exponent(),
-            }
-        } else {
-            Self {
-                real,
-                imaginary,
-                exponent: stored_pos.deflate(),
-            }
         }
     }
 }
