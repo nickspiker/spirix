@@ -517,13 +517,14 @@ where
             }
         };
 
-        // AMBIG=0 native: cycle_widen-based exp arithmetic. Division: stored = pa - pb - expo_adjust + binade_origin (the +binade_origin compensates because the bias cancels when subtracting two stored values, and we need to put one back to land in stored space).
+        // AMBIG=0 native: stored = pa - pb - expo_adjust + binade_origin - 1. The +binade_origin re-applies the bias (canceled by the subtraction); the -1 is the Circle-specific binade-offset adjustment, mirror of the +1 in multiplication.
         let pa = self.exponent.cycle_widen();
         let pb = other.exponent.cycle_widen();
         let expo_adjust_e: E = expo_adjust.as_();
-        let w_adj = expo_adjust_e.cycle_widen();
+        let w_adj = expo_adjust_e.sign_extend();
         let w_bo = Self::binade_origin().cycle_widen();
-        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo);
+        let w_one = E::one().cycle_widen();
+        let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
 
         let max_pos = Self::max_exponent().cycle_widen();
         let min_pos = Self::min_exponent().cycle_widen();

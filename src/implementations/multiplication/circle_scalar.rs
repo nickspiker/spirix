@@ -453,11 +453,11 @@ where
                 }
             }
 
-            // AMBIG=0 native: cycle_widen-based exp arithmetic. Same shape as Circle*Circle multiplication — both operands use unified AMBIG=0 stored exp encoding.
+            // AMBIG=0 native: cross-type mul uses expo_adjust = leading - 2 (vs -3 in Circle*Circle), so the binade-offset bias is already baked in — no extra ±1 needed.
             let pa = self.exponent.cycle_widen();
             let pb = other.exponent.cycle_widen();
             let expo_adjust_e: E = expo_adjust.as_();
-            let w_adj = expo_adjust_e.cycle_widen();
+            let w_adj = expo_adjust_e.sign_extend();
             let w_bo = Self::binade_origin().cycle_widen();
             let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo);
 

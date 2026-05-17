@@ -500,13 +500,15 @@ where
             }
         }
 
-        // AMBIG=0 native: cycle_widen-based exp arithmetic. Result stored = pa + pb - expo_adjust - binade_origin (the binade_origin subtraction undoes the doubled bias from summing two stored values). Bounds check against min/max position catches overflow → exploded, underflow → vanished, AMBIG = 0 collapses to vanished.
+        // AMBIG=0 native: cycle_widen-based exp arithmetic. Result stored = pa + pb - expo_adjust - binade_origin + 1 (the binade_origin subtraction undoes the doubled bias from summing two stored values; the +1 is the binade-offset adjustment matching how Scalar's mul absorbs a leading-bit position).
         let pa = self.exponent.cycle_widen();
         let pb = other.exponent.cycle_widen();
+        // expo_adjust is signed (can be negative for canonical-N1 multiplication). Use sign_extend so subtraction of a negative value works correctly in the wider Wide space.
         let expo_adjust_e: E = expo_adjust.as_();
-        let w_adj = expo_adjust_e.cycle_widen();
+        let w_adj = expo_adjust_e.sign_extend();
         let w_bo = Self::binade_origin().cycle_widen();
-        let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo);
+        let w_one = E::one().cycle_widen();
+        let stored_pos = pa.w_add(pb).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
 
         let max_pos = Self::max_exponent().cycle_widen();
         let min_pos = Self::min_exponent().cycle_widen();

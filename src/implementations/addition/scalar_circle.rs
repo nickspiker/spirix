@@ -195,10 +195,12 @@ where
             };
         }
 
-        if self.exponent > circle.exponent {
+        // AMBIG=0 native: dominance via unsigned-cyclic compare.
+        if self.exponent.into_unsigned() > circle.exponent.into_unsigned() {
             // Scalar is bigger
             let exp_diff = self.exponent.wrapping_sub(&circle.exponent);
-            if exp_diff.is_negative() {
+            let frac_bits_e: E = Self::fraction_bits().as_();
+            if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
                 return Circle {
                     real: self.fraction,
                     imaginary: F::zero(),
@@ -206,24 +208,6 @@ where
                 };
             }
 
-            if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_shl(3) {
-                if exp_diff >= Self::fraction_bits().as_() {
-                    return Circle {
-                        real: self.fraction,
-                        imaginary: F::zero(),
-                        exponent: self.exponent,
-                    };
-                }
-            } else {
-                let exp_diff_isize: isize = exp_diff.as_();
-                if exp_diff_isize >= Self::fraction_bits() {
-                    return Circle {
-                        real: self.fraction,
-                        imaginary: F::zero(),
-                        exponent: self.exponent,
-                    };
-                }
-            }
             match Self::fraction_bits() {
                 8 => {
                     let shift: isize = exp_diff.as_();
@@ -246,7 +230,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if self.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -288,7 +273,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if self.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -330,7 +316,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if self.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -372,7 +359,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if self.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -414,7 +402,8 @@ where
                         &(Self::fraction_bits().wrapping_sub(leading as isize)).as_(),
                     );
 
-                    if self.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -444,19 +433,9 @@ where
         } else {
             // Circle is bigger
             let exp_diff = circle.exponent.wrapping_sub(&self.exponent);
-            if exp_diff.is_negative() {
+            let frac_bits_e: E = Self::fraction_bits().as_();
+            if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
                 return *circle;
-            }
-
-            if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_shl(3) {
-                if exp_diff >= Self::fraction_bits().as_() {
-                    return *circle;
-                }
-            } else {
-                let exp_diff_isize: isize = exp_diff.as_();
-                if exp_diff_isize >= Self::fraction_bits() {
-                    return *circle;
-                }
             }
             match Self::fraction_bits() {
                 8 => {
@@ -480,7 +459,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if circle.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -522,7 +502,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if circle.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -564,7 +545,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if circle.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -606,7 +588,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if circle.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -648,7 +631,8 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                    if circle.exponent.is_negative() && !offset.is_negative() {
+                    let final_exp = offset.wrapping_add(&E::one());
+                    if final_exp == Self::ambiguous_exponent() {
                         return Circle {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())

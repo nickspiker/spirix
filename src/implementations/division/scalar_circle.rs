@@ -492,11 +492,11 @@ where
             }
         };
 
-        // AMBIG=0 native: cycle_widen-based exp arithmetic. Division: stored = pa - pb - expo_adjust + binade_origin.
+        // AMBIG=0 native: cross-type div uses a different expo_adjust formula — no extra binade-offset bias needed.
         let pa = self.exponent.cycle_widen();
         let pb = other.exponent.cycle_widen();
         let expo_adjust_e: E = expo_adjust.as_();
-        let w_adj = expo_adjust_e.cycle_widen();
+        let w_adj = expo_adjust_e.sign_extend();
         let w_bo = Scalar::<F, E>::binade_origin().cycle_widen();
         let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo);
 

@@ -190,26 +190,18 @@ where
             return *self;
         }
 
-        let (big, small) = if self.exponent > circle.exponent {
+        // AMBIG=0 native: dominance via unsigned-cyclic compare on stored exp (matches Scalar add/sub).
+        let (big, small) = if self.exponent.into_unsigned() > circle.exponent.into_unsigned() {
             (self, circle)
         } else {
             (circle, self)
         };
 
         let exp_diff = big.exponent.wrapping_sub(&small.exponent);
-        if exp_diff.is_negative() {
+        // Under cmp_unsigned ordering, exp_diff (interpreted unsigned) is non-negative. If the unsigned diff exceeds FRAC_BITS, small is negligible against big.
+        let frac_bits_e: E = Self::fraction_bits().as_();
+        if exp_diff.into_unsigned() >= frac_bits_e.into_unsigned() {
             return *big;
-        }
-
-        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_shl(3) {
-            if exp_diff >= Self::fraction_bits().as_() {
-                return *big;
-            }
-        } else {
-            let exp_diff_isize: isize = exp_diff.as_();
-            if exp_diff_isize >= Self::fraction_bits() {
-                return *big;
-            }
         }
 
         match Self::fraction_bits() {
@@ -240,7 +232,9 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                if big.exponent.is_negative() && !offset.is_negative() {
+                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                let final_exp = offset.wrapping_add(&E::one());
+                if final_exp == Self::ambiguous_exponent() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -254,7 +248,7 @@ where
                     real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
                     imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
+                    exponent: final_exp,
                 };
             }
             16 => {
@@ -284,7 +278,9 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                if big.exponent.is_negative() && !offset.is_negative() {
+                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                let final_exp = offset.wrapping_add(&E::one());
+                if final_exp == Self::ambiguous_exponent() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -298,7 +294,7 @@ where
                     real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
                     imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
+                    exponent: final_exp,
                 };
             }
             32 => {
@@ -328,7 +324,9 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                if big.exponent.is_negative() && !offset.is_negative() {
+                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                let final_exp = offset.wrapping_add(&E::one());
+                if final_exp == Self::ambiguous_exponent() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -342,7 +340,7 @@ where
                     real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
                     imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
+                    exponent: final_exp,
                 };
             }
             64 => {
@@ -372,7 +370,9 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                if big.exponent.is_negative() && !offset.is_negative() {
+                // AMBIG=0 native: the +1 absorption at the canonical N1 boundary can land final_exp on the AMBIG sentinel (= 0). When that happens, downgrade to the N2 vanished form.
+                let final_exp = offset.wrapping_add(&E::one());
+                if final_exp == Self::ambiguous_exponent() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -386,7 +386,7 @@ where
                     real: ((result_r << (leading.wrapping_sub(1))) >> Self::fraction_bits()).as_(),
                     imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
+                    exponent: final_exp,
                 };
             }
             128 => {
@@ -416,7 +416,8 @@ where
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let final_exp = offset.wrapping_add(&E::one());
+                if final_exp == Self::ambiguous_exponent() {
                     return Self {
                         real: ((result_r << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_i128()
@@ -435,7 +436,7 @@ where
                     imaginary: ((result_i << (leading.wrapping_sub(1))) >> Self::fraction_bits())
                         .as_i128()
                         .as_(),
-                    exponent: offset.wrapping_add(&E::one()),
+                    exponent: final_exp,
                 };
             }
             _ => Self {
