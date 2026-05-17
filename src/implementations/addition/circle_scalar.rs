@@ -231,11 +231,7 @@ where
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < scalar.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -277,11 +273,7 @@ where
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < scalar.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -323,11 +315,7 @@ where
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < scalar.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -369,11 +357,7 @@ where
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < scalar.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -415,11 +399,7 @@ where
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
 
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < scalar.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -475,11 +455,7 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < self.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -516,11 +492,7 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < self.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -557,11 +529,7 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < self.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -598,11 +566,7 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < self.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
@@ -639,11 +603,7 @@ where
                         .exponent
                         .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
                     let final_exp = offset.wrapping_add(&E::one());
-                    let one_e: E = 1u8.as_();
-                    if final_exp == Self::ambiguous_exponent()
-                        || offset.wrapping_sub(&one_e).into_unsigned()
-                            < self.exponent.into_unsigned()
-                    {
+                    if final_exp == Self::ambiguous_exponent() {
                         return Self {
                             real: ((result_r << (leading.wrapping_sub(2)))
                                 >> Self::fraction_bits())
