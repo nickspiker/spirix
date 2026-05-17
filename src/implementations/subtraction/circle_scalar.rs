@@ -459,7 +459,7 @@ where
             match Self::fraction_bits() {
                 8 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i16 = scalar.fraction.as_();
+                    let mut big_r: i16 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i16 = self.real.as_();
                     let result_r = small_r.wrapping_sub(big_r);
@@ -501,7 +501,7 @@ where
                 }
                 16 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i32 = scalar.fraction.as_();
+                    let mut big_r: i32 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i32 = self.real.as_();
                     let result_r = small_r.wrapping_sub(big_r);
@@ -543,7 +543,7 @@ where
                 }
                 32 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i64 = scalar.fraction.as_();
+                    let mut big_r: i64 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i64 = self.real.as_();
                     let result_r = small_r.wrapping_sub(big_r);
@@ -585,7 +585,7 @@ where
                 }
                 64 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: i128 = scalar.fraction.as_();
+                    let mut big_r: i128 = ((scalar.fraction >> 1isize) ^ F::min_value()).as_();
                     big_r <<= shift;
                     let small_r: i128 = self.real.as_();
                     let result_r = small_r.wrapping_sub(big_r);
@@ -627,7 +627,7 @@ where
                 }
                 128 => {
                     let shift: isize = exp_diff.as_();
-                    let mut big_r: I256 = scalar.fraction.into();
+                    let mut big_r: I256 = ((scalar.fraction >> 1isize) ^ F::min_value()).into();
                     big_r <<= shift;
                     let small_r: I256 = self.real.into();
                     let result_r = small_r.wrapping_sub(big_r);

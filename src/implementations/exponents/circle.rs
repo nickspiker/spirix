@@ -408,134 +408,34 @@ where
             }
         }
 
-        match Self::exponent_bits() {
-            8 => {
-                let self_exponent: i16 = self.exponent.as_();
-                let upcast_exponent: i16 = (self_exponent << 1).wrapping_sub(expo_adjust as i16);
+        // AMBIG=0 native: same shape as Circle*Circle mul but pa == pb (squaring). Formula: 2*pa - expo_adjust - binade_origin + 1.
+        let pa = self.exponent.cycle_widen();
+        let expo_adjust_e: E = expo_adjust.as_();
+        let w_adj = expo_adjust_e.sign_extend();
+        let w_bo = Self::binade_origin().cycle_widen();
+        let w_one = E::one().cycle_widen();
+        let stored_pos = pa.w_add(pa).w_sub(w_adj).w_sub(w_bo).w_add(w_one);
 
-                if upcast_exponent > Self::max_exponent().as_() {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < Self::min_exponent().as_() {
-                    return Self {
-                        real: real >> 1isize,
-                        imaginary: imaginary >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            16 => {
-                let self_exponent: i32 = self.exponent.as_();
-                let upcast_exponent: i32 = (self_exponent << 1).wrapping_sub(expo_adjust as i32);
+        let max_pos = Self::max_exponent().cycle_widen();
+        let min_pos = Self::min_exponent().cycle_widen();
 
-                if upcast_exponent > Self::max_exponent().as_() {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < Self::min_exponent().as_() {
-                    return Self {
-                        real: real >> 1isize,
-                        imaginary: imaginary >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
+        if stored_pos > max_pos {
+            Self {
+                real,
+                imaginary,
+                exponent: Self::ambiguous_exponent(),
             }
-            32 => {
-                let self_exponent: i64 = self.exponent.as_();
-                let upcast_exponent: i64 = (self_exponent << 1).wrapping_sub(expo_adjust as i64);
-
-                if upcast_exponent > Self::max_exponent().as_() {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < Self::min_exponent().as_() {
-                    return Self {
-                        real: real >> 1isize,
-                        imaginary: imaginary >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
+        } else if stored_pos < min_pos {
+            Self {
+                real: real >> 1isize,
+                imaginary: imaginary >> 1isize,
+                exponent: Self::ambiguous_exponent(),
             }
-            64 => {
-                let self_exponent: i128 = self.exponent.as_();
-                let upcast_exponent: i128 = (self_exponent << 1).wrapping_sub(expo_adjust as i128);
-
-                if upcast_exponent > Self::max_exponent().as_() {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < Self::min_exponent().as_() {
-                    return Self {
-                        real: real >> 1isize,
-                        imaginary: imaginary >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: upcast_exponent.as_(),
-                    };
-                }
-            }
-            128 => {
-                let self_exponent: I256 = self.exponent.into();
-                let e: I256 = (expo_adjust as i128).into();
-                let upcast_exponent: I256 = (self_exponent << 1usize).wrapping_sub(e);
-
-                if upcast_exponent > Self::max_exponent().into() {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else if upcast_exponent < Self::min_exponent().into() {
-                    return Self {
-                        real: real >> 1isize,
-                        imaginary: imaginary >> 1isize,
-                        exponent: Self::ambiguous_exponent(),
-                    };
-                } else {
-                    return Self {
-                        real,
-                        imaginary,
-                        exponent: upcast_exponent.as_i128().as_(),
-                    };
-                }
-            }
-            _ => {
-                return Self {
-                    real: GENERAL.prefix.sa(),
-                    imaginary: GENERAL.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
+        } else {
+            Self {
+                real,
+                imaginary,
+                exponent: stored_pos.deflate(),
             }
         }
     }
