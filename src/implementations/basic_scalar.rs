@@ -941,26 +941,23 @@ where
     /// ```
     #[inline]
     pub fn is_integer(&self) -> bool {
-        if self.exponent >= Self::fraction_bits().as_() {
+        // AMBIG=0: handle the AMBIG sentinel first (it's the only stored value where the value is non-normal).
+        if self.exponent == Self::ambiguous_exponent() {
+            if self.fraction == F::zero() {
+                return true;
+            } // Zero
+            return self.is_exploded(); // Exploded values are integers
+        }
+        // Recover logical k: stored ^ binade_origin.
+        let logical_k_e: E = self.exponent ^ Self::binade_origin();
+        let logical_k: isize = logical_k_e.saturate();
+        if logical_k >= Self::fraction_bits() {
             return true;
         }
-        if self.exponent.is_negative() {
-            if self.exponent == Self::ambiguous_exponent() {
-                if self.fraction == F::zero() {
-                    return true;
-                } // Zero
-                return self.is_exploded(); // Exploded values are integers
-            }
+        if logical_k < 0 {
             return false;
         }
-        let shift: isize = self.exponent.as_();
-        if shift >= Self::fraction_bits() {
-            return true;
-        }
-        if shift < 0 {
-            return false;
-        }
-        (self.fraction << shift) == F::zero()
+        (self.fraction << logical_k) == F::zero()
     }
 
     /// Returns true if this value is a valid integer within the contiguous integer range
@@ -1020,23 +1017,24 @@ where
             return true;
         }
 
-        // For normal numbers with non-negative exponents
-        if self.is_normal() && !self.exponent.is_negative() {
-            let exp_isize: isize = self.exponent.saturate();
-
-            // If exponent is >= FRACTION_BITS, all stored bits are integer part — beyond contiguous range
-            if exp_isize >= Self::fraction_bits().as_() {
+        // For normal numbers with logical k ≥ 0 (magnitude ≥ 1.0)
+        if self.is_normal() {
+            let logical_k_e: E = self.exponent ^ Self::binade_origin();
+            let logical_k: isize = logical_k_e.saturate();
+            if logical_k < 0 {
+                return false; // magnitude < 1, not a representable non-zero integer
+            }
+            // logical k >= FRAC: all stored bits are integer part — beyond contiguous range.
+            if logical_k >= Self::fraction_bits() {
                 return false;
             }
-
-            // For contiguous integers, we need the value to be representable exactly. This is already guaranteed by is_integer(), so we just need to check if it's within the contiguous range. For left-aligned format, contiguous integers should have reasonable magnitudes.
+            // For contiguous integers, we need the value to be representable exactly. This is already guaranteed by is_integer(), so we just need to check if it's within the contiguous range.
             return true;
         }
 
-        // Handle special cases (exploded/vanished integers)
-        if self.exponent.is_negative() && self.exponent == Self::ambiguous_exponent() {
+        // Handle exploded integer patterns (at AMBIG exponent).
+        if self.exponent == Self::ambiguous_exponent() {
             let prefix = self.prefix();
-            // Check for exploded integer patterns
             let top_two = prefix >> 6;
             return top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8;
         }
@@ -1348,23 +1346,22 @@ where
             return *self;
         }
 
-        // v0.1 ruler: value in [1, 2) at exp=0. Value < 1 when exp < 0.
-        if self.exponent < E::zero() {
+        // Recover the logical exponent (the actual power-of-2): stored ^ binade_origin. Value < 1 ⇔ logical k < 0.
+        let logical_k_e: E = self.exponent ^ Self::binade_origin();
+        let logical_k: isize = logical_k_e.saturate();
+        if logical_k < 0 {
             if self.is_negative() {
-                let result = Self::NEG_ONE;
-                return result;
+                return Self::NEG_ONE;
             }
-            let result = Self::ZERO;
-            return result;
+            return Self::ZERO;
         }
         let mut result = *self;
-        // Already an integer when all FRAC bits are in the integer part. v0.1 ruler: exp ≥ FRAC - 1 means integer part uses all bits.
-        if result.exponent >= Self::fraction_bits().wrapping_sub(1).as_() {
+        // Already an integer when all FRAC bits are in the integer part: logical k ≥ FRAC - 1.
+        if logical_k >= Self::fraction_bits().wrapping_sub(1) {
             return result;
         }
-        let e: isize = result.exponent.as_();
-        // v0.1 ruler: fractional bit count = FRAC - exp - 1.
-        let frac_bits = Self::fraction_bits().wrapping_sub(e).wrapping_sub(1);
+        // Fractional bit count = FRAC - logical_k - 1.
+        let frac_bits = Self::fraction_bits().wrapping_sub(logical_k).wrapping_sub(1);
         let mask: F = !((F::one() << frac_bits).wrapping_sub(&F::one()));
         result.fraction = result.fraction & mask;
         result
@@ -1503,8 +1500,10 @@ where
             }
             return *self;
         }
-        let e: isize = self.exponent.as_();
-        // v0.1 ruler: exp < -1 means |value| < 0.5 — round to 0. At exp=-1 (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds 0.5 → 0 (even).
+        // Recover logical k: stored ^ binade_origin.
+        let logical_k_e: E = self.exponent ^ Self::binade_origin();
+        let e: isize = logical_k_e.saturate();
+        // logical k < -1 means |value| < 0.5 — round to 0. At k=-1 (|v| in [0.5, 1]) the tie is value = ±0.5 / ±1; banker's still rounds 0.5 → 0 (even).
         if e < -1 {
             return Self::ZERO;
         }
@@ -1513,11 +1512,11 @@ where
         if f.fraction == self.fraction && f.exponent == self.exponent {
             return f;
         }
-        // v0.1 ruler: already integer when exp >= FRAC - 1.
+        // Already integer when logical k >= FRAC - 1.
         if e >= Self::fraction_bits().wrapping_sub(1) {
             return f;
         }
-        // v0.1 ruler: guard bit (0.5 position) at FRAC - e - 2.
+        // Guard bit (0.5 position) at FRAC - logical_k - 2.
         let guard_pos = Self::fraction_bits().wrapping_sub(e).wrapping_sub(2);
         let guard = (self.fraction >> guard_pos) & F::one();
         if guard == F::zero() {
@@ -1528,7 +1527,7 @@ where
         if sticky != F::zero() {
             return f + Self::ONE;
         } // > 0.5, ceil
-          // Exactly 0.5: banker's — round to even. v0.1 ruler: int_lsb at position guard_pos + 1 = FRAC - e - 1, always a real stored bit (no implicit-sign-bit special case needed since e=0 now spans [1,2) and has FRAC-1 as an actual integer ones bit).
+          // Exactly 0.5: banker's — round to even. int_lsb at position guard_pos + 1 = FRAC - e - 1, always a real stored bit (no implicit-sign-bit special case needed since logical e=0 spans [1,2) and has FRAC-1 as an actual integer ones bit).
         let int_lsb = (self.fraction >> guard_pos.wrapping_add(1)) & F::one();
         if int_lsb != F::zero() {
             f + Self::ONE
@@ -2018,7 +2017,10 @@ where
     /// ```
     #[inline]
     pub fn is_prime(&self) -> bool {
-        if self.exponent < 2.as_() || self.exponent >= Self::fraction_bits().as_() {
+        // Range: value must be integer ≥ 2 and ≤ 2^FRAC. Logical k in [1, FRAC).
+        let logical_k_e: E = self.exponent ^ Self::binade_origin();
+        let logical_k: isize = logical_k_e.saturate();
+        if logical_k < 1 || logical_k >= Self::fraction_bits() {
             return false;
         }
 
@@ -2065,26 +2067,27 @@ where
             .max(self.fraction.leading_zeros());
         if shift > 0 {
             let shift = shift as isize;
-            let new_exponent;
             if shift == Self::fraction_bits() {
                 // All bits identical — either zero (all 0s) or all 1s
                 if !self.is_negative() {
-                    // All zeros in stored = most negative effective, but with max leading same bits This is effectively zero
+                    // All zeros in stored = most negative effective, but with max leading same bits — effectively zero.
                     self.exponent = Self::ambiguous_exponent();
                     return;
                 }
-                // All ones in stored — also a uniform pattern
-                new_exponent = self.exponent.wrapping_sub(&shift.as_());
-            } else {
-                new_exponent = self.exponent.wrapping_sub(&shift.as_());
+                // All ones in stored — uniform pattern, falls through to the cycle-widened path below.
             }
 
-            if self.exponent.is_negative() && !new_exponent.is_negative() {
-                // Exponent underflowed -> vanished
+            // AMBIG=0 underflow detection via cycle math: widen, subtract, bounds-check. New cycle position < min_pos (= 1) means we wrapped past AMBIG → vanished.
+            let pa = self.exponent.cycle_widen();
+            let shift_e: E = shift.as_();
+            let w_shift = shift_e.sign_extend();
+            let new_pos = pa.w_sub(w_shift);
+            let min_pos = Self::min_exponent().cycle_widen();
+            if new_pos < min_pos {
                 self.exponent = Self::ambiguous_exponent();
                 self.fraction = self.fraction << (shift.wrapping_sub(1));
             } else {
-                self.exponent = new_exponent;
+                self.exponent = new_pos.deflate();
                 self.fraction = self.fraction << shift;
             }
         }

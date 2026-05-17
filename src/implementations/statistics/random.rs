@@ -95,54 +95,45 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
+    /// Uniform random Scalar in [-1, +1). Each value-range half-binade gets probability proportional to its width — i.e. P(|x| ∈ [2⁻ᵏ⁻¹, 2⁻ᵏ)) = 2⁻ᵏ⁻¹, matching `f32::random()`-style semantics on a real-valued sampler.
+    ///
+    /// Algorithm: fraction is uniform random bits (sign self-emerges from the N0 MSB); the exponent comes from a chained leading-zeros count L over fraction-sized random words. stored_exp = MAX_VAL − L, so most draws (small L) land in the upper binades close to ±1 and the geometric tail trails toward zero. Chain step probability is 2⁻ᶠᴿᴬᶜ (1/256 for FRAC=8) so the loop almost always exits on the first lead-word draw. If L ever exceeds MAX_VAL the value is below MIN_NORMAL → returns a canonical N2 vanished pattern with random low bits.
     #[inline]
     pub fn random() -> Self {
-        let mut result = Self {
-            fraction: F::random(),
-            exponent: 0.as_(),
-        };
+        let fraction: F = F::random();
+        let frac_bits: usize = Self::fraction_bits() as usize;
 
+        let mut leading: usize = 0;
         loop {
-            let leading: E = result
-                .fraction
-                .leading_ones()
-                .max(result.fraction.leading_zeros())
-                .as_();
-
-            if leading > E::zero() {
-                let new_exponent = result.exponent.wrapping_sub(&leading);
-                let shift: isize = leading.as_();
-
-                if new_exponent.is_negative() {
-                    result.exponent = new_exponent;
-                    result.fraction = result.fraction << shift;
-
-                    let mask: F = (F::one() << shift).wrapping_sub(&F::one());
-                    result.fraction = result.fraction | (F::random() & mask);
-                } else {
-                    // Exponent underflowed → vanished
-                    result.exponent = Self::ambiguous_exponent();
-                    result.fraction = F::random();
-                    let mut leading: E = result
-                        .fraction
-                        .leading_ones()
-                        .max(result.fraction.leading_zeros())
-                        .as_();
-                    while leading != (E::one() + E::one()) {
-                        result.fraction = F::random();
-                        leading = result
-                            .fraction
-                            .leading_ones()
-                            .max(result.fraction.leading_zeros())
-                            .as_();
-                    }
-                    break;
-                }
-            } else {
+            let w: F = F::random();
+            let lz = w.leading_zeros() as usize;
+            leading = leading.wrapping_add(lz);
+            if lz < frac_bits {
                 break;
             }
         }
-        result
+
+        let max_val: isize = E::max_value().saturate();
+        if (leading as isize) >= max_val {
+            // Vanished tail. Canonical N2 fraction: top three bits `a a !a`, low FRAC-3 bits random. Reuse the fraction draw — its MSB picks the sign, the low bits feed the entropy. Spirix N0: MSB=1 (leading_zeros=0) ↔ positive value.
+            let low_mask: F = (F::one() << frac_bits.wrapping_sub(3)).wrapping_sub(&F::one());
+            let entropy: F = fraction & low_mask;
+            let base = if fraction.leading_zeros() == 0 {
+                Self::pos_one_vanished()
+            } else {
+                Self::neg_one_vanished()
+            };
+            return Self {
+                fraction: base ^ entropy,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+
+        let stored: E = (max_val.wrapping_sub(leading as isize)).as_();
+        Self {
+            fraction,
+            exponent: stored,
+        }
     }
     #[inline]
     pub fn random_gauss() -> Self {
@@ -156,7 +147,8 @@ where
 
             s = u.square() + v.square();
 
-            if !s.exponent.is_positive() {
+            // Marsaglia: accept when s ∈ (0, 1). AMBIG=0: stored exp positive ↔ |s|<1; combined with non-zero check covers the open interval.
+            if s.exponent.is_positive() && !s.is_zero() {
                 break;
             }
         }

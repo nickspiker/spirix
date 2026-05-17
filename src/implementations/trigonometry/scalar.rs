@@ -214,21 +214,11 @@ where
             }
             return *self;
         }
-        if Self::exponent_bits() >= (core::mem::size_of::<isize>() as isize).wrapping_shl(3) {
-            if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
-                return Self {
-                    fraction: TANGENT.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-        } else {
-            let exponent_isize: isize = self.exponent.as_();
-            if exponent_isize > Self::fraction_bits() {
-                return Self {
-                    fraction: TANGENT.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+        if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
+            return Self {
+                fraction: TANGENT.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
         }
         self.sin() / self.cos()
     }
@@ -244,17 +234,18 @@ where
             return *self;
         }
 
-        if self.exponent.is_positive() {
+        // AMBIG=0: stored exp negative ↔ logical k >= 0 ↔ |x| >= 1 (binade_origin = E::MIN, sign bit flipped is the |x|>=1 region).
+        if self.exponent.is_negative() {
             if self == 1 {
                 return Self::HALF_PI;
+            }
+            if self == -1 {
+                return Self::NEG_HALF_PI;
             }
             return Self {
                 fraction: ARCSINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
-        }
-        if self == -1 {
-            return Self::NEG_HALF_PI;
         }
 
         let three_quarters = Self::HALF + Self::HALF * Self::HALF;
@@ -333,24 +324,21 @@ where
             return Self::HALF_PI;
         }
 
-        if self.exponent.is_positive() {
+        // AMBIG=0: stored exp negative ↔ |x| >= 1; stored exp positive ↔ |x| < 1.
+        if self.exponent.is_negative() {
             if self == 1 {
                 return Self::ZERO;
-            } else {
-                return Self {
-                    fraction: ARCCOSINE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
             }
+            if self == -1 {
+                return Self::PI;
+            }
+            return Self {
+                fraction: ARCCOSINE.prefix.sa(),
+                exponent: Self::ambiguous_exponent(),
+            };
         }
 
-        if self == -1 {
-            return Self::PI;
-        }
-
-        if self.exponent.is_negative() {
-            return Self::HALF_PI - self.asin();
-        }
+        return Self::HALF_PI - self.asin();
 
         let one_minus_abs_x = Self::ONE - self.magnitude();
 

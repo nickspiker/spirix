@@ -638,3 +638,204 @@ fn subtraction_min_boundary_exploded() {
     let r2 = S::ZERO - neg_boundary;
     assert!(r2.is_positive(), "0-(-1) should be positive");
 }
+
+// ============================================================ Bitwise AND truth table (col & row) ============================================================
+#[test]
+fn and_truth_table() {
+    let z = S::ZERO;
+    let vp = S::VANISHED_POS;
+    let vn = S::VANISHED_NEG;
+    let np = S::from(7);
+    let nn = S::from(-7);
+    let ep = S::EXPLODED_POS;
+    let en = S::EXPLODED_NEG;
+    let inf = S::INFINITY;
+    let und = S::ZERO / S::ZERO;
+
+    // [0] is absorber: [0] & X = [0]
+    check("&", z, z, z & z, &[Zero]);
+    check("&", z, vp, z & vp, &[Zero]);
+    check("&", z, vn, z & vn, &[Zero]);
+    check("&", z, np, z & np, &[Zero]);
+    check("&", z, nn, z & nn, &[Zero]);
+    check("&", z, ep, z & ep, &[Zero]);
+    check("&", z, en, z & en, &[Zero]);
+    check("&", z, inf, z & inf, &[Zero]);
+    check("&", vp, z, vp & z, &[Zero]);
+    check("&", np, z, np & z, &[Zero]);
+    check("&", ep, z, ep & z, &[Zero]);
+    check("&", inf, z, inf & z, &[Zero]);
+
+    // [∞] is identity: [∞] & X = X
+    check("&", inf, vp, inf & vp, &[Vanished]);
+    check("&", inf, np, inf & np, &[Normal]);
+    check("&", inf, ep, inf & ep, &[Exploded]);
+    check("&", inf, inf, inf & inf, &[Infinity]);
+    check("&", vp, inf, vp & inf, &[Vanished]);
+    check("&", np, inf, np & inf, &[Normal]);
+    check("&", ep, inf, ep & inf, &[Exploded]);
+
+    // Escape & escape (same rank or cross-rank with shared ambig frame).
+    // [↓] & [↓] → [℘&]
+    check("&", vp, vp, vp & vp, &[Undefined]);
+    check("&", vp, vn, vp & vn, &[Undefined]);
+    // [↑] & [↑] → [℘&]
+    check("&", ep, ep, ep & ep, &[Undefined]);
+    check("&", ep, en, ep & en, &[Undefined]);
+    // [↓] & [↑] → [0] or [↑]
+    check("&", vp, ep, vp & ep, &[Zero, Exploded]);
+    check("&", vp, en, vp & en, &[Zero, Exploded]);
+    check("&", vn, ep, vn & ep, &[Zero, Exploded]);
+    check("&", ep, vp, ep & vp, &[Zero, Exploded]);
+
+    // Escape & normal → [℘&] (ambig exp can't align with a real one)
+    check("&", vp, np, vp & np, &[Undefined]);
+    check("&", vn, np, vn & np, &[Undefined]);
+    check("&", np, vp, np & vp, &[Undefined]);
+    check("&", ep, np, ep & np, &[Undefined]);
+    check("&", en, np, en & np, &[Undefined]);
+    check("&", np, ep, np & ep, &[Undefined]);
+
+    // [#] & [#] can land in [#], [0], or [↓]
+    check("&", np, np, np & np, &[Normal, Zero, Vanished]);
+    check("&", np, nn, np & nn, &[Normal, Zero, Vanished]);
+    check("&", nn, nn, nn & nn, &[Normal, Zero, Vanished]);
+
+    // [℘?] propagates
+    check("&", und, z, und & z, &[Undefined]);
+    check("&", und, vp, und & vp, &[Undefined]);
+    check("&", und, np, und & np, &[Undefined]);
+    check("&", und, ep, und & ep, &[Undefined]);
+    check("&", und, inf, und & inf, &[Undefined]);
+    check("&", und, und, und & und, &[Undefined]);
+    check("&", z, und, z & und, &[Undefined]);
+    check("&", np, und, np & und, &[Undefined]);
+    check("&", inf, und, inf & und, &[Undefined]);
+}
+
+// ============================================================ Bitwise OR truth table (col | row) ============================================================
+#[test]
+fn or_truth_table() {
+    let z = S::ZERO;
+    let vp = S::VANISHED_POS;
+    let vn = S::VANISHED_NEG;
+    let np = S::from(7);
+    let nn = S::from(-7);
+    let ep = S::EXPLODED_POS;
+    let en = S::EXPLODED_NEG;
+    let inf = S::INFINITY;
+    let und = S::ZERO / S::ZERO;
+
+    // [0] is identity: [0] | X = X
+    check("|", z, z, z | z, &[Zero]);
+    check("|", z, vp, z | vp, &[Vanished]);
+    check("|", z, np, z | np, &[Normal]);
+    check("|", z, ep, z | ep, &[Exploded]);
+    check("|", z, inf, z | inf, &[Infinity]);
+    check("|", vp, z, vp | z, &[Vanished]);
+    check("|", np, z, np | z, &[Normal]);
+    check("|", ep, z, ep | z, &[Exploded]);
+    check("|", inf, z, inf | z, &[Infinity]);
+
+    // [∞] is absorber: [∞] | X = [∞]
+    check("|", inf, vp, inf | vp, &[Infinity]);
+    check("|", inf, np, inf | np, &[Infinity]);
+    check("|", inf, ep, inf | ep, &[Infinity]);
+    check("|", inf, inf, inf | inf, &[Infinity]);
+    check("|", vp, inf, vp | inf, &[Infinity]);
+    check("|", np, inf, np | inf, &[Infinity]);
+    check("|", ep, inf, ep | inf, &[Infinity]);
+
+    // Escape | escape (same-rank → [℘|], cross-rank → [↓] or [↑])
+    check("|", vp, vp, vp | vp, &[Undefined]);
+    check("|", vp, vn, vp | vn, &[Undefined]);
+    check("|", ep, ep, ep | ep, &[Undefined]);
+    check("|", ep, en, ep | en, &[Undefined]);
+    // [↓] | [↑] → [↓] or [↑]
+    check("|", vp, ep, vp | ep, &[Vanished, Exploded]);
+    check("|", vp, en, vp | en, &[Vanished, Exploded]);
+    check("|", vn, ep, vn | ep, &[Vanished, Exploded]);
+    check("|", ep, vp, ep | vp, &[Vanished, Exploded]);
+
+    // Escape | normal → [℘|]
+    check("|", vp, np, vp | np, &[Undefined]);
+    check("|", np, vp, np | vp, &[Undefined]);
+    check("|", ep, np, ep | np, &[Undefined]);
+    check("|", np, ep, np | ep, &[Undefined]);
+
+    // [#] | [#] can land in [#] or [↓]
+    check("|", np, np, np | np, &[Normal, Vanished]);
+    check("|", np, nn, np | nn, &[Normal, Vanished]);
+    check("|", nn, nn, nn | nn, &[Normal, Vanished]);
+
+    // [℘?] propagates (except [∞] absorbs ∞ row — but [℘] vs [∞] still [℘])
+    check("|", und, z, und | z, &[Undefined]);
+    check("|", und, vp, und | vp, &[Undefined]);
+    check("|", und, np, und | np, &[Undefined]);
+    check("|", und, ep, und | ep, &[Undefined]);
+    check("|", und, und, und | und, &[Undefined]);
+    check("|", z, und, z | und, &[Undefined]);
+    check("|", np, und, np | und, &[Undefined]);
+}
+
+// ============================================================ Bitwise XOR truth table (col ^ row) ============================================================
+#[test]
+fn xor_truth_table() {
+    let z = S::ZERO;
+    let vp = S::VANISHED_POS;
+    let vn = S::VANISHED_NEG;
+    let np = S::from(7);
+    let nn = S::from(-7);
+    let ep = S::EXPLODED_POS;
+    let en = S::EXPLODED_NEG;
+    let inf = S::INFINITY;
+    let und = S::ZERO / S::ZERO;
+
+    // [0] is identity: [0] ⊻ X = X
+    check("^", z, z, z ^ z, &[Zero]);
+    check("^", z, vp, z ^ vp, &[Vanished]);
+    check("^", z, np, z ^ np, &[Normal]);
+    check("^", z, ep, z ^ ep, &[Exploded]);
+    check("^", z, inf, z ^ inf, &[Infinity]);
+
+    // [∞] inverts: [∞] ⊻ X = ~X (NOT table)
+    check("^", inf, z, inf ^ z, &[Infinity]);
+    check("^", inf, vp, inf ^ vp, &[Vanished]);
+    check("^", inf, np, inf ^ np, &[Normal]);
+    check("^", inf, ep, inf ^ ep, &[Exploded]);
+    check("^", inf, inf, inf ^ inf, &[Zero]); // self-XOR cancels
+
+    // Self-XOR cancels to [0] only when magnitudes are deterministic (normals, infinity). For escapes the magnitudes are ambiguous even if bit-identical, so the table reports [℘⊻].
+    check("^", np, np, np ^ np, &[Zero]);
+    // Same-class escape pairs (incl. bit-identical) → [℘⊻].
+    check("^", vp, vp, vp ^ vp, &[Undefined]);
+    check("^", vp, vn, vp ^ vn, &[Undefined]);
+    check("^", ep, ep, ep ^ ep, &[Undefined]);
+    check("^", ep, en, ep ^ en, &[Undefined]);
+
+    // [↓] ⊻ [↑] → [↑] (opposite-rank bit patterns XOR to N-1)
+    check("^", vp, ep, vp ^ ep, &[Exploded]);
+    check("^", vp, en, vp ^ en, &[Exploded]);
+    check("^", vn, ep, vn ^ ep, &[Exploded]);
+    check("^", ep, vp, ep ^ vp, &[Exploded]);
+
+    // Escape ⊻ normal → [℘⊻]
+    check("^", vp, np, vp ^ np, &[Undefined]);
+    check("^", np, vp, np ^ vp, &[Undefined]);
+    check("^", ep, np, ep ^ np, &[Undefined]);
+    check("^", np, ep, np ^ ep, &[Undefined]);
+
+    // [#] ⊻ [#] can land in [0], [↓], or [#]
+    check("^", np, nn, np ^ nn, &[Zero, Vanished, Normal]);
+
+    // [℘?] propagates
+    check("^", und, z, und ^ z, &[Undefined]);
+    check("^", und, vp, und ^ vp, &[Undefined]);
+    check("^", und, np, und ^ np, &[Undefined]);
+    check("^", und, ep, und ^ ep, &[Undefined]);
+    check("^", und, inf, und ^ inf, &[Undefined]);
+    check("^", und, und, und ^ und, &[Undefined]);
+    check("^", z, und, z ^ und, &[Undefined]);
+    check("^", np, und, np ^ und, &[Undefined]);
+    check("^", inf, und, inf ^ und, &[Undefined]);
+}

@@ -275,8 +275,8 @@ ambiguous frame, so `[↓] | [↑]` lands in `[↓]` or `[↑]` depending on sig
 NOT table applied to `X`). Both are alignment-independent. Escape operands
 paired with a normal produce `[℘⊻]` (ambiguous exponent can't align). At the
 shared ambiguous frame, `[↓] ⊻ [↑]` collapses cleanly to `[↑]` — opposite-rank
-bit patterns XOR to N-1 regardless of sign. Self-XOR of identical values
-always cancels to `[0]`.
+bit patterns XOR to N-1 regardless of sign. Self-XOR of identical normal
+values cancels to `[0]`.
 
 | ⊻ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 |---|-----|-----|-----|-----|-----|------|

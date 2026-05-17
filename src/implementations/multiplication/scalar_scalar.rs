@@ -150,26 +150,16 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            // Escaped * escaped/normal: escaped uses sign_extend, normal uses inflate
-            let self_wide = self.fraction.inflate(self.is_normal());
-            let other_wide = other.fraction.inflate(other.is_normal());
-            let product = self_wide.w_mul(other_wide);
+            // Escaped × escaped/normal: result classifies as exploded or vanished; use canonical bit patterns with sign preserved. The earlier formula-extraction approach (inflate→multiply→leading-same shift→deflate) could land on N3+ (undefined) bit patterns when the signed-wide multiply wrapped, breaking pow chains. Phase info is preserved by sign; magnitude is the class itself.
             let result_exploded = self.exploded() || other.exploded();
-            let leading = product.leading_same();
-            let n: isize = if result_exploded { 1 } else { 2 };
-            let shift = leading.wrapping_sub(n);
-            // Negative shift means product's top bit is above the target N-level — fold into a single `shr` instead of `shl(negative)`.
-            let fraction = if shift >= 0 {
-                product.w_shl(shift).w_shr(Self::fraction_bits()).deflate()
-            } else {
-                product
-                    .w_shr(Self::fraction_bits().wrapping_sub(shift))
-                    .deflate()
+            let result_negative = self.is_negative() != other.is_negative();
+            let fraction = match (result_exploded, result_negative) {
+                (true, true) => Self::neg_one_exploded(),
+                (true, false) => Self::pos_one_exploded(),
+                (false, true) => Self::neg_one_vanished(),
+                (false, false) => Self::pos_one_vanished(),
             };
-            return Self {
-                fraction,
-                exponent: Self::ambiguous_exponent(),
-            };
+            return Self { fraction, exponent: Self::ambiguous_exponent() };
         }
 
         // AMBIG=0 native: view stored exponents as UNSIGNED cycle positions (1..2^N - 1 = normal, 0 = AMBIG). `cycle_widen` zero-extends each stored exponent into <E as Inflate>::Wide (i8→i16, ..., i128→I256) — enough headroom to detect wrap regardless of E's width. Arithmetic uses WideOps' wrapping ops. `bo` is subtracted once to undo the doubled bias from adding two biased operands.
