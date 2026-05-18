@@ -114,6 +114,58 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
+    /// Translate one Circle stored component into a Scalar.
+    ///
+    /// The two encodings put the magnitude bit at different positions:
+    ///   Circle N1 normal:   mag at FRAC-2 (sign bit at FRAC-1 explicit) — value = c × 2^(k − FRAC + 2)
+    ///   Scalar N0 normal:   mag at FRAC-1 (sign implicit in MSB complement) — value = inflate(c) × 2^(k − FRAC + 1)
+    ///   Circle / Scalar exploded: top-2-bit tag (01 / 10) at FRAC-1..FRAC-2 — patterns match across N0 and N1.
+    ///   Circle / Scalar vanished: top-3-bit tag (001 / 110) at FRAC-1..FRAC-3 — patterns match across N0 and N1.
+    /// Normal needs an extra `+1` shift compared to a "just renormalize to leading_same=0" pass, because of the N1-vs-N0 sign-position offset; the over-shift is then compensated by lowering the exponent by `leading-1` binades. Escape classes need NO extra shift past renormalization, since their tag positions are the same in both encodings: exploded shifts by `leading-1`, vanished by `leading-2`. A pure-real/pure-imaginary normal Circle's silent component (c == 0) would otherwise hit `c << FRAC` and land at `{ fraction: 0, exponent: non-AMBIG }`, which fails `is_zero()` and gets misread as some sub-canonical Scalar — guard that case explicitly.
+    fn extract_component(&self, c: F) -> Scalar<F, E> {
+        if self.is_normal() {
+            if c == F::zero() {
+                return Scalar::<F, E>::ZERO;
+            }
+            let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
+            let shift_amount: isize = leading.wrapping_sub(1);
+            let shift_e: E = shift_amount.as_();
+            // Sub-canonical extraction underflow: the silent component normalized into a fraction whose own binade would land below MIN_NORMAL. The cycle-position subtract would wrap through AMBIG and surface as a huge positive Scalar. Detect by `self.exp.into_unsigned() <= shift_amount` and re-shape the component to the N-2 vanished form at AMBIG (mag bit at FRAC-3, shift = leading - 2) instead.
+            if shift_amount > 0
+                && self.exponent.into_unsigned() <= shift_e.into_unsigned()
+            {
+                return Scalar {
+                    fraction: c << leading.wrapping_sub(2),
+                    exponent: Scalar::<F, E>::ambiguous_exponent(),
+                };
+            }
+            return Scalar {
+                fraction: c << leading,
+                exponent: self.exponent.wrapping_sub(&shift_e),
+            };
+        }
+        if self.exploded() {
+            let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
+            let fraction: F = c << leading.wrapping_sub(1);
+            return Scalar {
+                fraction,
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
+            };
+        }
+        if self.vanished() {
+            let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
+            let fraction: F = c << leading.wrapping_sub(2);
+            return Scalar {
+                fraction,
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
+            };
+        }
+        Scalar {
+            fraction: c,
+            exponent: Scalar::<F, E>::ambiguous_exponent(),
+        }
+    }
+
     /// Returns the real part of this Circle as a Scalar
     ///
     /// # Description
@@ -150,35 +202,6 @@ where
     /// let undefined = zero / 0;
     /// assert!(undefined.r().is_undefined());
     /// ```
-    /// Translate one Circle stored component into a Scalar.
-    ///
-    /// The two encodings put the magnitude bit at different positions:
-    ///   Circle N1: mag bit at FRAC-2 (sign bit at FRAC-1 explicit) — value = c × 2^(k − FRAC + 2)
-    ///   Scalar N0: mag bit at FRAC-1 (sign implicit in MSB complement) — value = inflate(c) × 2^(k − FRAC + 1)
-    /// They differ by one bit position, so a canonical Circle component always needs `<< 1` to land at the canonical Scalar position. Sub-canonical components (a non-dominant component of a normal Circle, whose own magnitude bit sits lower than FRAC-2) take more shift — exactly `leading_same(c)` bits — and the over-shift past the +1 must be compensated by lowering the exponent by `leading_same(c) − 1` binades. The Scalar storage parity:
-    ///   fraction = c << leading_same(c)            (the +1 part absorbed by leading_same ≥ 1)
-    ///   exponent = circle.exponent − (leading_same(c) − 1)
-    /// Round-trip with `Circle::from(scalar)` (which does `inflate(true) >> 1 >> deflate`) preserves the value because the two shifts are inverses.
-    fn extract_component(&self, c: F) -> Scalar<F, E> {
-        // c == 0 for a normal Circle means this is the silent component of a pure-real or pure-imaginary value — return canonical Scalar::ZERO directly. The normal-path math would otherwise produce { fraction: 0, exponent: non-AMBIG }, which fails is_zero() (requires both fraction=0 AND exp=AMBIG) and ends up classified as an escape pattern.
-        if c == F::zero() {
-            return Scalar::<F, E>::ZERO;
-        }
-        if self.is_normal() {
-            let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
-            let fraction: F = c << leading;
-            let shift_e: E = leading.wrapping_sub(1).as_();
-            return Scalar {
-                fraction,
-                exponent: self.exponent.wrapping_sub(&shift_e),
-            };
-        }
-        Scalar {
-            fraction: c,
-            exponent: Scalar::<F, E>::ambiguous_exponent(),
-        }
-    }
-
     #[inline]
     pub fn r(&self) -> Scalar<F, E> {
         self.extract_component(self.real)
