@@ -77,6 +77,7 @@ where
                 return Self::ZERO;
             }
 
+            // Cross-type div uses `a << fb / s`: a and s are both N1 wide (value × 2^(FRAC-2)), quotient scale is value × 2^FRAC. Shifting left by `leading-1` brings the (renormalized) dominant component to canonical wide N1 (leading_same=1, magnitude bit at 2*FRAC-2); the >> fb then lands at narrow N1 canonical (FRAC-2). Producing canonical form here is required — Circle's class detection in is_n1/is_n2 looks at the magnitude bit of either component, so sub-canonical fractions get misclassified as N-2/vanished.
             let leading_r = real_quotient.leading_same();
             let leading_i = imag_quotient.leading_same();
             let leading = leading_r.min(leading_i);
@@ -84,11 +85,13 @@ where
             let real = real_quotient.w_shl(shift).w_shr(fb).deflate();
             let imaginary = imag_quotient.w_shl(shift).w_shr(fb).deflate();
 
-            // Div: stored_pos = pa - pb + binade_origin (no expo_adjust because the canonical-N1 shift already lands the fraction correctly; no -1 because cross-type div doesn't have the doubled bias of Circle*Circle's reciprocal-times-numerator).
+            // Exp follows the fraction shift: the canonical-N1 normalization shifted the value by `leading - 1` bits; offset the binade by `FRAC - 1 - leading` so the final stored value matches reality. This collapses to `pa - pb + bo` when leading = FRAC-1 (value lands in [1, 2) naturally), and bumps the binade down for sub-canonical leading (value < 1 → shifted up to canonical → exp drops).
             let pa = self.exponent.cycle_widen();
             let pb = other.exponent.cycle_widen();
             let w_bo = Self::binade_origin().cycle_widen();
-            let stored_pos = pa.w_sub(pb).w_add(w_bo);
+            let delta_e: E = fb.wrapping_sub(1).wrapping_sub(leading).as_();
+            let w_delta = delta_e.sign_extend();
+            let stored_pos = pa.w_sub(pb).w_add(w_bo).w_add(w_delta);
             let max_pos = Self::max_exponent().cycle_widen();
             let min_pos = Self::min_exponent().cycle_widen();
 

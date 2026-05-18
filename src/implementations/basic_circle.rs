@@ -1277,10 +1277,11 @@ where
                 }
             }
         }
+        // Use binade_origin (+1.0 binade) as the exponent reference for the dividend so that result / |result| lands a unit-magnitude Circle. The earlier `E::zero()` predated AMBIG=0 — under the new encoding zero IS the AMBIG sentinel, so it poisoned the divisor and the division returned NaN.
         let result = Circle {
             real: self.real,
             imaginary: self.imaginary,
-            exponent: E::zero(),
+            exponent: Self::binade_origin(),
         };
         return result / result.magnitude();
     }

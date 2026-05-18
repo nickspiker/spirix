@@ -272,7 +272,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -316,7 +321,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -360,7 +370,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -404,7 +419,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -448,7 +468,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_i128()
@@ -781,7 +806,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -825,7 +855,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -869,7 +904,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -913,7 +953,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -957,7 +1002,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_i128()
@@ -1192,7 +1242,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -1236,7 +1291,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -1280,7 +1340,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -1324,7 +1389,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_(),
@@ -1368,7 +1438,12 @@ where
                 let offset = small
                     .exponent
                     .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-                if big.exponent.is_negative() && !offset.is_negative() {
+                let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+                let one_e: E = 1u8.as_();
+                let underflowed = delta_i.is_negative()
+                    && offset.wrapping_sub(&one_e).into_unsigned()
+                        >= small.exponent.into_unsigned();
+                if underflowed {
                     return Self {
                         real: ((real_result << (leading.wrapping_sub(2))) >> Self::fraction_bits())
                             .as_i128()

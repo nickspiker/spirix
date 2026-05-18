@@ -231,11 +231,13 @@ where
             big_f.w_shl_assign(shift_ba);
             let sum = big_f.w_add(self.fraction.inflate(true));
             let leading = sum.leading_same();
-            let offset = self
-                .exponent
-                .wrapping_add(&(Self::fraction_bits().wrapping_sub(leading)).as_());
-            // Underflow: either wrap-around (mod.exp negative, offset wrapped to non-negative) or exact AMBIGUOUS landing. Both mean true offset ≤ AMBIGUOUS → vanished.
-            let underflowed = (modulus.exponent.is_negative() && !offset.is_negative())
+            let delta_i: isize = Self::fraction_bits().wrapping_sub(leading);
+            let delta_e: E = delta_i.as_();
+            let offset = self.exponent.wrapping_add(&delta_e);
+            // AMBIG=0 cycle-position underflow check (mirrors scalar bitwise_normal): result wraps past the AMBIG sentinel when delta is negative and `offset - 1` lands ≥ self.exp in cycle-position space. The earlier `mod.exp.is_negative()` test predated AMBIG=0 and now means "|mod| ≥ 1" which is unrelated to underflow.
+            let one_e: E = 1u8.as_();
+            let underflowed = (delta_i.is_negative()
+                && offset.wrapping_sub(&one_e).into_unsigned() >= self.exponent.into_unsigned())
                 || offset == Self::ambiguous_exponent();
             // Folded net shift (shl(L).shr(fb) as one signed shift) to sidestep Rust's shift-overflow semantics when L == wide_bits.
             let fb = Self::fraction_bits();
@@ -309,12 +311,14 @@ where
 
         // Normalize result at b's exponent. Same pattern as scalar_add_scalar.
         let leading = result_wide.leading_same();
-        let offset = modulus
-            .exponent
-            .wrapping_add(&(fb.wrapping_sub(leading)).as_());
+        let delta_i: isize = fb.wrapping_sub(leading);
+        let delta_e: E = delta_i.as_();
+        let offset = modulus.exponent.wrapping_add(&delta_e);
 
-        // Underflow: wrap-around (mod.exp negative, offset wrapped to non-negative) or exact AMBIGUOUS landing. Vanished uses N-2 normalization.
-        let underflowed = (modulus.exponent.is_negative() && !offset.is_negative())
+        // AMBIG=0 cycle-position underflow check (mirrors scalar bitwise_normal): result wraps past the AMBIG sentinel when delta is negative and `offset - 1` lands ≥ modulus.exp in cycle-position space. The earlier `mod.exp.is_negative()` test predated AMBIG=0.
+        let one_e: E = 1u8.as_();
+        let underflowed = (delta_i.is_negative()
+            && offset.wrapping_sub(&one_e).into_unsigned() >= modulus.exponent.into_unsigned())
             || offset == Self::ambiguous_exponent();
         // Folded net shift (shl(L).shr(fb) as one signed shift) to sidestep Rust's shift-overflow semantics when L == wide_bits.
         let shl_amount = if underflowed {
