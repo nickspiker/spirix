@@ -201,7 +201,7 @@ where
             };
         }
 
-        // Escape-class handling (at least one operand is non-normal).
+        // Escape-class handling (at least one operand is non-normal). Mirrors scalar_subtract_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations. The earlier version used the combined `is_transfinite()` (inf OR exploded) which caused `inf - X` to return TRANSFINITE_MINUS_FINITE (= undefined) instead of inf.
         {
             if self.is_undefined() {
                 return *self;
@@ -212,6 +212,17 @@ where
                     imaginary: scalar.fraction,
                     exponent: scalar.exponent,
                 };
+            }
+            // [∞] is signless so [∞]-X and X-[∞] both yield [∞].
+            if self.is_infinite() || scalar.is_infinite() {
+                return Circle::<F, E>::INFINITY;
+            }
+            // Zero identity: self - 0 = self; 0 - scalar = -scalar (as Circle).
+            if scalar.is_zero() {
+                return *self;
+            }
+            if self.is_zero() {
+                return Circle::<F, E>::from_ri(-*scalar, Scalar::<F, E>::ZERO);
             }
             if self.exploded() && scalar.exploded() {
                 let prefix: F = TRANSFINITE_MINUS_TRANSFINITE.prefix.sa();
@@ -229,7 +240,11 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Exploded - vanished = exploded (vanished negligible); exploded - normal = [℘].
             if self.exploded() {
+                if scalar.vanished() {
+                    return *self;
+                }
                 let prefix: F = TRANSFINITE_MINUS_FINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -237,7 +252,11 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Vanished - exploded = -exploded; normal - exploded = [℘].
             if scalar.exploded() {
+                if self.vanished() {
+                    return Circle::<F, E>::from_ri(-*scalar, Scalar::<F, E>::ZERO);
+                }
                 let prefix: F = FINITE_MINUS_TRANSFINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -245,27 +264,14 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Single vanished (other is normal here — zero/exploded/inf/undef already handled).
             if self.vanished() {
-                let neg_scalar = -scalar;
-                return Circle {
-                    real: (neg_scalar.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: neg_scalar.exponent,
-                };
+                return Circle::<F, E>::from_ri(-*scalar, Scalar::<F, E>::ZERO);
             }
             if scalar.vanished() {
                 return *self;
             }
-            if self.is_zero() {
-                let neg_scalar = -scalar;
-                return Circle {
-                    real: (neg_scalar.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: neg_scalar.exponent,
-                };
-            }
-            return *self;
+            *self
         }
-
     }
 }

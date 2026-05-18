@@ -215,7 +215,7 @@ where
             };
         }
 
-        // Escape-class handling (at least one operand is non-normal).
+        // Escape-class handling (at least one operand is non-normal). Mirrors scalar_add_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations. The earlier `is_transfinite()` (inf OR exploded) caused inf cases to return TRANSFINITE_PLUS_FINITE (= undefined) instead of INFINITY.
         {
             if self.is_undefined() {
                 return *self;
@@ -227,7 +227,18 @@ where
                     exponent: scalar.exponent,
                 };
             }
-            if self.is_transfinite() && scalar.is_transfinite() {
+            // [∞] absorbs (signless — −∞ no-op so ∞+X and X+∞ both yield ∞).
+            if self.is_infinite() || scalar.is_infinite() {
+                return Circle::<F, E>::INFINITY;
+            }
+            // Zero identity.
+            if scalar.is_zero() {
+                return *self;
+            }
+            if self.is_zero() {
+                return Circle::<F, E>::from_ri(*scalar, Scalar::<F, E>::ZERO);
+            }
+            if self.exploded() && scalar.exploded() {
                 return Self {
                     real: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
@@ -241,36 +252,33 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_transfinite() {
+            // Single exploded: exp + van = exp; exp + normal = [℘].
+            if self.exploded() {
+                if scalar.vanished() {
+                    return *self;
+                }
                 return Self {
                     real: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if scalar.is_transfinite() {
+            if scalar.exploded() {
+                if self.vanished() {
+                    return Circle::<F, E>::from_ri(*scalar, Scalar::<F, E>::ZERO);
+                }
                 return Self {
                     real: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Single vanished (other is normal here — zero/exp/inf/undef already handled).
             if self.vanished() {
-                return Circle {
-                    real: (scalar.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: scalar.exponent,
-                };
+                return Circle::<F, E>::from_ri(*scalar, Scalar::<F, E>::ZERO);
             }
             if scalar.vanished() {
                 return *self;
-            }
-            if self.is_zero() {
-                return Circle {
-                    real: (scalar.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: scalar.exponent,
-                };
             }
             *self
         }

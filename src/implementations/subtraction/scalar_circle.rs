@@ -201,7 +201,7 @@ where
             };
         }
 
-        // Escape-class handling (at least one operand is non-normal).
+        // Escape-class handling (at least one operand is non-normal). Mirrors scalar_subtract_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations. The earlier `is_transfinite()` (inf OR exploded) lumped infinity in with exploded, causing inf cases to return TRANSFINITE_MINUS_FINITE (= undefined) instead of INFINITY.
         {
             if self.is_undefined() {
                 return Circle {
@@ -213,7 +213,18 @@ where
             if circle.is_undefined() {
                 return *circle;
             }
-            if self.is_transfinite() && circle.is_transfinite() {
+            // [∞] is signless so [∞]-X and X-[∞] both yield [∞].
+            if self.is_infinite() || circle.is_infinite() {
+                return Circle::<F, E>::INFINITY;
+            }
+            // Zero identity: 0 - circle = -circle; self - 0 = self (as Circle).
+            if self.is_zero() {
+                return -*circle;
+            }
+            if circle.is_zero() {
+                return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
+            }
+            if self.exploded() && circle.exploded() {
                 let prefix: F = TRANSFINITE_MINUS_TRANSFINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -229,7 +240,11 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_transfinite() {
+            // Self exploded: exp - van = exp; exp - normal = [℘].
+            if self.exploded() {
+                if circle.vanished() {
+                    return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
+                }
                 let prefix: F = TRANSFINITE_MINUS_FINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -237,7 +252,11 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if circle.is_transfinite() {
+            // Circle exploded: van - exp = -exp; normal - exp = [℘].
+            if circle.exploded() {
+                if self.vanished() {
+                    return -*circle;
+                }
                 let prefix: F = FINITE_MINUS_TRANSFINITE.prefix.sa();
                 return Circle {
                     real: prefix,
@@ -245,24 +264,15 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Single vanished (other is normal — zero/exp/inf/undef already handled above).
             if self.vanished() {
-                return -circle;
+                return -*circle;
             }
             if circle.vanished() {
-                return Circle {
-                    real: (self.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: self.exponent,
-                };
+                return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
             }
-            if self.is_zero() {
-                return -circle;
-            }
-            return Circle {
-                real: (self.fraction >> 1isize) ^ F::min_value(),
-                imaginary: F::zero(),
-                exponent: self.exponent,
-            };
+            // Fallthrough: shouldn't reach here since at least one operand is non-normal and we've enumerated all classes.
+            Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO)
         }
     }
 }

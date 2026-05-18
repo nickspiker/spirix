@@ -210,7 +210,7 @@ where
             };
         }
 
-        // Escape-class handling (at least one operand is non-normal).
+        // Escape-class handling (at least one operand is non-normal). Mirrors scalar_add_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations.
         {
             if self.is_undefined() {
                 return Circle {
@@ -222,7 +222,18 @@ where
             if circle.is_undefined() {
                 return *circle;
             }
-            if self.is_transfinite() && circle.is_transfinite() {
+            // [∞] absorbs.
+            if self.is_infinite() || circle.is_infinite() {
+                return Circle::<F, E>::INFINITY;
+            }
+            // Zero identity.
+            if self.is_zero() {
+                return *circle;
+            }
+            if circle.is_zero() {
+                return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
+            }
+            if self.exploded() && circle.exploded() {
                 return Circle {
                     real: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_TRANSFINITE.prefix.sa(),
@@ -236,38 +247,37 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_transfinite() {
+            // Self exploded: exp + van = exp; exp + normal = [℘].
+            if self.exploded() {
+                if circle.vanished() {
+                    return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
+                }
                 return Circle {
                     real: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     imaginary: TRANSFINITE_PLUS_FINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if circle.is_transfinite() {
+            // Circle exploded: van + exp = exp; normal + exp = [℘].
+            if circle.exploded() {
+                if self.vanished() {
+                    return *circle;
+                }
                 return Circle {
                     real: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                     imaginary: FINITE_PLUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Single vanished (other is normal — zero/exp/inf/undef already handled).
             if self.vanished() {
                 return *circle;
             }
             if circle.vanished() {
-                return Circle {
-                    real: (self.fraction >> 1isize) ^ F::min_value(),
-                    imaginary: F::zero(),
-                    exponent: self.exponent,
-                };
+                return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
             }
-            if self.is_zero() {
-                return *circle;
-            }
-            Circle {
-                real: (self.fraction >> 1isize) ^ F::min_value(),
-                imaginary: 0.as_(),
-                exponent: self.exponent,
-            }
+            // Fallthrough — at least one non-normal but no class matched (shouldn't reach).
+            Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO)
         }
     }
 }
