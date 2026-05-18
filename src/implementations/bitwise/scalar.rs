@@ -1,5 +1,6 @@
 use crate::core::integer::{Deflate, FullInt, IntConvert, WideOps};
 use crate::core::undefined::*;
+use crate::implementations::bitwise::BitwiseOp;
 use crate::{Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
@@ -374,9 +375,3 @@ where
     }
 }
 
-#[derive(Clone, Copy)]
-enum BitwiseOp {
-    And,
-    Or,
-    Xor,
-}
