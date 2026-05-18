@@ -127,38 +127,43 @@ where
             if c == F::zero() {
                 return Scalar::<F, E>::ZERO;
             }
+            let fb = Self::fraction_bits();
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
             let shift_amount: isize = leading.wrapping_sub(1);
             let shift_e: E = shift_amount.as_();
-            // Wide shift so the high bits actually fall off the top instead of wrapping when leading == FRAC (all-ones / smallest sub-canonical negative pattern like c=-1 in i8). Native `c << leading` would mask the shift count mod FRAC and return c unchanged, sign-flipping the result.
-            let c_wide = c.sign_extend();
-            // Sub-canonical extraction underflow: the silent component normalized into a fraction whose own binade would land below MIN_NORMAL. The cycle-position subtract would wrap through AMBIG and surface as a huge positive Scalar. Detect by `self.exp.into_unsigned() <= shift_amount` and re-shape the component to the N-2 vanished form at AMBIG (mag bit at FRAC-3, shift = leading - 2) instead.
+            // Sub-canonical extraction underflow: the silent component normalized into a fraction whose own binade would land below MIN_NORMAL. The cycle-position subtract would wrap through AMBIG and surface as a huge positive Scalar. Detect by `self.exp.into_unsigned() <= shift_amount` and re-shape the component to the N-2 vanished form at AMBIG (mag bit at FRAC-3, shift = leading - 2) instead. Underflow shift is always strictly less than FRAC (shift = leading - 2 ≤ FRAC - 2), so native `c << shift` is safe.
             if shift_amount > 0
                 && self.exponent.into_unsigned() <= shift_e.into_unsigned()
             {
                 return Scalar {
-                    fraction: c_wide.w_shl(leading.wrapping_sub(2)).deflate(),
+                    fraction: c << leading.wrapping_sub(2),
                     exponent: Scalar::<F, E>::ambiguous_exponent(),
                 };
             }
+            // leading == FRAC happens only when c is all-ones (the smallest sub-canonical negative magnitude like c=-1 in i8). Native `c << FRAC` masks the shift count to 0 and returns c unchanged, sign-flipping the N0 interpretation. The mathematically correct result is "all bits shift off the top" = 0.
+            let fraction: F = if leading >= fb {
+                F::zero()
+            } else {
+                c << leading
+            };
             return Scalar {
-                fraction: c_wide.w_shl(leading).deflate(),
+                fraction,
                 exponent: self.exponent.wrapping_sub(&shift_e),
             };
         }
         if self.exploded() {
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
-            let fraction: F = c.sign_extend().w_shl(leading.wrapping_sub(1)).deflate();
+            // exploded shift = leading - 1 ≤ FRAC - 1, always strictly < FRAC.
             return Scalar {
-                fraction,
+                fraction: c << leading.wrapping_sub(1),
                 exponent: Scalar::<F, E>::ambiguous_exponent(),
             };
         }
         if self.vanished() {
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
-            let fraction: F = c.sign_extend().w_shl(leading.wrapping_sub(2)).deflate();
+            // vanished shift = leading - 2 ≤ FRAC - 2, always strictly < FRAC.
             return Scalar {
-                fraction,
+                fraction: c << leading.wrapping_sub(2),
                 exponent: Scalar::<F, E>::ambiguous_exponent(),
             };
         }
