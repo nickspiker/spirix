@@ -186,6 +186,55 @@ When operations produce mathematically undefined results, Spirix returns distinc
 
 Undefined states propagate thru operations, preserving their cause.
 
+## Display Output
+
+Spirix's `Display` implementation renders normal values as plain signed numbers and reserves bracket notation for the special classes — so a Scalar holding 42 looks like a number, not a sentinel.
+
+### Scalar
+
+| Class | Format | Example |
+|-------|--------|---------|
+| Normal (in-window) | `±d.ddd…` | `+42`, `-3.14159265` |
+| Normal (out-of-window) | `±d.ddd…×B^±exp` | `+9.99999997×A^-7`, `+1.23×A^+12` |
+| Zero | `0` | `0` |
+| Infinity | `⦉∞⦊` | `⦉∞⦊` |
+| Exploded | `⦉±↑⦊` | `⦉+↑⦊`, `⦉-↑⦊` |
+| Vanished | `⦉±↓⦊` | `⦉+↓⦊`, `⦉-↓⦊` |
+| Undefined | `℘<reason>` | `℘⬇/⬇` (zero-over-zero), `℘⬆+⬆` (∞+∞), etc. |
+
+Normal values always carry a sign — `+42` not `42` — so polarity is never silent. The decimal point is omitted for integers (`+42`, not `+42.0`) since the magnitude alone is unambiguous; non-integers get a decimal naturally (`+3.14159265`). Once a value exceeds the width window for the chosen `FxEy` (or falls below `base^-4`), the formatter switches to scientific notation `±d.ddd×B^±exp` where `B` is the digit character for the chosen base (so `A` = base-10, `G` = base-16, etc.).
+
+### Circle
+
+Circles always wrap in `⦇ ⦈` because the comma-separated `real,imag` pair would be ambiguous on its own:
+
+| Class | Format | Example |
+|-------|--------|---------|
+| Normal | `⦇±real,±imag⦈` | `⦇+3,+4⦈`, `⦇-2.5,+1.75⦈` |
+| Normal (out-of-window) | `⦇±r.rrr,±i.iii⦈×B^±exp` | `⦇+0.99,+1.99⦈×A^-6` |
+| Zero | `⦇0⦈` | `⦇0⦈` |
+| Infinity | `⦇∞⦈` | `⦇∞⦈` |
+| Exploded | `⦇↑±dir_r,↑±dir_i⦈` | `⦇↑+0.89442719,↑+0.44721359⦈` (preserves angle) |
+| Vanished | `⦇↓±dir_r%,↓±dir_i%⦈` | `⦇↓+0.89%,↓+0.44%⦈` |
+| Undefined | `℘<reason>` | `℘⬇/⬇` |
+
+Escape-class Circles include the unit-direction (phase) digits because that's the only information the class still carries — magnitude is what was lost, direction survives.
+
+### Format specifiers
+
+| Specifier | Meaning | Example output for `ScalarF5E3::from(255)` |
+|-----------|---------|--------------------------------------------|
+| `{}` | Default (base 10) | `+255` |
+| `{:.2}` | Base 2 (binary) | `+11111111` |
+| `{:.16}` | Base 16 (hex) | `+FF` |
+| `{:.36}` | Base 36 | `+73` |
+| `{:N}` | Width = N digits | `{:4}` → `+255`, `{:2}` → `+2.5×A^+2` |
+| `{:N.B}` | N digits in base B | `{:16.16}` for 16 hex digits |
+| `{:?}` | Debug (raw bits) | binary representation of fraction and exponent |
+| `{:#?}` | Debug (colourized) | binary with class markers |
+
+Precision picks the base (any base 2-36), width controls how many digits before scientific notation kicks in. The base letter in the `×B^` suffix follows the same digit alphabet: `0`-`9` then `A`-`Z`, so base-10 reads as `×A^`, base-16 as `×G^`, etc.
+
 ## Mathematical Operations
 
 ### Arithmetic Operations
