@@ -152,44 +152,30 @@ where
     /// ```
     /// Translate one Circle stored component into a Scalar.
     ///
-    /// Circle value per component: `c * 2^(exp - FRAC + 1)`.
-    /// Scalar value:              `inflate(c) * 2^(exp - FRAC)`.
-    ///
-    /// For normals, `scalar_stored = circle << leading_same(circle)` in F-space: the shift absorbs both the N-1 normalization (leading_same - 1 bits) and the sign-convention flip (+1 bit = the `<< 1` inverse of the forward Scalar→Circle transform).
+    /// The two encodings put the magnitude bit at different positions:
+    ///   Circle N1: mag bit at FRAC-2 (sign bit at FRAC-1 explicit) — value = c × 2^(k − FRAC + 2)
+    ///   Scalar N0: mag bit at FRAC-1 (sign implicit in MSB complement) — value = inflate(c) × 2^(k − FRAC + 1)
+    /// They differ by one bit position, so a canonical Circle component always needs `<< 1` to land at the canonical Scalar position. Sub-canonical components (a non-dominant component of a normal Circle, whose own magnitude bit sits lower than FRAC-2) take more shift — exactly `leading_same(c)` bits — and the over-shift past the +1 must be compensated by lowering the exponent by `leading_same(c) − 1` binades. The Scalar storage parity:
+    ///   fraction = c << leading_same(c)            (the +1 part absorbed by leading_same ≥ 1)
+    ///   exponent = circle.exponent − (leading_same(c) − 1)
+    /// Round-trip with `Circle::from(scalar)` (which does `inflate(true) >> 1 >> deflate`) preserves the value because the two shifts are inverses.
     fn extract_component(&self, c: F) -> Scalar<F, E> {
-        // Escape-class handling — Circle's class determines Scalar's class.
-        if self.is_undefined() {
-            return Scalar {
-                fraction: c,
-                exponent: Scalar::<F, E>::ambiguous_exponent(),
-            };
-        }
-        if self.is_zero() {
-            return Scalar::<F, E>::ZERO;
-        }
-        if self.is_infinite() {
-            return Scalar::<F, E>::INFINITY;
-        }
-        // Escape classes share bit patterns between Scalar and Circle (escapes carry no normal sign bit), so the fraction copies through directly.
-        if self.exploded() || self.vanished() {
-            return Scalar {
-                fraction: c,
-                exponent: Scalar::<F, E>::ambiguous_exponent(),
-            };
-        }
-        // Zero sub-component of a non-zero Circle: becomes Scalar ZERO.
+        // c == 0 for a normal Circle means this is the silent component of a pure-real or pure-imaginary value — return canonical Scalar::ZERO directly. The normal-path math would otherwise produce { fraction: 0, exponent: non-AMBIG }, which fails is_zero() (requires both fraction=0 AND exp=AMBIG) and ends up classified as an escape pattern.
         if c == F::zero() {
             return Scalar::<F, E>::ZERO;
         }
-
-        // Normal translation: single shift by leading_same in F-space.
-        let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
-        let stored: F = c << leading;
-        // Unified AMBIG=0: Circle and Scalar share the same stored exp encoding (stored = logical k ^ E::MIN). The leading-same subtraction accounts for the non-dominant component's binade offset; no extra XOR is needed.
-        let shift_e: E = (leading - 1isize).as_();
+        if self.is_normal() {
+            let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
+            let fraction: F = c << leading;
+            let shift_e: E = leading.wrapping_sub(1).as_();
+            return Scalar {
+                fraction,
+                exponent: self.exponent.wrapping_sub(&shift_e),
+            };
+        }
         Scalar {
-            fraction: stored,
-            exponent: self.exponent.wrapping_sub(&shift_e),
+            fraction: c,
+            exponent: Scalar::<F, E>::ambiguous_exponent(),
         }
     }
 
