@@ -87,14 +87,13 @@ where
             let real = real_wide.w_shl(shift).w_shr(fb).deflate();
             let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
 
-            // AMBIG=0 exp: stored_pos = pa - pb - expo_adjust + binade_origin - 1. expo_adjust = leading - 3.
+            // AMBIG=0 exp: result wide = result_value × 2^(2*FRAC-2). Canonical N1 wide has magnitude bit at 2*FRAC-2 → leading_same=1 means value in [1, 2), leading_same=2 means value in [0.5, 1). The shl(leading-1) puts the fraction at canonical N1, so the exponent compensates by -shift (binade drops by one for every left-shift). stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1. The earlier `- w_one` was an over-correction; the reciprocal-numerator bias is already captured by the wide arithmetic and leading_same.
             let pa = self.exponent.cycle_widen();
             let pb = other.exponent.cycle_widen();
-            let expo_adjust_e: E = leading.wrapping_sub(3).as_();
-            let w_adj = expo_adjust_e.sign_extend();
+            let shift_e: E = leading.wrapping_sub(1).as_();
+            let w_shift = shift_e.sign_extend();
             let w_bo = Self::binade_origin().cycle_widen();
-            let w_one = E::one().cycle_widen();
-            let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
+            let stored_pos = pa.w_sub(pb).w_add(w_bo).w_sub(w_shift);
             let max_pos = Self::max_exponent().cycle_widen();
             let min_pos = Self::min_exponent().cycle_widen();
 

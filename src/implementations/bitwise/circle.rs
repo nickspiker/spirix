@@ -171,7 +171,8 @@ where
             result.normalize_exploded();
             return result;
         }
-        let (big, small) = if self.exponent > other.exponent {
+        // AMBIG=0: compare exponents as unsigned cycle positions (signed `>` on stored exp inverts magnitude order — values with negative logical_k have stored bytes that look "more positive" than positive-k stored bytes).
+        let (big, small) = if self.exponent.into_unsigned() > other.exponent.into_unsigned() {
             (self, other)
         } else {
             (other, self)
@@ -640,7 +641,8 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let (big, small) = if self.exponent > other.exponent {
+        // AMBIG=0: compare exponents as unsigned cycle positions (signed `>` on stored exp inverts magnitude order — values with negative logical_k have stored bytes that look "more positive" than positive-k stored bytes).
+        let (big, small) = if self.exponent.into_unsigned() > other.exponent.into_unsigned() {
             (self, other)
         } else {
             (other, self)
@@ -1092,7 +1094,8 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let (big, small) = if self.exponent > other.exponent {
+        // AMBIG=0: compare exponents as unsigned cycle positions (signed `>` on stored exp inverts magnitude order — values with negative logical_k have stored bytes that look "more positive" than positive-k stored bytes).
+        let (big, small) = if self.exponent.into_unsigned() > other.exponent.into_unsigned() {
             (self, other)
         } else {
             (other, self)

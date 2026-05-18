@@ -156,9 +156,11 @@ where
             };
         }
 
-        // v0.1 ruler: result_exp = floor(self_exp / 2) for both parities. Under old ruler the odd case needed +1 because of the +1 per-operand offset in that ruler's interpretation; v0.1's ruler absorbs that difference.
+        // AMBIG=0: stored = logical ^ binade_origin (E::MIN). Halving must operate on the logical exponent — arithmetic-right-shift floors toward -inf, matching the v0.1 ruler that wants floor(k/2) for both parities. odd is XOR-invariant on bit 0 so it can be read from stored directly.
         let odd: usize = (self.exponent & E::one()).as_();
-        let result_exp = self.exponent >> 1usize;
+        let logical_exp = self.exponent ^ Self::binade_origin();
+        let result_logical = logical_exp >> 1isize;
+        let result_exp = result_logical ^ Self::binade_origin();
 
         // Subtractive restoring binary sqrt on inflated unsigned value. v0.1 ruler: radicand shift is (FRAC-1)+odd (was FRAC+odd under old). Bit pairs extracted on the fly from eff — keeps everything double-wide.
         let fraction = match Self::fraction_bits() {
@@ -301,9 +303,7 @@ where
                         root = root << 1usize;
                     }
                 }
-                if odd != 0 {
-                    root = root >> 1usize;
-                }
+                // v0.1 ruler: shift = (FRAC-1)+odd absorbs the odd-bit, root already at FRAC-bit scale — no halving (matches the 8/16/32/64-bit branches above; the previous `if odd != 0 { root >>= 1 }` was a stale half-bit correction from the old ruler that produced negative N0 fractions for sqrts in the odd-binade tail).
                 // Extract low 128 bits of I256 via byte reassembly.
                 let bytes = root.to_le_bytes();
                 let r_low = i128::from_le_bytes([

@@ -90,14 +90,13 @@ where
             let real = real_wide.w_shl(shift).w_shr(fb).deflate();
             let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
 
-            // Div: stored_pos = pa - pb - expo_adjust + bo - 1.
+            // AMBIG=0 exp: same shape as Circle/Circle div — stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1 captures the left-shift used to normalize the wide result to canonical N1.
             let pa = self.exponent.cycle_widen();
             let pb = other.exponent.cycle_widen();
-            let expo_adjust_e: E = leading.wrapping_sub(3).as_();
-            let w_adj = expo_adjust_e.sign_extend();
+            let shift_e: E = leading.wrapping_sub(1).as_();
+            let w_shift = shift_e.sign_extend();
             let w_bo = Scalar::<F, E>::binade_origin().cycle_widen();
-            let w_one = E::one().cycle_widen();
-            let stored_pos = pa.w_sub(pb).w_sub(w_adj).w_add(w_bo).w_sub(w_one);
+            let stored_pos = pa.w_sub(pb).w_add(w_bo).w_sub(w_shift);
             let max_pos = Scalar::<F, E>::max_exponent().cycle_widen();
             let min_pos = Scalar::<F, E>::min_exponent().cycle_widen();
 

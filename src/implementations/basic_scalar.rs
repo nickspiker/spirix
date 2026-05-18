@@ -951,13 +951,20 @@ where
         // Recover logical k: stored ^ binade_origin.
         let logical_k_e: E = self.exponent ^ Self::binade_origin();
         let logical_k: isize = logical_k_e.saturate();
-        if logical_k >= Self::fraction_bits() {
+        let frac_bits = Self::fraction_bits();
+        if logical_k >= frac_bits.wrapping_sub(1) {
+            // Magnitude bit at FRAC-1 ⇒ logical_k ≥ FRAC-1 means every representable value at this binade is an integer (no fractional sub-bits remain below).
             return true;
+        }
+        if logical_k == -1 {
+            // k=-1 binade covers magnitude in [0.5, 1). The only integer in that range is the boundary value v = -2.0 (stored fraction = 0, decoding to -1.0 once the k=-1 scale is applied). Positive values in [+0.5, +1) and other negatives in (-1, -0.5) are non-integers.
+            return self.fraction == F::zero();
         }
         if logical_k < 0 {
             return false;
         }
-        (self.fraction << logical_k) == F::zero()
+        // For 0 ≤ k < FRAC-1: low (FRAC-1-k) bits of the stored fraction must all be zero (they represent the value's fractional sub-bits). Equivalent to `fraction << (k+1) == 0`.
+        (self.fraction << logical_k.wrapping_add(1)) == F::zero()
     }
 
     /// Returns true if this value is a valid integer within the contiguous integer range

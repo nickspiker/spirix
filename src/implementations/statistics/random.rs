@@ -113,8 +113,10 @@ where
             }
         }
 
-        let max_val: isize = E::max_value().saturate();
-        if (leading as isize) >= max_val {
+        // Compute max_val and the overflow check in E directly. The earlier isize round-trip silently saturated E::MAX for i128 exponents (isize is 64-bit) so stored landed at 2^63 instead of 2^127, putting every draw in a vanished-tail binade where Marsaglia never accepts.
+        let max_val_e: E = E::max_value();
+        let leading_e: E = leading.as_();
+        if leading_e.into_unsigned() >= max_val_e.into_unsigned() {
             // Vanished tail. Canonical N2 fraction: top three bits `a a !a`, low FRAC-3 bits random. Reuse the fraction draw — its MSB picks the sign, the low bits feed the entropy. Spirix N0: MSB=1 (leading_zeros=0) ↔ positive value.
             let low_mask: F = (F::one() << frac_bits.wrapping_sub(3)).wrapping_sub(&F::one());
             let entropy: F = fraction & low_mask;
@@ -129,7 +131,7 @@ where
             };
         }
 
-        let stored: E = (max_val.wrapping_sub(leading as isize)).as_();
+        let stored: E = max_val_e.wrapping_sub(&leading_e);
         Self {
             fraction,
             exponent: stored,
@@ -243,8 +245,10 @@ where
                 }
             }
 
-            let max_val: isize = E::max_value().saturate();
-            if (leading as isize) >= max_val {
+            // Same pattern as Scalar::random — keep max_val and the overflow check in E to avoid the isize-saturate truncation for i128 exponents.
+            let max_val_e: E = E::max_value();
+            let leading_e: E = leading.as_();
+            if leading_e.into_unsigned() >= max_val_e.into_unsigned() {
                 // Vanished tail — canonical N2 pattern with random low bits on both components.
                 let fr: F = F::random();
                 let fi: F = F::random();
@@ -266,7 +270,7 @@ where
                 };
             }
 
-            let stored: E = (max_val.wrapping_sub(leading as isize)).as_();
+            let stored: E = max_val_e.wrapping_sub(&leading_e);
             let mut result = Self {
                 real: F::random(),
                 imaginary: F::random(),

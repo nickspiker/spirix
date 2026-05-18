@@ -148,9 +148,8 @@ where
     /// ```
     fn from(value: R) -> Self {
         let scalar = Scalar::<F, E>::from(value);
-        // Translate Scalar format (implicit sign, FRAC bits) to Circle format (explicit sign, FRAC-1 bits): Circle stored = scalar_inflate >> 1.
-        let is_normal = scalar.exponent != E::min_value();
-        let circle_real: F = if is_normal {
+        // Translate Scalar format (implicit sign, FRAC bits) to Circle format (explicit sign, FRAC-1 bits): Circle stored = scalar_inflate >> 1. AMBIG=0: normal class is stored exponent != 0; the old `!= E::min_value()` check predated AMBIG=0 (when E::MIN was the sentinel) and silently broke `Circle::from(1.5)` once E::MIN became the +1.0 binade.
+        let circle_real: F = if scalar.exponent != E::zero() {
             scalar.fraction.inflate(true).w_shr(1isize).deflate()
         } else {
             // Escape classes: prefix bit patterns differ between formats. ZERO, INFINITY: same bit pattern (all 0s / all 1s). Others: translation via sign_extend >> 1 works (prefix shifts down by 1).
