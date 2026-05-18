@@ -356,8 +356,11 @@ where
         let idx: usize = self.fraction.sa::<u8>() as usize;
         let guess_frac: F = SQRT_LUT[idx].sa();
 
+        // AMBIG=0: halve the *logical* exponent (stored = logical ^ E::MIN, so a raw `>> 1` of stored gives the wrong binade). The Newton seed at result_exp=0 sat at the wrong scale, so every input was being projected to a fixed point unrelated to its real square root.
         let odd: E = self.exponent & E::one();
-        let result_exp = (self.exponent >> 1usize) + odd;
+        let logical_k = self.exponent ^ Self::binade_origin();
+        let result_logical = (logical_k >> 1usize) + odd;
+        let result_exp = result_logical ^ Self::binade_origin();
         let mut guess = Self {
             fraction: guess_frac,
             exponent: result_exp,

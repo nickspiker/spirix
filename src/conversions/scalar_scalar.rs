@@ -116,29 +116,44 @@ where
             if source.is_infinite() {
                 return Self::INFINITY;
             }
-            // ZERO, escaped, undefined: sa preserves the prefix bits (top byte determines class).
+            // ZERO, escaped, undefined: sa preserves the prefix bits (top byte determines class). AMBIG sentinel is exp == 0 under AMBIG=0; previously this returned ED::min_value() which is now the +1.0 binade and corrupted ZERO/escape classes.
             return Self {
                 fraction: source.fraction.sa(),
-                exponent: ED::min_value(),
+                exponent: ED::zero(),
             };
         }
+        // AMBIG=0 cross-width exp conversion: logical k = stored ^ E::MIN. Recover the logical from source, re-encode in destination width. Plain `.as_()` only works when src and dst widths share the same E::MIN bit position, which they don't (i8's MIN is -128 but i16's MIN is -32768). binade_origin() is private outside its defining module, so use E::min_value() directly — semantically equivalent.
+        let logical_es: ES = source.exponent ^ ES::min_value();
         let fraction: FD = source.fraction.sa();
-        if ((core::mem::size_of::<ES>() * 8) as isize)
-            <= ((core::mem::size_of::<ED>() * 8) as isize)
-        {
-            let exponent = source.exponent.as_();
-            return Self { fraction, exponent };
+        let src_bits = (core::mem::size_of::<ES>() * 8) as isize;
+        let dst_bits = (core::mem::size_of::<ED>() * 8) as isize;
+        if src_bits <= dst_bits {
+            // Widening: logical_es fits in ED. Convert via signed widening then re-XOR for dest's binade origin.
+            let logical_ed: ED = logical_es.as_();
+            return Self {
+                fraction,
+                exponent: logical_ed ^ ED::min_value(),
+            };
         }
-        if source.exponent > ED::max_value().as_() {
-            let exponent = ED::min_value();
-            return Self { fraction, exponent };
+        // Narrowing: clamp logical k to dest's representable range [-ED::MAX, ED::MAX] (the reserved -ED::MAX-1 slot would XOR back into the AMBIG sentinel). Anything outside saturates to the AMBIG sentinel — exploded (high) or vanished (low).
+        let logical_ed_max_as_es: ES = ED::max_value().as_();
+        let logical_ed_min_as_es: ES = ES::zero().wrapping_sub(&logical_ed_max_as_es);
+        if logical_es > logical_ed_max_as_es {
+            return Self {
+                fraction,
+                exponent: ED::zero(),
+            };
         }
-        if source.exponent < (ED::min_value() + ED::one()).as_() {
-            let fraction = fraction >> 1isize;
-            let exponent = ED::min_value();
-            return Self { fraction, exponent };
+        if logical_es < logical_ed_min_as_es {
+            return Self {
+                fraction: fraction >> 1isize,
+                exponent: ED::zero(),
+            };
         }
-        let exponent = source.exponent.as_();
-        Self { fraction, exponent }
+        let logical_ed: ED = logical_es.as_();
+        Self {
+            fraction,
+            exponent: logical_ed ^ ED::min_value(),
+        }
     }
 }
