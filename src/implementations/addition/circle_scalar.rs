@@ -215,7 +215,8 @@ where
             };
         }
 
-        if !self.is_normal() || !scalar.is_normal() {
+        // Escape-class handling (at least one operand is non-normal).
+        {
             if self.is_undefined() {
                 return *self;
             }
@@ -271,9 +272,7 @@ where
                     exponent: scalar.exponent,
                 };
             }
-            return *self;
+            *self
         }
-
-        Self::ZERO
     }
 }

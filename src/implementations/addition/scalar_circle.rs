@@ -210,7 +210,8 @@ where
             };
         }
 
-        if !self.is_normal() || !circle.is_normal() {
+        // Escape-class handling (at least one operand is non-normal).
+        {
             if self.is_undefined() {
                 return Circle {
                     real: self.fraction,
@@ -262,12 +263,11 @@ where
             if self.is_zero() {
                 return *circle;
             }
-            return Circle {
+            Circle {
                 real: (self.fraction >> 1isize) ^ F::min_value(),
                 imaginary: 0.as_(),
                 exponent: self.exponent,
-            };
+            }
         }
-        Circle::<F, E>::ZERO
     }
 }
