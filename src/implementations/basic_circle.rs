@@ -130,23 +130,25 @@ where
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
             let shift_amount: isize = leading.wrapping_sub(1);
             let shift_e: E = shift_amount.as_();
+            // Wide shift so the high bits actually fall off the top instead of wrapping when leading == FRAC (all-ones / smallest sub-canonical negative pattern like c=-1 in i8). Native `c << leading` would mask the shift count mod FRAC and return c unchanged, sign-flipping the result.
+            let c_wide = c.sign_extend();
             // Sub-canonical extraction underflow: the silent component normalized into a fraction whose own binade would land below MIN_NORMAL. The cycle-position subtract would wrap through AMBIG and surface as a huge positive Scalar. Detect by `self.exp.into_unsigned() <= shift_amount` and re-shape the component to the N-2 vanished form at AMBIG (mag bit at FRAC-3, shift = leading - 2) instead.
             if shift_amount > 0
                 && self.exponent.into_unsigned() <= shift_e.into_unsigned()
             {
                 return Scalar {
-                    fraction: c << leading.wrapping_sub(2),
+                    fraction: c_wide.w_shl(leading.wrapping_sub(2)).deflate(),
                     exponent: Scalar::<F, E>::ambiguous_exponent(),
                 };
             }
             return Scalar {
-                fraction: c << leading,
+                fraction: c_wide.w_shl(leading).deflate(),
                 exponent: self.exponent.wrapping_sub(&shift_e),
             };
         }
         if self.exploded() {
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
-            let fraction: F = c << leading.wrapping_sub(1);
+            let fraction: F = c.sign_extend().w_shl(leading.wrapping_sub(1)).deflate();
             return Scalar {
                 fraction,
                 exponent: Scalar::<F, E>::ambiguous_exponent(),
@@ -154,7 +156,7 @@ where
         }
         if self.vanished() {
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
-            let fraction: F = c << leading.wrapping_sub(2);
+            let fraction: F = c.sign_extend().w_shl(leading.wrapping_sub(2)).deflate();
             return Scalar {
                 fraction,
                 exponent: Scalar::<F, E>::ambiguous_exponent(),
