@@ -839,3 +839,149 @@ fn xor_truth_table() {
     check("^", np, und, np ^ und, &[Undefined]);
     check("^", inf, und, inf ^ und, &[Undefined]);
 }
+
+// ============================================================ Circle arithmetic class-table tests ============================================================
+// Circle ops should follow the same class-level truth tables as Scalar (the
+// Spirix README defines them at the class level, not Scalar-specific). Here we
+// spot-check the cases where a bug was likely or actually found, especially
+// around INFINITY absorbing (it has to beat is_zero / is_normal etc.).
+
+type C = CircleF3E3;
+
+fn classify_c(c: &C) -> Class {
+    if c.is_undefined() {
+        Class::Undefined
+    } else if c.is_zero() {
+        Class::Zero
+    } else if c.is_infinite() {
+        Class::Infinity
+    } else if c.exploded() {
+        Class::Exploded
+    } else if c.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
+}
+
+fn check_c(op: &str, a: C, b: C, result: C, expected: &[Class]) {
+    let rc = classify_c(&result);
+    if !expected.contains(&rc) {
+        panic!(
+            "Circle {} {} {} = {} (class {}), expected one of {:?}\n  a = {:?}, b = {:?}, result = {:?}",
+            class_name(classify_c(&a)),
+            op,
+            class_name(classify_c(&b)),
+            class_name(rc),
+            rc as u8,
+            expected.iter().map(|c| class_name(*c)).collect::<Vec<_>>(),
+            a,
+            b,
+            result
+        );
+    }
+}
+
+#[test]
+fn circle_multiplication_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // INFINITY absorbs (the regression that motivated this test):
+    check_c("×", inf, np, inf * np, &[Infinity]);
+    check_c("×", np, inf, np * inf, &[Infinity]);
+    check_c("×", inf, ep, inf * ep, &[Infinity]);
+    check_c("×", ep, inf, ep * inf, &[Infinity]);
+    check_c("×", inf, vp, inf * vp, &[Infinity]);
+    check_c("×", vp, inf, vp * inf, &[Infinity]);
+    check_c("×", inf, inf, inf * inf, &[Infinity]);
+
+    // INFINITY × 0 = undefined (math indeterminate)
+    check_c("×", inf, z, inf * z, &[Undefined]);
+    check_c("×", z, inf, z * inf, &[Undefined]);
+
+    // Undefined dominates infinity
+    check_c("×", und, inf, und * inf, &[Undefined]);
+    check_c("×", inf, und, inf * und, &[Undefined]);
+
+    // Standard cases
+    check_c("×", z, z, z * z, &[Zero]);
+    check_c("×", z, np, z * np, &[Zero]);
+    check_c("×", np, ep, np * ep, &[Exploded]);
+    check_c("×", ep, ep, ep * ep, &[Exploded]);
+    check_c("×", vp, vp, vp * vp, &[Vanished]);
+    check_c("×", vp, np, vp * np, &[Vanished]);
+    check_c("×", vp, ep, vp * ep, &[Undefined]);
+    check_c("×", ep, vp, ep * vp, &[Undefined]);
+}
+
+#[test]
+fn circle_addition_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // INFINITY absorbs in addition
+    check_c("+", inf, z, inf + z, &[Infinity]);
+    check_c("+", inf, np, inf + np, &[Infinity]);
+    check_c("+", inf, ep, inf + ep, &[Infinity]);
+    check_c("+", inf, vp, inf + vp, &[Infinity]);
+    check_c("+", inf, inf, inf + inf, &[Infinity]);
+    check_c("+", z, inf, z + inf, &[Infinity]);
+    check_c("+", ep, inf, ep + inf, &[Infinity]);
+
+    // Undefined propagates (beats infinity)
+    check_c("+", und, inf, und + inf, &[Undefined]);
+    check_c("+", inf, und, inf + und, &[Undefined]);
+
+    // Exploded + finite is undefined (could cancel back into normal range)
+    check_c("+", ep, np, ep + np, &[Undefined]);
+    check_c("+", np, ep, np + ep, &[Undefined]);
+    check_c("+", ep, ep, ep + ep, &[Undefined]);
+
+    // Standard
+    check_c("+", z, z, z + z, &[Zero]);
+    check_c("+", z, np, z + np, &[Normal]);
+    check_c("+", ep, z, ep + z, &[Exploded]);
+    check_c("+", ep, vp, ep + vp, &[Exploded]);
+}
+
+#[test]
+fn circle_division_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // INFINITY in numerator absorbs (except /0 and /undef)
+    check_c("/", inf, np, inf / np, &[Infinity]);
+    check_c("/", inf, ep, inf / ep, &[Infinity]);
+    check_c("/", inf, vp, inf / vp, &[Infinity]);
+    check_c("/", inf, z, inf / z, &[Infinity]);
+    check_c("/", inf, inf, inf / inf, &[Undefined]);
+
+    // INFINITY in denominator → zero
+    check_c("/", np, inf, np / inf, &[Zero]);
+    check_c("/", ep, inf, ep / inf, &[Zero]);
+    check_c("/", vp, inf, vp / inf, &[Zero]);
+    check_c("/", z, inf, z / inf, &[Zero]);
+
+    // Division by zero
+    check_c("/", np, z, np / z, &[Infinity]);
+    check_c("/", ep, z, ep / z, &[Infinity]);
+    check_c("/", vp, z, vp / z, &[Infinity]);
+    check_c("/", z, z, z / z, &[Undefined]);
+
+    // Same-class escape divisions are undefined
+    check_c("/", ep, ep, ep / ep, &[Undefined]);
+    check_c("/", vp, vp, vp / vp, &[Undefined]);
+}

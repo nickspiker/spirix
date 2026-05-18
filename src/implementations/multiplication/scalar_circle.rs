@@ -198,6 +198,8 @@ where
                     imaginary: NEGLIGIBLE_MULTIPLY_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
+            } else if self.is_infinite() || other.is_infinite() {
+                return Circle::<F, E>::INFINITY;
             } else if self.is_zero() || other.is_zero() {
                 return Circle::<F, E>::ZERO;
             } else if self.exploded() && other.vanished() {

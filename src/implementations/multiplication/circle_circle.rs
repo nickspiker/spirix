@@ -230,6 +230,10 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
+        // INFINITY absorbs (except against 0 and undefined, handled above). Per truth table: [∞]×anything = [∞].
+        if self.is_infinite() || other.is_infinite() {
+            return Self::INFINITY;
+        }
         if self.is_zero() || other.is_zero() {
             return Self::ZERO;
         }
