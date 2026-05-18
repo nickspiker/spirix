@@ -339,7 +339,8 @@ where
         let mut string = "⦇".to_owned();
         if !self.is_normal() {
             if self.is_infinite() {
-                string.push_str("∞");
+                string.push('∞');
+                string.push('⦈');
             } else if self.exploded() {
                 let direction = self.sign();
                 let mut mag_r = direction.r().magnitude();
@@ -390,6 +391,7 @@ where
                 } else {
                     string.push('0');
                 }
+                string.push('⦈');
             } else if self.vanished() {
                 let direction = self.sign();
                 let mut mag_r = direction.r().magnitude();
@@ -442,6 +444,7 @@ where
                     string.push('0');
                 }
                 string.push('%');
+                string.push('⦈');
             } else {
                 string.push('0');
                 string.push('⦈');

@@ -26,13 +26,13 @@
 //! let x = ScalarF5E3::from(42.5);
 //!
 //! // Default formatting (base-10)
-//! println!("{}", x);  // ⦉+42.5⦊
+//! println!("{}", x);  // +42.5
 //!
 //! // Hexadecimal (base-16)
-//! println!("{:.16}", x);  // ⦉+2A.8⦊
+//! println!("{:.16}", x);  // +2A.8
 //!
 //! // Binary (base-2) with 32 digits
-//! println!("{:32.2}", x);  // ⦉+101010.1⦊
+//! println!("{:32.2}", x);  // +101010.1
 //!
 //! // Debug output shows internal bit pattern
 //! println!("{:?}", x);
@@ -120,9 +120,9 @@ where
     /// ```rust
     /// use spirix::ScalarF5E3;
     /// let x = ScalarF5E3::from(255);
-    /// assert_eq!(format!("{:.16}", x), "⦉+FF⦊");  // Hex
-    /// assert_eq!(format!("{:.2}", x), "⦉+11111111⦊");  // Binary
-    /// assert_eq!(format!("{:4.10}", x), "⦉+255⦊");  // Base-10, max 4 digits
+    /// assert_eq!(format!("{:.16}", x), "+FF");  // Hex
+    /// assert_eq!(format!("{:.2}", x), "+11111111");  // Binary
+    /// assert_eq!(format!("{:4.10}", x), "+255");  // Base-10, max 4 digits
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Extract base from precision specifier (default: base-10)
@@ -331,7 +331,7 @@ where
     ///
     /// # Returns
     ///
-    /// A string with the format `⦉[+/-]digits⦊` for normal values, or special symbols for non-normal values (∞, ↑, ↓, etc.).
+    /// A string with the format `[+/-]digits` for normal values (no brackets — signs always shown, decimal omitted for integers, scientific notation `±d.ddd×base^exp` once the value exceeds the digit window). Non-normal values wrap escape-class tags in `⦉ ⦊`: `⦉∞⦊`, `⦉+↑⦊`, `⦉-↓⦊`, `0` (bare), or `℘<reason>` for undefined.
     ///
     /// # Important Note
     ///
@@ -344,25 +344,31 @@ where
             }
         }
 
-        let mut string = "⦉".to_owned();
+        let mut string = String::new();
         if !self.is_normal() {
+            // Zero: bare "0" (no brackets, no sign — zero has no sign in math). Escape classes (infinity, exploded, vanished) wrap in ⦉ ⦊ so the special tag is clearly demarcated from any surrounding text. Undefined was already handled above with no brackets.
             if self.is_infinite() {
-                string.push_str("∞");
+                string.push('⦉');
+                string.push('∞');
+                string.push('⦊');
             } else if self.exploded() {
+                string.push('⦉');
                 if self.is_negative() {
                     string.push_str("-↑");
                 } else {
-                    string.push_str("+↑")
+                    string.push_str("+↑");
                 };
+                string.push('⦊');
             } else if self.vanished() {
+                string.push('⦉');
                 if self.is_negative() {
                     string.push_str("-↓");
                 } else {
                     string.push_str("+↓");
                 };
+                string.push('⦊');
             } else {
                 string.push('0');
-                string.push('⦊');
             }
         } else {
             let base_scalar = Self::from(base);
@@ -470,14 +476,13 @@ where
                         string.push(digit_char);
                     }
                 }
-                string.push('⦊');
             }
         }
 
         string
     }
 
-    /// Formats large numbers in scientific notation: `⦉±d.ddd...⦊×base^exponent`
+    /// Formats large numbers in scientific notation: `±d.ddd...×base^exponent`
     ///
     /// Used when the number's magnitude is greater than or equal to `base^digits`.
     ///
@@ -543,8 +548,6 @@ where
             }
         }
 
-        result.push('⦊');
-
         result.push('×');
         let base_char = if base < 10 {
             base.wrapping_add(b'0') as char
@@ -582,7 +585,7 @@ where
         result
     }
 
-    /// Formats tiny numbers in scientific notation: `⦉±d.ddd...⦊×base^-exponent`
+    /// Formats tiny numbers in scientific notation: `±d.ddd...×base^-exponent`
     ///
     /// Used when the number's magnitude is less than `base^-4`.
     ///
@@ -655,8 +658,6 @@ where
                 break;
             }
         }
-
-        result.push('⦊');
 
         result.push('×');
         let base_char = if base < 10 {
