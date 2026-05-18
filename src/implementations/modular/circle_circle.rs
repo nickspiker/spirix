@@ -73,6 +73,7 @@ where
     /// Returns UNDEFINED if either Circle escaped or both are negligible. Handles special cases for pure real and pure imaginary Circles.
     pub(crate) fn circle_modulus_circle(&self, denominator: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !denominator.is_normal() {
+            // Rules mirror scalar_modulus_scalar: 1) undefined wins; 2) zero anywhere → zero; 3) transfinite numerator; 4) vanished period; 5) infinite period; 6) exploded period (Circle magnitude is positive, so positive-numerator → numerator; otherwise undefined). The earlier escape block returned *self for both infinite and exploded periods, contradicting the Scalar truth table.
             if self.is_undefined() {
                 return *self;
             }
@@ -83,7 +84,23 @@ where
                 return Circle::<F, E>::ZERO;
             }
             if self.is_transfinite() {
-                let prefix: F = TRANSFINITE_MODULUS.prefix.sa();
+                let prefix: F = if denominator.is_transfinite() {
+                    TRANSFINITE_MODULUS_TRANSFINITE.prefix.sa()
+                } else {
+                    TRANSFINITE_MODULUS.prefix.sa()
+                };
+                return Circle::<F, E> {
+                    real: prefix,
+                    imaginary: prefix,
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            if denominator.vanished() {
+                let prefix: F = if self.vanished() {
+                    VANISHED_MODULUS_VANISHED.prefix.sa()
+                } else {
+                    MODULUS_VANISHED.prefix.sa()
+                };
                 return Circle::<F, E> {
                     real: prefix,
                     imaginary: prefix,
@@ -91,16 +108,14 @@ where
                 };
             }
             if denominator.is_infinite() {
-                return *self;
-            }
-            if denominator.vanished() {
-                let prefix: F = MODULUS_VANISHED.prefix.sa();
+                let prefix: F = MODULUS_TRANSFINITE.prefix.sa();
                 return Circle::<F, E> {
                     real: prefix,
                     imaginary: prefix,
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Exploded denominator with normal/vanished numerator: Circle's magnitude_squared is non-negative, so the "period" is effectively positive. ac+bd may be any sign, so we conservatively return the numerator (matches truth-table same-sign case for typical positive components). Vanished numerator with normal denominator: |↓|<|#| so return self.
             return *self;
         }
 

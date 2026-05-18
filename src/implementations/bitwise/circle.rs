@@ -68,16 +68,29 @@ where
 {
     pub(crate) fn aligned_and(&self, other: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !other.is_normal() {
+            // Mirror Scalar AND: undefined → propagate; [∞] is identity (all-ones); [0] is absorber (all-zeros); same-class escape OR escape&normal → [℘&]; cross-rank ↓&↑ → per-component bit AND. The earlier block lumped infinity in with same-class escape, returning [℘] for the truth-table identity cases.
             if self.is_undefined() {
                 return *self;
             }
             if other.is_undefined() {
                 return *other;
             }
-            if self.is_infinite()
-                || other.is_infinite()
-                || (self.exploded() && other.exploded())
+            // [∞] is identity.
+            if self.is_infinite() {
+                return *other;
+            }
+            if other.is_infinite() {
+                return *self;
+            }
+            // [0] is absorber.
+            if self.is_zero() || other.is_zero() {
+                return Self::ZERO;
+            }
+            // Same-class escape OR escape paired with normal → [℘&].
+            if (self.exploded() && other.exploded())
                 || (self.vanished() && other.vanished())
+                || self.is_normal()
+                || other.is_normal()
             {
                 return Self {
                     real: AND.prefix.sa(),
@@ -85,9 +98,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.is_zero() || other.is_zero() {
-                return Self::ZERO;
-            }
+            // Cross-rank: exactly one vanished, the other exploded. Per-component AND of bit patterns.
             if self.vanished() {
                 let mut result = Self {
                     real: if self.real.is_negative() {
@@ -113,61 +124,24 @@ where
                 }
                 return result;
             }
-            if other.vanished() {
-                let mut result = Self {
-                    real: if other.real.is_negative() {
-                        self.real
-                    } else {
-                        F::zero()
-                    },
-                    imaginary: if other.imaginary.is_negative() {
-                        self.imaginary
-                    } else {
-                        F::zero()
-                    },
-                    exponent: self.exponent,
-                };
-                if result.real == F::zero() && result.imaginary == F::zero() {
-                    result.exponent = Self::ambiguous_exponent();
-                    return result;
-                }
-                if self.exploded() {
-                    result.normalize_exploded();
-                } else {
-                    result.normalize();
-                }
-                return result;
-            }
-            if self.exploded() {
-                let mut result = Self {
-                    real: if other.real.is_negative() {
-                        self.real
-                    } else {
-                        F::zero()
-                    },
-                    imaginary: if other.imaginary.is_negative() {
-                        self.imaginary
-                    } else {
-                        F::zero()
-                    },
-                    exponent: self.exponent,
-                };
-                result.normalize_exploded();
-                return result;
-            }
+            // other.vanished() — symmetric case (self.exploded() && other.vanished()).
             let mut result = Self {
-                real: if self.real.is_negative() {
-                    other.real
+                real: if other.real.is_negative() {
+                    self.real
                 } else {
                     F::zero()
                 },
-                imaginary: if self.imaginary.is_negative() {
-                    other.imaginary
+                imaginary: if other.imaginary.is_negative() {
+                    self.imaginary
                 } else {
                     F::zero()
                 },
-                exponent: other.exponent,
+                exponent: self.exponent,
             };
+            if result.real == F::zero() && result.imaginary == F::zero() {
+                result.exponent = Self::ambiguous_exponent();
+                return result;
+            }
             result.normalize_exploded();
             return result;
         }
@@ -505,25 +479,37 @@ where
     }
     pub(crate) fn aligned_or(&self, other: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !other.is_normal() {
+            // Mirror Scalar OR: undefined → propagate; [∞] is absorber (all-ones); [0] is identity; same-class escape OR escape&normal → [℘|]; cross-rank ↓|↑ → per-component handling. Earlier block returned [℘] for the infinity-absorber cases.
             if self.is_undefined() {
                 return *self;
             }
             if other.is_undefined() {
                 return *other;
             }
-            if self.is_infinite() || other.is_infinite() || (self.exploded() && other.exploded()) {
-                return Self {
-                    real: OR.prefix.sa(),
-                    imaginary: OR.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
+            // [∞] is absorber.
+            if self.is_infinite() || other.is_infinite() {
+                return Self::INFINITY;
             }
+            // [0] is identity.
             if self.is_zero() {
                 return *other;
             }
             if other.is_zero() {
                 return *self;
             }
+            // Same-class escape OR escape paired with normal → [℘|].
+            if (self.exploded() && other.exploded())
+                || (self.vanished() && other.vanished())
+                || self.is_normal()
+                || other.is_normal()
+            {
+                return Self {
+                    real: OR.prefix.sa(),
+                    imaginary: OR.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Cross-rank: exactly one exploded, the other vanished. Per-component bit OR.
             if self.exploded() {
                 if other.real.is_negative() && other.imaginary.is_negative() {
                     return *other;
@@ -592,79 +578,6 @@ where
                 }
                 return *self;
             }
-            if self.is_normal() {
-                if other.real.is_negative() && other.imaginary.is_negative() {
-                    return *other;
-                }
-                if other.real.is_negative() {
-                    let mut result = Scalar {
-                        fraction: self.imaginary,
-                        exponent: self.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: negative_one,
-                        imaginary: result.fraction,
-                        exponent: result.exponent,
-                    };
-                }
-                if other.imaginary.is_negative() {
-                    let mut result = Scalar {
-                        fraction: self.real,
-                        exponent: self.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: result.fraction,
-                        imaginary: negative_one,
-                        exponent: result.exponent,
-                    };
-                }
-                return *self;
-            }
-            if other.is_normal() {
-                if self.real.is_negative() && self.imaginary.is_negative() {
-                    return *self;
-                }
-                if self.real.is_negative() {
-                    let mut result = Scalar {
-                        fraction: other.imaginary,
-                        exponent: other.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: negative_one,
-                        imaginary: result.fraction,
-                        exponent: result.exponent,
-                    };
-                }
-                if self.imaginary.is_negative() {
-                    let mut result = Scalar {
-                        fraction: other.real,
-                        exponent: other.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: result.fraction,
-                        imaginary: negative_one,
-                        exponent: result.exponent,
-                    };
-                }
-                return *other;
-            }
-            return Self {
-                real: OR.prefix.sa(),
-                imaginary: OR.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
         }
         // AMBIG=0: compare exponents as unsigned cycle positions (signed `>` on stored exp inverts magnitude order — values with negative logical_k have stored bytes that look "more positive" than positive-k stored bytes).
         let (big, small) = if self.exponent.into_unsigned() > other.exponent.into_unsigned() {
@@ -1039,25 +952,40 @@ where
     }
     pub(crate) fn aligned_xor(&self, other: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !other.is_normal() {
+            // Mirror Scalar XOR: undefined → propagate; [0] is identity; [∞] inverts (~other); same-class escape OR escape&normal → [℘⊻] (self-XOR cancels to [0] only for deterministic magnitudes — escapes are ambiguous even when bit-identical); cross-rank ↓⊻↑ → exploded (opposite-rank bit patterns XOR to N-1). Earlier block lumped infinity in with same-class escape, breaking [∞]⊻X=~X.
             if self.is_undefined() {
                 return *self;
             }
             if other.is_undefined() {
                 return *other;
             }
-            if self.is_infinite() || other.is_infinite() || (self.exploded() && other.exploded()) {
-                return Self {
-                    real: XOR.prefix.sa(),
-                    imaginary: XOR.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+            // [0] is identity for XOR.
             if self.is_zero() {
                 return *other;
             }
             if other.is_zero() {
                 return *self;
             }
+            // [∞] inverts.
+            if self.is_infinite() {
+                return !*other;
+            }
+            if other.is_infinite() {
+                return !*self;
+            }
+            // Same-class escape OR escape paired with normal → [℘⊻].
+            if (self.exploded() && other.exploded())
+                || (self.vanished() && other.vanished())
+                || self.is_normal()
+                || other.is_normal()
+            {
+                return Self {
+                    real: XOR.prefix.sa(),
+                    imaginary: XOR.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Cross-rank: exactly one exploded, the other vanished. Per-component XOR of bit patterns.
             if self.exploded() {
                 if other.real.is_negative() && other.imaginary.is_negative() {
                     return !self;
@@ -1098,51 +1026,6 @@ where
                 }
                 return *other;
             }
-            if self.is_normal() {
-                if other.real.is_negative() && other.imaginary.is_negative() {
-                    return !self;
-                }
-                if other.real.is_negative() {
-                    return Self {
-                        real: !self.real,
-                        imaginary: self.imaginary,
-                        exponent: self.exponent,
-                    };
-                }
-                if other.imaginary.is_negative() {
-                    return Self {
-                        real: self.real,
-                        imaginary: !self.imaginary,
-                        exponent: self.exponent,
-                    };
-                }
-                return *self;
-            }
-            if other.is_normal() {
-                if self.real.is_negative() && self.imaginary.is_negative() {
-                    return !other;
-                }
-                if self.real.is_negative() {
-                    return Self {
-                        real: !other.real,
-                        imaginary: other.imaginary,
-                        exponent: other.exponent,
-                    };
-                }
-                if self.imaginary.is_negative() {
-                    return Self {
-                        real: other.real,
-                        imaginary: !other.imaginary,
-                        exponent: other.exponent,
-                    };
-                }
-                return *other;
-            }
-            return Self {
-                real: XOR.prefix.sa(),
-                imaginary: XOR.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
         }
         // AMBIG=0: compare exponents as unsigned cycle positions (signed `>` on stored exp inverts magnitude order — values with negative logical_k have stored bytes that look "more positive" than positive-k stored bytes).
         let (big, small) = if self.exponent.into_unsigned() > other.exponent.into_unsigned() {

@@ -72,6 +72,7 @@ where
     /// - Scalar denominator is effectively zero
     pub(crate) fn circle_modulus_scalar(&self, denominator: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !denominator.is_normal() {
+            // Mirror scalar_modulus_scalar rule order, treating Circle's magnitude as the numerator. Circle.magnitude() goes through sqrt which collapses vanished/exploded → undefined, so we classify directly instead of delegating.
             if self.is_undefined() {
                 return Scalar::<F, E> {
                     fraction: self.real,
@@ -85,26 +86,50 @@ where
                 return Scalar::<F, E>::ZERO;
             }
             if self.is_transfinite() {
-                return Scalar::<F, E> {
-                    fraction: TRANSFINITE_MODULUS.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
+                let fraction = if denominator.is_transfinite() {
+                    TRANSFINITE_MODULUS_TRANSFINITE.prefix.sa()
+                } else {
+                    TRANSFINITE_MODULUS.prefix.sa()
                 };
-            }
-            if denominator.is_infinite() {
-                return Scalar::<F, E>::INFINITY;
+                return Scalar::<F, E> { fraction, exponent: Self::ambiguous_exponent() };
             }
             if denominator.vanished() {
+                let fraction = if self.vanished() {
+                    VANISHED_MODULUS_VANISHED.prefix.sa()
+                } else {
+                    MODULUS_VANISHED.prefix.sa()
+                };
+                return Scalar::<F, E> { fraction, exponent: Self::ambiguous_exponent() };
+            }
+            if denominator.is_infinite() {
                 return Scalar::<F, E> {
-                    fraction: MODULUS_VANISHED.prefix.sa(),
+                    fraction: MODULUS_TRANSFINITE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            return Scalar::<F, E> {
-                fraction: GENERAL.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
+            // Exploded denominator with vanished/normal Circle numerator. Circle's magnitude is non-negative; positive_normal denominator → magnitude (vanished or normal); negative diverges.
+            if denominator.exploded() {
+                if !denominator.is_negative() {
+                    return self.r();
+                }
+                if self.vanished() {
+                    return *denominator;
+                }
+                return Scalar::<F, E> {
+                    fraction: MODULUS_TRANSFINITE.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Vanished Circle numerator with normal Scalar period. |↓|<|#| so same-sign returns vanished, diff returns modulus.
+            if self.vanished() {
+                if !denominator.is_negative() {
+                    return self.r();
+                }
+                return *denominator;
+            }
+            return self.r();
         }
-        // Calculate proper magnitude (sqrt of sum of squares) and take scalar %
+        // Normal path: |a+bi| % s.
         self.magnitude().scalar_modulus_scalar(denominator)
     }
     /// Component-wise modulo operation for Circle with Scalar

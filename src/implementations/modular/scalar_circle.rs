@@ -71,6 +71,7 @@ where
     /// - Denominator magnitude (a² + b²) is effectively zero
     pub(crate) fn scalar_modulus_circle(&self, denominator: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !denominator.is_normal() {
+            // Mirrors scalar_modulus_scalar's rule order with Circle's magnitude treated as the period: 1) undefined, 2) zero anywhere, 3) transfinite numerator (distinguishes whether period is also transfinite), 4) vanished period (distinguishes whether numerator vanished), 5) infinite period, 6) exploded period (Circle magnitude is non-negative, so positive numerator → numerator; vanished+diff returns modulus), 7) vanished numerator with normal period. The earlier block returned INFINITY for infinite denominators (rule 5 violation) and copied self.fraction into real+imaginary as N1 (corrupted class — N0 magnitude bit lands at N1 vanished position).
             if self.is_undefined() {
                 return Circle::<F, E> {
                     real: self.fraction,
@@ -85,7 +86,23 @@ where
                 return Circle::<F, E>::ZERO;
             }
             if self.is_transfinite() {
-                let prefix: F = TRANSFINITE_MODULUS.prefix.sa();
+                let prefix: F = if denominator.is_transfinite() {
+                    TRANSFINITE_MODULUS_TRANSFINITE.prefix.sa()
+                } else {
+                    TRANSFINITE_MODULUS.prefix.sa()
+                };
+                return Circle::<F, E> {
+                    real: prefix,
+                    imaginary: prefix,
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            if denominator.vanished() {
+                let prefix: F = if self.vanished() {
+                    VANISHED_MODULUS_VANISHED.prefix.sa()
+                } else {
+                    MODULUS_VANISHED.prefix.sa()
+                };
                 return Circle::<F, E> {
                     real: prefix,
                     imaginary: prefix,
@@ -93,21 +110,37 @@ where
                 };
             }
             if denominator.is_infinite() {
-                return Circle::<F, E>::INFINITY;
-            }
-            if denominator.vanished() {
-                let prefix: F = MODULUS_VANISHED.prefix.sa();
+                let prefix: F = MODULUS_TRANSFINITE.prefix.sa();
                 return Circle::<F, E> {
                     real: prefix,
                     imaginary: prefix,
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            return Circle::<F, E> {
-                real: self.fraction,
-                imaginary: self.fraction,
-                exponent: self.exponent,
-            };
+            // Exploded Circle period: magnitude is non-negative so positive scalar (any class) keeps numerator; negative scalar diverges.
+            if denominator.exploded() {
+                if !self.is_negative() {
+                    return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
+                }
+                if self.vanished() {
+                    return *denominator;
+                }
+                let prefix: F = MODULUS_TRANSFINITE.prefix.sa();
+                return Circle::<F, E> {
+                    real: prefix,
+                    imaginary: prefix,
+                    exponent: Self::ambiguous_exponent(),
+                };
+            }
+            // Vanished numerator with normal Circle period (other classes already handled). |↓|<|#| so |↓| % positive_circle = ↓ for positive scalar; negative diverges to modulus.
+            if self.vanished() {
+                if !self.is_negative() {
+                    return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
+                }
+                return *denominator;
+            }
+            // Fallthrough — shouldn't reach.
+            return Circle::<F, E>::from_ri(*self, Scalar::<F, E>::ZERO);
         }
         // Calculate magnitude squared (a² + b²)
         let magnitude_squared = denominator

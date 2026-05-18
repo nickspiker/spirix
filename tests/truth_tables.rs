@@ -985,3 +985,149 @@ fn circle_division_truth_table() {
     check_c("/", ep, ep, ep / ep, &[Undefined]);
     check_c("/", vp, vp, vp / vp, &[Undefined]);
 }
+
+#[test]
+fn circle_modulus_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // Zero anywhere → zero (matches Scalar rule 2)
+    check_c("%", z, z, z % z, &[Zero]);
+    check_c("%", z, np, z % np, &[Zero]);
+    check_c("%", np, z, np % z, &[Zero]);
+    check_c("%", ep, z, ep % z, &[Zero]);
+
+    // Undefined propagates (rule 1)
+    check_c("%", und, np, und % np, &[Undefined]);
+    check_c("%", np, und, np % und, &[Undefined]);
+
+    // Transfinite numerator → undefined (rule 3); the earlier escape block returned numerator-unchanged for [#]%[∞] and [↓]%[∞].
+    check_c("%", inf, np, inf % np, &[Undefined]);
+    check_c("%", inf, ep, inf % ep, &[Undefined]);
+    check_c("%", inf, inf, inf % inf, &[Undefined]);
+    check_c("%", ep, np, ep % np, &[Undefined]);
+    check_c("%", ep, vp, ep % vp, &[Undefined]);
+    check_c("%", ep, ep, ep % ep, &[Undefined]);
+
+    // Infinite period → undefined (rule 5) — the regression that motivated this test.
+    check_c("%", np, inf, np % inf, &[Undefined]);
+    check_c("%", vp, inf, vp % inf, &[Undefined]);
+
+    // Vanished period → undefined (rule 4)
+    check_c("%", np, vp, np % vp, &[Undefined]);
+    check_c("%", vp, vp, vp % vp, &[Undefined]);
+
+    // Same-sign positive exploded period → numerator (rule 6 same-sign)
+    check_c("%", np, ep, np % ep, &[Normal]);
+}
+
+#[test]
+fn circle_and_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // [0] absorbs.
+    check_c("&", z, z, z & z, &[Zero]);
+    check_c("&", z, np, z & np, &[Zero]);
+    check_c("&", z, inf, z & inf, &[Zero]);
+    check_c("&", inf, z, inf & z, &[Zero]);
+
+    // [∞] is identity — the regression: earlier block lumped infinity with same-class escape, returning [℘&].
+    check_c("&", inf, np, inf & np, &[Normal]);
+    check_c("&", inf, vp, inf & vp, &[Vanished]);
+    check_c("&", inf, ep, inf & ep, &[Exploded]);
+    check_c("&", inf, inf, inf & inf, &[Infinity]);
+    check_c("&", np, inf, np & inf, &[Normal]);
+
+    // Escape ↔ normal (rather than [0]) — earlier escape block fell through to per-component AND returning [0].
+    check_c("&", vp, np, vp & np, &[Undefined]);
+    check_c("&", np, vp, np & vp, &[Undefined]);
+    check_c("&", ep, np, ep & np, &[Undefined]);
+    check_c("&", np, ep, np & ep, &[Undefined]);
+
+    // Same-class escape → [℘&]
+    check_c("&", vp, vp, vp & vp, &[Undefined]);
+    check_c("&", ep, ep, ep & ep, &[Undefined]);
+
+    // Undefined propagates
+    check_c("&", und, np, und & np, &[Undefined]);
+    check_c("&", inf, und, inf & und, &[Undefined]);
+}
+
+#[test]
+fn circle_or_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // [0] is identity
+    check_c("|", z, np, z | np, &[Normal]);
+    check_c("|", np, z, np | z, &[Normal]);
+    check_c("|", z, inf, z | inf, &[Infinity]);
+
+    // [∞] is absorber — the regression.
+    check_c("|", inf, np, inf | np, &[Infinity]);
+    check_c("|", inf, vp, inf | vp, &[Infinity]);
+    check_c("|", inf, ep, inf | ep, &[Infinity]);
+    check_c("|", inf, inf, inf | inf, &[Infinity]);
+    check_c("|", np, inf, np | inf, &[Infinity]);
+
+    // Escape | normal → [℘|]
+    check_c("|", vp, np, vp | np, &[Undefined]);
+    check_c("|", ep, np, ep | np, &[Undefined]);
+    check_c("|", np, vp, np | vp, &[Undefined]);
+    check_c("|", np, ep, np | ep, &[Undefined]);
+
+    // Same-class escape → [℘|]
+    check_c("|", vp, vp, vp | vp, &[Undefined]);
+    check_c("|", ep, ep, ep | ep, &[Undefined]);
+
+    // Undefined propagates
+    check_c("|", und, np, und | np, &[Undefined]);
+}
+
+#[test]
+fn circle_xor_truth_table() {
+    let z = C::ZERO;
+    let vp = C::MIN_POS / 4u16;
+    let np = C::from((3.0f32, 4.0));
+    let ep = C::MAX * C::from((2.0f32, 0.0));
+    let inf = C::INFINITY;
+    let und = z / z;
+
+    // [0] is identity
+    check_c("^", z, np, z ^ np, &[Normal]);
+    check_c("^", np, z, np ^ z, &[Normal]);
+    check_c("^", z, ep, z ^ ep, &[Exploded]);
+    check_c("^", z, inf, z ^ inf, &[Infinity]);
+
+    // [∞] inverts: ∞ ⊻ X = ~X.
+    check_c("^", inf, np, inf ^ np, &[Normal]);
+    check_c("^", inf, vp, inf ^ vp, &[Vanished]);
+    check_c("^", inf, ep, inf ^ ep, &[Exploded]);
+    check_c("^", inf, inf, inf ^ inf, &[Zero]);
+
+    // Escape ⊻ normal → [℘⊻]
+    check_c("^", vp, np, vp ^ np, &[Undefined]);
+    check_c("^", ep, np, ep ^ np, &[Undefined]);
+    check_c("^", np, vp, np ^ vp, &[Undefined]);
+    check_c("^", np, ep, np ^ ep, &[Undefined]);
+
+    // Same-class escape pairs → [℘⊻] (even bit-identical: escape magnitudes ambiguous)
+    check_c("^", vp, vp, vp ^ vp, &[Undefined]);
+    check_c("^", ep, ep, ep ^ ep, &[Undefined]);
+
+    // Undefined propagates
+    check_c("^", und, np, und ^ np, &[Undefined]);
+}
