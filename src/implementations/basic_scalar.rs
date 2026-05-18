@@ -257,47 +257,35 @@ where
     /// assert!(!infinity.is_undefined());
     /// ```
     #[inline]
+    /// XOR fingerprint of the prefix: result bit i = (prefix bit i) XOR (prefix bit i-1). Encodes all four escape-class patterns at once, so each `is_*` check below is a branchless mask. Unsigned shift to skip Rust's `i8::MIN << 1` overflow check.
+    ///   0 or 1   → uniform (prefix == 0 or -1, i.e. ZERO or INFINITY)
+    ///   [2, 63]  → undefined (top 3 same, lower bits not — bit 7 & 6 of XOR clear, but not all-zero)
+    ///   [64, 127] → vanished (top 2 same, third differs — bit 7 of XOR clear, bit 6 set)
+    ///   [128, 255] → exploded (top 2 differ — bit 7 of XOR set)
+    #[inline]
+    fn class_xor(&self) -> u8 {
+        let p = self.prefix() as u8;
+        p ^ (p << 1)
+    }
+
     pub fn is_undefined(&self) -> bool {
-        // Any stored fraction pattern is valid for a normal — prefix classification only applies when exponent == AMBIGUOUS.
         if self.is_normal() {
             return false;
         }
-        // Zero and Infinity are defined
-        if self.is_uniform() {
-            return false;
-        }
-
-        let prefix = self.prefix();
-        // Check if top 3 bits are equal by pushing 5 bits off
-        // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
-        let top_three = prefix >> 5;
-        // Then rotate and compare.  If uniform, they will be the same
-        top_three == top_three.rotate_right(1)
+        let x = self.class_xor();
+        (x & 0xC0) == 0 && x >= 2
     }
 
     pub fn is_uniform(&self) -> bool {
-        if self.is_normal() {
-            return false;
-        }
-        self.prefix() == self.prefix().rotate_right(1)
+        !self.is_normal() && self.class_xor() < 2
     }
 
     pub fn is_exploded(&self) -> bool {
-        if self.is_normal() {
-            return false;
-        }
-        let prefix = self.prefix();
-        let top_two = prefix >> 6;
-        top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8
+        !self.is_normal() && self.class_xor() & 0x80 != 0
     }
 
     pub fn is_vanished(&self) -> bool {
-        if self.is_normal() {
-            return false;
-        }
-        let prefix = self.prefix();
-        let top_three = prefix >> 5;
-        top_three == 0b00000001u8 as i8 || top_three == 0b11111110u8 as i8
+        !self.is_normal() && (self.class_xor() & 0xC0) == 0x40
     }
 
     /// Checks if this Scalar's magnitude is negligible `[0]`, `[↓]`
