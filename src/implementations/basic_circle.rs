@@ -160,7 +160,7 @@ where
         // Escape-class handling — Circle's class determines Scalar's class.
         if self.is_undefined() {
             return Scalar {
-                fraction: self.real,
+                fraction: c,
                 exponent: Scalar::<F, E>::ambiguous_exponent(),
             };
         }
@@ -172,9 +172,6 @@ where
         }
         // Escape classes share bit patterns between Scalar and Circle (escapes carry no normal sign bit), so the fraction copies through directly.
         if self.exploded() || self.vanished() {
-            if c == F::zero() {
-                return Scalar::<F, E>::ZERO;
-            }
             return Scalar {
                 fraction: c,
                 exponent: Scalar::<F, E>::ambiguous_exponent(),
