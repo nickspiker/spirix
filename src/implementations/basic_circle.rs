@@ -836,22 +836,22 @@ where
                     return;
                 }
             }
-            if self.vanished() {
-                self.real = self.real.wrapping_neg();
-                self.imaginary = self.imaginary.wrapping_neg();
+            // Both vanished and exploded share the same shape: wrap_neg each component (with the F::MIN exception, since wrap_neg leaves i_FRAC::MIN unchanged), then renormalize per-component to restore canonical N-1 / N-2 bit patterns. Class must be sampled BEFORE wrap_neg, since wrap_neg can flip the prefix pattern from N-1 to non-N-1 (e.g. 0x40 → 0xC0 turns N-1 pos into N-2 neg pattern).
+            let was_vanished = self.vanished();
+            self.real = if self.real == F::min_value() {
+                Self::pos_one_normal()
+            } else {
+                self.real.wrapping_neg()
+            };
+            self.imaginary = if self.imaginary == F::min_value() {
+                Self::pos_one_normal()
+            } else {
+                self.imaginary.wrapping_neg()
+            };
+            if was_vanished {
                 self.normalize_vanished();
             } else {
-                if self.real == Self::neg_one_normal() {
-                    self.real = Self::pos_one_normal();
-                    self.imaginary = (self.imaginary >> 1isize).wrapping_neg();
-                } else if self.imaginary == Self::neg_one_normal() {
-                    self.imaginary = Self::pos_one_normal();
-                    self.real = (self.real >> 1isize).wrapping_neg();
-                } else {
-                    self.real = self.real.wrapping_neg();
-                    self.imaginary = self.imaginary.wrapping_neg();
-                    self.normalize_exploded()
-                }
+                self.normalize_exploded();
             }
         }
     }
@@ -1330,41 +1330,39 @@ where
         }
     }
 
-    /// Normalizes a vanished Scalar by shifting its fraction to the N-2 position. Sign bits occupy N-0 and N-1, exponent is not touched
+    /// Normalizes a vanished Circle component-by-component to canonical N-2 (mag bit at FRAC-3, top 3 bits = 001 or 110). Exponent untouched — vanished class lives at AMBIG sentinel so the components don't share a binade frame and each can be its own canonical.
     ///
-    /// Example bit positions: 01234567... □□■xxxxx... - Vanished positive numbers ■■□xxxxx... - Vanished negative numbers
+    /// Per-component renorm: a leading_same of 2 is canonical (no shift); >2 means the mag bit is below the canonical position (shift left by leading-2); <2 means leading_same is 1 (top 2 differ, N-1 pattern) — push the mag bit DOWN to N-2 via right shift by (2 - leading_same).
     pub(crate) fn normalize_vanished(&mut self) {
-        let shift_r = self.real.leading_ones().max(self.real.leading_zeros());
-        let shift_i = self
+        let lr: isize = self.real.leading_ones().max(self.real.leading_zeros()) as isize;
+        let li: isize = self
             .imaginary
             .leading_ones()
-            .max(self.imaginary.leading_zeros());
-        let shift: isize = shift_r.min(shift_i).as_();
-
-        if shift > 2 {
-            self.real = self.real << shift.wrapping_sub(2);
-            self.imaginary = self.imaginary << shift.wrapping_sub(2);
-        } else if shift < 2 {
-            self.real = self.real >> 2isize.wrapping_sub(shift);
-            self.imaginary = self.imaginary >> 2isize.wrapping_sub(shift);
+            .max(self.imaginary.leading_zeros()) as isize;
+        if lr > 2 {
+            self.real = self.real << lr.wrapping_sub(2);
+        } else if lr < 2 {
+            self.real = self.real >> 2isize.wrapping_sub(lr);
+        }
+        if li > 2 {
+            self.imaginary = self.imaginary << li.wrapping_sub(2);
+        } else if li < 2 {
+            self.imaginary = self.imaginary >> 2isize.wrapping_sub(li);
         }
     }
 
-    /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.
-    ///
-    /// Example bit positions: 01234567... □■xxxxxx... - Exploded positive numbers ■□xxxxxx... - Exploded negative numbers
+    /// Normalizes an exploded Circle component-by-component to canonical N-1 (mag bit at FRAC-2, top 2 bits = 01 or 10). Exponent untouched. Each component is renormalized independently — exploded class is at AMBIG sentinel, so there's no shared binade constraint linking them.
     pub(crate) fn normalize_exploded(&mut self) {
-        let shift_r = self.real.leading_ones().max(self.real.leading_zeros());
-        let shift_i = self
+        let lr: isize = self.real.leading_ones().max(self.real.leading_zeros()) as isize;
+        let li: isize = self
             .imaginary
             .leading_ones()
-            .max(self.imaginary.leading_zeros());
-        let shift = shift_r.min(shift_i);
-
-        if shift > 1 {
-            let shift = shift as isize;
-            self.real = self.real << shift.wrapping_sub(1);
-            self.imaginary = self.imaginary << shift.wrapping_sub(1);
+            .max(self.imaginary.leading_zeros()) as isize;
+        if lr > 1 {
+            self.real = self.real << lr.wrapping_sub(1);
+        }
+        if li > 1 {
+            self.imaginary = self.imaginary << li.wrapping_sub(1);
         }
     }
 }
