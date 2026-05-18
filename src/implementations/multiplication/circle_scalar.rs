@@ -243,149 +243,27 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             } else {
-                let n_level: isize = if self.exploded() || other.exploded() {
-                    -1
+                // Mixed escape: same shape as scalar_multiply_circle's escape — compute the product via WideOps, renormalize to N-1 (one exploded) or N-2 (both vanished) at AMBIG exp. N0→N1 conversion only applies to normal-class fractions; escape patterns share layout across N0 and N1.
+                let n_level: isize = if self.exploded() || other.exploded() { -1 } else { -2 };
+                let multiplicand_narrow: F = if other.is_normal() {
+                    (other.fraction >> 1isize) ^ F::min_value()
                 } else {
-                    -2
+                    other.fraction
                 };
-                let (real, imaginary) = match Self::fraction_bits() {
-                    8 => {
-                        let multiplier_r: i16 = self.real.as_();
-                        let multiplier_i: i16 = self.imaginary.as_();
-                        // N0→N1 conversion at the Scalar/Circle interaction: (s >> 1) ^ F::MIN.
-                        let multiplicand: i16 =
-                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
-                        let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                        let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
+                let m = multiplicand_narrow.sign_extend();
+                let a = self.real.sign_extend();
+                let b = self.imaginary.sign_extend();
+                let product_r = a.w_mul(m);
+                let product_i = b.w_mul(m);
 
-                        let shift_r = product_wide_r
-                            .leading_ones()
-                            .max(product_wide_r.leading_zeros())
-                            as isize;
-                        let shift_i = product_wide_i
-                            .leading_ones()
-                            .max(product_wide_i.leading_zeros())
-                            as isize;
-                        let shift = shift_r.min(shift_i);
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_wide_r = product_wide_r << shift_amount;
-                        let normalized_wide_i = product_wide_i << shift_amount;
-                        (
-                            (normalized_wide_r >> Self::fraction_bits()).as_(),
-                            (normalized_wide_i >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    16 => {
-                        let multiplier_r: i32 = self.real.as_();
-                        let multiplier_i: i32 = self.imaginary.as_();
-                        let multiplicand: i32 =
-                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
-                        let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                        let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-
-                        let shift_r = product_wide_r
-                            .leading_ones()
-                            .max(product_wide_r.leading_zeros())
-                            as isize;
-                        let shift_i = product_wide_i
-                            .leading_ones()
-                            .max(product_wide_i.leading_zeros())
-                            as isize;
-                        let shift = shift_r.min(shift_i);
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_wide_r = product_wide_r << shift_amount;
-                        let normalized_wide_i = product_wide_i << shift_amount;
-                        (
-                            (normalized_wide_r >> Self::fraction_bits()).as_(),
-                            (normalized_wide_i >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    32 => {
-                        let multiplier_r: i64 = self.real.as_();
-                        let multiplier_i: i64 = self.imaginary.as_();
-                        let multiplicand: i64 =
-                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
-                        let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                        let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-
-                        let shift_r = product_wide_r
-                            .leading_ones()
-                            .max(product_wide_r.leading_zeros())
-                            as isize;
-                        let shift_i = product_wide_i
-                            .leading_ones()
-                            .max(product_wide_i.leading_zeros())
-                            as isize;
-                        let shift = shift_r.min(shift_i);
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_wide_r = product_wide_r << shift_amount;
-                        let normalized_wide_i = product_wide_i << shift_amount;
-                        (
-                            (normalized_wide_r >> Self::fraction_bits()).as_(),
-                            (normalized_wide_i >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    64 => {
-                        let multiplier_r: i128 = self.real.as_();
-                        let multiplier_i: i128 = self.imaginary.as_();
-                        let multiplicand: i128 =
-                            ((other.fraction >> 1isize) ^ F::min_value()).as_();
-                        let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                        let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-
-                        let shift_r = product_wide_r
-                            .leading_ones()
-                            .max(product_wide_r.leading_zeros())
-                            as isize;
-                        let shift_i = product_wide_i
-                            .leading_ones()
-                            .max(product_wide_i.leading_zeros())
-                            as isize;
-                        let shift = shift_r.min(shift_i);
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_wide_r = product_wide_r << shift_amount;
-                        let normalized_wide_i = product_wide_i << shift_amount;
-                        (
-                            (normalized_wide_r >> Self::fraction_bits()).as_(),
-                            (normalized_wide_i >> Self::fraction_bits()).as_(),
-                        )
-                    }
-                    128 => {
-                        let multiplier_r: I256 = self.real.into();
-                        let multiplier_i: I256 = self.imaginary.into();
-                        let multiplicand: I256 =
-                            ((other.fraction >> 1isize) ^ F::min_value()).into();
-                        let product_wide_r = multiplier_r.wrapping_mul(multiplicand);
-                        let product_wide_i = multiplier_i.wrapping_mul(multiplicand);
-
-                        let shift_r = product_wide_r
-                            .leading_ones()
-                            .max(product_wide_r.leading_zeros())
-                            as isize;
-                        let shift_i = product_wide_i
-                            .leading_ones()
-                            .max(product_wide_i.leading_zeros())
-                            as isize;
-                        let shift = shift_r.min(shift_i);
-
-                        let shift_amount = shift.wrapping_add(n_level);
-                        let normalized_wide_r = product_wide_r << shift_amount;
-                        let normalized_wide_i = product_wide_i << shift_amount;
-                        (
-                            (normalized_wide_r >> Self::fraction_bits()).as_i128().as_(),
-                            (normalized_wide_i >> Self::fraction_bits()).as_i128().as_(),
-                        )
-                    }
-                    _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
-                };
-
+                let leading_r = product_r.leading_same();
+                let leading_i = product_i.leading_same();
+                let leading = leading_r.min(leading_i);
+                let shift = leading.wrapping_add(n_level);
+                let fb = Self::fraction_bits();
                 return Self {
-                    real,
-                    imaginary,
+                    real: product_r.w_shl(shift).w_shr(fb).deflate(),
+                    imaginary: product_i.w_shl(shift).w_shr(fb).deflate(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }

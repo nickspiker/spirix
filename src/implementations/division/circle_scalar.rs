@@ -165,127 +165,27 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            let n_level = if self.vanished() || other.exploded() {
-                -2
+            // Mixed escape: divide each Circle component by the (N0→N1 for normal, pass-through for escape) Scalar, renormalize to N-2 (numerator vanished or denom exploded) or N-1 (otherwise) at AMBIG exp.
+            let n_level: isize = if self.vanished() || other.exploded() { -2 } else { -1 };
+            let denom_narrow: F = if other.is_normal() {
+                (other.fraction >> 1isize) ^ F::min_value()
             } else {
-                -1
+                other.fraction
             };
-            let (real, imaginary) = match Self::fraction_bits() {
-                8 => {
-                    let numerator_r: i16 = self.real.as_();
-                    let numerator_i: i16 = self.imaginary.as_();
-                    let denominator: i16 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
+            let s = denom_narrow.sign_extend();
+            let a = self.real.sign_extend();
+            let b = self.imaginary.sign_extend();
+            let fb = Self::fraction_bits();
+            let quotient_r = a.w_shl(fb).w_div(s);
+            let quotient_i = b.w_shl(fb).w_div(s);
 
-                    let mut quotient_r =
-                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
-                    let mut quotient_i =
-                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
-
-                    let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
-                    let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    quotient_r <<= shift;
-                    quotient_i <<= shift;
-
-                    (
-                        (quotient_r >> Self::fraction_bits()).as_(),
-                        (quotient_i >> Self::fraction_bits()).as_(),
-                    )
-                }
-                16 => {
-                    let numerator_r: i32 = self.real.as_();
-                    let numerator_i: i32 = self.imaginary.as_();
-                    let denominator: i32 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
-
-                    let mut quotient_r =
-                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
-                    let mut quotient_i =
-                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
-
-                    let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
-                    let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    quotient_r <<= shift;
-                    quotient_i <<= shift;
-
-                    (
-                        (quotient_r >> Self::fraction_bits()).as_(),
-                        (quotient_i >> Self::fraction_bits()).as_(),
-                    )
-                }
-                32 => {
-                    let numerator_r: i64 = self.real.as_();
-                    let numerator_i: i64 = self.imaginary.as_();
-                    let denominator: i64 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
-
-                    let mut quotient_r =
-                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
-                    let mut quotient_i =
-                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
-
-                    let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
-                    let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    quotient_r <<= shift;
-                    quotient_i <<= shift;
-
-                    (
-                        (quotient_r >> Self::fraction_bits()).as_(),
-                        (quotient_i >> Self::fraction_bits()).as_(),
-                    )
-                }
-                64 => {
-                    let numerator_r: i128 = self.real.as_();
-                    let numerator_i: i128 = self.imaginary.as_();
-                    let denominator: i128 = ((other.fraction >> 1isize) ^ F::min_value()).as_();
-
-                    let mut quotient_r =
-                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
-                    let mut quotient_i =
-                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
-
-                    let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
-                    let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    quotient_r <<= shift;
-                    quotient_i <<= shift;
-
-                    (
-                        (quotient_r >> Self::fraction_bits()).as_(),
-                        (quotient_i >> Self::fraction_bits()).as_(),
-                    )
-                }
-                128 => {
-                    let numerator_r: I256 = self.real.into();
-                    let numerator_i: I256 = self.imaginary.into();
-                    let denominator: I256 = ((other.fraction >> 1isize) ^ F::min_value()).into();
-
-                    let mut quotient_r =
-                        (numerator_r << Self::fraction_bits()).div_euclid(denominator);
-                    let mut quotient_i =
-                        (numerator_i << Self::fraction_bits()).div_euclid(denominator);
-
-                    let leading_r = quotient_r.leading_ones().max(quotient_r.leading_zeros());
-                    let leading_i = quotient_i.leading_ones().max(quotient_i.leading_zeros());
-                    let shift = (leading_r.min(leading_i) as isize).wrapping_add(n_level);
-
-                    quotient_r <<= shift;
-                    quotient_i <<= shift;
-
-                    (
-                        (quotient_r >> Self::fraction_bits()).as_i128().as_(),
-                        (quotient_i >> Self::fraction_bits()).as_i128().as_(),
-                    )
-                }
-                _ => (GENERAL.prefix.sa(), GENERAL.prefix.sa()),
-            };
+            let leading_r = quotient_r.leading_same();
+            let leading_i = quotient_i.leading_same();
+            let leading = leading_r.min(leading_i);
+            let shift = leading.wrapping_add(n_level);
             return Self {
-                real,
-                imaginary,
+                real: quotient_r.w_shl(shift).w_shr(fb).deflate(),
+                imaginary: quotient_i.w_shl(shift).w_shr(fb).deflate(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
