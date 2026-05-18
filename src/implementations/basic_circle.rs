@@ -386,40 +386,22 @@ where
         prefix == prefix.rotate_right(1)
     }
 
+    /// XOR fingerprint of both component prefixes: bit i of the result equals (prefix bit i) XOR (prefix bit i-1) for whichever component has that pair differing. Encodes both N-1 and N-2 class checks in one byte, avoiding the per-bit-pair branches the old version had. Unsigned shift to skip Rust's `i8 << 1` overflow check on prefix = i8::MIN.
+    #[inline]
+    fn class_xor(&self) -> u8 {
+        let pr: u8 = self.real.sa::<i8>() as u8;
+        let pi: u8 = self.imaginary.sa::<i8>() as u8;
+        (pr ^ (pr << 1)) | (pi ^ (pi << 1))
+    }
+
     pub fn is_n1(&self) -> bool {
-        let prefix_r: i8 = self.real.sa();
-        let prefix_i: i8 = self.imaginary.sa();
-
-        let top_two = prefix_r >> 6;
-        if top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8 {
-            return true;
-        }
-
-        let top_two = prefix_i >> 6;
-        top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8
+        // N-1 pattern (top 2 = 01 or 10) ⇔ bit 7 of XOR set on either component ⇔ bit 7 set in OR.
+        self.class_xor() & 0x80 != 0
     }
 
     pub fn is_n2(&self) -> bool {
-        let prefix_r: i8 = self.real.sa();
-        let prefix_i: i8 = self.imaginary.sa();
-
-        let top_two = prefix_r >> 6;
-        if top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8 {
-            return false;
-        }
-
-        let top_two = prefix_i >> 6;
-        if top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8 {
-            return false;
-        }
-
-        let top_three = prefix_r >> 5;
-        if top_three == 0b00000001u8 as i8 || top_three == 0b11111110u8 as i8 {
-            return true;
-        }
-
-        let top_three = prefix_i >> 5;
-        top_three == 0b00000001u8 as i8 || top_three == 0b11111110u8 as i8
+        // N-2 pattern (top 3 = 001 or 110) ⇔ XOR bit 7 clear AND XOR bit 6 set, on the component giving the result. OR across components: if either is N-1, its XOR bit 7 contaminates the OR and the `== 0x40` check fails — exactly the "either N-1 ⇒ not N-2" precedence the old branchy version enforced.
+        (self.class_xor() & 0xC0) == 0x40
     }
 
     /// Returns true if this Circle's magnitude is negligible `[0]`, `[↓]`
