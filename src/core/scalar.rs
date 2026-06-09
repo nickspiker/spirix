@@ -27,24 +27,15 @@ use crate::Integer;
 /// ```txt
 /// Position: 01234567...
 ///
-/// Singular: Zero and Infinity (with AMBIGUOUS_EXPONENT)
-/// □□□□□□□□  Zero [0]
-/// ■■■■■■■■  Infinity [∞]
+/// Singular: Zero and Infinity (with AMBIGUOUS_EXPONENT) □□□□□□□□  Zero [0] ■■■■■■■■  Infinity [∞]
 ///
-/// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent)
-/// ■xxxxxxx  Positive normal [+#]
-/// □xxxxxxx  Negative normal [-#]
+/// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent) ■xxxxxxx  Positive normal [+#] □xxxxxxx  Negative normal [-#]
 ///
-/// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
-/// □■xxxxxx  Positive exploded [+↑]
-/// ■□xxxxxx  Negative exploded [-↑]
+/// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB) □■xxxxxx  Positive exploded [+↑] ■□xxxxxx  Negative exploded [-↑]
 ///
-/// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
-/// □□■xxxxx  Positive vanished [+↓] (approaching but not equal to 0)
-/// ■■□xxxxx  Negative vanished [-↓] (approaching but not equal to 0)
+/// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB) □□■xxxxx  Positive vanished [+↓] (approaching but not equal to 0) ■■□xxxxx  Negative vanished [-↓] (approaching but not equal to 0)
 ///
-/// Undefined (N3+ with AMBIGUOUS_EXPONENT)
-/// □□□xxxxx | ■■■xxxxx  Specific undefined states
+/// Undefined (N3+ with AMBIGUOUS_EXPONENT) □□□xxxxx | ■■■xxxxx  Specific undefined states
 /// ```
 ///
 /// See `undefined.rs` for the complete catalog of undefined patterns.
@@ -54,27 +45,15 @@ use crate::Integer;
 /// ```rust
 /// use spirix::{Scalar, ScalarF5E3};
 ///
-/// // Create a Scalar with 32-bit fraction and 8-bit exponent, roughly equivalent to IEEE 754 binary32
-/// let a = Scalar::<i32, i8>::from(42);
+/// // Create a Scalar with 32-bit fraction and 8-bit exponent, roughly equivalent to IEEE 754 binary32 let a = Scalar::<i32, i8>::from(42_i32);
 ///
-/// // Using a type alias for the same size, note the power of two names 2^5=32 and 2^3=8
-/// let mut b = ScalarF5E3::from(-1);
-/// b /= 12; // Divide -1 by 12 and assign to b
+/// // Using a type alias for the same size, note the power of two names 2^5=32 and 2^3=8 let mut b = ScalarF5E3::from(-1_i32); b /= 12_i32; // Divide -1 by 12 and assign to b
 ///
-/// // Track undefined states while preserving first cause
-/// let zero_div_zero = (a - 42) / 0;
-/// assert!(zero_div_zero.is_undefined());
-/// let still_undefined_zero_div_zero = (zero_div_zero + b).pow(-5.71).log(-0.005);  // first cause is preserved
+/// // Track undefined states while preserving first cause let zero_div_zero: ScalarF5E3 = (a - 42_i32) / 0_i32; assert!(zero_div_zero.is_undefined()); let still_undefined = (zero_div_zero + b).pow(-6_i32).log(ScalarF5E3::from(-1_i32));  // first cause is preserved
 ///
-/// // Escaped values preserve phase
-/// let exploded = ScalarF5E3::MAX * 2;
-/// assert!(exploded.exploded() && exploded.is_positive());
+/// // Escaped values preserve phase let exploded: ScalarF5E3 = ScalarF5E3::MAX * 2_i32; assert!(exploded.exploded() && exploded.is_positive());
 ///
-/// // Vanished values preserve phase too!
-/// let vanished = ScalarF5E3::MAX_NEG / 3;
-/// assert!(vanished.vanished() && vanished.is_negative());
-/// // Absolute operations can be applied to escaped values
-/// assert!(vanished.square().is_positive());
+/// // Vanished values preserve phase too! let vanished: ScalarF5E3 = ScalarF5E3::MAX_NEG / 3_i32; assert!(vanished.vanished() && vanished.is_negative()); // Absolute operations can be applied to escaped values assert!(vanished.square().is_positive());
 /// ```
 #[derive(Clone, Copy)]
 pub struct Scalar<F: Integer, E: Integer> {

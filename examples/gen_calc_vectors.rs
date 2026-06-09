@@ -1,5 +1,4 @@
-// Generate test vectors for Spirix F5E4 converter verification
-// Run: cd /mnt/Octopus/Code/spirix && cargo run --example gen_calc_vectors 2>/dev/null
+// Generate test vectors for Spirix F5E4 converter verification Run: cd /mnt/Octopus/Code/spirix && cargo run --example gen_calc_vectors 2>/dev/null
 use spirix::Scalar;
 type S = Scalar<i32, i16>;
 

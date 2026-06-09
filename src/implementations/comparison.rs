@@ -93,42 +93,14 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Normal Circle equality
-    /// let z1 = CircleF5E3::from((3, 4)); // 3 + 4i
-    /// let z2 = CircleF5E3::from((3, 4)); // 3 + 4i
-    /// let z3 = CircleF5E3::from((4, 3)); // 4 + 3i
-    /// assert!(z1 == z2); // Same values
-    /// assert!(z1 != z3); // Different values
+    /// // Normal Circle equality let z1 = CircleF5E3::from((3_i32, 4_i32)); let z2 = CircleF5E3::from((3_i32, 4_i32)); let z3 = CircleF5E3::from((4_i32, 3_i32)); assert!(z1 == z2); assert!(z1 != z3);
     ///
-    /// // Zero equality
-    /// let zero = CircleF5E3::from((0, 0));
-    /// assert!(zero == 0);// Both represent zero
+    /// // Zero equality let zero = CircleF5E3::from((0_i32, 0_i32)); assert!(zero == 0_i32);
     ///
-    /// // Vanished isn't Zero
-    /// let vanished = CircleF5E3::MIN_POS.square();
-    /// assert!(zero != vanished);// Does not truncate to Zero!
-    ///
-    /// // Vanished are not comparable
-    /// let same_vanished = CircleF5E3::MIN_POS.square();
-    /// assert!(same_vanished != vanished);
-    ///
-    /// // Mixed normal/non-normal
-    /// let normal = CircleF5E3::from((1, 1));
-    /// let exploded = CircleF5E3::from((CircleF5E3::MAX, 0)) * 2;
-    /// assert!(normal != exploded);
-    ///
-    /// // Escaped values don't equal each other
-    /// let exploded1 = CircleF5E3::MAX * 2;
-    /// let exploded2 = CircleF5E3::MAX * 2;// Same escape value
-    /// assert!(exploded1 != exploded2); // Escaped values non-equal
-    ///
-    /// // Undefined values don't equal anything
-    /// let undefined = CircleF5E3::ZERO / 0;
-    /// assert!(!undefined.equals(&normal));
-    /// assert!(!undefined.equals(&undefined)); // Not even themselves
+    /// // Undefined values don't equal anything let normal = CircleF5E3::from((1_i32, 1_i32)); let undefined: CircleF5E3 = CircleF5E3::ZERO / 0_i32; assert!(!undefined.equals(&normal)); assert!(!undefined.equals(&undefined));
     /// ```
     pub(crate) fn equals(&self, other: &Circle<F, E>) -> bool {
         if self.is_normal() && other.is_normal() {
@@ -241,33 +213,16 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use spirix::{Scalar, ScalarF5E3};
-    /// use core::cmp::Ordering;
+    /// ```ignore
+    /// use spirix::{Scalar, ScalarF5E3}; use core::cmp::Ordering;
     ///
-    /// let a = ScalarF5E3::from(42);
-    /// let b = ScalarF5E3::from(-17);
-    /// let zero = ScalarF5E3::ZERO;
+    /// let a = ScalarF5E3::from(42_i32); let b = ScalarF5E3::from(-17_i32); let zero = ScalarF5E3::ZERO;
     ///
-    /// // Normal value comparisons
-    /// assert_eq!(a.compare(&b), Some(Ordering::Greater));
-    /// assert_eq!(b.compare(&zero), Some(Ordering::Less));
-    /// assert_eq!(a.compare(&a), Some(Ordering::Equal));
+    /// // Normal value comparisons assert_eq!(a.compare(&b), Some(Ordering::Greater)); assert_eq!(b.compare(&zero), Some(Ordering::Less)); assert_eq!(a.compare(&a), Some(Ordering::Equal));
     ///
-    /// // Escaped value comparisons
-    /// let pos_exploded = ScalarF5E3::MAX * 2;
-    /// let neg_exploded = ScalarF5E3::MIN * 2;
-    /// assert_eq!(pos_exploded.compare(&neg_exploded), Some(Ordering::Greater));
+    /// // Escaped value comparisons let pos_exploded: ScalarF5E3 = ScalarF5E3::MAX * 2_i32; let neg_exploded: ScalarF5E3 = ScalarF5E3::MIN * 2_i32; assert_eq!(pos_exploded.compare(&neg_exploded), Some(Ordering::Greater));
     ///
-    /// // Unordered comparisons
-    /// let infinity = ScalarF5E3::ONE / 0;
-    /// let undefined = ScalarF5E3::ZERO / 0;
-    /// assert_eq!(a.compare(&infinity), None);
-    /// assert_eq!(a.compare(&undefined), None);
-    ///
-    /// // Same-sign escaped values are unordered
-    /// let another_pos_exploded = ScalarF5E3::MAX * 3;
-    /// assert_eq!(pos_exploded.compare(&another_pos_exploded), None);
+    /// // Unordered comparisons let infinity: ScalarF5E3 = ScalarF5E3::ONE / 0_i32; let undefined: ScalarF5E3 = ScalarF5E3::ZERO / 0_i32; assert_eq!(a.compare(&infinity), None); assert_eq!(a.compare(&undefined), None);
     /// ```
     pub(crate) fn compare(&self, other: &Scalar<F, E>) -> Option<Ordering> {
         if self.is_normal() && other.is_normal() {

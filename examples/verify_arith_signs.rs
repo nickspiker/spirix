@@ -44,8 +44,7 @@ fn f64_op(o: Op, a: f64, b: f64) -> f64 {
     }
 }
 
-// Exact f64 floor_mod for the cases f64 arithmetic can handle.
-// For |a/b| anywhere near 2^52, f64's ULP at that magnitude is ~0.5 to 1, which is enough to misplace the true value relative to an integer boundary and flip the sign of a near-zero floor_mod result. Use a much tighter bound so the rounding error on a/b stays far from 0.5 ULP of any integer. 2^30 gives ULP ≈ 2^-22, safely under any integer-boundary concern.
+// Exact f64 floor_mod for the cases f64 arithmetic can handle. For |a/b| anywhere near 2^52, f64's ULP at that magnitude is ~0.5 to 1, which is enough to misplace the true value relative to an integer boundary and flip the sign of a near-zero floor_mod result. Use a much tighter bound so the rounding error on a/b stays far from 0.5 ULP of any integer. 2^30 gives ULP ≈ 2^-22, safely under any integer-boundary concern.
 fn f64_floor_mod_reliable(a: f64, b: f64) -> Option<f64> {
     if b == 0.0 || a.is_nan() || b.is_nan() {
         return None;

@@ -2,8 +2,7 @@
 ///
 /// Input distribution per width: 25% edge cases (at least one input is non-normal) 75% normal×normal (N1 fracs, mixed exponent proximity)
 ///
-/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp"
-/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG. Op: 0=ADD 1=SUB 2=AND 3=OR 4=XOR
+/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp" Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG. Op: 0=ADD 1=SUB 2=AND 3=OR 4=XOR
 use spirix::Scalar;
 
 /// Simple deterministic PRNG (xorshift64)

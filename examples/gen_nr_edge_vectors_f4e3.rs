@@ -148,9 +148,7 @@ fn main() {
         }
     }
 
-    // Vanished / Normal → GENERAL (vanished is N2, can't feed to NR LUT)
-    // Vanished / Exploded → GENERAL
-    // Exploded / Vanished → GENERAL
+    // Vanished / Normal → GENERAL (vanished is N2, can't feed to NR LUT) Vanished / Exploded → GENERAL Exploded / Vanished → GENERAL
     let general_frac: i16 = 0xFE00u16 as i16; // GENERAL prefix 0xFE, sa-aligned
     for &vf in &vanished_fracs {
         for &(nf, ne) in &normals {

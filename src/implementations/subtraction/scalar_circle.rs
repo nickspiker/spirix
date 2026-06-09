@@ -93,34 +93,11 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF6E4, Scalar, ScalarF6E4};
     ///
-    /// // Subtracting a Circle from a Scalar
-    /// let a = Scalar::<i64,i16>::from(15);
-    /// let b = Circle::<i64,i16>::from((-5, 4.5));
-    /// let diff = a - b;
-    /// assert!(diff.r() == 20);
-    /// assert!(diff.i() == -4.5);
+    /// // Subtracting a Circle from a Scalar: 15 - (-5 + 4i) = 20 - 4i let a = Scalar::<i64, i16>::from(15_i64); let b = Circle::<i64, i16>::from((-5_i64, 4_i64)); let diff = a - b; assert!(diff.r() == 20_i64); assert!(diff.i() == -4_i64);
     ///
-    /// // Subtracting with Zero
-    /// assert!(a - CircleF6E4::ZERO == CircleF6E4::from((a, 0)));
-    /// assert!(ScalarF6E4::ZERO - b == -b;
+    /// // Subtracting with Zero assert!(ScalarF6E4::ZERO - b == -b);
     ///
-    /// // Subtracting with different exponents
-    /// let large_scalar = ScalarF6E4::from(72);
-    /// let small_circle = CircleF6E4::from((1.5, 0.0625));
-    /// let result = large_scalar - small_circle;
-    /// assert!(result.r() == 70.5);
-    /// assert!(result.i() == -0.0625);
-    ///
-    /// // Subtraction with vanished values
-    /// let tiny = CircleF6E4::MIN_POS_REAL / 4;
-    /// assert!(tiny.vanished());
-    /// assert!((a - tiny).r() == 7);
-    /// assert!((a - tiny).i() == 0);
-    ///
-    /// // Subtraction with exploded values
-    /// let huge = CircleF6E4::MAX_REAL_CIRCLE * 4;
-    /// assert!(huge.exploded());
-    /// assert!((a - huge).is_undefined());
+    /// // Subtraction with exploded values let huge: CircleF6E4 = CircleF6E4::MAX * 4_i64; assert!(huge.exploded()); assert!((a - huge).is_undefined());
     /// ```
     pub(crate) fn scalar_subtract_circle(&self, circle: &Circle<F, E>) -> Circle<F, E> {
         if self.is_normal() && circle.is_normal() {

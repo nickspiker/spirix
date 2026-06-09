@@ -70,12 +70,7 @@ where
     /// 0. Checks for escaped values (undefined, exploded, vanished) and applies special case handling
     /// 1. Uses wider integer types for fraction multiplication as product lands in the high half
     /// ```txt
-    ///    □□□□□□□ ■■■■■■■ = Multiplier
-    ///    □□□□□□□ ■■■■■■■ = Multiplicand
-    ///         ⤪⤪⤪⤪⤪⤪      Multiply!
-    ///    ■■■■■■■ □□□□□□□ = Intermediate 2x-bit product space
-    ///        ↘↘↘↘↘↘↘
-    ///            ■■■■■■■ = High half kept, low bits discarded to floor
+    ///    □□□□□□□ ■■■■■■■ = Multiplier □□□□□□□ ■■■■■■■ = Multiplicand ⤪⤪⤪⤪⤪⤪      Multiply! ■■■■■■■ □□□□□□□ = Intermediate 2x-bit product space ↘↘↘↘↘↘↘ ■■■■■■■ = High half kept, low bits discarded to floor
     /// 2. Calculates leading Zeros/Ones to determine normalization shift and exponent nudge
     /// 3. Adds exponents and adjusts by normalization shift (exponent_result = self.exponent + other.exponent - shift)
     /// 4. Handles special cases where exponent exceeds MAX_EXPONENT (explode) or falls below MIN_EXPONENT (vanish)
@@ -190,8 +185,7 @@ where
                 exponent: stored_pos.deflate(),
             };
         }
-        // x86 implementation note: Why this code is NOT signless Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog. Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps.
-        // The wrap happens to be INVISIBLE for the main-path byte extraction (shift = FRAC - leading ≤ FRAC, so the 2^W wrap correction is 0 mod 2^FRAC), which lets us keep signed arithmetic + arith shr = floor for that path. But for exploded/vanished (shift > FRAC), the wrap correction doesn't vanish mod 2^FRAC, so we reluctantly fall back to the magnitude-dance (compute |p|, logical shr, XOR a sign-flip mask). Those paths represent "too big/small to represent normally" so the magnitude precision is already lossy — rounding mode is moot there. In Verilog all of this dissolves: hardware arith shr is free, register width is whatever we declare, and signed/unsigned interpretation is just wire routing. The code below is overhead paid for x86 ISA quirks, not inherent algorithmic cost.
+        // x86 implementation note: Why this code is NOT signless Spirix's fundamental multiply is signless: two's-complement inflated fractions multiplied with arithmetic shift right for floor rounding, no magnitude/sign decomposition anywhere. In the Verilog target this is exactly how it's implemented — one multiplier, one barrel shifter, no sign-separation datapath, no cmov analog. Here in Rust/x86 we're forced into a hybrid because of a platform bit-width accident. Inflated fractions occupy FRAC+1 bits signed (magnitude reaches 2^FRAC at the ±1.0 boundary), so their product needs 2*FRAC+2 bits. Our `Wide` type is only 2*FRAC bits (i16 for i8 stored, i32 for i16, ..., I256 for i128 — Rust has no 2N+2-bit primitive at any width). That leaves us exactly one bit short in the worst case, and the signed multiply wraps. The wrap happens to be INVISIBLE for the main-path byte extraction (shift = FRAC - leading ≤ FRAC, so the 2^W wrap correction is 0 mod 2^FRAC), which lets us keep signed arithmetic + arith shr = floor for that path. But for exploded/vanished (shift > FRAC), the wrap correction doesn't vanish mod 2^FRAC, so we reluctantly fall back to the magnitude-dance (compute |p|, logical shr, XOR a sign-flip mask). Those paths represent "too big/small to represent normally" so the magnitude precision is already lossy — rounding mode is moot there. In Verilog all of this dissolves: hardware arith shr is free, register width is whatever we declare, and signed/unsigned interpretation is just wire routing. The code below is overhead paid for x86 ISA quirks, not inherent algorithmic cost.
         let p_signed = self
             .fraction
             .inflate(true)

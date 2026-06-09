@@ -8,9 +8,7 @@ use core::ops::{Add, Mul};
 
 /// Matrix multiplication (A × B)
 ///
-/// A: (m, n)
-/// B: (n, p)
-/// Result: (m, p)
+/// A: (m, n) B: (n, p) Result: (m, p)
 ///
 /// `zero` parameter is used for initialization (e.g., ScalarF4E4::ZERO)
 pub fn matmul<T>(a: &Tensor<T>, b: &Tensor<T>, zero: T) -> Tensor<T>

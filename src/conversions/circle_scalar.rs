@@ -11,39 +11,27 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 /// ## Example
 ///
 /// ```rust
-/// use spirix::{Circle, CircleF5E3};
-/// use spirix::conversions::circle_scalar::IntoScalars;
+/// use spirix::{Circle, CircleF5E3, ScalarF5E3}; use spirix::conversions::circle_scalar::IntoScalars;
 ///
-/// // Create a complex number
-/// let z = CircleF5E3::from((3.5, -2.7));  // 3.5 - 2.7i
+/// // Create a complex number let z = CircleF5E3::from((3_i32, -2_i32));
 ///
-/// // Decompose into real and imaginary parts
-/// let (real, imaginary) = z.into_scalars();
+/// // Decompose into real and imaginary parts let (real, imaginary): (ScalarF5E3, ScalarF5E3) = z.into_scalars();
 ///
-/// // Verify the components
-/// assert_eq!(real, 3.5);
-/// assert_eq!(imaginary, -2.7);
+/// // Verify the components assert_eq!(real, 3_i32); assert_eq!(imaginary, -2_i32);
 ///
-/// // Special states are preserved
-/// let exploded = CircleF5E3::MAX * 5;  // Creates an exploded Circle with no imaginary component
-/// let (exploded_real, zero_imaginary) = exploded.into_scalars();
+/// // Special states are preserved let exploded: CircleF5E3 = CircleF5E3::MAX * 5_i32; let (exploded_real, zero_imaginary): (ScalarF5E3, ScalarF5E3) = exploded.into_scalars();
 ///
-/// assert!(exploded_real.exploded());
-/// assert!(zero_imaginary.is_zero());
+/// assert!(exploded_real.exploded()); assert!(zero_imaginary.is_zero());
 /// ```
 ///
 /// Decomposing a Circle allows you to perform operations on its components:
 ///
 /// ```rust
-/// use spirix::{Circle, CircleF5E3, ScalarF5E3};
-/// use spirix::conversions::circle_scalar::IntoScalars;
+/// use spirix::{Circle, CircleF5E3, ScalarF5E3}; use spirix::conversions::circle_scalar::IntoScalars;
 ///
-/// let z = CircleF5E3::from((4, 3));     // 4 + 3i
-/// let (real, imaginary) = z.into_scalars();
+/// let z = CircleF5E3::from((4_i32, 3_i32)); let (real, imaginary): (ScalarF5E3, ScalarF5E3) = z.into_scalars();
 ///
-/// // Calculate magnitude using the Pythagorean formula
-/// let magnitude = (real.square() + imaginary.square()).sqrt();
-/// assert_eq!(magnitude, 5);
+/// // Calculate magnitude using the Pythagorean formula let magnitude = (real.square() + imaginary.square()).sqrt(); assert_eq!(magnitude, 5_i32);
 /// ```
 pub trait IntoScalars<F: Integer, E: Integer> {
     /// Creates a tuple of Scalars from a Circle

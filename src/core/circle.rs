@@ -26,21 +26,15 @@ use crate::Integer;
 /// ```txt
 /// Position: 01234567...
 ///
-/// Singular (with AMBIGUOUS_EXPONENT)
-/// □□□□□□□□  Zero [0]
-/// ■■■■■■■■  Infinity [∞]
+/// Singular (with AMBIGUOUS_EXPONENT) □□□□□□□□  Zero [0] ■■■■■■■■  Infinity [∞]
 ///
-/// Normal (N1, explicit sign at MSB; non-AMBIGUOUS exponent)
-/// □■xxxxxx | ■□xxxxxx  Positive / negative normal [#]
+/// Normal (N1, explicit sign at MSB; non-AMBIGUOUS exponent) □■xxxxxx | ■□xxxxxx  Positive / negative normal [#]
 ///
-/// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
-/// □■xxxxxx | ■□xxxxxx  Positive / negative exploded [↑]
+/// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB) □■xxxxxx | ■□xxxxxx  Positive / negative exploded [↑]
 ///
-/// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
-/// □□■xxxxx | ■■□xxxxx  Positive / negative vanished [↓]
+/// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB) □□■xxxxx | ■■□xxxxx  Positive / negative vanished [↓]
 ///
-/// Undefined (N3+ with AMBIGUOUS_EXPONENT)
-/// □□□xxxxx | ■■■xxxxx
+/// Undefined (N3+ with AMBIGUOUS_EXPONENT) □□□xxxxx | ■■■xxxxx
 /// ```
 ///
 /// See `undefined.rs` for the complete catalog of undefined patterns.
@@ -60,31 +54,19 @@ use crate::Integer;
 /// ```rust
 /// use spirix::{Circle, CircleF5E3};
 ///
-/// // Create a Circle with 32-bit components and 8-bit exponent from a tuple (R,I)
-/// let z = Circle::<i32, i8>::from((1.5, 2));
+/// // Create a Circle with 32-bit components and 8-bit exponent from a tuple (R,I) let z = Circle::<i32, i8>::from((3_i32, 4_i32));
 ///
-/// // Using a type alias for the same size with no real component
-/// let w = CircleF5E3::from((0, -16.8));
+/// // Using a type alias for the same size with no real component let w = CircleF5E3::from((0_i32, -7_i32));
 ///
-/// // Using a single real component
-/// let d = CircleF5E3::from(2.2);
+/// // Using a single real component let d = CircleF5E3::from(2_i32);
 ///
-/// // Basic arithmetic
-/// let sum = z + w;
-/// let product = d * w;
+/// // Basic arithmetic let sum = z + w; let product = d * w;
 ///
-/// // Basic arithmetic with primitives
-/// let sum = z + 42;
-/// let product = w.pow(d) * -44.25;
-/// let reciprocal = 1 / d;
+/// // Basic arithmetic with primitives let sum2: CircleF5E3 = z + 42_i32; let product2 = w.pow(d) * -44_i32; let reciprocal: CircleF5E3 = 1_i32 / d;
 ///
-/// // Complex-specific operations
-/// let conj = sum.conjugate();
-/// let magnitude = product.magnitude();
+/// // Complex-specific operations let conj = sum.conjugate(); let magnitude = product.magnitude();
 ///
-/// // Infinity is a singular entity in Spirix
-/// let infinite = z / 0;
-/// assert!(infinite.is_infinite());
+/// // Infinity is a singular entity in Spirix let infinite: CircleF5E3 = z / 0_i32; assert!(infinite.is_infinite());
 /// ```
 #[derive(Clone, Copy)]
 pub struct Circle<F: Integer, E: Integer> {

@@ -16,10 +16,8 @@ impl Circle<$f, $e> {
     /// - Special value handling
     ///
     /// ```
-    /// # use spirix::Circle;
-    /// let raw_circle = Circle::<i32, i8>::new(0b10101 << 26, 0, 6);
-    /// let normal = CircleF5E3::from(42);
-    /// assert!(raw_circle == normal);
+    /// # use spirix::{Circle, CircleF5E3};
+    /// // new() directly sets the raw fields; use from() for automatic normalization let via_from = CircleF5E3::from(42_i32); let via_new = Circle::<i32, i8>::new(via_from.real, via_from.imaginary, via_from.exponent); assert!(via_new == via_from);
     /// ```
     #[inline]
     pub fn new(real: $f, imaginary: $f, exponent: $e) -> Circle<$f, $e> {
@@ -116,12 +114,7 @@ where
 {
     /// Translate one Circle stored component into a Scalar.
     ///
-    /// The two encodings put the magnitude bit at different positions:
-    ///   Circle N1 normal:   mag at FRAC-2 (sign bit at FRAC-1 explicit) — value = c × 2^(k − FRAC + 2)
-    ///   Scalar N0 normal:   mag at FRAC-1 (sign implicit in MSB complement) — value = inflate(c) × 2^(k − FRAC + 1)
-    ///   Circle / Scalar exploded: top-2-bit tag (01 / 10) at FRAC-1..FRAC-2 — patterns match across N0 and N1.
-    ///   Circle / Scalar vanished: top-3-bit tag (001 / 110) at FRAC-1..FRAC-3 — patterns match across N0 and N1.
-    /// Normal needs an extra `+1` shift compared to a "just renormalize to leading_same=0" pass, because of the N1-vs-N0 sign-position offset; the over-shift is then compensated by lowering the exponent by `leading-1` binades. Escape classes need NO extra shift past renormalization, since their tag positions are the same in both encodings: exploded shifts by `leading-1`, vanished by `leading-2`. A pure-real/pure-imaginary normal Circle's silent component (c == 0) would otherwise hit `c << FRAC` and land at `{ fraction: 0, exponent: non-AMBIG }`, which fails `is_zero()` and gets misread as some sub-canonical Scalar — guard that case explicitly.
+    /// The two encodings put the magnitude bit at different positions: Circle N1 normal:   mag at FRAC-2 (sign bit at FRAC-1 explicit) — value = c × 2^(k − FRAC + 2) Scalar N0 normal:   mag at FRAC-1 (sign implicit in MSB complement) — value = inflate(c) × 2^(k − FRAC + 1) Circle / Scalar exploded: top-2-bit tag (01 / 10) at FRAC-1..FRAC-2 — patterns match across N0 and N1. Circle / Scalar vanished: top-3-bit tag (001 / 110) at FRAC-1..FRAC-3 — patterns match across N0 and N1. Normal needs an extra `+1` shift compared to a "just renormalize to leading_same=0" pass, because of the N1-vs-N0 sign-position offset; the over-shift is then compensated by lowering the exponent by `leading-1` binades. Escape classes need NO extra shift past renormalization, since their tag positions are the same in both encodings: exploded shifts by `leading-1`, vanished by `leading-2`. A pure-real/pure-imaginary normal Circle's silent component (c == 0) would otherwise hit `c << FRAC` and land at `{ fraction: 0, exponent: non-AMBIG }`, which fails `is_zero()` and gets misread as some sub-canonical Scalar — guard that case explicitly.
     fn extract_component(&self, c: F) -> Scalar<F, E> {
         if self.is_normal() {
             if c == F::zero() {
@@ -193,21 +186,13 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Real part of a normal complex number
-    /// let complex = Circle::<i32, i8>::from((3.14, 2.71));
-    /// assert!(complex.r() == 3.14);
+    /// // Real part of a normal complex number let complex = Circle::<i32, i8>::from((3_i32, 4_i32)); assert!(complex.r() == 3_i32);
     ///
-    /// // Real part of Zero is Zero
-    /// let zero = CircleF5E3::ZERO;
-    /// assert!(zero.r().is_zero());
+    /// // Real part of Zero is Zero let zero = CircleF5E3::ZERO; assert!(zero.r().is_zero());
     ///
-    /// // Real part of exploded preserves state
-    /// let exploded = CircleF5E3::MAX_REAL * 2;
-    /// assert!(exploded.r().exploded());
+    /// // Real part of exploded preserves state let exploded: CircleF5E3 = CircleF5E3::MAX * 2_i32; assert!(exploded.r().exploded());
     ///
-    /// // Real part of undefined is undefined
-    /// let undefined = zero / 0;
-    /// assert!(undefined.r().is_undefined());
+    /// // Real part of undefined is undefined let undefined: CircleF5E3 = zero / 0_i32; assert!(undefined.r().is_undefined());
     /// ```
     #[inline]
     pub fn r(&self) -> Scalar<F, E> {
@@ -232,23 +217,15 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF5E3};
+    /// use spirix::{Circle, CircleF5E3, ScalarF5E3};
     ///
-    /// // Imaginary part of a normal complex number
-    /// let complex = Circle::<i32, i8>::from((3.14, 2.71));
-    /// assert!(complex.i() == 2.71);
+    /// // Imaginary part of a normal complex number let complex = Circle::<i32, i8>::from((3_i32, 4_i32)); assert!(complex.i() == 4_i32);
     ///
-    /// // Imaginary part of Zero is Zero
-    /// let zero = CircleF5E3::ZERO;
-    /// assert!(zero.i().is_zero());
+    /// // Imaginary part of Zero is Zero let zero = CircleF5E3::ZERO; assert!(zero.i().is_zero());
     ///
-    /// // Imaginary part of exploded preserves state
-    /// let huge = CircleF5E3::from((1, ScalarF5E3::MAX * 2));
-    /// assert!(huge.i().exploded());
+    /// // Imaginary part of exploded preserves state let huge: CircleF5E3 = CircleF5E3::from((1_i32, ScalarF5E3::MAX * 2_i32)); assert!(huge.i().exploded());
     ///
-    /// // Imaginary part of undefined is undefined
-    /// let undefined = zero / 0;
-    /// assert!(undefined.i().is_undefined());
+    /// // Imaginary part of undefined is undefined let undefined: CircleF5E3 = zero / 0_i32; assert!(undefined.i().is_undefined());
     /// ```
     #[inline]
     pub fn i(&self) -> Scalar<F, E> {
@@ -275,33 +252,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF4E4};
     ///
-    /// // Regular complex numbers are normal
-    /// let normal = Circle::<i16, i16>::from((42, 13.5));
-    /// assert!(normal.is_normal());
+    /// // Regular complex numbers are normal let normal = Circle::<i16, i16>::from((42_i16, 13_i16)); assert!(normal.is_normal());
     ///
-    /// // Normal values maintain their normality thru standard operations
-    /// let still_normal = normal * CircleF4E4::from((1, 1)) / 2;
-    /// assert!(still_normal.is_normal());
+    /// // Normal values maintain their normality thru standard operations let still_normal: CircleF4E4 = CircleF4E4::from((42_i16, 13_i16)) * CircleF4E4::from((1_i16, 1_i16)) / 2_i16; assert!(still_normal.is_normal());
     ///
-    /// // Zero is not normal
-    /// let zero = CircleF4E4::ZERO;
-    /// assert!(!zero.is_normal());
+    /// // Zero is not normal let zero = CircleF4E4::ZERO; assert!(!zero.is_normal());
     ///
-    /// // Exploded values are not normal
-    /// let exploded = CircleF4E4::MAX * CircleF4E4::MAX;
-    /// assert!(!exploded.is_normal());
+    /// // Exploded values are not normal let exploded = CircleF4E4::MAX * CircleF4E4::MAX; assert!(!exploded.is_normal());
     ///
-    /// // Vanished values are not normal
-    /// let vanished = CircleF4E4::MIN_POS / 45;
-    /// assert!(!vanished.is_normal());
+    /// // Vanished values are not normal let vanished: CircleF4E4 = CircleF4E4::MIN_POS / 45_i16; assert!(!vanished.is_normal());
     ///
-    /// // Undefined Circles are definitely not normal
-    /// let undefined = CircleF4E4::ONE / 0;
-    /// assert!(!undefined.is_normal());
+    /// // Undefined Circles are definitely not normal let undefined: CircleF4E4 = CircleF4E4::ONE / 0_i16; assert!(!undefined.is_normal());
     ///
-    /// // Operations that exceed representable range escape normality
-    /// let no_longer_normal = CircleF4E4::MAX_NEG.square();
-    /// assert!(!no_longer_normal.is_normal());
+    /// // Operations that exceed representable range escape normality let no_longer_normal = CircleF4E4::MAX_NEG.square(); assert!(!no_longer_normal.is_normal());
     /// ```
     #[inline]
     pub fn is_normal(&self) -> bool {
@@ -328,29 +291,17 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Normal complex numbers are defined
-    /// let normal = CircleF5E3::from((42, 7));
-    /// assert!(!normal.is_undefined());
+    /// // Normal complex numbers are defined let normal = CircleF5E3::from((42_i32, 7_i32)); assert!(!normal.is_undefined());
     ///
-    /// // Infinity is defined
-    /// let infinity = normal / 0;
-    /// assert!(!infinity.is_undefined());
+    /// // Infinity is defined let infinity: CircleF5E3 = normal / 0_i32; assert!(!infinity.is_undefined());
     ///
-    /// // Zero is defined
-    /// let zero = CircleF5E3::ZERO;
-    /// assert!(!zero.is_undefined());
+    /// // Zero is defined let zero = CircleF5E3::ZERO; assert!(!zero.is_undefined());
     ///
-    /// // Escaped values are defined
-    /// let exploded = CircleF5E3::MAX * CircleF5E3::MIN;
-    /// assert!(!exploded.is_undefined());
+    /// // Escaped values are defined let exploded = CircleF5E3::MAX * CircleF5E3::MIN; assert!(!exploded.is_undefined());
     ///
-    /// // Exploded values in certain operations stay defined
-    /// let still_defined = exploded / 561;
-    /// assert!(!still_defined.is_undefined());
+    /// // Exploded values in certain operations stay defined let still_defined: CircleF5E3 = exploded / 561_i32; assert!(!still_defined.is_undefined());
     ///
-    /// // But some operations produce undefined results
-    /// let undefined_exploded_add = still_defined + 1;
-    /// assert!(undefined_exploded_add.is_undefined());
+    /// // But some operations produce undefined results let undefined_exploded_add: CircleF5E3 = still_defined + 1_i32; assert!(undefined_exploded_add.is_undefined());
     /// ```
     #[inline]
     pub fn is_undefined(&self) -> bool {
@@ -370,8 +321,7 @@ where
             return false;
         }
 
-        // Check if top 3 bits are equal by pushing 5 bits off
-        // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
+        // Check if top 3 bits are equal by pushing 5 bits off ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
         let top_three = prefix >> 5;
         // Then rotate and compare.  If uniform, they will be equal
         top_three == top_three.rotate_right(1)
@@ -424,29 +374,17 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF4E5};
     ///
-    /// // Zero: The original negligible number
-    /// let zero = Circle::<i16, i32>::ZERO;
-    /// assert!(zero.is_negligible());
+    /// // Zero: The original negligible number let zero = Circle::<i16, i32>::ZERO; assert!(zero.is_negligible());
     ///
-    /// // A Circle so small it's effectively zero
-    /// let vanished = CircleF4E5::MIN_POS / 57;
-    /// assert!(vanished.is_negligible());
+    /// // A Circle so small it's effectively zero let vanished: CircleF4E5 = CircleF4E5::MIN_POS / 57_i16; assert!(vanished.is_negligible());
     ///
-    /// // Normal values are not negligible
-    /// let normal = CircleF4E5::from((1729, -104.84));
-    /// assert!(!normal.is_negligible());
+    /// // Normal values are not negligible let normal = CircleF4E5::from((1729_i16, -104_i16)); assert!(!normal.is_negligible());
     ///
-    /// // Exploded values are not negligible
-    /// let huge = CircleF4E5::MAX_REAL * CircleF4E5::MIN_REAL;
-    /// assert!(!huge.is_negligible());
+    /// // Exploded values are not negligible let huge = CircleF4E5::MAX * CircleF4E5::MIN; assert!(!huge.is_negligible());
     ///
-    /// // Infinity is not negligible
-    /// let infinity = CircleF4E5::ONE / 0;
-    /// assert!(!infinity.is_negligible());
+    /// // Infinity is not negligible let infinity: CircleF4E5 = CircleF4E5::ONE / 0_i16; assert!(!infinity.is_negligible());
     ///
-    /// // Undefined Circles are not negligible
-    /// let undefined = CircleF4E5::ZERO / 0;
-    /// assert!(!undefined.is_negligible());
+    /// // Undefined Circles are not negligible let undefined: CircleF4E5 = CircleF4E5::ZERO / 0_i16; assert!(!undefined.is_negligible());
     /// ```
     #[inline]
     pub fn is_negligible(&self) -> bool {
@@ -474,29 +412,17 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF4E3};
+    /// use spirix::{Circle, CircleF4E3, Scalar, ScalarF4E3};
     ///
-    /// // Create a ridiculously small Circle
-    /// let vanished = Circle::<i16, i8>::MIN_POS.pow(Scalar::<i16, i8>::MAX);
-    /// assert!(vanished.vanished());
+    /// // Create a ridiculously small Circle let vanished = Circle::<i16, i8>::MIN_POS.pow(Scalar::<i16, i8>::MAX); assert!(vanished.vanished());
     ///
-    /// // Actual Zero is not vanished - it's truly Zero
-    /// let actual_zero = CircleF4E3::ZERO;
-    /// assert!(!actual_zero.vanished());
+    /// // Actual Zero is not vanished - it's truly Zero let actual_zero = CircleF4E3::ZERO; assert!(!actual_zero.vanished());
     ///
-    /// // Normal values are not vanished
-    /// let normal = CircleF4E3::from((42, -0.6));
-    /// assert!(!normal.vanished());
+    /// // Normal values are not vanished let normal = CircleF4E3::from((42_i16, -1_i16)); assert!(!normal.vanished());
     ///
-    /// // Large escaped values aren't vanished - they're exploded!
-    /// let ginormous = CircleF4E3::MAX.pow(ScalarF4E3::MAX);
-    /// assert!(!ginormous.vanished());
-    /// assert!(ginormous.exploded());
+    /// // Large escaped values aren't vanished - they're exploded! let ginormous = CircleF4E3::MAX.pow(ScalarF4E3::MAX); assert!(!ginormous.vanished()); assert!(ginormous.exploded());
     ///
-    /// // Division by a vanished value produces an exploded result
-    /// let exploded = 1 / vanished;
-    /// assert!(exploded.exploded());
-    /// assert!(!exploded.vanished());
+    /// // Division by a vanished value produces an exploded result let exploded: CircleF4E3 = 1_i16 / vanished; assert!(exploded.exploded()); assert!(!exploded.vanished());
     /// ```
     #[inline]
     pub fn vanished(&self) -> bool {
@@ -523,37 +449,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF7E7};
     ///
-    /// // Create a really big Circle
-    /// let gigantic = Circle::<i128, i128>::MAX.square();
-    /// assert!(gigantic.exploded());
+    /// // Create a really big Circle let gigantic = Circle::<i128, i128>::MAX.square(); assert!(gigantic.exploded());
     ///
-    /// // Actual Zero is not exploded
-    /// let actual_zero = CircleF7E7::ZERO;
-    /// assert!(!actual_zero.exploded());
+    /// // Actual Zero is not exploded let actual_zero = CircleF7E7::ZERO; assert!(!actual_zero.exploded());
     ///
-    /// // Normal values are not exploded
-    /// let normal = CircleF7E7::from((42, 13.5));
-    /// assert!(!normal.exploded());
+    /// // Normal values are not exploded let normal = CircleF7E7::from((42_i128, 13_i128)); assert!(!normal.exploded());
     ///
-    /// // Small escaped values aren't exploded - they're vanished!
-    /// let tiny = CircleF7E7::MIN_POS / 12;
-    /// assert!(!tiny.exploded());
-    /// assert!(tiny.vanished());
+    /// // Small escaped values aren't exploded - they're vanished! let tiny: CircleF7E7 = CircleF7E7::MIN_POS / 12_i128; assert!(!tiny.exploded()); assert!(tiny.vanished());
     ///
-    /// // Infinity is not exploded - it's a distinct state
-    /// let infinity = 1 / actual_zero;
-    /// assert!(!infinity.exploded());
-    /// assert!(infinity.is_infinite());
+    /// // Infinity is not exploded - it's a distinct state let infinity: CircleF7E7 = 1_i128 / actual_zero; assert!(!infinity.exploded()); assert!(infinity.is_infinite());
     ///
-    /// // Multiplying or dividing exploded stays exploded
-    /// let still_exploded = gigantic * 7;
-    /// assert!(still_exploded.exploded());
-    /// let also_exploded = gigantic / 7;
-    /// assert!(also_exploded.exploded());
+    /// // Multiplying or dividing exploded stays exploded let still_exploded: CircleF7E7 = gigantic * 7_i128; assert!(still_exploded.exploded()); let also_exploded: CircleF7E7 = gigantic / 7_i128; assert!(also_exploded.exploded());
     ///
-    /// // Division by vanished produces exploded
-    /// let also_exploded = CircleF7E7::ONE / tiny;
-    /// assert!(also_exploded.exploded());
+    /// // Division by vanished produces exploded let also_exploded = CircleF7E7::ONE / tiny; assert!(also_exploded.exploded());
     /// ```
     #[inline]
     pub fn exploded(&self) -> bool {
@@ -583,42 +491,21 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E4};
     ///
-    /// // Exploded Circle is transfinite
-    /// let exploded = CircleF5E4::MAX_REAL * CircleF5E4::MAX_REAL;
-    /// assert!(exploded.is_transfinite());
-    /// assert!(exploded.exploded()); // But it's not infinity
+    /// // Exploded Circle is transfinite let exploded = CircleF5E4::MAX * CircleF5E4::MAX; assert!(exploded.is_transfinite()); assert!(exploded.exploded()); // But it's not infinity
     ///
-    /// // Division by zero produces true mathematical infinity
-    /// let infinity = CircleF5E4::ONE / 0;
-    /// assert!(infinity.is_transfinite());
-    /// assert!(infinity.is_infinite());
-    /// assert!(!infinity.exploded()); // Not the same as exploded
+    /// // Division by zero produces true mathematical infinity let infinity: CircleF5E4 = CircleF5E4::ONE / 0_i32; assert!(infinity.is_transfinite()); assert!(infinity.is_infinite()); assert!(!infinity.exploded()); // Not the same as exploded
     ///
-    /// // Normal complex values are not transfinite
-    /// let normal = CircleF5E4::from((42, 13));
-    /// assert!(!normal.is_transfinite());
+    /// // Normal complex values are not transfinite let normal = CircleF5E4::from((42_i32, 13_i32)); assert!(!normal.is_transfinite());
     ///
-    /// // Zero is not transfinite
-    /// let zero = CircleF5E4::ZERO;
-    /// assert!(!zero.is_transfinite());
+    /// // Zero is not transfinite let zero = CircleF5E4::ZERO; assert!(!zero.is_transfinite());
     ///
-    /// // Vanished values are not transfinite (they're the opposite!)
-    /// let tiny = CircleF5E4::MIN_POS / 1234;
-    /// assert!(!tiny.is_transfinite());
+    /// // Vanished values are not transfinite (they're the opposite!) let tiny: CircleF5E4 = CircleF5E4::MIN_POS / 1234_i32; assert!(!tiny.is_transfinite());
     ///
-    /// // The reciprocal of transfinite is negligible
-    /// let reciprocal = CircleF5E4::ONE / exploded;
-    /// assert!(!reciprocal.is_transfinite());
-    /// assert!(reciprocal.is_negligible());
+    /// // The reciprocal of transfinite is negligible let reciprocal = CircleF5E4::ONE / exploded; assert!(!reciprocal.is_transfinite()); assert!(reciprocal.is_negligible());
     ///
-    /// // Math operations with infinity follow mathematical rules
-    /// let also_infinity = infinity * CircleF5E4::PI;
-    /// assert!(also_infinity.is_transfinite());
-    /// assert!(also_infinity.is_infinite());
+    /// // Math operations with infinity follow mathematical rules let also_infinity = infinity * CircleF5E4::PI; assert!(also_infinity.is_transfinite()); assert!(also_infinity.is_infinite());
     ///
-    /// // Comparisons with infinity are undefined
-    /// let comparison = infinity.max(CircleF5E4::from((1000, 500)));
-    /// assert!(comparison.is_undefined());
+    /// // Adding infinity to a finite value stays infinite let still_inf = infinity + CircleF5E4::from((1000_i32, 500_i32)); assert!(still_inf.is_transfinite());
     /// ```
     #[inline]
     pub fn is_transfinite(&self) -> bool {
@@ -648,41 +535,23 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E4};
     ///
-    /// // Normal values are finite
-    /// let normal = Circle::<i32, i16>::from((42, 2.1));
-    /// assert!(normal.is_finite());
+    /// // Normal values are finite let normal = Circle::<i32, i16>::from((42_i32, 2_i32)); assert!(normal.is_finite());
     ///
-    /// // Zero is finite
-    /// let zero = CircleF5E4::ZERO;
-    /// assert!(zero.is_finite());
+    /// // Zero is finite let zero = CircleF5E4::ZERO; assert!(zero.is_finite());
     ///
-    /// // Complex number with i is finite
-    /// let complex = CircleF5E4::I;
-    /// assert!(complex.is_finite());
+    /// // Complex number with i is finite let complex = CircleF5E4::POS_I; assert!(complex.is_finite());
     ///
-    /// // Exploded values are not finite
-    /// let huge = CircleF5E4::MAX_REAL * 2;
-    /// assert!(!huge.is_finite());
+    /// // Exploded values are not finite let huge: CircleF5E4 = CircleF5E4::MAX * 2_i32; assert!(!huge.is_finite());
     ///
-    /// // Vanished values are not finite
-    /// let tiny = CircleF5E4::MIN_POS / 28;
-    /// assert!(!tiny.is_finite());
+    /// // Vanished values are not finite let tiny: CircleF5E4 = CircleF5E4::MIN_POS / 28_i32; assert!(!tiny.is_finite());
     ///
-    /// // Infinity is not finite
-    /// let infinity = CircleF5E4::ONE / 0;
-    /// assert!(!infinity.is_finite());
+    /// // Infinity is not finite let infinity: CircleF5E4 = CircleF5E4::ONE / 0_i32; assert!(!infinity.is_finite());
     ///
-    /// // Undefined Circles are not finite
-    /// let undefined = CircleF5E4::ZERO / 0;
-    /// assert!(!undefined.is_finite());
+    /// // Undefined Circles are not finite let undefined: CircleF5E4 = CircleF5E4::ZERO / 0_i32; assert!(!undefined.is_finite());
     ///
-    /// // Operations that produce normal results usually return finite values
-    /// let still_finite = normal + CircleF5E4::ONE;
-    /// assert!(still_finite.is_finite());
+    /// // Operations that produce normal results usually return finite values let still_finite: CircleF5E4 = CircleF5E4::from((42_i32, 2_i32)) + CircleF5E4::ONE; assert!(still_finite.is_finite());
     ///
-    /// // Operations that exceed representable range escape finiteness
-    /// let no_longer_finite = CircleF5E4::MAX_REAL + CircleF5E4::MAX_REAL / 2;
-    /// assert!(!no_longer_finite.is_finite());
+    /// // Operations that exceed representable range escape finiteness let no_longer_finite: CircleF5E4 = CircleF5E4::MAX + CircleF5E4::MAX / 2_i32; assert!(!no_longer_finite.is_finite());
     /// ```
     #[inline]
     pub fn is_finite(&self) -> bool {
@@ -709,38 +578,21 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF6E4};
     ///
-    /// // The one and only Zero
-    /// let zero = Circle::<i64, i16>::ZERO;
-    /// assert!(zero.is_zero());
+    /// // The one and only Zero let zero = Circle::<i64, i16>::ZERO; assert!(zero.is_zero());
     ///
-    /// // Even a very small Circle is not Zero
-    /// let tiny = CircleF6E4::MIN_POS / 61;
-    /// assert!(!tiny.is_zero());
-    /// assert!(tiny.vanished());  // It's vanished, not Zero
+    /// // Even a very small Circle is not Zero let tiny: CircleF6E4 = CircleF6E4::MIN_POS / 61_i64; assert!(!tiny.is_zero()); assert!(tiny.vanished());  // It's vanished, not Zero
     ///
-    /// // Normal values are not Zero
-    /// let normal = CircleF6E4::from((42, 17));
-    /// assert!(!normal.is_zero());
+    /// // Normal values are not Zero let normal = CircleF6E4::from((42_i64, 17_i64)); assert!(!normal.is_zero());
     ///
-    /// // Exploded values are not Zero
-    /// let huge = CircleF6E4::MAX_REAL * CircleF6E4::MAX_REAL;
-    /// assert!(!huge.is_zero());
+    /// // Exploded values are not Zero let huge = CircleF6E4::MAX * CircleF6E4::MAX; assert!(!huge.is_zero());
     ///
-    /// // Infinity is not Zero
-    /// let infinity = CircleF6E4::ONE / 0;
-    /// assert!(!infinity.is_zero());
+    /// // Infinity is not Zero let infinity: CircleF6E4 = CircleF6E4::ONE / 0_i64; assert!(!infinity.is_zero());
     ///
-    /// // Undefined states aren't Zero
-    /// let undefined = CircleF6E4::ZERO / 0;
-    /// assert!(!undefined.is_zero());
+    /// // Undefined states aren't Zero let undefined: CircleF6E4 = CircleF6E4::ZERO / 0_i64; assert!(!undefined.is_zero());
     ///
-    /// // Mathematical operations with Zero behave as expected
-    /// let still_zero = zero * CircleF6E4::from((3.5, 4));
-    /// assert!(still_zero.is_zero());
+    /// // Mathematical operations with Zero behave as expected let still_zero = zero * CircleF6E4::from((3_i64, 4_i64)); assert!(still_zero.is_zero());
     ///
-    /// let normal_again = still_zero + CircleF6E4::from((163, -16));
-    /// assert!(!normal_again.is_zero());
-    /// assert!(normal_again.is_normal());
+    /// let normal_again = still_zero + CircleF6E4::from((163_i64, -16_i64)); assert!(!normal_again.is_zero()); assert!(normal_again.is_normal());
     /// ```
     #[inline]
     pub fn is_zero(&self) -> bool {
@@ -769,34 +621,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E4};
     ///
-    /// // Division by zero produces infinity
-    /// let infinity = CircleF5E4::ONE / 0;
-    /// assert!(infinity.is_infinite());
+    /// // Division by zero produces infinity let infinity: CircleF5E4 = CircleF5E4::ONE / 0_i32; assert!(infinity.is_infinite());
     ///
-    /// // Exploded values are not infinity
-    /// let exploded = CircleF5E4::MAX_REAL * CircleF5E4::MAX_REAL;
-    /// assert!(!exploded.is_infinite());
-    /// assert!(exploded.exploded());
+    /// // Exploded values are not infinity let exploded = CircleF5E4::MAX * CircleF5E4::MAX; assert!(!exploded.is_infinite()); assert!(exploded.exploded());
     ///
-    /// // Normal values are not infinity
-    /// let normal = CircleF5E4::from((42, 7.1));
-    /// assert!(!normal.is_infinite());
+    /// // Normal values are not infinity let normal = CircleF5E4::from((42_i32, 7_i32)); assert!(!normal.is_infinite());
     ///
-    /// // Zero is not infinity
-    /// let zero = CircleF5E4::ZERO;
-    /// assert!(!zero.is_infinite());
+    /// // Zero is not infinity let zero = CircleF5E4::ZERO; assert!(!zero.is_infinite());
     ///
-    /// // Undefined values are not infinity
-    /// let undefined = CircleF5E4::ZERO / 0;
-    /// assert!(!undefined.is_infinite());
+    /// // Undefined values are not infinity let undefined: CircleF5E4 = CircleF5E4::ZERO / 0_i32; assert!(!undefined.is_infinite());
     ///
-    /// // Operations with infinity follow mathematical rules
-    /// let still_infinity = infinity * CircleF5E4::from((3, -4.5));
-    /// assert!(still_infinity.is_infinite());
+    /// // Operations with infinity follow mathematical rules let still_infinity = infinity * CircleF5E4::from((3_i32, -4_i32)); assert!(still_infinity.is_infinite());
     ///
-    /// // Indeterminate forms with infinity produce undefined results
-    /// let undefined = infinity + infinity;
-    /// assert!(undefined.is_undefined());
+    /// // Infinity times zero produces undefined let also_undefined: CircleF5E4 = infinity * CircleF5E4::ZERO; assert!(also_undefined.is_undefined());
     /// ```
     #[inline]
     pub fn is_infinite(&self) -> bool {
@@ -828,8 +665,7 @@ where
             let prefix: i8 = self.real.sa();
             let prefix_i: i8 = self.imaginary.sa();
             if prefix == prefix_i {
-                // Test for undefined, Zero and Infinity Check if top 3 bits are equal by pushing 5 bits off
-                // ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
+                // Test for undefined, Zero and Infinity Check if top 3 bits are equal by pushing 5 bits off ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
                 let top_three = prefix >> 5;
                 // Then rotate and compare.  If uniform, they will be equal True for undefined, Zero and Infinity
                 if top_three == top_three.rotate_right(1) {
@@ -876,36 +712,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Conjugate of a standard complex number
-    /// let complex = Circle::<i32, i8>::from((3, 5.6));
-    /// let conj = complex.conjugate();
-    /// assert!(conj.r() == 3);
-    /// assert!(conj.i() == -5.6);
-    /// assert!(complex.magnitude() == conj.magnitude());
+    /// // Conjugate of a standard complex number let complex = Circle::<i32, i8>::from((3_i32, 4_i32)); let conj = complex.conjugate(); assert!(conj.r() == 3_i32); assert!(conj.i() == -4_i32); assert!(complex.magnitude() == conj.magnitude());
     ///
-    /// // Conjugate of a pure real number doesn't change it
-    /// let real = CircleF5E3::from((42, 0));
-    /// assert!(real.conjugate() == real);
+    /// // Conjugate of a pure real number doesn't change it let real = CircleF5E3::from((42_i32, 0_i32)); assert!(real.conjugate() == real);
     ///
-    /// // Conjugate of a pure imaginary number negates it
-    /// let imag = CircleF5E3::from((0, 7));
-    /// assert!(imag.conjugate().i() == -7);
+    /// // Conjugate of a pure imaginary number negates it let imag = CircleF5E3::from((0_i32, 7_i32)); assert!(imag.conjugate().i() == -7_i32);
     ///
-    /// // Conjugate of Zero is Zero
-    /// let zero = CircleF5E3::ZERO;
-    /// assert!(zero.conjugate() == zero);
+    /// // Conjugate of Zero is Zero let zero = CircleF5E3::ZERO; assert!(zero.conjugate() == zero);
     ///
-    /// // Conjugate of Infinity is Infinity
-    /// let infinity = CircleF5E3::ONE / 0;
-    /// assert!(infinity.conjugate().is_infinite());
+    /// // Conjugate of Infinity is Infinity let infinity: CircleF5E3 = CircleF5E3::ONE / 0_i32; assert!(infinity.conjugate().is_infinite());
     ///
-    /// // Conjugate of vanished value preserves vanished state
-    /// let tiny = CircleF5E3::MIN_POS / 42;
-    /// assert!(tiny.conjugate().vanished());
+    /// // Conjugate of vanished value preserves vanished state let tiny: CircleF5E3 = CircleF5E3::MIN_POS / 42_i32; assert!(tiny.conjugate().vanished());
     ///
-    /// // Conjugate of undefined remains undefined
-    /// let undefined = CircleF5E3::ZERO / 0;
-    /// assert!(undefined.conjugate().is_undefined());
+    /// // Conjugate of undefined remains undefined let undefined: CircleF5E3 = CircleF5E3::ZERO / 0_i32; assert!(undefined.conjugate().is_undefined());
     /// ```
     pub fn conjugate(&self) -> Circle<F, E> {
         if self.is_normal() {
@@ -972,44 +791,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Conjugate of a standard complex number
-    /// let mut complex = Circle::<i32, i8>::from((3, 5.6));
-    /// let magnitude = complex.magnitude();
-    /// complex.conjugate_mut();
-    /// assert!(complex.r() == 3);
-    /// assert!(complex.i() == -5.6);
-    /// assert!(complex.magnitude() == magnitude);
+    /// // Conjugate of a standard complex number let mut complex = Circle::<i32, i8>::from((3_i32, 4_i32)); let magnitude = complex.magnitude(); complex.conjugate_mut(); assert!(complex.r() == 3_i32); assert!(complex.i() == -4_i32); assert!(complex.magnitude() == magnitude);
     ///
-    /// // Conjugate of a pure real number doesn't change it
-    /// let mut real = CircleF5E3::from((42, 0));
-    /// let original = real;
-    /// real.conjugate_mut();
-    /// assert!(real == original);
+    /// // Conjugate of a pure real number doesn't change it let mut real = CircleF5E3::from((42_i32, 0_i32)); let original = real; real.conjugate_mut(); assert!(real == original);
     ///
-    /// // Conjugate of a pure imaginary number negates it
-    /// let mut imag = CircleF5E3::from((0, 7));
-    /// imag.conjugate_mut();
-    /// assert!(imag.i() == -7);
+    /// // Conjugate of a pure imaginary number negates it let mut imag = CircleF5E3::from((0_i32, 7_i32)); imag.conjugate_mut(); assert!(imag.i() == -7_i32);
     ///
-    /// // Conjugate of Zero is Zero
-    /// let mut zero = CircleF5E3::ZERO;
-    /// zero.conjugate_mut();
-    /// assert!(zero.is_zero());
+    /// // Conjugate of Zero is Zero let mut zero = CircleF5E3::ZERO; zero.conjugate_mut(); assert!(zero.is_zero());
     ///
-    /// // Conjugate of Infinity remains Infinity
-    /// let mut infinity = CircleF5E3::ONE / 0;
-    /// infinity.conjugate_mut();
-    /// assert!(infinity.is_infinite());
+    /// // Conjugate of Infinity remains Infinity let mut infinity: CircleF5E3 = CircleF5E3::ONE / 0_i32; infinity.conjugate_mut(); assert!(infinity.is_infinite());
     ///
-    /// // Conjugate of vanished value preserves vanished state
-    /// let mut tiny = CircleF5E3::MIN_POS / 42;
-    /// tiny.conjugate_mut();
-    /// assert!(tiny.vanished());
+    /// // Conjugate of vanished value preserves vanished state let mut tiny: CircleF5E3 = CircleF5E3::MIN_POS / 42_i32; tiny.conjugate_mut(); assert!(tiny.vanished());
     ///
-    /// // Conjugate of undefined remains undefined
-    /// let mut undefined = CircleF5E3::ZERO / 0;
-    /// undefined.conjugate_mut();
-    /// assert!(undefined.is_undefined());
+    /// // Conjugate of undefined remains undefined let mut undefined: CircleF5E3 = CircleF5E3::ZERO / 0_i32; undefined.conjugate_mut(); assert!(undefined.is_undefined());
     /// ```
     pub fn conjugate_mut(&mut self) {
         if self.is_normal() {
@@ -1055,33 +849,17 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF4E4, ScalarF4E4};
     ///
-    /// // Magnitude of a standard 3-4-5 triangle
-    /// let complex = Circle::<i16, i16>::from((3, 4));
-    /// assert!(complex.magnitude() == 5);
+    /// // Magnitude of a standard 3-4-5 triangle let complex = Circle::<i16, i16>::from((3_i16, 4_i16)); assert!(complex.magnitude() == 5_i16);
     ///
-    /// // Magnitude of a pure real number is its absolute value
-    /// let real = CircleF4E4::from((-42, 0));
-    /// assert!(real.magnitude() == 42);
+    /// // Magnitude of a pure real number is its absolute value let real = CircleF4E4::from((-42_i16, 0_i16)); assert!(real.magnitude() == 42_i16);
     ///
-    /// // Magnitude of a pure imaginary number is its absolute value
-    /// let imag = CircleF4E4::from((0, -7.2));
-    /// assert!(imag.magnitude() == 7.2);
+    /// // Magnitude of a pure imaginary number is its absolute value let imag = CircleF4E4::from((0_i16, -7_i16)); assert!(imag.magnitude() == 7_i16);
     ///
-    /// // Magnitude of Zero is Zero
-    /// let zero = CircleF4E4::ZERO;
-    /// assert!(zero.magnitude() == ScalarF4E4::ZERO);
+    /// // Magnitude of Zero is Zero let zero = CircleF4E4::ZERO; assert!(zero.magnitude() == ScalarF4E4::ZERO);
     ///
-    /// // Magnitude of Infinity is Infinity
-    /// let infinity = CircleF4E4::ONE / 0;
-    /// assert!(infinity.magnitude().is_infinite());
+    /// // Magnitude of Infinity is Infinity let infinity: CircleF4E4 = CircleF4E4::ONE / 0_i16; assert!(infinity.magnitude().is_infinite());
     ///
-    /// // Magnitude of vanished value is a vanished Scalar
-    /// let tiny = CircleF4E4::MIN_POS / 100;
-    /// assert!(tiny.magnitude().vanished());
-    ///
-    /// // Magnitude of undefined is undefined
-    /// let undefined = CircleF4E4::ZERO / 0;
-    /// assert!(undefined.magnitude().is_undefined());
+    /// // Magnitude of undefined is undefined let undefined: CircleF4E4 = CircleF4E4::ZERO / 0_i16; assert!(undefined.magnitude().is_undefined());
     /// ```
     pub fn magnitude(&self) -> Scalar<F, E> {
         let magnitude_squared = self.magnitude_squared();
@@ -1106,31 +884,19 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF6E2, ScalarF6E2};
+    /// use spirix::{Circle, CircleF6E3, ScalarF6E3};
     ///
-    /// // Squared magnitude of a standard 3-4-5 triangle
-    /// let complex = Circle::<i64, i8>::from((3, 4));
-    /// assert!(complex.magnitude_squared() == 25);
+    /// // Squared magnitude of a standard 3-4-5 triangle let complex = Circle::<i64, i8>::from((3_i64, 4_i64)); assert!(complex.magnitude_squared() == 25_i64);
     ///
-    /// // Squared magnitude of a pure real number
-    /// let real = CircleF6E2::from((4, 0));
-    /// assert!(real.magnitude_squared() == 16);
+    /// // Squared magnitude of a pure real number let real = CircleF6E3::from((4_i64, 0_i64)); assert!(real.magnitude_squared() == 16_i64);
     ///
-    /// // Squared magnitude of a pure imaginary number
-    /// let imag = CircleF6E2::from((0, 5));
-    /// assert!(imag.magnitude_squared() == 25);
+    /// // Squared magnitude of a pure imaginary number let imag = CircleF6E3::from((0_i64, 5_i64)); assert!(imag.magnitude_squared() == 25_i64);
     ///
-    /// // Squared magnitude of Zero is Zero
-    /// let zero = CircleF6E2::ZERO;
-    /// assert!(zero.magnitude_squared() == ScalarF6E2::ZERO);
+    /// // Squared magnitude of Zero is Zero let zero = CircleF6E3::ZERO; assert!(zero.magnitude_squared() == ScalarF6E3::ZERO);
     ///
-    /// // Squared magnitude of Infinity is Infinity
-    /// let infinity = CircleF6E2::ONE / 0;
-    /// assert!(infinity.magnitude_squared().is_infinite());
+    /// // Squared magnitude of Infinity is Infinity let infinity: CircleF6E3 = CircleF6E3::ONE / 0_i64; assert!(infinity.magnitude_squared().is_infinite());
     ///
-    /// // Squared magnitude of undefined is undefined
-    /// let undefined = CircleF6E2::ZERO / 0;
-    /// assert!(undefined.magnitude_squared().is_undefined());
+    /// // Squared magnitude of undefined is undefined let undefined: CircleF6E3 = CircleF6E3::ZERO / 0_i64; assert!(undefined.magnitude_squared().is_undefined());
     /// ```
     pub fn magnitude_squared(&self) -> Scalar<F, E> {
         let real_squared = self.r().square();
@@ -1158,40 +924,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Reciprocal of a real number
-    /// let real = Circle::<i32, i8>::from(4);
-    /// let recip = real.reciprocal();
-    /// assert!(recip.r() == 0.25);
-    /// assert!(recip.i() == 0);
+    /// // Reciprocal of a real number let real = Circle::<i32, i8>::from(4_i32); let recip = real.reciprocal(); assert!(recip.r() == 0.25_f32); assert!(recip.i() == 0_i32);
     ///
-    /// // Reciprocal of a pure imaginary number
-    /// let imag = CircleF5E3::from((0, 2));
-    /// let recip_imag = imag.reciprocal();
-    /// assert!(recip_imag.r() == 0);
-    /// assert!(recip_imag.i() == -0.5);
+    /// // Reciprocal of a pure imaginary number let imag = CircleF5E3::from((0_i32, 2_i32)); let recip_imag = imag.reciprocal(); assert!(recip_imag.r() == 0_i32); assert!(recip_imag.i() == -0.5_f32);
     ///
-    /// // Reciprocal of a general complex number
-    /// let complex = CircleF5E3::from((3, 4));
-    /// let recip_complex = complex.reciprocal();
-    /// assert!((recip_complex.r() - 0.12).magnitude() < 0.01);
-    /// assert!((recip_complex.i() + 0.16).magnitude() < 0.01);
+    /// // Reciprocal of a general complex number let complex = CircleF5E3::from((3_i32, 4_i32)); let recip_complex = complex.reciprocal(); assert!((recip_complex.r() - 0.12_f32).magnitude() < 0.01_f32); assert!((recip_complex.i() + 0.16_f32).magnitude() < 0.01_f32);
     ///
-    /// // Reciprocal relationships
-    /// let z = CircleF5E3::from((1, 1));
-    /// let recip_z = z.reciprocal();
-    /// assert!((z * recip_z - CircleF5E3::ONE).magnitude() < 0.01);
+    /// // Reciprocal relationships let z = CircleF5E3::from((1_i32, 1_i32)); let recip_z = z.reciprocal(); assert!((z * recip_z - CircleF5E3::ONE).magnitude() < 0.01_f32);
     ///
-    /// // Reciprocal of Zero is Infinity
-    /// let zero = CircleF5E3::ZERO;
-    /// assert!(zero.reciprocal().is_infinite());
+    /// // Reciprocal of Zero is Infinity let zero = CircleF5E3::ZERO; assert!(zero.reciprocal().is_infinite());
     ///
-    /// // Reciprocal of Infinity is Zero
-    /// let infinity = CircleF5E3::ONE / 0;
-    /// assert!(infinity.reciprocal().is_zero());
+    /// // Reciprocal of Infinity is Zero let infinity: CircleF5E3 = CircleF5E3::ONE / 0_i32; assert!(infinity.reciprocal().is_zero());
     ///
-    /// // Reciprocal of undefined remains undefined
-    /// let undefined = CircleF5E3::ZERO / 0;
-    /// assert!(undefined.reciprocal().is_undefined());
+    /// // Reciprocal of undefined remains undefined let undefined: CircleF5E3 = CircleF5E3::ZERO / 0_i32; assert!(undefined.reciprocal().is_undefined());
     /// ```
     pub fn reciprocal(&self) -> Circle<F, E> {
         1 / self
@@ -1217,39 +962,19 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E5};
     ///
-    /// // Normalizing a standard complex number
-    /// let complex = Circle::<i32, i32>::from((-3, 0));
-    /// let unit = complex.sign();
-    /// assert!(unit.r() == -1);
-    /// assert!(unit.i() == 0);
+    /// // Normalizing a standard complex number let complex = Circle::<i32, i32>::from((-3_i32, 0_i32)); let unit = complex.sign(); assert!(unit.r() == -1_i32); assert!(unit.i() == 0_i32);
     ///
-    /// // Normalizing a complex number with both components
-    /// let z = CircleF5E5::from((1, 1));
-    /// let unit_z = z.sign();
-    /// assert!(unit_z.magnitude() == 1);
+    /// // Normalizing a complex number with both components let z = CircleF5E5::from((1_i32, 1_i32)); let unit_z = z.sign(); assert!(unit_z.magnitude() == 1_i32);
     ///
-    /// // Normalizing a pure real number
-    /// let real = CircleF5E5::from((42, 0));
-    /// assert!(real.sign().r() == 1);
-    /// assert!(real.sign().i() == 0);
+    /// // Normalizing a pure real number let real = CircleF5E5::from((42_i32, 0_i32)); assert!(real.sign().r() == 1_i32); assert!(real.sign().i() == 0_i32);
     ///
-    /// // Normalizing a pure imaginary number
-    /// let imag = CircleF5E5::from((0, 7));
-    /// assert!(imag.sign().r() == 0);
-    /// assert!(imag.sign().i() == 1);
+    /// // Normalizing a pure imaginary number let imag = CircleF5E5::from((0_i32, 7_i32)); assert!(imag.sign().r() == 0_i32); assert!(imag.sign().i() == 1_i32);
     ///
-    /// // Normalizing an exploded value removes the escape state
-    /// let huge = CircleF5E5::MAX_REAL * 2;
-    /// assert!(huge.exploded());
-    /// assert!(!huge.sign().exploded());
+    /// // Normalizing an exploded value removes the escape state let huge: CircleF5E5 = CircleF5E5::MAX * 2_i32; assert!(huge.exploded()); assert!(!huge.sign().exploded());
     ///
-    /// // Zero has no orientation to normalize
-    /// let zero = CircleF5E5::ZERO;
-    /// assert!(zero.sign().is_undefined());
+    /// // Zero has no orientation to normalize let zero = CircleF5E5::ZERO; assert!(zero.sign().is_undefined());
     ///
-    /// // Infinity's direction is undefined
-    /// let infinity = CircleF5E5::ONE / 0;
-    /// assert!(infinity.sign().is_undefined());
+    /// // Infinity's direction is undefined let infinity: CircleF5E5 = CircleF5E5::ONE / 0_i32; assert!(infinity.sign().is_undefined());
     /// ```
     pub fn sign(&self) -> Circle<F, E> {
         if self.exponent == Self::ambiguous_exponent() {

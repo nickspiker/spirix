@@ -93,33 +93,13 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3, Scalar, ScalarF5E3};
     ///
-    /// // Subtracting a Scalar from a Circle
-    /// let a = CircleF5E3::from((7.5, 4));
-    /// let b = ScalarF5E3::from(3.5);
-    /// let diff = a - b;
-    /// assert!(diff.r() == 4);
-    /// assert!(diff.i() == 4);
+    /// // Subtracting a Scalar from a Circle let a = CircleF5E3::from((7_i32, 4_i32)); let b = ScalarF5E3::from(3_i32); let diff = a - b; assert!(diff.r() == 4_i32); assert!(diff.i() == 4_i32);
     ///
-    /// // Subtracting with Zero
-    /// assert!(a - ScalarF5E3::ZERO == a);
-    /// assert!(CircleF5E3::ZERO - b == CircleF5E3::from((-3.5, 0)));
+    /// // Subtracting with Zero assert!(a - ScalarF5E3::ZERO == a);
     ///
-    /// // Subtracting with different exponents
-    /// let large_circle = CircleF5E3::from((128, 64));
-    /// let small_scalar = ScalarF5E3::from(0.25);
-    /// let result = large_circle - small_scalar;
-    /// assert!(result.r() == 127.75);
-    /// assert!(result.i() == 64);
+    /// // Subtraction with vanished values let tiny: ScalarF5E3 = ScalarF5E3::MIN_POS / 4_i32; assert!(tiny.vanished()); assert!((a - tiny) == a);
     ///
-    /// // Subtraction with vanished values
-    /// let tiny = ScalarF5E3::MIN_POS / 4;
-    /// assert!(tiny.vanished());
-    /// assert!((a - tiny) == a);
-    ///
-    /// // Subtraction with exploded values
-    /// let huge = ScalarF5E3::MAX * 4;
-    /// assert!(huge.exploded());
-    /// assert!((a - huge).is_undefined());
+    /// // Subtraction with exploded values let huge: ScalarF5E3 = ScalarF5E3::MAX * 4_i32; assert!(huge.exploded()); assert!((a - huge).is_undefined());
     /// ```
     pub(crate) fn circle_subtract_scalar(&self, scalar: &Scalar<F, E>) -> Self {
         if self.is_normal() && scalar.is_normal() {

@@ -1,115 +1,41 @@
 //! Spirix Undefined Fraction States and Denormalization Levels
 //!
 //! ```txt
-//! L0: Normal numbers
-//! XXXXXXXX Any known magnitude non-zero value
+//! L0: Normal numbers XXXXXXXX Any known magnitude non-zero value
 //!
-//! L1: Exploded ↑
-//! □■XXXXXX & ■□XXXXXX
+//! L1: Exploded ↑ □■XXXXXX & ■□XXXXXX
 //!
-//! L2: Vanished ↓
-//! □□■XXXXX & ■■□XXXXX
+//! L2: Vanished ↓ □□■XXXXX & ■■□XXXXX
 //!
-//! L3: Undefined Basic Arithmetic & Logic ℘?
-//! □□□■XXXX & ■■■□XXXX
+//! L3: Undefined Basic Arithmetic & Logic ℘? □□□■XXXX & ■■■□XXXX
 //!
-//! L4: Undefined Exponentials ℘?
-//! □□□□■XXX & ■■■■□XXX
+//! L4: Undefined Exponentials ℘? □□□□■XXX & ■■■■□XXX
 //!
-//! L5: Undefined Trigonometry ℘?
-//! □□□□□■XX & ■■■■■□XX
+//! L5: Undefined Trigonometry ℘? □□□□□■XX & ■■■■■□XX
 //!
-//! L6: Undefined Roots ℘?
-//! □□□□□□■X & ■■■■■■□X
+//! L6: Undefined Roots ℘? □□□□□□■X & ■■■■■■□X
 //!
-//! L7: Reserved for future extensions and ℘
-//! □□□□□□□■ & ■■■■■■■□
+//! L7: Reserved for future extensions and ℘ □□□□□□□■ & ■■■■■■■□
 //!
-//! Uniform:
-//! □□□□□□□□ 0 Exactly Zero
-//! ■■■■■■■■ ∞ Singular Infinity
+//! Uniform: □□□□□□□□ 0 Exactly Zero ■■■■■■■■ ∞ Singular Infinity
 //! ```
 //! Note: For fraction sizes greater than 8 bits, extensions can be utilized for more undefined granularity or for future implementation improvements. For any undefined operations that include both exploded and infinite or negligible and zero the wider arrows are used. `⬆` = Transfinite, includes ↑ and ∞ `⬇` = Negligible, includes ↓ and 0
 //!
 //! - Undefined prefix allocations
 //! ```txt
-//! L3 ℘ Basic Arithmetic & Logic (32 slots)
-//! □□□■■■■■ +0x1F General ℘ (IEEE-754 NaN maps to this)
-//! ■■■□□□□□ -0x20 ℘&
-//! □□□■■■■□ +0x1E ℘|
-//! ■■■□□□□■ -0x1F ℘⊻
-//! □□□■■■□■ +0x1D ℘↓+↓
-//! ■■■□□□■□ -0x1E ℘↓-↓
-//! □□□■■■□□ +0x1C ℘⬆+
-//! ■■■□□□■■ -0x1D ℘⬆-
-//! □□□■■□■■ +0x1B ℘+⬆
-//! ■■■□□■□□ -0x1C ℘-⬆
-//! □□□■■□■□ +0x1A ℘⬆+⬆
-//! ■■■□□■□■ -0x1B ℘⬆-⬆
-//! □□□■■□□■ +0x19 ℘⬇×⬆
-//! ■■■□□■■□ -0x1A ℘⬆×⬇
-//! □□□■■□□□ +0x18 ℘⬇/⬇
-//! ■■■□□■■■ -0x19 ℘⬆/⬆
-//! □□□■□■■■ +0x17 ℘%↓
-//! ■■■□■□□□ -0x18 ℘‰↓
-//! □□□■□■■□ +0x16 ℘↓%↓
-//! ■■■□■□□■ -0x17 ℘↓‰↓
-//! □□□■□■□■ +0x15 ℘⬆%
-//! ■■■□■□■□ -0x16 ℘⬆‰
-//! □□□■□■□□ +0x14 ℘%⬆
-//! ■■■□■□■■ -0x15 ℘‰⬆
-//! □□□■□□■■ +0x13 ℘⬆%⬆
-//! ■■■□■■□□ -0x14 ℘⬆‰⬆
-//! □□□■□□■□ +0x12 ℘⌈
-//! ■■■□■■□■ -0x13 ℘⌊
-//! □□□■□□□■ +0x11 ℘∩
-//! ■■■□■■■□ -0x12 ℘⊥⊙
-//! □□□■□□□□ +0x10 ℘±∅
-//! ■■■□■■■■ -0x11 ℘⨅∞
+//! L3 ℘ Basic Arithmetic & Logic (32 slots) □□□■■■■■ +0x1F General ℘ (IEEE-754 NaN maps to this) ■■■□□□□□ -0x20 ℘& □□□■■■■□ +0x1E ℘| ■■■□□□□■ -0x1F ℘⊻ □□□■■■□■ +0x1D ℘↓+↓ ■■■□□□■□ -0x1E ℘↓-↓ □□□■■■□□ +0x1C ℘⬆+ ■■■□□□■■ -0x1D ℘⬆- □□□■■□■■ +0x1B ℘+⬆ ■■■□□■□□ -0x1C ℘-⬆ □□□■■□■□ +0x1A ℘⬆+⬆ ■■■□□■□■ -0x1B ℘⬆-⬆ □□□■■□□■ +0x19 ℘⬇×⬆ ■■■□□■■□ -0x1A ℘⬆×⬇ □□□■■□□□ +0x18 ℘⬇/⬇ ■■■□□■■■ -0x19 ℘⬆/⬆ □□□■□■■■ +0x17 ℘%↓ ■■■□■□□□ -0x18 ℘‰↓ □□□■□■■□ +0x16 ℘↓%↓ ■■■□■□□■ -0x17 ℘↓‰↓ □□□■□■□■ +0x15 ℘⬆% ■■■□■□■□ -0x16 ℘⬆‰ □□□■□■□□ +0x14 ℘%⬆ ■■■□■□■■ -0x15 ℘‰⬆ □□□■□□■■ +0x13 ℘⬆%⬆ ■■■□■■□□ -0x14 ℘⬆‰⬆ □□□■□□■□ +0x12 ℘⌈ ■■■□■■□■ -0x13 ℘⌊ □□□■□□□■ +0x11 ℘∩ ■■■□■■■□ -0x12 ℘⊥⊙ □□□■□□□□ +0x10 ℘±∅ ■■■□■■■■ -0x11 ℘⨅∞
 //!
-//! L4 ℘ Exponentials (16 slots)
-//! □□□□■■■■ +0x0F ℘↓^
-//! ■■■■□□□□ -0x10 ℘^↓
-//! □□□□■■■□ +0x0E ℘⬆^
-//! ■■■■□□□■ -0x0F ℘^⬆
-//! □□□□■■□■ +0x0D ℘-^
-//! ■■■■□□■□ -0x0E
-//! □□□□■■□□ +0x0C
-//! ■■■■□□■■ -0x0D
-//! □□□□■□■■ +0x0B
-//! ■■■■□■□□ -0x0C ℘@1
-//! □□□□■□■□ +0x0A ℘⬇@
-//! ■■■■□■□■ -0x0B ℘@⬇
-//! □□□□■□□■ +0x09 ℘⬆@
-//! ■■■■□■■□ -0x0A ℘@⬆
-//! □□□□■□□□ +0x08 ℘-@
-//! ■■■■□■■■ -0x09 ℘@-
+//! L4 ℘ Exponentials (16 slots) □□□□■■■■ +0x0F ℘↓^ ■■■■□□□□ -0x10 ℘^↓ □□□□■■■□ +0x0E ℘⬆^ ■■■■□□□■ -0x0F ℘^⬆ □□□□■■□■ +0x0D ℘-^ ■■■■□□■□ -0x0E □□□□■■□□ +0x0C ■■■■□□■■ -0x0D □□□□■□■■ +0x0B ■■■■□■□□ -0x0C ℘@1 □□□□■□■□ +0x0A ℘⬇@ ■■■■□■□■ -0x0B ℘@⬇ □□□□■□□■ +0x09 ℘⬆@ ■■■■□■■□ -0x0A ℘@⬆ □□□□■□□□ +0x08 ℘-@ ■■■■□■■■ -0x09 ℘@-
 //!
-//! L5 ℘ Trigonometry (8 slots)
-//! □□□□□■■■ +0x07 ℘s
-//! ■■■■■□□□ -0x08 ℘c
-//! □□□□□■■□ +0x06 ℘S
-//! ■■■■■□□■ -0x07 ℘C
-//! □□□□□■□■ +0x05 ℘t
-//! ■■■■■□■□ -0x06
-//! □□□□□■□□ +0x04
-//! ■■■■■□■■ -0x05
+//! L5 ℘ Trigonometry (8 slots) □□□□□■■■ +0x07 ℘s ■■■■■□□□ -0x08 ℘c □□□□□■■□ +0x06 ℘S ■■■■■□□■ -0x07 ℘C □□□□□■□■ +0x05 ℘t ■■■■■□■□ -0x06 □□□□□■□□ +0x04 ■■■■■□■■ -0x05
 //!
-//! L6 ℘ Roots (4 slots)
-//! □□□□□□■■ +0x03 ℘√↓
-//! ■■■■■■□□ -0x04 ℘√↑
-//! □□□□□□■□ +0x02 ℘√-
-//! ■■■■■■□■ -0x03
+//! L6 ℘ Roots (4 slots) □□□□□□■■ +0x03 ℘√↓ ■■■■■■□□ -0x04 ℘√↑ □□□□□□■□ +0x02 ℘√- ■■■■■■□■ -0x03
 //!
-//! L7 ℘ Reserved (2 slots)
-//! □□□□□□□■ +0x01 RESERVED FOR EXTENSIONS
-//! ■■■■■■■□ -0x02 RESERVED FOR EXTENSIONS
+//! L7 ℘ Reserved (2 slots) □□□□□□□■ +0x01 RESERVED FOR EXTENSIONS ■■■■■■■□ -0x02 RESERVED FOR EXTENSIONS
 //!
-//! Zero
-//! □□□□□□□□ 0
+//! Zero □□□□□□□□ 0
 //!
-//! Infinity
-//! ■■■■■■■■ ∞
+//! Infinity ■■■■■■■■ ∞
 //! ```
 pub struct Undefined {
     pub prefix: i8,

@@ -91,37 +91,13 @@ where
     /// ```rust
     /// use spirix::{Scalar, Circle, ScalarF5E3, CircleF5E3};
     ///
-    /// // Basic multiplication - scales both components
-    /// let s = ScalarF5E3::from(2);
-    /// let z = CircleF5E3::from((3, 4));
-    /// let result = s * z;
-    /// assert!(result.r() == 6);
-    /// assert!(result.i() == 8);
+    /// // Basic multiplication - scales both components let s = ScalarF5E3::from(2_i32); let z = CircleF5E3::from((3_i32, 4_i32)); let result = s * z; assert!(result.r() == 6_i32); assert!(result.i() == 8_i32);
     ///
-    /// // Multiplying by negative Scalar negates the Circle
-    /// let neg = ScalarF5E3::from(-1);
-    /// let negated = neg * z;
-    /// assert!(negated.r() == -3);
-    /// assert!(negated.i() == -4);
+    /// // Multiplying by negative Scalar negates the Circle let neg = ScalarF5E3::from(-1_i32); let negated = neg * z; assert!(negated.r() == -3_i32); assert!(negated.i() == -4_i32);
     ///
-    /// // Multiplying by Zero produces Zero
-    /// let zero = ScalarF5E3::ZERO;
-    /// assert!((zero * z).is_zero());
+    /// // Multiplying by Zero produces Zero assert!((ScalarF5E3::ZERO * z).is_zero());
     ///
-    /// // Multiplying with special states follows predictable rules
-    /// let tiny = ScalarF5E3::MIN_POS / 10;
-    /// let tiny_result = tiny * z;
-    /// assert!(tiny_result.vanished());
-    /// assert!(tiny_result.is_positive());
-    ///
-    /// // Fractional scaling preserves orientation
-    /// let unit_circle = CircleF5E3::from((0.6, 0.8)); // magnitude = 1
-    /// let half = ScalarF5E3::from(0.5);
-    /// let half_circle = half * unit_circle;
-    /// assert!(half_circle.magnitude() == 0.5);
-    /// // Direction remains the same
-    /// assert!(half_circle.r() / half_circle.magnitude() == unit_circle.r());
-    /// assert!(half_circle.i() / half_circle.magnitude() == unit_circle.i());
+    /// // Multiplying with vanished Scalar let tiny: ScalarF5E3 = ScalarF5E3::MIN_POS / 10_i32; let tiny_result = tiny * z; assert!(tiny_result.vanished());
     /// ```
     pub(crate) fn scalar_multiply_circle(&self, other: &Circle<F, E>) -> Circle<F, E> {
         if self.is_normal() && other.is_normal() {

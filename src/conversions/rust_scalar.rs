@@ -173,6 +173,16 @@ where
 
         if Self::exponent_bits() == 8 {
             if spirix_exp > E::max_value().saturate::<i16>() {
+                // Two's-complement N0 grants negatives one extra bucket at the top: exactly -2^(MAX+1) encodes as {neg_one_normal(), stored=MAX^MIN}. Anything larger in magnitude (or any positive past MAX) explodes.
+                if sign != 0
+                    && spirix_exp == E::max_value().saturate::<i16>() + 1
+                    && fraction_pos == Self::pos_one_normal()
+                {
+                    return Self {
+                        fraction: Self::neg_one_normal(),
+                        exponent: E::max_value() ^ E::min_value(),
+                    };
+                }
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_exploded()
@@ -366,6 +376,16 @@ where
 
         if Self::exponent_bits() == 8 {
             if spirix_exp > E::max_value().saturate::<i16>() {
+                // Two's-complement N0 grants negatives one extra bucket at the top (see From<&f64> for the long explanation).
+                if sign != 0
+                    && spirix_exp == E::max_value().saturate::<i16>() + 1
+                    && fraction_pos == Self::pos_one_normal()
+                {
+                    return Self {
+                        fraction: Self::neg_one_normal(),
+                        exponent: E::max_value() ^ E::min_value(),
+                    };
+                }
                 return Self {
                     fraction: if sign != 0 {
                         Self::neg_one_exploded()
@@ -458,13 +478,9 @@ macro_rules! impl_from_int {
                 /// ```rust
                 /// use spirix::{Scalar, ScalarF5E3};
                 ///
-                /// // Conversion from various integer types
-                /// let from_i32 = ScalarF5E3::from(42);
-                /// let from_i64 = ScalarF5E3::from(9223372036854775807i64);
-                /// let from_u8 = ScalarF5E3::from(255u8);
+                /// // Conversion from various integer types let from_i32 = ScalarF5E3::from(42); let from_i64 = ScalarF5E3::from(9223372036854775807i64); let from_u8 = ScalarF5E3::from(255u8);
                 ///
-                /// let neg = ScalarF5E3::from(-42);
-                /// assert!(neg.is_negative());
+                /// let neg = ScalarF5E3::from(-42); assert!(neg.is_negative());
                 /// ```
                 ///
                 /// ## Conversion Process
@@ -527,8 +543,7 @@ macro_rules! impl_from_int {
                         return Self { fraction: fraction_pos, exponent: { let v: E = spirix_exp.as_(); v ^ E::min_value() } };
                     }
 
-                    // Negation: power-of-2 boundary requires exponent shift. {pos_one_normal, e} negated → {neg_one_normal, e-1}
-                    //   general stored s → {-s, e}  (safe: fraction_pos != F::min_value() here)
+                    // Negation: power-of-2 boundary requires exponent shift. {pos_one_normal, e} negated → {neg_one_normal, e-1} general stored s → {-s, e}  (safe: fraction_pos != F::min_value() here)
                     if fraction_pos == Self::pos_one_normal() {
                         Self {
                             fraction: Self::neg_one_normal(),
@@ -582,13 +597,9 @@ macro_rules! impl_from_int {
                 /// ```rust
                 /// use spirix::{Scalar, ScalarF5E3};
                 ///
-                /// // Conversion from various integer types
-                /// let from_i32 = ScalarF5E3::from(42);
-                /// let from_i64 = ScalarF5E3::from(9223372036854775807i64);
-                /// let from_u8 = ScalarF5E3::from(255u8);
+                /// // Conversion from various integer types let from_i32 = ScalarF5E3::from(42); let from_i64 = ScalarF5E3::from(9223372036854775807i64); let from_u8 = ScalarF5E3::from(255u8);
                 ///
-                /// let neg = ScalarF5E3::from(-42);
-                /// assert!(neg.is_negative());
+                /// let neg = ScalarF5E3::from(-42); assert!(neg.is_negative());
                 /// ```
                 ///
                 /// ## Conversion Process
@@ -642,13 +653,9 @@ macro_rules! impl_from_int {
                 /// ```rust
                 /// use spirix::{Scalar, ScalarF5E3};
                 ///
-                /// // Conversion from various integer types
-                /// let from_i32 = ScalarF5E3::from(42);
-                /// let from_i64 = ScalarF5E3::from(9223372036854775807i64);
-                /// let from_u8 = ScalarF5E3::from(255u8);
+                /// // Conversion from various integer types let from_i32 = ScalarF5E3::from(42); let from_i64 = ScalarF5E3::from(9223372036854775807i64); let from_u8 = ScalarF5E3::from(255u8);
                 ///
-                /// let neg = ScalarF5E3::from(-42);
-                /// assert!(neg.is_negative());
+                /// let neg = ScalarF5E3::from(-42); assert!(neg.is_negative());
                 /// ```
                 ///
                 /// ## Conversion Process
@@ -710,13 +717,9 @@ macro_rules! impl_from_uint {
                 /// ```rust
                 /// use spirix::{Scalar, ScalarF5E3};
                 ///
-                /// // Conversion from various integer types
-                /// let from_i32 = ScalarF5E3::from(42);
-                /// let from_i64 = ScalarF5E3::from(9223372036854775807i64);
-                /// let from_u8 = ScalarF5E3::from(255u8);
+                /// // Conversion from various integer types let from_i32 = ScalarF5E3::from(42); let from_i64 = ScalarF5E3::from(9223372036854775807i64); let from_u8 = ScalarF5E3::from(255u8);
                 ///
-                /// let neg = ScalarF5E3::from(-42);
-                /// assert!(neg.is_negative());
+                /// let neg = ScalarF5E3::from(-42); assert!(neg.is_negative());
                 /// ```
                 ///
                 /// ## Conversion Process
@@ -793,13 +796,9 @@ macro_rules! impl_from_uint {
                 /// ```rust
                 /// use spirix::{Scalar, ScalarF5E3};
                 ///
-                /// // Conversion from various integer types
-                /// let from_i32 = ScalarF5E3::from(42);
-                /// let from_i64 = ScalarF5E3::from(9223372036854775807i64);
-                /// let from_u8 = ScalarF5E3::from(255u8);
+                /// // Conversion from various integer types let from_i32 = ScalarF5E3::from(42); let from_i64 = ScalarF5E3::from(9223372036854775807i64); let from_u8 = ScalarF5E3::from(255u8);
                 ///
-                /// let neg = ScalarF5E3::from(-42);
-                /// assert!(neg.is_negative());
+                /// let neg = ScalarF5E3::from(-42); assert!(neg.is_negative());
                 /// ```
                 ///
                 /// ## Conversion Process
@@ -853,13 +852,9 @@ macro_rules! impl_from_uint {
                 /// ```rust
                 /// use spirix::{Scalar, ScalarF5E3};
                 ///
-                /// // Conversion from various integer types
-                /// let from_i32 = ScalarF5E3::from(42);
-                /// let from_i64 = ScalarF5E3::from(9223372036854775807i64);
-                /// let from_u8 = ScalarF5E3::from(255u8);
+                /// // Conversion from various integer types let from_i32 = ScalarF5E3::from(42); let from_i64 = ScalarF5E3::from(9223372036854775807i64); let from_u8 = ScalarF5E3::from(255u8);
                 ///
-                /// let neg = ScalarF5E3::from(-42);
-                /// assert!(neg.is_negative());
+                /// let neg = ScalarF5E3::from(-42); assert!(neg.is_negative());
                 /// ```
                 ///
                 /// ## Conversion Process

@@ -387,8 +387,10 @@ mod conversion_matrices {
         let temp_min: f32 = (&min_f7e7).into();
         let min_as_f3e3 = ScalarF3E3::from(temp_min);
         assert!(min_f7e7.is_normal());
-        // Might vanish due to precision loss
-        assert!(min_as_f3e3.is_normal() || min_as_f3e3.vanished());
+        // Lossy chain: F7E7 MIN_POS is far smaller than any f32 can hold, so the f32 hop underflows to 0.0, which converts back to exact Spirix ZERO. Normal / vanished are also legitimate outcomes for less-extreme inputs.
+        assert!(
+            min_as_f3e3.is_normal() || min_as_f3e3.vanished() || min_as_f3e3.is_zero()
+        );
 
         // PI constant conversions
         let pi_f3e3: f32 = (&ScalarF3E3::PI).into();

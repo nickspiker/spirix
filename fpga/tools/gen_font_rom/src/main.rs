@@ -2,8 +2,7 @@
 //!
 //! Modes: gen_font_rom font <font.ttf> <output.mem> [size] 8×8 character ROM (128 chars × 8 bytes = 1024 bytes)
 //!
-//!   gen_font_rom bitmap <font.ttf> <output.mem> <width> <height> <text>
-//! Full framebuffer bitmap, text centered, 1 bit/pixel packed into bytes. Output: (width/8 * height) lines of 2-hex-digit values, row-major, MSB = leftmost pixel.
+//!   gen_font_rom bitmap <font.ttf> <output.mem> <width> <height> <text> Full framebuffer bitmap, text centered, 1 bit/pixel packed into bytes. Output: (width/8 * height) lines of 2-hex-digit values, row-major, MSB = leftmost pixel.
 
 use fontdue::{Font, FontSettings};
 use spirix::ScalarF4E4;
@@ -35,11 +34,7 @@ fn main() {
 }
 
 // ============================================================================
-// Mode: tiles — per-glyph 8bpp greyscale bitmaps, one byte per .mem line.
-// Each glyph is tile_w × tile_h bytes, raster-scan order (row-major, top-left
-// first). Glyph N is at offset N × (tile_w × tile_h) bytes. Glyphs are
-// rendered with the natural font aspect (taller than wide for digits) and
-// centered within the tile.
+// Mode: tiles — per-glyph 8bpp greyscale bitmaps, one byte per .mem line. Each glyph is tile_w × tile_h bytes, raster-scan order (row-major, top-left first). Glyph N is at offset N × (tile_w × tile_h) bytes. Glyphs are rendered with the natural font aspect (taller than wide for digits) and centered within the tile.
 // ============================================================================
 fn gen_tiles(args: &[String]) {
     if args.len() < 5 {
@@ -53,10 +48,7 @@ fn gen_tiles(args: &[String]) {
     let tile_w: usize = args[3].parse().expect("Invalid tile_w");
     let tile_h: usize = args[4].parse().expect("Invalid tile_h");
 
-    // Binary search for the largest font size that fits any of the requested
-    // glyphs within tile_w (with a small horizontal margin) and tile_h.
-    // Use the tile height as the upper bound of font size since we want the
-    // glyph cap height to consume most of the cell.
+    // Binary search for the largest font size that fits any of the requested glyphs within tile_w (with a small horizontal margin) and tile_h. Use the tile height as the upper bound of font size since we want the glyph cap height to consume most of the cell.
     let mut lo: f64 = 1.0;
     let mut hi: f64 = (tile_h as f64) * 1.5;
     for _ in 0..32 {
@@ -297,8 +289,7 @@ fn gen_bitmap(args: &[String]) {
 }
 
 // ============================================================================
-// Mode: oled-grid — 4×4 labeled pass/fail overlay for SH1106 128×64 OLED ============================================================================
-// Output: 1024 bytes in OLED page format (8 pages × 128 cols). Each byte: bit 0 = top row of page, bit 7 = bottom row. XOR'd with pass/fail bars in hardware for always-visible labels.
+// Mode: oled-grid — 4×4 labeled pass/fail overlay for SH1106 128×64 OLED ============================================================================ Output: 1024 bytes in OLED page format (8 pages × 128 cols). Each byte: bit 0 = top row of page, bit 7 = bottom row. XOR'd with pass/fail bars in hardware for always-visible labels.
 fn gen_oled_grid(args: &[String]) {
     if args.len() < 2 {
         eprintln!("Usage: gen_font_rom oled-grid <font.ttf> <output.mem>");
@@ -313,8 +304,7 @@ fn gen_oled_grid(args: &[String]) {
     let cell_w = 32usize;
     let cell_h = 16usize;
 
-    // Grid labels: F{6-gc}E{3+gr} for grid row gr, grid col gc
-    // Columns: frac=64(left) to frac=8(right), Rows: exp=8(top) to exp=64(bottom)
+    // Grid labels: F{6-gc}E{3+gr} for grid row gr, grid col gc Columns: frac=64(left) to frac=8(right), Rows: exp=8(top) to exp=64(bottom)
     let labels: [[&str; 4]; 4] = [
         ["F6E3", "F5E3", "F4E3", "F3E3"],
         ["F6E4", "F5E4", "F4E4", "F3E4"],

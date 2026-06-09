@@ -29,9 +29,7 @@ fn f32_to_spirix(v: f32) -> (i32, i8) {
     // Spirix fraction: signed 25-bit, N1 = top 2 bits differ positive: 01xxx...x, negative: two's complement
     let frac: i32 = if sign { -sig } else { sig };
 
-    // Spirix exponent: value = frac * 2^(exp - 24)
-    // IEEE:  value = sig * 2^(biased_exp - 150)
-    // So: exp - 24 = biased_exp - 150  →  exp = biased_exp - 126
+    // Spirix exponent: value = frac * 2^(exp - 24) IEEE:  value = sig * 2^(biased_exp - 150) So: exp - 24 = biased_exp - 150  →  exp = biased_exp - 126
     let exp = (biased_exp - 126) as i8;
 
     (frac, exp)
@@ -46,8 +44,7 @@ fn spirix_to_f32(frac: i32, exp: i8) -> f32 {
     let sign = frac < 0;
     let mag = if sign { (-frac) as u32 } else { frac as u32 };
 
-    // mag should be N1: bit 23 set, bits 24+ clear (for FRAC=25)
-    // Find leading bit position
+    // mag should be N1: bit 23 set, bits 24+ clear (for FRAC=25) Find leading bit position
     let lz = mag.leading_zeros(); // e.g. 8 means bit 23 is MSB
     let shift = lz as i32 - 8; // how many bits to shift to get bit 23 as MSB
 
@@ -138,8 +135,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
             return (0, AMB_EXP);
         }
 
-        // CLZ: count leading redundant sign bits
-        // In Verilog we use XOR-adjacent. In Rust, simpler: For a signed INT_BITS-bit number, leading = max(leading_zeros, leading_ones) after masking to INT_BITS bits.
+        // CLZ: count leading redundant sign bits In Verilog we use XOR-adjacent. In Rust, simpler: For a signed INT_BITS-bit number, leading = max(leading_zeros, leading_ones) after masking to INT_BITS bits.
         let ubits = (close_sum & mask) as u32;
         let top_bit = (close_sum >> (INT_BITS - 1)) & 1;
 
@@ -206,8 +202,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
 
         (out_frac, out_exp)
     } else {
-        // Step 4+5: Far path
-        // Barrel shift for alignment
+        // Step 4+5: Far path Barrel shift for alignment
         let far_shift = if exp_diff >= INT_BITS {
             (INT_BITS - 1) as u32
         } else {
@@ -291,8 +286,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
             out_frac_raw + if round_up { 1 } else { 0 }
         };
 
-        // Exponent: big_exp + 2 - leading + rovf adjustments
-        // Far path uses big_exp (not sExpB)
+        // Exponent: big_exp + 2 - leading + rovf adjustments Far path uses big_exp (not sExpB)
         let exp_wide = (big_exp as i16) + 2 - (leading as i16) + if rovf_pos { 1 } else { 0 }
             - if rovf_neg { 1 } else { 0 };
         let out_exp = exp_wide as i8;
@@ -328,8 +322,7 @@ impl Lcg {
             let bits = self.next();
             let exp = (bits >> 23) & 0xFF;
             if exp != 0 && exp != 255 {
-                // Also avoid exponents near boundaries that would overflow
-                // Spirix i8 exponent range: keep biased_exp in [2, 253]
+                // Also avoid exponents near boundaries that would overflow Spirix i8 exponent range: keep biased_exp in [2, 253]
                 if exp >= 2 && exp <= 253 {
                     return f32::from_bits(bits);
                 }

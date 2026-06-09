@@ -101,27 +101,13 @@ macro_rules! impl_scalar_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Scalar<$f, $e> {
-    // ──────────────────────────────────────────────────────────────────────
-    // Constant encoding conventions
+    // ────────────────────────────────────────────────────────────────────── Constant encoding conventions
     //
-    // Fraction (N0): no stored sign bit; the MSB encodes value sign via implicit complement.
-    //   <$f>::MIN  (bit pattern 0x80...0, MSB=1)  → magnitude +1.0
-    //   <$f>::MAX  (bit pattern 0x7F...F, MSB=0)  → magnitude ≈ -1.0 (just above -2.0)
-    //   -1         (bit pattern 0xFF...F)         → magnitude ≈ +2.0 (just below)
-    //   0          (bit pattern 0x00...0)         → magnitude -2.0 (most-negative)
-    //   1          (bit pattern 0x00...01)        → magnitude ≈ -2.0 (just above)
+    // Fraction (N0): no stored sign bit; the MSB encodes value sign via implicit complement. <$f>::MIN  (bit pattern 0x80...0, MSB=1)  → magnitude +1.0 <$f>::MAX  (bit pattern 0x7F...F, MSB=0)  → magnitude ≈ -1.0 (just above -2.0) -1         (bit pattern 0xFF...F)         → magnitude ≈ +2.0 (just below) 0          (bit pattern 0x00...0)         → magnitude -2.0 (most-negative) 1          (bit pattern 0x00...01)        → magnitude ≈ -2.0 (just above)
     //
-    // Exponent (AMBIG=0): stored is unsigned modular; bit pattern 0 = AMBIG sentinel.
-    //   stored = logical ^ <$e>::MIN   (XOR with top-bit-only mask is the bijection)
-    //   <$e>::MIN  (0x80...0)  → logical 0   → +1.0 binade
-    //   <$e>::MAX  (0x7F...F)  → logical -1  → 0.5 binade
-    //   -1         (0xFF...F)  → logical 127 → MAX_NORMAL
-    //   1          (0x00...01) → logical -127 → MIN_NORMAL
+    // Exponent (AMBIG=0): stored is unsigned modular; bit pattern 0 = AMBIG sentinel. stored = logical ^ <$e>::MIN   (XOR with top-bit-only mask is the bijection) <$e>::MIN  (0x80...0)  → logical 0   → +1.0 binade <$e>::MAX  (0x7F...F)  → logical -1  → 0.5 binade -1         (0xFF...F)  → logical 127 → MAX_NORMAL 1          (0x00...01) → logical -127 → MIN_NORMAL
     //
-    // Constants written below use the most direct of these forms; the XOR form
-    // `<logical> ^ <$e>::MIN` appears when the logical exponent doesn't coincide
-    // with a named bit-pattern shortcut.
-    // ──────────────────────────────────────────────────────────────────────
+    // Constants written below use the most direct of these forms; the XOR form `<logical> ^ <$e>::MIN` appears when the logical exponent doesn't coincide with a named bit-pattern shortcut. ──────────────────────────────────────────────────────────────────────
     pub const MAX:     Self = Self { fraction: -1,         exponent: -1 };
     pub const MIN:     Self = Self { fraction: 0,          exponent: -1 };
     pub const MIN_POS: Self = Self { fraction: <$f>::MIN,  exponent: 1 };
@@ -139,11 +125,7 @@ macro_rules! impl_scalar_constants {
     pub const EFFECTIVELY_NEG_ONE: Self = Self { fraction: 1,          exponent: <$e>::MAX };
     pub const TWO:                 Self = Self { fraction: <$f>::MIN,  exponent: 1 ^ <$e>::MIN };
     pub const HALF:                Self = Self { fraction: <$f>::MIN,  exponent: <$e>::MAX };
-    // Escape patterns at AMBIG exponent. Fraction encodes class via leading-same-bit count:
-    //   N1 exploded: bit patterns 0b01xx... (positive) / 0b10xx... (negative)
-    //   N2 vanished: bit patterns 0b001x... (positive) / 0b110x... (negative)
-    // `<$f>::MIN >> 1` arithmetic-shifts the top bit down, giving 0b11000000 (negative N2).
-    // Negating that gives 0b01000000 (positive N1 exploded). Shifting again gives 0b00100000 (positive N2 vanished).
+    // Escape patterns at AMBIG exponent. Fraction encodes class via leading-same-bit count: N1 exploded: bit patterns 0b01xx... (positive) / 0b10xx... (negative) N2 vanished: bit patterns 0b001x... (positive) / 0b110x... (negative) `<$f>::MIN >> 1` arithmetic-shifts the top bit down, giving 0b11000000 (negative N2). Negating that gives 0b01000000 (positive N1 exploded). Shifting again gives 0b00100000 (positive N2 vanished).
     pub const EXPLODED_POS: Self = Self { fraction:  -(<$f>::MIN >> 1),        exponent: 0 };
     pub const EXPLODED_NEG: Self = Self { fraction:    <$f>::MIN,              exponent: 0 };
     pub const VANISHED_POS: Self = Self { fraction:  -(<$f>::MIN >> 1) >> 1,   exponent: 0 };
@@ -319,9 +301,7 @@ impl<F: Integer, E: Integer> Scalar<F, E> {
 
     // --- Exponent ---
     //
-    // AMBIGUOUS = 0 (all-zeros bit pattern). The exponent field is an unsigned modular integer in Z/2^EXP Z; arithmetic on it wraps naturally at its native width. The cyclic origin sits at the all-zeros bit pattern so a wholly zero-initialised value (memset(0)) reads as Spirix Zero.
-    // The +1.0 binade sits at bit pattern 0x80...0 (= E::MIN signed), the -1.0 binade at bit pattern 0x7F...F (= E::MAX signed), straddling with no separate slot between them. Overflow past MAX_EXP (bit pattern all-ones) and underflow past MIN_EXP (bit pattern 0x00...01) both reach 0 = AMBIG by opposite traversals of the cycle, so saturation detection collapses to one equality check against zero.
-    // The bit layout resembles offset binary but no bias transformation is applied at runtime — arithmetic operates on the stored field directly. To translate the stored exponent to a logical signed exponent where the +1.0 binade is at 0, XOR with `binade_origin()` (the top-bit-only mask). This is needed only at casting boundaries with non-Spirix exponent conventions (IEEE 754, Circle's v0.0.x ruler); native Spirix arithmetic stays on stored AMBIG=0 form throughout.
+    // AMBIGUOUS = 0 (all-zeros bit pattern). The exponent field is an unsigned modular integer in Z/2^EXP Z; arithmetic on it wraps naturally at its native width. The cyclic origin sits at the all-zeros bit pattern so a wholly zero-initialised value (memset(0)) reads as Spirix Zero. The +1.0 binade sits at bit pattern 0x80...0 (= E::MIN signed), the -1.0 binade at bit pattern 0x7F...F (= E::MAX signed), straddling with no separate slot between them. Overflow past MAX_EXP (bit pattern all-ones) and underflow past MIN_EXP (bit pattern 0x00...01) both reach 0 = AMBIG by opposite traversals of the cycle, so saturation detection collapses to one equality check against zero. The bit layout resembles offset binary but no bias transformation is applied at runtime — arithmetic operates on the stored field directly. To translate the stored exponent to a logical signed exponent where the +1.0 binade is at 0, XOR with `binade_origin()` (the top-bit-only mask). This is needed only at casting boundaries with non-Spirix exponent conventions (IEEE 754, Circle's v0.0.x ruler); native Spirix arithmetic stays on stored AMBIG=0 form throughout.
     #[inline]
     pub(crate) fn ambiguous_exponent() -> E {
         E::zero()

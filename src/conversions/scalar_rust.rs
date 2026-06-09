@@ -1498,8 +1498,7 @@ mod tests_scalar_ieee {
         assert!((NEG_ONE.to_f64() - (-1.0)).abs() < 1e-4);
     }
 
-    // ── Into<f32> / Into<f64> via generic trait ───────────────────────────────
-    // Note: Rust doesn't support trait specialisation, so the generic powi-based Into<f32> / Into<f64> impls are still used for S44. These tests verify that both the inherent to_f32()/to_f64() methods and the generic Into trait produce consistent results (within 2 ULP, allowing for different rounding).
+    // ── Into<f32> / Into<f64> via generic trait ─────────────────────────────── Note: Rust doesn't support trait specialisation, so the generic powi-based Into<f32> / Into<f64> impls are still used for S44. These tests verify that both the inherent to_f32()/to_f64() methods and the generic Into trait produce consistent results (within 2 ULP, allowing for different rounding).
 
     #[test]
     fn into_f32_agrees_with_to_f32() {

@@ -11,12 +11,9 @@
 //! ## Usage
 //!
 //! ```rust
-//! use spirix::simd::scalar_subtract_batch;
-//! use spirix::ScalarF4E4;
+//! use spirix::simd::scalar_subtract_batch; use spirix::ScalarF4E4;
 //!
-//! let a = vec![ScalarF4E4::from(1.0); 1000];
-//! let b = vec![ScalarF4E4::from(0.5); 1000];
-//! let mut result = vec![ScalarF4E4::ZERO; 1000];
+//! let a = vec![ScalarF4E4::from(1.0); 1000]; let b = vec![ScalarF4E4::from(0.5); 1000]; let mut result = vec![ScalarF4E4::ZERO; 1000];
 //!
 //! scalar_subtract_batch(&a, &b, &mut result);
 //! ```

@@ -75,16 +75,9 @@ macro_rules! impl_circle_constants {
     ($($f:ty, $e:ty);*) => {
         $(
  impl Circle<$f, $e> {
-    // ──────────────────────────────────────────────────────────────────────
-    // Exponent encoding under unified AMBIG=0 (same as Scalar):
-    //   stored = logical ^ <$e>::MIN
-    //   logical k = 0  → binade [1, 2)        → stored = <$e>::MIN
-    //   logical k = -1 → binade [0.5, 1)      → stored = <$e>::MAX
-    //   logical k = 1  → binade [2, 4)        → stored = 1 ^ <$e>::MIN
-    //   AMBIG sentinel → stored = 0
+    // ────────────────────────────────────────────────────────────────────── Exponent encoding under unified AMBIG=0 (same as Scalar): stored = logical ^ <$e>::MIN logical k = 0  → binade [1, 2)        → stored = <$e>::MIN logical k = -1 → binade [0.5, 1)      → stored = <$e>::MAX logical k = 1  → binade [2, 4)        → stored = 1 ^ <$e>::MIN AMBIG sentinel → stored = 0
     //
-    // The N1 fraction layout means pos_one_normal at logical k = 0 decodes to +1.0 (top two bits `01`, magnitude bit set, rest fractional below the implicit 1). Same anchor as Scalar's N0 form.
-    // ──────────────────────────────────────────────────────────────────────
+    // The N1 fraction layout means pos_one_normal at logical k = 0 decodes to +1.0 (top two bits `01`, magnitude bit set, rest fractional below the implicit 1). Same anchor as Scalar's N0 form. ──────────────────────────────────────────────────────────────────────
     /// Maximum finite value that can be represented by this type of Circle.
     pub const MAX: Self = Self {
         real: <$f>::MAX,

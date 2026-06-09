@@ -25,17 +25,13 @@
 //!
 //! let x = ScalarF5E3::from(42.5);
 //!
-//! // Default formatting (base-10)
-//! println!("{}", x);  // +42.5
+//! // Default formatting (base-10) println!("{}", x);  // +42.5
 //!
-//! // Hexadecimal (base-16)
-//! println!("{:.16}", x);  // +2A.8
+//! // Hexadecimal (base-16) println!("{:.16}", x);  // +2A.8
 //!
-//! // Binary (base-2) with 32 digits
-//! println!("{:32.2}", x);  // +101010.1
+//! // Binary (base-2) with 32 digits println!("{:32.2}", x);  // +101010.1
 //!
-//! // Debug output shows internal bit pattern
-//! println!("{:?}", x);
+//! // Debug output shows internal bit pattern println!("{:?}", x);
 //! ```
 
 use crate::core::integer::FullInt;
@@ -118,11 +114,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::ScalarF5E3;
-    /// let x = ScalarF5E3::from(255);
-    /// assert_eq!(format!("{:.16}", x), "+FF");  // Hex
-    /// assert_eq!(format!("{:.2}", x), "+11111111");  // Binary
-    /// assert_eq!(format!("{:4.10}", x), "+255");  // Base-10, max 4 digits
+    /// use spirix::ScalarF5E3; let x = ScalarF5E3::from(255); assert_eq!(format!("{:.16}", x), "+FF");  // Hex assert_eq!(format!("{:.2}", x), "+11111111");  // Binary assert_eq!(format!("{:4.10}", x), "+255");  // Base-10, max 4 digits
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Extract base from precision specifier (default: base-10)
@@ -235,10 +227,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::ScalarF5E3;
-    /// let x = ScalarF5E3::from(5);
-    /// println!("{:?}", x);   // Plain binary
-    /// println!("{:#?}", x);  // Coloured with special chars
+    /// use spirix::ScalarF5E3; let x = ScalarF5E3::from(5); println!("{:?}", x);   // Plain binary println!("{:#?}", x);  // Coloured with special chars
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {

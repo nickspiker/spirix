@@ -20,9 +20,7 @@ impl Scalar<$f, $e> {
     /// # Example
     /// ```
     /// # use spirix::Scalar;
-    /// let raw_scalar = Scalar::<i32, i8>::new(0b10101 << 26, 6);
-    /// let normal = Scalar::<i32, i8>::from(42);
-    /// assert!(raw_scalar == normal);
+    /// // 42 = binade 2^5, fraction bits 101010 in the top positions. // Stored exponent = 5 XOR i8::MIN = -123. let raw_scalar = Scalar::<i32, i8>::new(42i32 << 26, -123i8); let normal = Scalar::<i32, i8>::from(42_i8); assert!(raw_scalar == normal);
     /// ```
     #[inline]
     pub fn new(fraction: $f, exponent: $e) -> Scalar<$f, $e> {
@@ -120,24 +118,15 @@ where
     ///
     /// This forms a behavioral prefix that indicates the value's classification. Normal values use the N0 convention (no MSB sign bit; sign via ~MSB); escaped and singular patterns carry their shape in the high bits and are tagged by AMBIGUOUS_EXPONENT.
     ///
-    /// Singular (with AMBIGUOUS_EXPONENT)
-    /// □□□□□□□□  Zero `[0]`
-    /// ■■■■■■■■  Infinity `[∞]`
+    /// Singular (with AMBIGUOUS_EXPONENT) □□□□□□□□  Zero `[0]` ■■■■■■■■  Infinity `[∞]`
     ///
-    /// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent)
-    /// ■xxxxxxx  Positive `[+#]`
-    /// □xxxxxxx  Negative `[-#]`
+    /// Normal (N0, sign via ~MSB; non-AMBIGUOUS exponent) ■xxxxxxx  Positive `[+#]` □xxxxxxx  Negative `[-#]`
     ///
-    /// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
-    /// □■xxxxxx  Positive `[+↑]`
-    /// ■□xxxxxx  Negative `[-↑]`
+    /// Exploded (N1 with AMBIGUOUS_EXPONENT, explicit sign at MSB) □■xxxxxx  Positive `[+↑]` ■□xxxxxx  Negative `[-↑]`
     ///
-    /// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB)
-    /// □□■xxxxx  Positive `[+↓]`
-    /// ■■□xxxxx  Negative `[-↓]`
+    /// Vanished (N2 with AMBIGUOUS_EXPONENT, explicit sign at MSB) □□■xxxxx  Positive `[+↓]` ■■□xxxxx  Negative `[-↓]`
     ///
-    /// Undefined (N3+ with AMBIGUOUS_EXPONENT)
-    /// □□□■xxxx | ■■■□xxxx `[℘?]`
+    /// Undefined (N3+ with AMBIGUOUS_EXPONENT) □□□■xxxx | ■■■□xxxx `[℘?]`
     ///
     /// The prefix is used by methods to determine the Scalar's state and behavior in operations.
     #[inline]
@@ -165,37 +154,21 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E4};
     ///
-    /// // Regular values are normal
-    /// let normal = Scalar::<i16, i16>::from(42);
-    /// assert!(normal.is_normal());
+    /// // Regular values are normal let normal = Scalar::<i16, i16>::from(42); assert!(normal.is_normal());
     ///
-    /// // Normal values maintain their normality thru standard operations
-    /// let still_normal = normal * ScalarF4E4::PI / 2;
-    /// assert!(still_normal.is_normal());
+    /// // Normal values maintain their normality thru standard operations let still_normal = normal * ScalarF4E4::PI / 2_i16; assert!(still_normal.is_normal());
     ///
-    /// // Zero is not normal
-    /// let zero = ScalarF4E4::ZERO;
-    /// assert!(!zero.is_normal());
+    /// // Zero is not normal let zero = ScalarF4E4::ZERO; assert!(!zero.is_normal());
     ///
-    /// // Infinity is not normal
-    /// let infinity = ScalarF4E4::ONE / 0;
-    /// assert!(!infinity.is_normal());
+    /// // Infinity is not normal let infinity: ScalarF4E4 = ScalarF4E4::ONE / 0_i16; assert!(!infinity.is_normal());
     ///
-    /// // Exploded values are not normal
-    /// let exploded = ScalarF4E4::MAX + ScalarF4E4::MAX;
-    /// assert!(!exploded.is_normal());
+    /// // Exploded values are not normal let exploded = ScalarF4E4::MAX + ScalarF4E4::MAX; assert!(!exploded.is_normal());
     ///
-    /// // Vanished values are not normal
-    /// let vanished = ScalarF4E4::MIN_POS - ScalarF4E4::MIN_POS * 1.25;
-    /// assert!(!vanished.is_normal());
+    /// // Vanished values are not normal let vanished: ScalarF4E4 = ScalarF4E4::MIN_POS - ScalarF4E4::MIN_POS * 1.25_f32; assert!(!vanished.is_normal());
     ///
-    /// // Undefined Scalars are definitely not normal
-    /// let undefined = zero / 0;
-    /// assert!(!undefined.is_normal());
+    /// // Undefined Scalars are definitely not normal let undefined: ScalarF4E4 = zero / 0_i16; assert!(!undefined.is_normal());
     ///
-    /// // Operations that exceed representable range escape normality
-    /// let no_longer_normal = ScalarF4E4::MAX_NEG.square();
-    /// assert!(!no_longer_normal.is_normal());
+    /// // Operations that exceed representable range escape normality let no_longer_normal = ScalarF4E4::MAX_NEG.square(); assert!(!no_longer_normal.is_normal());
     /// ```
     #[inline]
     pub fn is_normal(&self) -> bool {
@@ -224,44 +197,24 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Zero over Zero creates an undefined state
-    /// let undefined = Scalar::<i32, i8>::ZERO / 0;
-    /// assert!(undefined.is_undefined());
+    /// // Zero over Zero creates an undefined state let undefined: Scalar::<i32, i8> = Scalar::<i32, i8>::ZERO / 0_i32; assert!(undefined.is_undefined());
     ///
-    /// // Normal numbers are defined
-    /// let normal = ScalarF5E3::from(42);
-    /// assert!(!normal.is_undefined());
+    /// // Normal numbers are defined let normal = ScalarF5E3::from(42_i32); assert!(!normal.is_undefined());
     ///
-    /// // Zero is defined
-    /// let zero = ScalarF5E3::ZERO;
-    /// assert!(!zero.is_undefined());
+    /// // Zero is defined let zero = ScalarF5E3::ZERO; assert!(!zero.is_undefined());
     ///
-    /// // Escaped values are defined
-    /// let exploded = ScalarF5E3::MAX * ScalarF5E3::MIN;
-    /// assert!(!exploded.is_undefined());
+    /// // Escaped values are defined let exploded = ScalarF5E3::MAX * ScalarF5E3::MIN; assert!(!exploded.is_undefined());
     ///
-    /// // Exploded values in certain operations stay defined
-    /// let vanished = 1 / exploded;
-    /// assert!(!vanished.is_undefined());
+    /// // Exploded values in certain operations stay defined let vanished: ScalarF5E3 = 1_i32 / exploded; assert!(!vanished.is_undefined());
     ///
-    /// // But some operations produce undefined results
-    /// let undefined_exploded_add = exploded + 1;
-    /// assert!(undefined_exploded_add.is_undefined());
+    /// // But some operations produce undefined results let undefined_exploded_add: ScalarF5E3 = exploded + 1_i32; assert!(undefined_exploded_add.is_undefined());
     ///
-    /// // Wheras others do not
-    /// let one = vanished + 1;
-    /// assert!(one == 1);
+    /// // Wheras others do not let one: ScalarF5E3 = vanished + 1_i32; assert!(one == 1_i32);
     ///
-    /// // Infinity is defined
-    /// let infinity = normal / 0;
-    /// assert!(!infinity.is_undefined());
+    /// // Infinity is defined let infinity: ScalarF5E3 = normal / 0_i32; assert!(!infinity.is_undefined());
     /// ```
     #[inline]
-    /// XOR fingerprint of the prefix: result bit i = (prefix bit i) XOR (prefix bit i-1). Encodes all four escape-class patterns at once, so each `is_*` check below is a branchless mask. Unsigned shift to skip Rust's `i8::MIN << 1` overflow check.
-    ///   0 or 1   → uniform (prefix == 0 or -1, i.e. ZERO or INFINITY)
-    ///   [2, 63]  → undefined (top 3 same, lower bits not — bit 7 & 6 of XOR clear, but not all-zero)
-    ///   [64, 127] → vanished (top 2 same, third differs — bit 7 of XOR clear, bit 6 set)
-    ///   [128, 255] → exploded (top 2 differ — bit 7 of XOR set)
+    /// XOR fingerprint of the prefix: result bit i = (prefix bit i) XOR (prefix bit i-1). Encodes all four escape-class patterns at once, so each `is_*` check below is a branchless mask. Unsigned shift to skip Rust's `i8::MIN << 1` overflow check. 0 or 1   → uniform (prefix == 0 or -1, i.e. ZERO or INFINITY) [2, 63]  → undefined (top 3 same, lower bits not — bit 7 & 6 of XOR clear, but not all-zero) [64, 127] → vanished (top 2 same, third differs — bit 7 of XOR clear, bit 6 set) [128, 255] → exploded (top 2 differ — bit 7 of XOR set)
     #[inline]
     fn class_xor(&self) -> u8 {
         let p = self.prefix() as u8;
@@ -308,42 +261,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E5};
     ///
-    /// // Zero: The original negligible number
-    /// let zero = Scalar::<i16, i32>::ZERO;
-    /// assert!(zero.is_negligible());
+    /// // Zero: The original negligible number let zero = Scalar::<i16, i32>::ZERO; assert!(zero.is_negligible());
     ///
-    /// // A number so small it's effectively zero
-    /// let vanished = ScalarF4E5::MIN_POS / 57;
-    /// assert!(vanished.is_negligible());
+    /// // A number so small it's effectively zero let vanished: ScalarF4E5 = ScalarF4E5::MIN_POS / 57_i16; assert!(vanished.is_negligible());
     ///
-    /// // Even tiny numbers maintain their sign
-    /// let neg_vanished = vanished * -1;
-    /// assert!(neg_vanished.is_negative());
+    /// // Even tiny numbers maintain their sign let neg_vanished: ScalarF4E5 = vanished * -1_i16; assert!(neg_vanished.is_negative());
     ///
-    /// // Normal values are not negligible
-    /// let meaning = ScalarF4E5::from(1729);
-    /// assert!(!meaning.is_negligible());
+    /// // Normal values are not negligible let meaning = ScalarF4E5::from(1729_i16); assert!(!meaning.is_negligible());
     ///
-    /// // Large escaped values are not negligible
-    /// let exploded = ScalarF4E5::MAX * ScalarF4E5::MIN;
-    /// assert!(!exploded.is_negligible());
+    /// // Large escaped values are not negligible let exploded = ScalarF4E5::MAX * ScalarF4E5::MIN; assert!(!exploded.is_negligible());
     ///
-    /// // Undefined Scalars are not negligible
-    /// let undefined = ScalarF4E5::ZERO / 0;
-    /// assert!(!undefined.is_negligible());
+    /// // Undefined Scalars are not negligible let undefined: ScalarF4E5 = ScalarF4E5::ZERO / 0_i16; assert!(!undefined.is_negligible());
     ///
-    /// // Infinite Scalars are not negligible
-    /// let infinite = ScalarF4E5::ONE / 0;
-    /// assert!(!infinite.is_negligible());
+    /// // Infinite Scalars are not negligible let infinite: ScalarF4E5 = ScalarF4E5::ONE / 0_i16; assert!(!infinite.is_negligible());
     ///
-    /// // Reciprocals of Infinite Scalars are Zero!
-    /// let infinite = 1 / infinite;
-    /// assert!(infinite.is_negligible());
-    /// assert!(infinite == 0);
+    /// // Reciprocals of Infinite Scalars are Zero! let inf_recip: ScalarF4E5 = 1_i16 / infinite; assert!(inf_recip.is_negligible()); assert!(inf_recip == 0_i16);
     ///
-    /// // Division by a vanished value creates an exploded result
-    /// let exploded = 1 / tiny;
-    /// assert!(!exploded.is_negligible());
+    /// // Division by a vanished value creates an exploded result let also_exploded: ScalarF4E5 = 1_i16 / vanished; assert!(!also_exploded.is_negligible());
     /// ```
     #[inline]
     pub fn is_negligible(&self) -> bool {
@@ -376,39 +310,19 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E3};
     ///
-    /// // Create a ridiculously small positive number
-    /// let vanished = Scalar::<i16, i8>::MIN_POS / 123.45;
-    /// assert!(vanished.vanished());
-    /// assert!(vanished.is_positive());
+    /// // Create a ridiculously small positive number let vanished: Scalar::<i16, i8> = Scalar::<i16, i8>::MIN_POS / 123.45_f32; assert!(vanished.vanished()); assert!(vanished.is_positive());
     ///
-    /// // And a ridiculously small negative number
-    /// let vanished_negative = ScalarF4E3::MIN_POS / -12;
-    /// assert!(vanished_negative.vanished());
-    /// assert!(vanished_negative.is_negative());
+    /// // And a ridiculously small negative number let vanished_negative: ScalarF4E3 = ScalarF4E3::MIN_POS / -12_i16; assert!(vanished_negative.vanished()); assert!(vanished_negative.is_negative());
     ///
-    /// // Actual Zero is not vanished - it's truly Zero
-    /// let actual_zero = ScalarF4E3::ZERO;
-    /// assert!(!actual_zero.vanished());
+    /// // Actual Zero is not vanished - it's truly Zero let actual_zero = ScalarF4E3::ZERO; assert!(!actual_zero.vanished());
     ///
-    /// // Normal values are not vanished
-    /// let normal = ScalarF4E3::from(42);
-    /// assert!(!normal.vanished());
+    /// // Normal values are not vanished let normal = ScalarF4E3::from(42_i16); assert!(!normal.vanished());
     ///
-    /// // Large escaped values aren't vanished - they're exploded!
-    /// let ginormous = ScalarF4E3::MAX.pow(ScalarF4E3::MAX);
-    /// assert!(!ginormous.vanished());
-    /// assert!(ginormous.exploded());
+    /// // Large escaped values aren't vanished - they're exploded! let ginormous = ScalarF4E3::MAX.pow(ScalarF4E3::MAX); assert!(!ginormous.vanished()); assert!(ginormous.exploded());
     ///
-    /// // Normal division by a vanished value produces an exploded result
-    /// let exploded = 1 / vanished;
-    /// assert!(exploded.exploded());
-    /// assert!(!exploded.vanished());
+    /// // Normal division by a vanished value produces an exploded result let exploded: ScalarF4E3 = 1_i16 / vanished; assert!(exploded.exploded()); assert!(!exploded.vanished());
     ///
-    /// // Reciprocal of Infinity is not vanished, it's Zero!
-    /// let infinity = ScalarF4E3::from(42) / 0;
-    /// let zero = 1 / infinity;
-    /// assert!(!zero.vanished());
-    /// assert!(zero.is_zero());
+    /// // Reciprocal of Infinity is not vanished, it's Zero! let infinity: ScalarF4E3 = ScalarF4E3::from(42_i16) / 0_i16; let zero: ScalarF4E3 = 1_i16 / infinity; assert!(!zero.vanished()); assert!(zero.is_zero());
     /// ```
     #[inline]
     pub fn vanished(&self) -> bool {
@@ -433,46 +347,23 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::{Scalar, ScalarF7E7};
+    /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Create an astronomically large positive Scalar
-    /// let biggin = Scalar::<i128, i128>::MAX.pow(ScalarF7E7::MAX);
-    /// assert!(biggin.exploded());
-    /// assert!(biggin.is_positive());
-    /// // Scalars don't saturate to infinity
-    /// assert!(!biggin.is_infinite());
+    /// // Create an astronomically large positive Scalar let biggin: ScalarF5E3 = ScalarF5E3::MAX * ScalarF5E3::MAX; assert!(biggin.exploded()); assert!(biggin.is_positive()); // Scalars don't saturate to infinity assert!(!biggin.is_infinite());
     ///
-    /// // Create an exploded negative Scalar
-    /// let huge_negative = ScalarF7E7::MIN.pow(ScalarF7E7::PI);
-    /// assert!(huge_negative.exploded());
-    /// assert!(huge_negative.is_negative());
+    /// // Create an exploded negative Scalar let huge_negative: ScalarF5E3 = biggin * -1_i32; assert!(huge_negative.exploded()); assert!(huge_negative.is_negative());
     ///
-    /// // Actual Zero is not vanished
-    /// let actual_zero = ScalarF7E7::ZERO;
-    /// assert!(!actual_zero.vanished());
+    /// // Actual Zero is not vanished let actual_zero = ScalarF5E3::ZERO; assert!(!actual_zero.vanished());
     ///
-    /// // Infinity is not exploded either
-    /// let infinity = 1 / actual_zero;
-    /// assert!(!infinity.exploded());
+    /// // Infinity is not exploded either let infinity: ScalarF5E3 = 1_i32 / actual_zero; assert!(!infinity.exploded());
     ///
-    /// // Normal values are, well, normal!
-    /// let normal = ScalarF7E7::from(42);
-    /// assert!(normal.is_normal());
+    /// // Normal values are, well, normal! let normal = ScalarF5E3::from(42_i32); assert!(normal.is_normal());
     ///
-    /// // Small escaped values aren't Zero - they're vanished!
-    /// let vanished = ScalarF7E7::MIN_POS.square();
-    /// assert!(!vanished.is_zero());
-    /// assert!(vanished.vanished());
+    /// // Small escaped values aren't Zero - they're vanished! let vanished = ScalarF5E3::MIN_POS.square(); assert!(!vanished.is_zero()); assert!(vanished.vanished());
     ///
-    /// // Multiplying or dividing exploded Scalars maintains the exploded state
-    /// let still_exploded = huge / 42;
-    /// assert!(still_exploded.exploded());
-    /// let definitely_exploded = huge * 42;
-    /// assert!(definitely_exploded.exploded());
+    /// // Multiplying or dividing exploded Scalars maintains the exploded state let still_exploded: ScalarF5E3 = biggin / 42_i32; assert!(still_exploded.exploded()); let definitely_exploded: ScalarF5E3 = biggin * 42_i32; assert!(definitely_exploded.exploded());
     ///
-    /// // Division by vanished values produces exploded results
-    /// let also_exploded = 1 / tiny;
-    /// assert!(also_exploded.exploded());
+    /// // Division by vanished values produces exploded results let tiny = ScalarF5E3::MIN_POS.square(); let also_exploded: ScalarF5E3 = 1_i32 / tiny; assert!(also_exploded.exploded());
     /// ```
     #[inline]
     pub fn exploded(&self) -> bool {
@@ -499,52 +390,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E4};
     ///
-    /// // Exploded Scalars are transfinite
-    /// let exploded = ScalarF5E4::MAX * ScalarF5E4::MAX;
-    /// assert!(exploded.is_transfinite());
-    /// assert!(exploded.exploded());
-    /// assert!(!exploded.is_infinite()); // But it's not infinity
+    /// // Exploded Scalars are transfinite let exploded = ScalarF5E4::MAX * ScalarF5E4::MAX; assert!(exploded.is_transfinite()); assert!(exploded.exploded()); assert!(!exploded.is_infinite()); // But it's not infinity
     ///
-    /// // Exploded negatives are also transfinite
-    /// let neg_exploded = exploded * -1;
-    /// assert!(neg_exploded.is_transfinite());
-    /// assert!(neg_exploded.is_negative());
+    /// // Exploded negatives are also transfinite let neg_exploded: ScalarF5E4 = exploded * -1_i32; assert!(neg_exploded.is_transfinite()); assert!(neg_exploded.is_negative());
     ///
-    /// // Division by zero produces true mathematical infinity
-    /// let infinity = ScalarF5E4::ONE / 0;
-    /// assert!(infinity.is_transfinite());
-    /// assert!(!infinity.exploded()); // Not the same as exploded!
+    /// // Division by zero produces true mathematical infinity let infinity: ScalarF5E4 = ScalarF5E4::ONE / 0_i32; assert!(infinity.is_transfinite()); assert!(!infinity.exploded()); // Not the same as exploded!
     ///
-    /// // Normal values are not transfinite
-    /// let normal = ScalarF5E4::from(42);
-    /// assert!(!normal.is_transfinite());
+    /// // Normal values are not transfinite let normal = ScalarF5E4::from(42_i32); assert!(!normal.is_transfinite());
     ///
-    /// // Zero is not transfinite
-    /// let zero = ScalarF5E4::ZERO;
-    /// assert!(!zero.is_transfinite());
+    /// // Zero is not transfinite let zero = ScalarF5E4::ZERO; assert!(!zero.is_transfinite());
     ///
-    /// // Vanished values are not transfinite (they're the opposite!)
-    /// let tiny = ScalarF5E4::MAX_NEG.square();
-    /// assert!(!tiny.is_transfinite());
+    /// // Vanished values are not transfinite (they're the opposite!) let tiny = ScalarF5E4::MAX_NEG.square(); assert!(!tiny.is_transfinite());
     ///
-    /// // The reciprocal of transfinite is tiny
-    /// let vanished = 1 / exploded;
-    /// let also_zero = 1 / infinity;
-    /// assert!(vanished.is_negligible());
-    /// assert!(also_zero.is_negligible());
+    /// // The reciprocal of transfinite is tiny let vanished: ScalarF5E4 = 1_i32 / exploded; let also_zero: ScalarF5E4 = 1_i32 / infinity; assert!(vanished.is_negligible()); assert!(also_zero.is_negligible());
     ///
-    /// // Anything over infinity is exactly Zero
-    /// let zero_again = exploded / infinity;
-    /// assert!(zero_again.is_zero());
-    /// // Except for infinity over infinity, of course
-    /// let undefined = ScalarF5E4::INFINITY / infinity;
-    /// assert!(undefined.is_undefined());
+    /// // Anything over infinity is exactly Zero let zero_again = exploded / infinity; assert!(zero_again.is_zero()); // Except for infinity over infinity, of course let undefined = ScalarF5E4::INFINITY / infinity; assert!(undefined.is_undefined());
     ///
-    /// // Math operations with infinity follow mathematical rules
-    /// let also_infinity = infinity * ScalarF5E4::PI;
-    /// assert!(also_infinity.is_transfinite());
-    /// let still_infinity = infinity.pow(-ScalarF5E4::E);
-    /// assert!(still_infinity.is_transfinite());
+    /// // Math operations with infinity follow mathematical rules let also_infinity = infinity * ScalarF5E4::PI; assert!(also_infinity.is_transfinite()); let still_infinity = infinity.pow(ScalarF5E4::E); assert!(still_infinity.is_transfinite());
     /// ```
     pub fn is_transfinite(&self) -> bool {
         self.exponent == Self::ambiguous_exponent()
@@ -571,41 +433,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E4};
     ///
-    /// // Normal values are finite
-    /// let normal = Scalar::<i32, i16>::from(42);
-    /// assert!(normal.is_finite());
+    /// // Normal values are finite let normal = Scalar::<i32, i16>::from(42_i32); assert!(normal.is_finite());
     ///
-    /// // Zero is finite
-    /// let zero = normal - normal;
-    /// assert!(zero.is_finite());
+    /// // Zero is finite let zero = normal - normal; assert!(zero.is_finite());
     ///
-    /// // Pi is finite
-    /// let pi = ScalarF5E4::PI;
-    /// assert!(pi.is_finite());
+    /// // Pi is finite let pi = ScalarF5E4::PI; assert!(pi.is_finite());
     ///
-    /// // Exploded values are not finite
-    /// let exploded = ScalarF5E4::MAX * 2 ;
-    /// assert!(!exploded.is_finite());
+    /// // Exploded values are not finite let exploded: ScalarF5E4 = ScalarF5E4::MAX * 2_i32; assert!(!exploded.is_finite());
     ///
-    /// // Vanished values are not finite
-    /// let vanished = ScalarF5E4::MIN_POS / 28;
-    /// assert!(!vanished.is_finite());
+    /// // Vanished values are not finite let vanished: ScalarF5E4 = ScalarF5E4::MIN_POS / 28_i32; assert!(!vanished.is_finite());
     ///
-    /// // Undefined Scalars are not finite
-    /// let undefined = ScalarF5E4::ZERO.pow(0);
-    /// assert!(!undefined.is_finite());
+    /// // Undefined Scalars are not finite let infinity_f: ScalarF5E4 = ScalarF5E4::ONE / 0_i32; let undefined: ScalarF5E4 = infinity_f * ScalarF5E4::ZERO; assert!(!undefined.is_finite());
     ///
-    /// // Operations that produce normal results usually return finite values
-    /// let still_finite = normal + 1;
-    /// assert!(still_finite.is_finite());
+    /// // Operations that produce normal results usually return finite values let still_finite: ScalarF5E4 = normal + 1_i32; assert!(still_finite.is_finite());
     ///
-    /// // Operations that exceed representable range escape finiteness
-    /// let no_longer_finite = ScalarF5E4::MAX + ScalarF5E4::MAX / 2;
-    /// assert!(!no_longer_finite.is_finite());
+    /// // Operations that exceed representable range escape finiteness let no_longer_finite: ScalarF5E4 = ScalarF5E4::MAX + ScalarF5E4::MAX / 2_i32; assert!(!no_longer_finite.is_finite());
     ///
-    /// // Infinity is definitely not finite!
-    /// let infinity = ScalarF5E4::MAX / 0;
-    /// assert!(!infinity.is_finite());
+    /// // Infinity is definitely not finite! let infinity: ScalarF5E4 = ScalarF5E4::MAX / 0_i32; assert!(!infinity.is_finite());
     /// ```
     #[inline]
     pub fn is_finite(&self) -> bool {
@@ -634,43 +478,21 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E4};
     ///
-    /// // The one and only Zero
-    /// let zero = Scalar::<i64, i16>::ZERO;
-    /// assert!(zero.is_zero());
+    /// // The one and only Zero let zero = Scalar::<i64, i16>::ZERO; assert!(zero.is_zero());
     ///
-    /// // Even a very small number is not Zero
-    /// let tiny = ScalarF6E4::MIN_POS / 61;
-    /// assert!(!tiny.is_zero());
-    /// assert!(tiny.vanished());  // It's vanished, not Zero
+    /// // Even a very small number is not Zero let tiny: ScalarF6E4 = ScalarF6E4::MIN_POS / 61_i64; assert!(!tiny.is_zero()); assert!(tiny.vanished());  // It's vanished, not Zero
     ///
-    /// // Normal values are not Zero
-    /// let normal = ScalarF6E4::from(42);
-    /// assert!(!normal.is_zero());
+    /// // Normal values are not Zero let normal = ScalarF6E4::from(42_i64); assert!(!normal.is_zero());
     ///
-    /// // Exploded values are not Zero
-    /// let huge = ScalarF6E4::MAX * ScalarF6E4::MAX;
-    /// assert!(!huge.is_zero());
+    /// // Exploded values are not Zero let huge = ScalarF6E4::MAX * ScalarF6E4::MAX; assert!(!huge.is_zero());
     ///
-    /// // Infinity is not Zero (it's the opposite!)
-    /// let infinity = ScalarF6E4::ONE / 0;
-    /// assert!(!infinity.is_zero());
+    /// // Infinity is not Zero (it's the opposite!) let infinity: ScalarF6E4 = ScalarF6E4::ONE / 0_i64; assert!(!infinity.is_zero());
     ///
-    /// // Multiplication by Zero always yields Zero
-    /// let still_zero = zero * ScalarF6E4::PI;
-    /// assert!(still_zero.is_zero());
-    /// // Except with Infinity
-    /// let undefined = zero * ScalarF6E4::INFINITY;
-    /// assert!(!undefined.is_zero());
+    /// // Multiplication by Zero always yields Zero let still_zero = zero * ScalarF6E4::PI; assert!(still_zero.is_zero()); // Except with Infinity let undefined = zero * ScalarF6E4::INFINITY; assert!(!undefined.is_zero());
     ///
-    /// // Reciprocal of infinity is Zero
-    /// let also_zero = ScalarF6E4::ONE / infinity;
-    /// assert!(also_zero.is_zero());
+    /// // Reciprocal of infinity is Zero let also_zero = ScalarF6E4::ONE / infinity; assert!(also_zero.is_zero());
     ///
-    /// // Adding a normal Scalar to Zero or vanished gives a normal Scalar
-    /// let normal_again = zero + 163 + tiny + also_zero;
-    /// assert!(!normal_again.is_zero());
-    /// assert!(normal_again.is_normal());
-    /// assert!(normal_again, 163);
+    /// // Adding a normal Scalar to Zero or vanished gives a normal Scalar let normal_again: ScalarF6E4 = zero + 163_i64 + tiny + also_zero; assert!(!normal_again.is_zero()); assert!(normal_again.is_normal()); assert!(normal_again == 163_i64);
     /// ```
     #[inline]
     pub fn is_zero(&self) -> bool {
@@ -697,43 +519,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Division by zero produces infinity
-    /// let infinity = ScalarF5E3::ONE / 0;
-    /// assert!(infinity.is_infinite());
+    /// // Division by zero produces infinity let infinity: ScalarF5E3 = ScalarF5E3::ONE / 0_i32; assert!(infinity.is_infinite());
     ///
-    /// // Exploded values are not infinity
-    /// let exploded = ScalarF5E3::MAX * ScalarF5E3::MAX;
-    /// assert!(!exploded.is_infinite());
-    /// assert!(exploded.exploded());
+    /// // Exploded values are not infinity let exploded = ScalarF5E3::MAX * ScalarF5E3::MAX; assert!(!exploded.is_infinite()); assert!(exploded.exploded());
     ///
-    /// // Both are transfinite
-    /// assert!(infinity.is_transfinite());
-    /// assert!(exploded.is_transfinite());
+    /// // Both are transfinite assert!(infinity.is_transfinite()); assert!(exploded.is_transfinite());
     ///
-    /// // Normal values are not infinity
-    /// let normal = ScalarF5E3::from(42);
-    /// assert!(!normal.is_infinite());
+    /// // Normal values are not infinity let normal = ScalarF5E3::from(42_i32); assert!(!normal.is_infinite());
     ///
-    /// // Zero is not infinity (it's the opposite!)
-    /// let zero = ScalarF5E3::ZERO;
-    /// assert!(!zero.is_infinite());
+    /// // Zero is not infinity (it's the opposite!) let zero = ScalarF5E3::ZERO; assert!(!zero.is_infinite());
     ///
-    /// // Reciprocal of infinity is exactly zero
-    /// let zero_again = ScalarF5E3::ONE / infinity;
-    /// assert!(zero_again.is_zero());
+    /// // Reciprocal of infinity is exactly zero let zero_again = ScalarF5E3::ONE / infinity; assert!(zero_again.is_zero());
     ///
-    /// // Infinity multiplied by any non-zero value remains infinity
-    /// let still_infinity = infinity * ScalarF5E3::PI;
-    /// assert!(still_infinity.is_infinite());
+    /// // Infinity multiplied by any non-zero value remains infinity let still_infinity = infinity * ScalarF5E3::PI; assert!(still_infinity.is_infinite());
     ///
-    /// // Infinity divided by any non-zero value remains infinity
-    /// let still_infinity = infinity / 1000;
-    /// assert!(still_infinity.is_infinite());
+    /// // Infinity divided by any non-zero value remains infinity let still_infinity: ScalarF5E3 = infinity / 1000_i32; assert!(still_infinity.is_infinite());
     ///
-    /// // infinity + infinity is undefined, not infinity
-    /// let undefined = infinity + infinity;
-    /// assert!(!undefined.is_infinite());
-    /// assert!(undefined.is_undefined());
+    /// // infinity times zero is undefined let undefined: ScalarF5E3 = infinity * ScalarF5E3::ZERO; assert!(!undefined.is_infinite()); assert!(undefined.is_undefined());
     /// ```
     #[inline]
     pub fn is_infinite(&self) -> bool {
@@ -763,33 +565,19 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E5};
     ///
-    /// // Normal positive numbers
-    /// let positive = Scalar::<i64, i32>::from(42);
-    /// assert!(positive.is_positive());
+    /// // Normal positive numbers let positive = Scalar::<i64, i32>::from(42); assert!(positive.is_positive());
     ///
-    /// // Zero is not positive
-    /// let zero = ScalarF6E5::ZERO;
-    /// assert!(!zero.is_positive());
+    /// // Zero is not positive let zero = ScalarF6E5::ZERO; assert!(!zero.is_positive());
     ///
-    /// // Negative numbers are not positive
-    /// let negative = ScalarF6E5::from(-37);
-    /// assert!(!negative.is_positive());
+    /// // Negative numbers are not positive let negative = ScalarF6E5::from(-37); assert!(!negative.is_positive());
     ///
-    /// // Positive vanished values are positive
-    /// let tiny = ScalarF6E5::MIN_POS / 131071;
-    /// assert!(tiny.is_positive());
+    /// // Positive vanished values are positive let tiny: ScalarF6E5 = ScalarF6E5::MIN_POS / 131071_i64; assert!(tiny.is_positive());
     ///
-    /// // Positive exploded values are positive
-    /// let huge = positive.pow(87539319);
-    /// assert!(huge.is_positive());
+    /// // Positive exploded values are positive let huge: ScalarF6E5 = positive.pow(87539319_i64); assert!(huge.is_positive());
     ///
-    /// // Infinities aren't positive
-    /// let infinity = ScalarF6E5::TAU / 0;
-    /// assert!(!infinity.is_positive());
+    /// // Infinities aren't positive let infinity: ScalarF6E5 = ScalarF6E5::TAU / 0_i64; assert!(!infinity.is_positive());
     ///
-    /// // Neither are undefined Scalars
-    /// let undefined = ScalarF6E5::ZERO / 0;
-    /// assert!(!undefined.is_positive());
+    /// // Neither are undefined Scalars let undefined: ScalarF6E5 = ScalarF6E5::ZERO / 0_i64; assert!(!undefined.is_positive());
     /// ```
     #[inline]
     pub fn is_positive(&self) -> bool {
@@ -830,33 +618,19 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E5};
     ///
-    /// // Normal negative numbers
-    /// let negative = Scalar::<i64, i32>::from(-42);
-    /// assert!(negative.is_negative());
+    /// // Normal negative numbers let negative = Scalar::<i64, i32>::from(-42_i64); assert!(negative.is_negative());
     ///
-    /// // Zero is not negative
-    /// let zero = ScalarF6E5::ZERO;
-    /// assert!(!zero.is_negative());
+    /// // Zero is not negative let zero = ScalarF6E5::ZERO; assert!(!zero.is_negative());
     ///
-    /// // Positive numbers are not negative
-    /// let positive = ScalarF6E5::from(37);
-    /// assert!(!positive.is_negative());
+    /// // Positive numbers are not negative let positive = ScalarF6E5::from(37_i64); assert!(!positive.is_negative());
     ///
-    /// // Negative vanished values are negative
-    /// let tiny = ScalarF6E5::MIN_POS / -131071;
-    /// assert!(tiny.is_negative());
+    /// // Negative vanished values are negative let tiny: ScalarF6E5 = ScalarF6E5::MIN_POS / -131071_i64; assert!(tiny.is_negative());
     ///
-    /// // Negative exploded values are negative
-    /// let huge = negative.pow(87539319);
-    /// assert!(huge.is_negative());
+    /// // Negative exploded values are negative let huge: ScalarF6E5 = ScalarF6E5::MIN * 2_i64; assert!(huge.is_negative());
     ///
-    /// // Infinities aren't negative
-    /// let infinity = ScalarF6E5::TAU / 0;
-    /// assert!(!infinity.is_negative());
+    /// // Infinities aren't negative let infinity: ScalarF6E5 = ScalarF6E5::TAU / 0_i64; assert!(!infinity.is_negative());
     ///
-    /// // Neither are undefined Scalars
-    /// let undefined = ScalarF6E5::ZERO / 0;
-    /// assert!(!undefined.is_negative());
+    /// // Neither are undefined Scalars let undefined: ScalarF6E5 = ScalarF6E5::ZERO / 0_i64; assert!(!undefined.is_negative());
     /// ```
     #[inline]
     pub fn is_negative(&self) -> bool {
@@ -895,37 +669,21 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF3E4};
     ///
-    /// // The answer to the meaning of life is an integer
-    /// let integer = Scalar::<i8, i16>::from(42);
-    /// assert!(integer.is_integer());
+    /// // The answer to the meaning of life is an integer let integer = Scalar::<i8, i16>::from(42_i8); assert!(integer.is_integer());
     ///
-    /// // Zero is an integer
-    /// let zero = ScalarF3E4::ZERO;
-    /// assert!(zero.is_integer());
+    /// // Zero is an integer let zero = ScalarF3E4::ZERO; assert!(zero.is_integer());
     ///
-    /// // Negative integers are still integers
-    /// let neg_int = ScalarF3E4::from(-7);
-    /// assert!(neg_int.is_integer());
+    /// // Negative integers are still integers let neg_int = ScalarF3E4::from(-7_i8); assert!(neg_int.is_integer());
     ///
-    /// // Numbers with fractional values are not integers
-    /// let fract = ScalarF3E4::from(1.122757);
-    /// assert!(!fract.is_integer());
+    /// // Numbers with fractional values are not integers let fract = ScalarF3E4::from(1.122757_f64); assert!(!fract.is_integer());
     ///
-    /// // Exploded values are considered integers
-    /// let huge = ScalarF3E4::MAX.pow(15);
-    /// assert!(huge.is_integer());
+    /// // Exploded values are considered integers let huge = ScalarF3E4::MAX.pow(15_i8); assert!(huge.is_integer());
     ///
-    /// // Infinity is not an integer
-    /// let infinity = ScalarF3E4::ONE / 0;
-    /// assert!(infinity.is_integer());
+    /// // Infinity is not an integer let infinity: ScalarF3E4 = ScalarF3E4::ONE / 0_i8; assert!(!infinity.is_integer());
     ///
-    /// // Vanished values are not integers
-    /// let tiny = ScalarF3E4::MIN_POS / 3435;
-    /// assert!(!tiny.is_integer());
+    /// // Vanished values are not integers let tiny: ScalarF3E4 = ScalarF3E4::MIN_POS / 99_i8; assert!(!tiny.is_integer());
     ///
-    /// // Undefined states are not integers
-    /// let undefined = ScalarF3E4::ZERO / 0;
-    /// assert!(!undefined.is_integer());
+    /// // Undefined states are not integers let undefined: ScalarF3E4 = ScalarF3E4::ZERO / 0_i8; assert!(!undefined.is_integer());
     /// ```
     #[inline]
     pub fn is_integer(&self) -> bool {
@@ -977,28 +735,15 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E3};
     ///
-    /// // Integers within contiguous range
-    /// let small_int = ScalarF4E3::from(42);
-    /// assert!(small_int.is_contiguous());
+    /// // Integers within contiguous range let small_int = ScalarF4E3::from(42_i16); assert!(small_int.is_contiguous());
     ///
-    /// // Zero is within the contiguous range
-    /// let zero = ScalarF4E3::ZERO;
-    /// assert!(zero.is_contiguous());
+    /// // Zero is within the contiguous range let zero = ScalarF4E3::ZERO; assert!(zero.is_contiguous());
     ///
-    /// // Large integers outside contiguous range return false,
-    /// // even tho they are precisely representable
-    /// let large_int = Scalar::<i16, i8>::from(1) << 15;
-    /// assert!(!large_int.is_contiguous());
+    /// // Large integers outside contiguous range return false, // even tho they are precisely representable let large_int: ScalarF4E3 = ScalarF4E3::MAX_CONTIGUOUS * 2_i16; assert!(!large_int.is_contiguous());
     ///
-    /// // Fractional values are not contiguous integers
-    /// let fract = ScalarF4E3::PI;
-    /// assert!(!fract.is_contiguous());
+    /// // Fractional values are not contiguous integers let fract = ScalarF4E3::PI; assert!(!fract.is_contiguous());
     ///
-    /// // Vanished values and infinite states are never contiguous
-    /// let tiny = ScalarF4E3::MIN_POS / ScalarF4E3::MAX;
-    /// assert!(!tiny.is_contiguous());
-    /// let infinity = ScalarF4E3::ONE / 0;
-    /// assert!(!infinity.is_contiguous());
+    /// // Vanished values and infinite states are never contiguous let tiny = ScalarF4E3::MIN_POS / ScalarF4E3::MAX; assert!(!tiny.is_contiguous()); let infinity: ScalarF4E3 = ScalarF4E3::ONE / 0_i16; assert!(!infinity.is_contiguous());
     /// ```
     #[inline]
     pub fn is_contiguous(&self) -> bool {
@@ -1178,31 +923,17 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E6};
     ///
-    /// // Magnitude of negative is positive
-    /// let negative = Scalar::<i16, i64>::from(-42);
-    /// assert!(negative.magnitude() == ScalarF4E6::from(42));
+    /// // Magnitude of negative is positive let negative = Scalar::<i16, i64>::from(-42); assert!(negative.magnitude() == ScalarF4E6::from(42));
     ///
-    /// // Magnitude of positive remains the same
-    /// let positive = ScalarF4E6::from(123);
-    /// assert!(positive.magnitude() == positive);
+    /// // Magnitude of positive remains the same let positive = ScalarF4E6::from(123); assert!(positive.magnitude() == positive);
     ///
-    /// // Magnitude of Zero is Zero
-    /// let zero = ScalarF4E6::ZERO;
-    /// assert!(zero.magnitude() == zero);
+    /// // Magnitude of Zero is Zero let zero = ScalarF4E6::ZERO; assert!(zero.magnitude() == zero);
     ///
-    /// // Magnitude preserves scale of vanished values
-    /// let tiny_neg = ScalarF4E6::MIN_POS / -28;
-    /// assert!(tiny_neg.magnitude().is_positive());
-    /// assert!(tiny_neg.magnitude().vanished());
+    /// // Magnitude preserves scale of vanished values let tiny_neg: ScalarF4E6 = ScalarF4E6::MIN_POS / -28_i16; assert!(tiny_neg.magnitude().is_positive()); assert!(tiny_neg.magnitude().vanished());
     ///
-    /// // Magnitude preserves scale of exploded values
-    /// let huge_neg = ScalarF4E6::MIN * ScalarF4E6::MAX;
-    /// assert!(huge_neg.magnitude().is_positive());
-    /// assert!(huge_neg.magnitude().exploded());
+    /// // Magnitude preserves scale of exploded values let huge_neg = ScalarF4E6::MIN * ScalarF4E6::MAX; assert!(huge_neg.magnitude().is_positive()); assert!(huge_neg.magnitude().exploded());
     ///
-    /// // Undefined states pass thru magnitude() unchanged
-    /// let undefined = ScalarF4E6::ZERO / 0;
-    /// assert!(undefined.magnitude().is_undefined());
+    /// // Undefined states pass thru magnitude() unchanged let undefined: ScalarF4E6 = ScalarF4E6::ZERO / 0_i16; assert!(undefined.magnitude().is_undefined());
     /// ```
     pub fn magnitude(&self) -> Self {
         if self.is_positive() || self.is_zero() || self.is_infinite() || self.is_undefined() {
@@ -1234,25 +965,15 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Sign of a positive number is 1
-    /// let positive = Scalar::<i32, i8>::from(42);
-    /// assert!(positive.sign() == 1);
+    /// // Sign of a positive number is 1 let positive = Scalar::<i32, i8>::from(42); assert!(positive.sign() == 1);
     ///
-    /// // Sign of a negative number is -1
-    /// let negative = ScalarF5E3::from(-3.14);
-    /// assert!(negative.sign() == -1);
+    /// // Sign of a negative number is -1 let negative = ScalarF5E3::from(-3.14); assert!(negative.sign() == -1);
     ///
-    /// // Sign of Zero is undefined (no direction)
-    /// let zero = ScalarF5E3::ZERO;
-    /// assert!(zero.sign().is_undefined());
+    /// // Sign of Zero is undefined (no direction) let zero = ScalarF5E3::ZERO; assert!(zero.sign().is_undefined());
     ///
-    /// // Sign of Infinity is undefined (no direction)
-    /// let infinity = ScalarF5E3::ONE / 0;
-    /// assert!(infinity.sign().is_undefined());
+    /// // Sign of Infinity is undefined (no direction) let infinity: ScalarF5E3 = ScalarF5E3::ONE / 0_i32; assert!(infinity.sign().is_undefined());
     ///
-    /// // Sign of undefined remains unchanged
-    /// let undefined = 0 / ScalarF5E3::ZERO; // 0/0
-    /// assert!(undefined.sign().is_undefined());
+    /// // Sign of undefined remains unchanged let undefined: ScalarF5E3 = 0_i32 / ScalarF5E3::ZERO; // 0/0 assert!(undefined.sign().is_undefined());
     /// ```
     pub fn sign(&self) -> Self {
         if self.is_undefined() {
@@ -1290,41 +1011,23 @@ where
     /// ```rustI
     /// use spirix::{Scalar, ScalarF5E5};
     ///
-    /// // The floor of the answer to everything is itself
-    /// let integer = Scalar::<i32, i32>::from(42);
-    /// assert!(integer.floor() == integer);
+    /// // The floor of the answer to everything is itself let integer = Scalar::<i32, i32>::from(42); assert!(integer.floor() == integer);
     ///
-    /// // Floor of positive fractional number
-    /// let fract_pos = ScalarF5E5::from(2.622057554);
-    /// assert!(fract_pos.floor() == 2);
+    /// // Floor of positive fractional number let fract_pos = ScalarF5E5::from(2.622057554); assert!(fract_pos.floor() == 2);
     ///
-    /// // Floor of negative fractional number
-    /// let fract_neg = ScalarF5E5::from(-24.1);
-    /// assert!(fract_neg.floor() == -25);
+    /// // Floor of negative fractional number let fract_neg = ScalarF5E5::from(-24.1); assert!(fract_neg.floor() == -25);
     ///
-    /// // Floor of Zero is Zero
-    /// let zero = ScalarF5E5::ZERO;
-    /// assert!(zero.floor() == 0);
+    /// // Floor of Zero is Zero let zero = ScalarF5E5::ZERO; assert!(zero.floor() == 0);
     ///
-    /// // Floor of positive vanished is Zero
-    /// let tiny_pos = ScalarF5E5::MIN_POS / 12;
-    /// assert!(tiny_pos.floor() == 0);
+    /// // Floor of positive vanished is Zero let tiny_pos = ScalarF5E5::MIN_POS / 12; assert!(tiny_pos.floor() == 0);
     ///
-    /// // Floor of negative vanished is negative one
-    /// let tiny_neg = ScalarF5E5::MIN_POS / -24;
-    /// assert!(tiny_neg.floor() == -1);
+    /// // Floor of negative vanished is negative one let tiny_neg = ScalarF5E5::MIN_POS / -24; assert!(tiny_neg.floor() == -1);
     ///
-    /// // Floor of exploded preserves the value
-    /// let sploded = ScalarF5E5::MAX * ScalarF5E5::MAX;
-    /// assert!(sploded.floor() == sploded);
+    /// // Floor of exploded preserves the value let sploded = ScalarF5E5::MAX * ScalarF5E5::MAX; assert!(sploded.floor() == sploded);
     ///
-    /// // Floor of Infinity preserves Infinity
-    /// let infinity = ScalarF5E5::ONE / 0;
-    /// assert!(infinity.floor() == infinity);
+    /// // Floor of Infinity preserves Infinity let infinity = ScalarF5E5::ONE / 0; assert!(infinity.floor() == infinity);
     ///
-    /// // Floor of undefined remains undefined
-    /// let undefined = ScalarF5E5::ZERO / 0;
-    /// assert!(undefined.floor().is_undefined());
+    /// // Floor of undefined remains undefined let undefined = ScalarF5E5::ZERO / 0; assert!(undefined.floor().is_undefined());
     /// ```
     pub fn floor(&self) -> Self {
         // Handle non-normal values first
@@ -1382,41 +1085,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF7E5};
     ///
-    /// // The ceiling of an integer is itself
-    /// let integer = Scalar::<i128, i32>::from(42);
-    /// assert!(integer.ceil() == integer);
+    /// // The ceiling of an integer is itself let integer = Scalar::<i128, i32>::from(42_i128); assert!(integer.ceil() == integer);
     ///
-    /// // Ceiling of positive fractional number
-    /// let fract_pos = ScalarF7E5::E.pow(ScalarF7E5::PI);
-    /// assert!(fract_pos.ceil() == 24);
+    /// // Ceiling of positive fractional number let fract_pos = ScalarF7E5::E.pow(ScalarF7E5::PI); assert!(fract_pos.ceil() == 24_i128);
     ///
-    /// // Ceiling of negative fractional number
-    /// let fract_neg = ScalarF7E5::from(-24.1);
-    /// assert!(fract_neg.ceil() == -24);
+    /// // Ceiling of negative fractional number let fract_neg = ScalarF7E5::from(-24.5_f32); assert!(fract_neg.ceil() == -24_i128);
     ///
-    /// // Ceiling of Zero is Zero
-    /// let zero = ScalarF7E5::ZERO;
-    /// assert!(zero.ceil() == 0);
+    /// // Ceiling of Zero is Zero let zero = ScalarF7E5::ZERO; assert!(zero.ceil() == 0_i128);
     ///
-    /// // Ceiling of positive vanished is one
-    /// let tiny_pos = ScalarF7E5::MIN_POS / 17;
-    /// assert!(tiny_pos.ceil() == 1);
+    /// // Ceiling of positive vanished is one let tiny_pos: ScalarF7E5 = ScalarF7E5::MIN_POS / 17_i128; assert!(tiny_pos.ceil() == 1_i128);
     ///
-    /// // Ceiling of negative vanished is Zero
-    /// let tiny_neg = ScalarF7E5::MAX_NEG / 29;
-    /// assert!(tiny_neg.ceil() == 0);
+    /// // Ceiling of negative vanished is Zero let tiny_neg: ScalarF7E5 = ScalarF7E5::MAX_NEG / 29_i128; assert!(tiny_neg.ceil() == 0_i128);
     ///
-    /// // Ceiling of exploded preserves the value
-    /// let sploded = ScalarF7E5::MAX * ScalarF7E5::MAX;
-    /// assert!(sploded.ceil() == sploded);
+    /// // Ceiling of exploded preserves the exploded state let sploded = ScalarF7E5::MAX * ScalarF7E5::MAX; assert!(sploded.ceil().exploded());
     ///
-    /// // Ceiling of Infinity preserves Infinity
-    /// let infinity = ScalarF7E5::ONE / 0;  // Division by zero produces Infinity
-    /// assert!(infinity.ceil() == infinity);
+    /// // Ceiling of Infinity preserves Infinity let infinity: ScalarF7E5 = ScalarF7E5::ONE / 0_i128;  // Division by zero produces Infinity assert!(infinity.ceil().is_infinite());
     ///
-    /// // Ceiling of undefined remains undefined
-    /// let undefined = ScalarF7E5::ZERO / 0;  // 0/0 is undefined
-    /// assert!(undefined.ceil().is_undefined());
+    /// // Ceiling of undefined remains undefined let undefined: ScalarF7E5 = ScalarF7E5::ZERO / 0_i128;  // 0/0 is undefined assert!(undefined.ceil().is_undefined());
     /// ```
     pub fn ceil(&self) -> Self {
         let f = self.floor();
@@ -1448,45 +1133,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF7E6};
     ///
-    /// // Rounding an integer returns the same integer
-    /// let integer = Scalar::<i128, i64>::from(42);
-    /// assert!(integer.round() == integer);
+    /// // Rounding an integer returns the same integer let integer = Scalar::<i128, i64>::from(42_i128); assert!(integer.round() == integer);
     ///
-    /// // Rounding positive numbers
-    /// let e_m = ScalarF7E6::from(0.57721566490153286060651209008240243104);
-    /// assert!(e_m.round() == 1);
+    /// // Rounding positive numbers let tau = ScalarF7E6::TAU; assert!(tau.round() == 6_i128);
     ///
-    /// let tau = ScalarF7E6::TAU;
-    /// assert!(tau.round() == 6);
+    /// // Ties use banker's rounding (round half to even): 2.5 → 2, 1.5 → 2 let two_and_half: ScalarF7E6 = ScalarF7E6::from(2_i128) + ScalarF7E6::ONE / 2_i128; assert!(two_and_half.round() == 2_i128); let one_and_half: ScalarF7E6 = ScalarF7E6::ONE + ScalarF7E6::ONE / 2_i128; assert!(one_and_half.round() == 2_i128);
     ///
-    /// // Ties are rounded up
-    /// let half = ScalarF7E6::ONE / 2;
-    /// assert!(half.round() == 1);
-    /// assert!((-half).round() == 0);
+    /// // Rounding negative numbers let series: ScalarF7E6 = ScalarF7E6::NEG_ONE / 12_i128; assert!(series.round() == 0_i128);
     ///
-    /// // Rounding negative numbers
-    /// let series = ScalarF7E6::NEG_ONE / 12;
-    /// assert!(series.round() == 0);
+    /// // Rounding Zero returns Zero let zero = ScalarF7E6::ZERO; assert!(zero.round() == 0_i128);
     ///
-    /// // Rounding Zero returns Zero
-    /// let zero = ScalarF7E6::ZERO;
-    /// assert!(zero.round() == 0);
+    /// // Vanished values round to Zero let tiny: ScalarF7E6 = ScalarF7E6::MIN_POS / 17_i128; assert!(tiny.round() == 0_i128);
     ///
-    /// // Vanished values round to Zero
-    /// let tiny = ScalarF7E6::MIN_POS / 17;
-    /// assert!(tiny.round() == 0);
+    /// // Exploded values remain unchanged let huge = ScalarF7E6::MAX * ScalarF7E6::MAX; assert!(huge.round().fraction == huge.fraction && huge.round().exponent == huge.exponent);
     ///
-    /// // Exploded values remain unchanged
-    /// let huge = ScalarF7E6::MAX * ScalarF7E6::MAX;
-    /// assert!(huge.round().fraction == huge.fraction && huge.round().exponent == huge.exponent);
+    /// // Infinity remains unchanged let infinity: ScalarF7E6 = ScalarF7E6::ONE / 0_i128; assert!(infinity.round().fraction == infinity.fraction && infinity.round().exponent == infinity.exponent);
     ///
-    /// // Infinity remains unchanged
-    /// let infinity = ScalarF7E6::ONE / 0;
-    /// assert!(infinity.round().fraction == infinity.fraction && infinity.round().exponent == infinity.exponent);
-    ///
-    /// // Undefined Scalars maintain their undefined state
-    /// let undefined = ScalarF7E6::ZERO / 0;
-    /// assert!(undefined.round().fraction == undefined.fraction && undefined.round().exponent == undefined.exponent);
+    /// // Undefined Scalars maintain their undefined state let undefined: ScalarF7E6 = ScalarF7E6::ZERO / 0_i128; assert!(undefined.round().fraction == undefined.fraction && undefined.round().exponent == undefined.exponent);
     /// ```
     pub fn round(&self) -> Self {
         if !self.is_normal() {
@@ -1552,42 +1215,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF7E4};
     ///
-    /// // Fractional part of an integer is Zero
-    /// let integer = Scalar::<i128, i16>::from(42);
-    /// assert!(integer.frac() == 0);
+    /// // Fractional part of an integer is Zero let integer = Scalar::<i128, i16>::from(42); assert!(integer.frac() == 0);
     ///
-    /// // Fractional part of positive number
-    /// let pi = ScalarF7E4::PI;
-    /// assert!(pi - pi.frac() == pi.floor());
-    /// assert!(pi.frac() > 0 && pi.frac() < 1); // ~0.14159...
+    /// // Fractional part of positive number let pi = ScalarF7E4::PI; assert!(pi - pi.frac() == pi.floor()); assert!(pi.frac() > 0 && pi.frac() < 1); // ~0.14159...
     ///
-    /// // Fractional part of negative number
-    /// let neg = ScalarF7E4::from(-3.25);
-    /// assert!(neg.frac() == 0.75);
+    /// // Fractional part of negative number let neg = ScalarF7E4::from(-3.25); assert!(neg.frac() == 0.75);
     ///
-    /// // Fractional part of Zero is Zero
-    /// let zero = ScalarF7E4::ZERO;
-    /// assert!(zero.frac() == 0);
+    /// // Fractional part of Zero is Zero let zero = ScalarF7E4::ZERO; assert!(zero.frac() == 0);
     ///
-    /// // Fractional part of positive vanished returns the value itself
-    /// let tiny_pos = ScalarF7E4::MIN_POS / 12;
-    /// assert!(tiny_pos.frac().vanished() && tiny_pos.frac().is_positive());
+    /// // Fractional part of positive vanished returns the value itself let tiny_pos: ScalarF7E4 = ScalarF7E4::MIN_POS / 12_i128; assert!(tiny_pos.frac().vanished() && tiny_pos.frac().is_positive());
     ///
-    /// // Fractional part of negative vanished approaches 1
-    /// let tiny_neg = ScalarF7E4::MIN_POS / -67;
-    /// assert!(tiny_neg.frac() - ScalarF7E4::EFFECTIVELY_POS_ONE == 0);
+    /// // Fractional part of negative vanished approaches 1 let tiny_neg: ScalarF7E4 = ScalarF7E4::MIN_POS / -67_i128; assert!(tiny_neg.frac() - ScalarF7E4::EFFECTIVELY_POS_ONE == 0_i128);
     ///
-    /// // Fractional part of exploded values is Zero
-    /// let huge = ScalarF7E4::MAX.square();
-    /// assert!(huge.frac() == ScalarF7E4::ZERO);
+    /// // Fractional part of exploded values is Zero let huge = ScalarF7E4::MAX.square(); assert!(huge.frac() == ScalarF7E4::ZERO);
     ///
-    /// // Fractional part of Infinity is undefined
-    /// let infinity = ScalarF7E4::ONE / 0;
-    /// assert!(infinity.frac().is_undefined());
+    /// // Fractional part of Infinity is undefined let infinity: ScalarF7E4 = ScalarF7E4::ONE / 0_i128; assert!(infinity.frac().is_undefined());
     ///
-    /// // Fractional part of undefined remains undefined
-    /// let undefined = ScalarF7E4::ZERO / 0;
-    /// assert!(undefined.frac().is_undefined());
+    /// // Fractional part of undefined remains undefined let undefined: ScalarF7E4 = ScalarF7E4::ZERO / 0_i128; assert!(undefined.frac().is_undefined());
     /// ```
     pub fn frac(&self) -> Self {
         if !self.is_normal() {
@@ -1646,40 +1290,21 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E6};
     ///
-    /// // Normal values
-    /// let a = Scalar::<i64, i64>::from(42);
-    /// let b = ScalarF6E6::from(21);
-    /// assert!(a.max(b) == a);
+    /// // Normal values let a = Scalar::<i64, i64>::from(42_i64); let b = ScalarF6E6::from(21_i64); assert!(a.max(b) == a);
     ///
-    /// // With negative values
-    /// let neg = ScalarF6E6::from(-12);
-    /// assert!(neg.max(b) == b);
+    /// // With negative values let neg = ScalarF6E6::from(-12_i64); assert!(neg.max(b) == b);
     ///
-    /// // With Zero
-    /// let zero = ScalarF6E6::ZERO;
-    /// assert!(neg.max(zero) == zero);
+    /// // With Zero let zero = ScalarF6E6::ZERO; assert!(neg.max(zero) == zero);
     ///
-    /// // With vanished values
-    /// let tiny_pos = ScalarF6E6::MIN_POS / 4;
-    /// assert!(tiny_pos.max(neg).is_positive());
+    /// // With vanished values let tiny_pos: ScalarF6E6 = ScalarF6E6::MIN_POS / 4_i64; assert!(tiny_pos.max(neg).is_positive());
     ///
-    /// // With exploded values
-    /// let huge = ScalarF6E6::MIN * ScalarF6E6::MAX;
-    /// assert!(a.max(5) == 5);
+    /// // With exploded values let huge = ScalarF6E6::MIN * ScalarF6E6::MAX; assert!(a.max(5_i64) == a);
     ///
-    /// // With Infinity (mathematically undefined comparison)
-    /// let infinity = 1 / zero;
-    /// assert!(a.max(infinity).is_undefined());
-    /// assert!(infinity.max(a).is_undefined());
+    /// // With Infinity (mathematically undefined comparison) let infinity: ScalarF6E6 = 1_i64 / zero; assert!(a.max(infinity).is_undefined()); assert!(infinity.max(a).is_undefined());
     ///
-    /// // Vanished values with same sign are not comparable
-    /// let little = ScalarF6E6::MIN_POS.square();
-    /// assert!(tiny_pos.max(little).is_undefined());
+    /// // Vanished values with same sign are not comparable let little = ScalarF6E6::MIN_POS.square(); assert!(tiny_pos.max(little).is_undefined());
     ///
-    /// // With undefined
-    /// let undefined = infinity + 1;
-    /// assert!(a.max(undefined).is_undefined());
-    /// assert!(undefined.max(a).is_undefined());
+    /// // With undefined let undefined: ScalarF6E6 = infinity * ScalarF6E6::ZERO; assert!(a.max(undefined).is_undefined()); assert!(undefined.max(a).is_undefined());
     /// ```
     pub fn max<S>(&self, other: S) -> Self
     where
@@ -1770,40 +1395,21 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E6};
     ///
-    /// // Normal values
-    /// let a = Scalar::<i32, i64>::from(42); // Using turbofish notation
-    /// let b = ScalarF5E6::from(21); // Using shorthand
-    /// assert!(a.min(b) == b); // Using owned value
-    /// assert!(a.min(&b) == b); // Using reference
+    /// // Normal values let a = Scalar::<i32, i64>::from(42); // Using turbofish notation let b = ScalarF5E6::from(21); // Using shorthand assert!(a.min(b) == b); // Using owned value assert!(a.min(&b) == b); // Using reference
     ///
-    /// // With negative values
-    /// let neg = ScalarF5E6::from(-42);
-    /// assert!(a.min(neg) == neg);
+    /// // With negative values let neg = ScalarF5E6::from(-42); assert!(a.min(neg) == neg);
     ///
-    /// // With Zero
-    /// assert!(neg.min(0) == neg);
+    /// // With Zero assert!(neg.min(0) == neg);
     ///
-    /// // With Infinity (mathematically undefined comparison)
-    /// let infinity = ScalarF5E6::ONE / 0;
-    /// assert!(a.min(infinity).is_undefined());
-    /// assert!(infinity.min(a).is_undefined());
+    /// // With Infinity (mathematically undefined comparison) let infinity: ScalarF5E6 = ScalarF5E6::ONE / 0_i32; assert!(a.min(infinity).is_undefined()); assert!(infinity.min(a).is_undefined());
     ///
-    /// // With vanished values
-    /// let vanished_neg = ScalarF5E6::MIN_POS / -16;
-    /// assert!(vanished_neg.min(a).is_negative());
+    /// // With vanished values let vanished_neg: ScalarF5E6 = ScalarF5E6::MIN_POS / -16_i32; assert!(vanished_neg.min(a).is_negative());
     ///
-    /// // With exploded values
-    /// let exploded = ScalarF5E6::MAX / 0.0625;
-    /// assert!(a.min(exploded) == a);
+    /// // With exploded values let exploded: ScalarF5E6 = ScalarF5E6::MAX / 0.0625_f32; assert!(a.min(exploded) == a);
     ///
-    /// // Vanished values with same sign are not comparable
-    /// let small = ScalarF5E6::MAX_NEG / 512;
-    /// assert!(vanished_neg.min(small).is_undefined());
+    /// // Vanished values with same sign are not comparable let small: ScalarF5E6 = ScalarF5E6::MAX_NEG / 512_i32; assert!(vanished_neg.min(small).is_undefined());
     ///
-    /// // With undefined
-    /// let undefined = ScalarF5E6::ZERO / 0;  // 0/0 is undefined
-    /// assert!(a.min(undefined).is_undefined());
-    /// assert!(undefined.min(a).is_undefined());
+    /// // With undefined let undefined: ScalarF5E6 = ScalarF5E6::ZERO / 0_i32;  // 0/0 is undefined assert!(a.min(undefined).is_undefined()); assert!(undefined.min(a).is_undefined());
     /// ```
     pub fn min<S>(&self, other: S) -> Self
     where
@@ -1883,51 +1489,23 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF4E3};
     ///
-    /// // Normal value clamping with Scalar bounds
-    /// let value = ScalarF4E3::from(42);
-    /// let min = ScalarF4E3::from(8);
-    /// let max = ScalarF4E3::from(32);
-    /// assert!(value.clamp(min, max) == max);
+    /// // Normal value clamping with Scalar bounds let value = ScalarF4E3::from(42_i16); let min = ScalarF4E3::from(8_i16); let max = ScalarF4E3::from(32_i16); assert!(value.clamp(min, max) == max);
     ///
-    /// // With mixed primitive types
-    /// let value2 = ScalarF4E3::from(42);
-    /// assert!(value2.clamp(8i16, 32f32) == ScalarF4E3::from(32));
-    /// assert!(value2.clamp(50u8, 100i64) == value2); // within range
+    /// // With mixed primitive types let value2 = ScalarF4E3::from(42_i16); assert!(value2.clamp(8i16, 32f32) == ScalarF4E3::from(32_i16)); assert!(value2.clamp(20u8, 100i64) == value2); // within range
     ///
-    /// // Value within range
-    /// let in_range = ScalarF4E3::from(16);
-    /// assert!(in_range.clamp(min, max) == in_range);
+    /// // Value within range let in_range = ScalarF4E3::from(16_i16); assert!(in_range.clamp(min, max) == in_range);
     ///
-    /// // Value below range
-    /// let below = ScalarF4E3::from(4);
-    /// assert!(below.clamp(min, max) == min);
+    /// // Value below range let below = ScalarF4E3::from(4_i16); assert!(below.clamp(min, max) == min);
     ///
-    /// // With Infinity (mathematically undefined)
-    /// let infinity = ScalarF4E3::ONE / 0;
-    /// assert!(value.clamp(min, infinity).is_undefined());
-    /// assert!(value.clamp(infinity, max).is_undefined());
-    /// assert!(infinity.clamp(min, max).is_undefined());
+    /// // With Infinity (mathematically undefined) let infinity: ScalarF4E3 = ScalarF4E3::ONE / 0_i16; assert!(value.clamp(min, infinity).is_undefined()); assert!(value.clamp(infinity, max).is_undefined()); assert!(infinity.clamp(min, max).is_undefined());
     ///
-    /// // With special values
-    /// let zero = ScalarF4E3::ZERO;
-    /// let tiny_pos = ScalarF4E3::MIN_POS / 64;
-    /// let neg = ScalarF4E3::from(-16);
+    /// // With special values let zero = ScalarF4E3::ZERO; let tiny_pos: ScalarF4E3 = ScalarF4E3::MIN_POS / 64_i16; let neg = ScalarF4E3::from(-16_i16);
     ///
-    /// // Clamping between negative and positive
-    /// assert!(neg.clamp(neg, zero) == neg);
-    /// assert!(tiny_pos.clamp(neg, zero) == tiny_pos);
+    /// // Clamping between negative and positive assert!(neg.clamp(neg, zero) == neg); assert!(tiny_pos.clamp(neg, zero) == zero);
     ///
-    /// // With undefined
-    /// let undefined = ScalarF4E3::ZERO / 0; // 0/0 undefined state
-    /// assert!(value.clamp(min, &undefined).is_undefined());
-    /// assert!(undefined.clamp(&min, max).is_undefined());
+    /// // With undefined let undefined: ScalarF4E3 = ScalarF4E3::ZERO / 0_i16; // 0/0 undefined state assert!(value.clamp(min, &undefined).is_undefined()); assert!(undefined.clamp(&min, max).is_undefined());
     ///
-    /// // Incomparable bounds with vanished values
-    /// let miniscule_positive = ScalarF4E3::MIN_POS / 128;
-    /// assert!(value.clamp(tiny_pos, miniscule_positive).is_undefined());
-    ///
-    /// // Unordered bounds
-    /// assert!(value.clamp(max, min).is_undefined());
+    /// // Unordered bounds (min > max) produce undefined assert!(value.clamp(max, min).is_undefined());
     /// ```
     pub fn clamp<L, R>(&self, min: L, max: R) -> Self
     where
@@ -1994,21 +1572,11 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF7E3};
     ///
-    /// assert!(!Scalar::<i128,i8>::ZERO.is_prime());   // 0 is not prime
-    /// assert!(!ScalarF7E3::ONE.is_prime());           // 1 is not prime
-    /// assert!(ScalarF7E3::TWO.is_prime());            // 2 is prime
-    /// assert!(ScalarF7E3::from(3).is_prime());        // 3 is prime
-    /// assert!(!ScalarF7E3::from(4).is_prime());       // 4 is not prime
-    /// assert!(ScalarF7E3::from(17).is_prime());       // 17 is prime
-    /// assert!(!ScalarF7E3::from(68).is_prime());      // 68 is not prime
+    /// assert!(!Scalar::<i128,i8>::ZERO.is_prime());   // 0 is not prime assert!(!ScalarF7E3::ONE.is_prime());           // 1 is not prime assert!(ScalarF7E3::TWO.is_prime());            // 2 is prime assert!(ScalarF7E3::from(3).is_prime());        // 3 is prime assert!(!ScalarF7E3::from(4).is_prime());       // 4 is not prime assert!(ScalarF7E3::from(17).is_prime());       // 17 is prime assert!(!ScalarF7E3::from(68).is_prime());      // 68 is not prime
     ///
-    /// // Negative numbers are not prime
-    /// assert!(!ScalarF7E3::NEG_ONE.is_prime());
-    /// assert!(!ScalarF7E3::from(-7).is_prime());
+    /// // Negative numbers are not prime assert!(!ScalarF7E3::NEG_ONE.is_prime()); assert!(!ScalarF7E3::from(-7).is_prime());
     ///
-    /// // Non-integer values are not prime
-    /// assert!(!ScalarF7E3::PI.is_prime());
-    /// assert!(!ScalarF7E3::from(2.5).is_prime());
+    /// // Non-integer values are not prime assert!(!ScalarF7E3::PI.is_prime()); assert!(!ScalarF7E3::from(2.5).is_prime());
     /// ```
     #[inline]
     pub fn is_prime(&self) -> bool {

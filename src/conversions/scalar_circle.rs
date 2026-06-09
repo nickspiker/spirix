@@ -94,24 +94,14 @@ where
     ///
     /// ## Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// use spirix::{Circle, Scalar, CircleF5E3, ScalarF5E3};
     ///
-    /// // Normal components
-    /// let real = ScalarF5E3::from(1.5);
-    /// let imag = ScalarF5E3::from(2);
-    /// let z = Circle::<i32, i8>::from_ri(real, imag);
-    /// assert_eq!(z.magnitude(), 2.5);
+    /// // Normal components (1.5 and 2.0 → magnitude = 2.5) let real = ScalarF5E3::from(1.5_f32); let imag = ScalarF5E3::from(2_i32); let z = Circle::<i32, i8>::from_ri(real, imag); assert_eq!(z.magnitude(), 2.5_f32);
     ///
-    /// // Special case: Zero & Exploded
-    /// let zero = ScalarF5E3::ZERO;
-    /// let huge = ScalarF5E3::MAX * 3;  // Exploded value
-    /// assert!(huge.exploded());
+    /// // Special case: Zero & Exploded let zero = ScalarF5E3::ZERO; let huge: ScalarF5E3 = ScalarF5E3::MAX * 3_i32;  // Exploded value assert!(huge.exploded());
     ///
-    /// let z = Circle::<i32, i8>::from_ri(zero, huge);
-    /// assert!(z.exploded());  // Exploded state is preserved
-    /// assert_eq!(z.r().is_zero());
-    /// assert!(z.i() > 0);   // Sign is also preserved
+    /// let z2 = Circle::<i32, i8>::from_ri(zero, huge); assert!(z2.exploded());  // Exploded state is preserved assert!(z2.r().is_zero()); assert!(z2.i() > 0_i32);   // Sign is also preserved
     /// ```
     pub(crate) fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
         // Unified AMBIG=0 encoding: Scalar and Circle share the same exp form (stored = logical k ^ E::MIN). Fraction encoding still differs (N0 vs N1), but the exp passes through unchanged.

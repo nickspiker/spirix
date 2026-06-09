@@ -103,8 +103,7 @@ fn spirix_fma(
     // Product exponent (parallel with DSP)
     let prod_exp_raw = (a_exp as i16) + (b_exp as i16);
     let prod_exp = prod_exp_raw - (norm_shift as i16);
-    // Placeholder "very small" exp for zeroed product so it shifts out of the
-    // way of c during alignment. Not AMBIG; just below any normal c_exp.
+    // Placeholder "very small" exp for zeroed product so it shifts out of the way of c during alignment. Not AMBIG; just below any normal c_exp.
     let prod_exp_safe: i16 = if prod_is_zero {
         i8::MIN as i16
     } else {
@@ -284,8 +283,7 @@ fn round_and_output(
         out_frac_raw + if round_up { 1 } else { 0 }
     };
 
-    // Exponent: big_exp + 2 - leading + rovf
-    // The +2 comes from the <<< 2 extension, same as addsub. Width of INT_BITS doesn't matter — we always extract top FRAC_BITS.
+    // Exponent: big_exp + 2 - leading + rovf The +2 comes from the <<< 2 extension, same as addsub. Width of INT_BITS doesn't matter — we always extract top FRAC_BITS.
     let exp_wide = (big_exp as i32) + 2 - (leading as i32) + if rovf_pos { 1 } else { 0 }
         - if rovf_neg { 1 } else { 0 };
     let out_exp = exp_wide as i8;

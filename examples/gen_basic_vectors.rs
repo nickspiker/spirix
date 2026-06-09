@@ -2,8 +2,7 @@
 ///
 /// Ops: 0=NEG 1=ABS 2=SIGN 3=SHL 4=SHR
 ///
-/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp"
-/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
+/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp" Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 use spirix::Scalar;
 
 /// Simple deterministic PRNG (xorshift64)

@@ -1,7 +1,6 @@
 //! Generate test vectors for spirix_multiply vs IEEE binary32 multiply.
 //!
-//! Output format (one test per line):
-//!   <a_hex> <a_exp_dec> <b_hex> <b_exp_dec> <gold_hex> <gold_exp_dec> <gold_state>
+//! Output format (one test per line): <a_hex> <a_exp_dec> <b_hex> <b_exp_dec> <gold_hex> <gold_exp_dec> <gold_state>
 
 use spirix_paper_comparison::*;
 use std::io::{BufWriter, Write};
@@ -30,12 +29,7 @@ fn gold(a_st: u32, a_e: i8, b_st: u32, b_e: i8) -> (u32, i8, SpirixState) {
         (Undefined, _) => Some((a_st, a_e, Undefined)),
         (_, Undefined) => Some((b_st, b_e, Undefined)),
 
-        // Spirix-specific: only literal Infinity × Zero is undefined; exploded
-        // (= "value beyond max representable, but not literally infinity") ×
-        // zero gives zero, because zero is exact and "very large but finite"
-        // times zero is still zero in the limit. IEEE collapses inf and
-        // overflow-saturated values together, so this is a Spirix-side
-        // refinement of the IEEE × semantics.
+        // Spirix-specific: only literal Infinity × Zero is undefined; exploded (= "value beyond max representable, but not literally infinity") × zero gives zero, because zero is exact and "very large but finite" times zero is still zero in the limit. IEEE collapses inf and overflow-saturated values together, so this is a Spirix-side refinement of the IEEE × semantics.
         (Zero, Infinity) | (Infinity, Zero) =>
             Some((UNDEF_CANONICAL, AMBIG_EXP, Undefined)),
 

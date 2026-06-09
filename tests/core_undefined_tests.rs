@@ -369,8 +369,7 @@ mod undefined_special_cases {
         // This might vanish or become undefined
         assert!(result.vanished() || result.is_undefined() || result.is_normal());
 
-        // Factorial of negative (if supported)
-        // Note: This test assumes factorial function exists, may need to be removed if not available let negative = ScalarF5E3::from(-1); let factorial_result = negative.factorial(); assert!(factorial_result.is_undefined());
+        // Factorial of negative (if supported) Note: This test assumes factorial function exists, may need to be removed if not available let negative = ScalarF5E3::from(-1); let factorial_result = negative.factorial(); assert!(factorial_result.is_undefined());
 
         // Modulo by zero - returns 0 (valid implementation choice)
         let modulo_result = ScalarF5E3::from(5) % ScalarF5E3::ZERO;

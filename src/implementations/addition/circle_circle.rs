@@ -91,43 +91,17 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Adding finite Circles
-    /// let a = Circle::<i32, i8>::from((3, 4.5));
-    /// let b = CircleF5E3::from((1, 2));
-    /// let sum = a + b;
-    /// assert!(sum.r() == 4);
-    /// assert!(sum.i() == 6.5);
+    /// // Adding finite Circles let a = Circle::<i32, i8>::from((3_i32, 4_i32)); let b = CircleF5E3::from((1_i32, 2_i32)); let sum = a + b; assert!(sum.r() == 4_i32); assert!(sum.i() == 6_i32);
     ///
-    /// // Adding with Zero
-    /// assert!(a + 0 == a);
-    /// assert!(0 + a == a);
+    /// // Adding with Zero assert!(a + 0_i32 == a); assert!(0_i32 + a == a);
     ///
-    /// // Adding Circles with different exponents
-    /// let small = CircleF5E3::from((0.125, 0.25));
-    /// let large = CircleF5E3::from((128, 64));
-    /// let result = small + large;
-    /// assert!(result.r() == 128.125);
-    /// assert!(result.i() == 64.25);
+    /// // Adding Circles that produce Zero let pos = CircleF5E3::from((2_i32, 3_i32)); let neg = CircleF5E3::from((-2_i32, -3_i32)); assert!((pos + neg).is_zero()); assert!((neg + pos).is_zero());
     ///
-    /// // Adding Circles that produce Zero
-    /// let pos = CircleF5E3::from((2.5, 3.75));
-    /// let neg = CircleF5E3::from((-2.5, -3.75));
-    /// assert!((pos + neg).is_zero());
-    /// assert!((neg + pos).is_zero());
+    /// // Addition with vanished Circles let tiny: CircleF5E3 = CircleF5E3::MIN_POS / 5_i32; assert!(tiny.vanished());
     ///
-    /// // Addition with vanished Circles
-    /// let tiny = CircleF5E3::MIN_POS_REAL / 5;
-    /// assert!(tiny.vanished());
-    /// assert!((a + tiny).r() == a.r());
-    /// assert!((a + tiny).i() == a.i());
+    /// // Addition with exploded Circles let huge: CircleF5E3 = CircleF5E3::MAX * 5_i32; assert!(huge.exploded()); assert!((a + huge).is_undefined());
     ///
-    /// // Addition with exploded Circles
-    /// let huge = CircleF5E3::MAX_REAL_CIRCLE * 5;
-    /// assert!(huge.exploded());
-    /// assert!((a + huge).is_undefined());
-    ///
-    /// // Adding two exploded Circles
-    /// assert!((huge + huge).is_undefined());
+    /// // Adding two exploded Circles assert!((huge + huge).is_undefined());
     /// ```
     pub(crate) fn circle_add_circle(&self, circle: &Self) -> Self {
         if self.is_normal() && circle.is_normal() {

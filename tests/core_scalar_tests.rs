@@ -1170,8 +1170,9 @@ mod random_testing {
                     "Gaussian 1-sigma ratio suspicious: {:.2}",
                     ratio_1s
                 );
+                // Upper bound is <=1.0: with N=100 and true rate 95.45%, hitting 100/100 within 2σ has ~0.6% probability per type — common enough across the type sweep to flake the suite if we excluded it.
                 assert!(
-                    ratio_2s > 0.7 && ratio_2s < 1.0,
+                    ratio_2s > 0.7 && ratio_2s <= 1.0,
                     "Gaussian 2-sigma ratio suspicious: {:.2}",
                     ratio_2s
                 );

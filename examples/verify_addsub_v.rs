@@ -1,7 +1,6 @@
 //! Exhaustive F3E3 verification of the Verilog spirix_addsub algorithm (ported here to Rust) against Rust's native scalar_add_scalar / scalar_subtract_scalar.
 //!
-//! Purpose: prove the Verilog RTL matches the Rust reference for every one of the 65,536 × 65,536 × 2 (add + sub) pairs without needing to run
-//! iverilog on all of them.  A small spot-check in iverilog is enough once this passes.
+//! Purpose: prove the Verilog RTL matches the Rust reference for every one of the 65,536 × 65,536 × 2 (add + sub) pairs without needing to run iverilog on all of them.  A small spot-check in iverilog is enough once this passes.
 use spirix::*;
 
 type S = ScalarF3E3;
@@ -133,8 +132,7 @@ fn inflate(f: i8) -> i16 {
     wide ^ mask
 }
 
-// Sign-extend a value already in FRAC+1 bits to the full i16 representation
-// (the upper bits are filled with the sign for clean arith downstream).
+// Sign-extend a value already in FRAC+1 bits to the full i16 representation (the upper bits are filled with the sign for clean arith downstream).
 fn to_frac_plus_1(v: i16) -> i16 {
     // inflate already returns a sign-correct i16, but normalize anyway.
     let sign_bit = 1i16 << FRAC;
@@ -147,9 +145,7 @@ fn to_frac_plus_1(v: i16) -> i16 {
     }
 }
 
-// Leading-same count on a WORK_BITS-bit signed value held in i16.
-// Returns the count of MSBs of `v` (interpreted as WORK_BITS-wide signed) that
-// match the sign bit at position WORK_BITS-1.
+// Leading-same count on a WORK_BITS-bit signed value held in i16. Returns the count of MSBs of `v` (interpreted as WORK_BITS-wide signed) that match the sign bit at position WORK_BITS-1.
 fn leading_same(v: i16) -> i32 {
     let u = v as u16;
     let masked = u & ((1u16 << WORK_BITS) - 1);
@@ -267,8 +263,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     let big_infl = to_frac_plus_1(inflate(big_f));
     let small_infl = to_frac_plus_1(inflate(small_f));
 
-    // Sign-extend FRAC+1 → WORK_BITS = FRAC+2 (no-op in i16 since to_frac_plus_1
-    // already sign-extended into the upper bits).
+    // Sign-extend FRAC+1 → WORK_BITS = FRAC+2 (no-op in i16 since to_frac_plus_1 already sign-extended into the upper bits).
     let big_ext = big_infl;
     let small_ext = small_infl;
 
@@ -284,9 +279,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
         small_ext
     };
 
-    // Guard bit: bit at position (shift - 1) of small_eff. This is the highest
-    // bit discarded by the arith-shr. For floor at canonical LSB it's exactly
-    // what we need (lower bits floor away).
+    // Guard bit: bit at position (shift - 1) of small_eff. This is the highest bit discarded by the arith-shr. For floor at canonical LSB it's exactly what we need (lower bits floor away).
     let guard = if shift > 0 {
         ((small_eff >> (shift - 1)) & 1) != 0
     } else {
@@ -298,8 +291,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
 
     let sum = big_eff.wrapping_add(small_aligned);
 
-    // Mask sum to WORK_BITS for consistent leading-same / shift logic, then
-    // sign-extend back into i16 for arithmetic.
+    // Mask sum to WORK_BITS for consistent leading-same / shift logic, then sign-extend back into i16 for arithmetic.
     let mask_work = (1i16 << WORK_BITS) - 1;
     let sign_bit_work = 1i16 << (WORK_BITS - 1);
     let sum_masked = sum & mask_work;
@@ -310,9 +302,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     };
     let is_zero_sum = sum_sext == 0;
 
-    // Extended sum: append guard bit at position -1. This puts us at the same
-    // scale as Rust's shift-big-LEFT (small_exp scale for shift=1). Working
-    // width is WORK_BITS+1 = FRAC+3 here, with target leading-same = 3.
+    // Extended sum: append guard bit at position -1. This puts us at the same scale as Rust's shift-big-LEFT (small_exp scale for shift=1). Working width is WORK_BITS+1 = FRAC+3 here, with target leading-same = 3.
     let extended_sum: i32 = ((sum_sext as i32) << 1) | (if guard { 1 } else { 0 });
 
     if extended_sum == 0 {

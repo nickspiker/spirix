@@ -418,9 +418,9 @@ mod special_values {
             assert!(!vanished.is_normal());
             assert!(!vanished.is_zero());
 
-            // Test vanished from imaginary underflow
-            let vanished_imag = $circle_type::from((1f32, min_pos.r())) / 1000i32;
-            assert!(vanished_imag.vanished());
+            // Test vanished from both-component underflow (a single underflowing component would just be dropped by precision; the Circle as a whole is only vanished when its magnitude vanishes, i.e. both parts do).
+            let vanished_both = $circle_type::from((min_pos.r(), min_pos.r())) / 1000i32;
+            assert!(vanished_both.vanished());
         };
     }
 
@@ -1097,10 +1097,10 @@ mod complex_specific {
             assert!((euler.r() + 1f32).magnitude() < 0.1);
             assert!(euler.i().magnitude() < 0.1);
 
-            // Test real and imaginary part extraction
-            let complex_test = $circle_type::from((7.5f32, -2.3f64));
+            // Test real and imaginary part extraction. Both literals are exactly representable in binary at every supported precision.
+            let complex_test = $circle_type::from((7.5f32, -2.5f64));
             assert!(complex_test.r() == 7.5);
-            assert!(complex_test.i() == -2.3);
+            assert!(complex_test.i() == -2.5);
 
             // Real part of real number
             let real_num = $circle_type::from(42i64);

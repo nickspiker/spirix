@@ -1,50 +1,22 @@
 //! Spirix vs IEEE 754 binary32 add/sub comparison support.
 //!
-//! Spirix N0 at FRAC=24, EXP=8 has the same effective precision as binary32
-//! (24 bits vs binary32's 23+1 implicit). The comparison gold model is direct
-//! IEEE arithmetic, with state mapping between IEEE specials and Spirix
-//! specials applied at the boundary.
+//! Spirix N0 at FRAC=24, EXP=8 has the same effective precision as binary32 (24 bits vs binary32's 23+1 implicit). The comparison gold model is direct IEEE arithmetic, with state mapping between IEEE specials and Spirix specials applied at the boundary.
 //!
-//! Exponent encoding (AMBIG = 0 convention, matches patent line 252):
-//!   The exponent field is an unsigned modular integer in Z/2^EXP Z. The
-//!   stored bit pattern 0 = AMBIGUOUS_EXPONENT (sentinel for non-normal
-//!   states). Stored values 1..2^EXP-1 represent normal binades arranged
-//!   monotonically around the cycle. With bias = 2^(EXP-1) - 1 = 127 for
-//!   8-bit exponents, the unit binades containing +1.0 and -1.0 sit at
-//!   stored = 0x80 and 0x7F respectively, straddling the cycle's middle.
-//!   Both overflow past stored=255 and underflow past stored=1 reach
-//!   AMBIG=0 by opposite traversals of the modular cycle, collapsing
-//!   saturation detection to one equality check against zero.
+//! Exponent encoding (AMBIG = 0 convention, matches patent line 252): The exponent field is an unsigned modular integer in Z/2^EXP Z. The stored bit pattern 0 = AMBIGUOUS_EXPONENT (sentinel for non-normal states). Stored values 1..2^EXP-1 represent normal binades arranged monotonically around the cycle. With bias = 2^(EXP-1) - 1 = 127 for 8-bit exponents, the unit binades containing +1.0 and -1.0 sit at stored = 0x80 and 0x7F respectively, straddling the cycle's middle. Both overflow past stored=255 and underflow past stored=1 reach AMBIG=0 by opposite traversals of the modular cycle, collapsing saturation detection to one equality check against zero.
 //!
-//! Value formula (Normal):
-//!   value = compute_q * 2^(internal_exp - FRAC)
-//!   where internal_exp = stored_exp - BIAS, compute_q = inflate(storage).
+//! Value formula (Normal): value = compute_q * 2^(internal_exp - FRAC) where internal_exp = stored_exp - BIAS, compute_q = inflate(storage).
 //!
-//! State mapping IEEE → Spirix:
-//!   IEEE  NaN          → Spirix Undefined (canonical pattern)
-//!   IEEE  ±Infinity    → Spirix Exploded (sign-preserved)
-//!   IEEE  ±0           → Spirix Zero (signless)
-//!   IEEE  subnormal    → Spirix Vanished (new spirix internal_exp range
-//!                        [-126, 128] is too small to hold f32 subnormals;
-//!                        the smallest f32 normal at 2^-126 maps to spirix
-//!                        stored=1 = internal_exp -126, exactly at the
-//!                        boundary).
-//!   IEEE  normal       → Spirix Normal at (frac=24, exp=8) if in range,
-//!                        else Exploded (sign-preserved).
+//! State mapping IEEE → Spirix: IEEE  NaN          → Spirix Undefined (canonical pattern) IEEE  ±Infinity    → Spirix Exploded (sign-preserved) IEEE  ±0           → Spirix Zero (signless) IEEE  subnormal    → Spirix Vanished (new spirix internal_exp range [-126, 128] is too small to hold f32 subnormals; the smallest f32 normal at 2^-126 maps to spirix stored=1 = internal_exp -126, exactly at the boundary). IEEE  normal       → Spirix Normal at (frac=24, exp=8) if in range, else Exploded (sign-preserved).
 
 pub const FRAC: u32 = 24;
 pub const EXP_BITS: u32 = 8;
 
-// Unsigned modular exponent. AMBIG = 0 is the sentinel; stored values 1..255
-// are normal binades. Overflow past 255 and underflow past 1 both wrap to 0
-// via natural unsigned modular arithmetic.
+// Unsigned modular exponent. AMBIG = 0 is the sentinel; stored values 1..255 are normal binades. Overflow past 255 and underflow past 1 both wrap to 0 via natural unsigned modular arithmetic.
 pub const AMBIG_EXP: u8 = 0;
 pub const MIN_EXP: u8 = 1;
 pub const MAX_EXP: u8 = 255;
 
-// Exponent bias. Internal (true) exponent = stored - BIAS. With BIAS=127:
-// stored=0x80 → internal=1 (binade containing +1.0); stored=0x7F → internal=0
-// (binade containing -1.0 via N0 canonical form).
+// Exponent bias. Internal (true) exponent = stored - BIAS. With BIAS=127: stored=0x80 → internal=1 (binade containing +1.0); stored=0x7F → internal=0 (binade containing -1.0 via N0 canonical form).
 pub const BIAS: i32 = 127;
 
 /// N0 storage boundary patterns (24-bit).
@@ -56,9 +28,7 @@ pub const NEG_ONE_EXPLODED: u32 = 0x80_0000; // same bit pattern as POS_ONE_NORM
 pub const POS_ONE_VANISHED: u32 = 0x20_0000;
 pub const NEG_ONE_VANISHED: u32 = 0xC0_0000;
 
-/// Canonical "undefined" storage used by the gold model when IEEE produces
-/// NaN. The DUT will produce its own cause-encoding (UNDEF_TF_P_FIN etc.);
-/// matching is done by classifying the *state*, not the exact bit pattern.
+/// Canonical "undefined" storage used by the gold model when IEEE produces NaN. The DUT will produce its own cause-encoding (UNDEF_TF_P_FIN etc.); matching is done by classifying the *state*, not the exact bit pattern.
 pub const UNDEF_CANONICAL: u32 = 0x10_0000; // top 3 bits 0_0_0_1 → LSBC ≥ 3 → Undefined
 
 /// Spirix state classification for a (storage, exp) pair.
@@ -108,8 +78,7 @@ fn leading_same_count(storage: u32) -> u32 {
     count
 }
 
-/// Convert IEEE binary32 → Spirix N0 (storage 24-bit, exp 8-bit).
-/// Returns the (storage, exp) pair plus the classified state of the result.
+/// Convert IEEE binary32 → Spirix N0 (storage 24-bit, exp 8-bit). Returns the (storage, exp) pair plus the classified state of the result.
 pub fn f32_to_spirix(v: f32) -> (u32, u8, SpirixState) {
     let bits = v.to_bits();
     let sign = (bits >> 31) & 1;

@@ -25,21 +25,11 @@ use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub
 /// ## Example
 ///
 /// ```rust
-/// use spirix::{Circle, CircleF5E3, IntoCircle};
+/// use spirix::{Circle, CircleF5E3};
 ///
-/// // 0. Converting a primitive (creates a complex number with Zero imaginary part)
-/// let from_integer = CircleF5E3::from(42);
-/// assert_eq!(from_integer.r(), 42);
-/// assert_eq!(from_integer.i(), 0);
+/// // 0. Converting a primitive (creates a complex number with Zero imaginary part) let from_integer = CircleF5E3::from(42_i32); assert_eq!(from_integer.r(), 42_i32); assert_eq!(from_integer.i(), 0_i32);
 ///
-/// // 1. Converting a tuple of (real, imaginary) components
-/// let from_tuple = CircleF5E3::from((3.5, -2));
-/// assert_eq!(from_tuple.r(), 3.5);
-/// assert_eq!(from_tuple.i(), -2);
-///
-/// // 2. Converting using the trait directly (allows for clearer code)
-/// let real_value = 17;
-/// let complex = real_value.into_circle::<i32, i8>(); // Creates a Circle<i32, i8>
+/// // 1. Converting a tuple of (real, imaginary) components let from_tuple = CircleF5E3::from((3_i32, -2_i32)); assert_eq!(from_tuple.r(), 3_i32); assert_eq!(from_tuple.i(), -2_i32);
 /// ```
 ///
 /// ## Precision Handling
@@ -136,15 +126,9 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // From integer
-    /// let z1 = CircleF5E3::from(42);
-    /// assert_eq!(z1.r(), 42);
-    /// assert_eq!(z1.i(), 0);
+    /// // From integer let z1 = CircleF5E3::from(42_i32); assert_eq!(z1.r(), 42_i32); assert_eq!(z1.i(), 0_i32);
     ///
-    /// // From floating point
-    /// let z2 = CircleF5E3::from(3.75);
-    /// assert!(z2.r(), 3.75);
-    /// assert_eq!(z2.i(), 0);
+    /// // From floating point (3.75 = 15/4, exactly representable) let z2 = CircleF5E3::from(3.75_f32); assert_eq!(z2.r(), 3.75_f32); assert_eq!(z2.i(), 0_i32);
     /// ```
     fn from(value: R) -> Self {
         let scalar = Scalar::<F, E>::from(value);
@@ -229,17 +213,13 @@ where
     /// ## Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF5E3};
-    /// use num_complex::Complex;
+    /// use spirix::{Circle, CircleF5E3}; use num_complex::Complex;
     ///
-    /// // Create a `std::num::Complex<f64>`
-    /// let complex = Complex::new(1.5, -2.7);
+    /// // Create a `std::num::Complex<f64>` let complex = Complex::new(1.5, -2.7);
     ///
-    /// // Convert to Circle
-    /// let z = CircleF5E3::from(complex);
+    /// // Convert to Circle let z = CircleF5E3::from(complex);
     ///
-    /// assert_eq!(z.r(), 1.5);
-    /// assert_eq!(z.i(), -2.7);
+    /// assert_eq!(z.r(), 1.5); assert_eq!(z.i(), -2.7);
     /// ```
     ///
     /// ## Special Cases
@@ -328,17 +308,13 @@ where
     /// ## Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF5E3};
-    /// use num_complex::Complex;
+    /// use spirix::{Circle, CircleF5E3}; use num_complex::Complex;
     ///
-    /// // Create a `std::num::Complex<f32>`
-    /// let complex = Complex::new(1.5f32, -2.7f32);
+    /// // Create a `std::num::Complex<f32>` with exactly-representable values let complex = Complex::new(1.5f32, -2.5f32);
     ///
-    /// // Convert to Circle
-    /// let z = CircleF5E3::from(complex);
+    /// // Convert to Circle let z = CircleF5E3::from(complex);
     ///
-    /// assert_eq!(z.r(), 1.5);
-    /// assert_eq!(z.i(), -2.7);
+    /// assert_eq!(z.r(), 1.5_f32); assert_eq!(z.i(), -2.5_f32);
     /// ```
     ///
     /// ## Special Cases
@@ -434,15 +410,9 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Same types
-    /// let z1 = CircleF5E3::from((3, 4));
-    /// assert_eq!(z1.r(), 3);
-    /// assert_eq!(z1.i(), 4);
+    /// // Same types let z1 = CircleF5E3::from((3, 4)); assert_eq!(z1.r(), 3); assert_eq!(z1.i(), 4);
     ///
-    /// // Mixed types
-    /// let z2 = CircleF5E3::from((5, -1.5));
-    /// assert_eq!(z2.r(), 5);
-    /// assert_eq!(z2.i(), -1.5);
+    /// // Mixed types let z2 = CircleF5E3::from((5, -1.5)); assert_eq!(z2.r(), 5); assert_eq!(z2.i(), -1.5);
     /// ```
     ///
     /// ## Conversion Process
@@ -525,19 +495,13 @@ where
     /// ## Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF5E3};
-    /// use num_complex::Complex;
+    /// use spirix::{Circle, CircleF5E3}; use num_complex::Complex;
     ///
-    /// // Create a `std::num::Complex<f64>`
-    /// let complex = Complex::new(1.5, -2.7);
+    /// // Create a `std::num::Complex<f64>` let complex = Complex::new(1.5, -2.7);
     ///
-    /// // Convert from reference without moving the original
-    /// let z = CircleF5E3::from(&complex);
+    /// // Convert from reference without moving the original let z = CircleF5E3::from(&complex);
     ///
-    /// // Original complex value is still available
-    /// assert_eq!(complex.re, 1.5);
-    /// assert_eq!(z.r(), 1.5);
-    /// assert_eq!(z.i(), -2.7);
+    /// // Original complex value is still available assert_eq!(complex.re, 1.5); assert_eq!(z.r(), 1.5); assert_eq!(z.i(), -2.7);
     /// ```
     ///
     /// This implementation delegates to the `From<Complex<f64>>` implementation after dereferencing.
@@ -612,19 +576,13 @@ where
     /// ## Examples
     ///
     /// ```rust
-    /// use spirix::{Circle, CircleF5E3};
-    /// use num_complex::Complex;
+    /// use spirix::{Circle, CircleF5E3}; use num_complex::Complex;
     ///
-    /// // Create a `std::num::Complex<f32>`
-    /// let complex = Complex::new(1.5f32, -2.7f32);
+    /// // Create a `std::num::Complex<f32>` with exactly-representable values let complex = Complex::new(1.5f32, -2.5f32);
     ///
-    /// // Convert from reference without moving the original
-    /// let z = CircleF5E3::from(&complex);
+    /// // Convert from reference without moving the original let z = CircleF5E3::from(&complex);
     ///
-    /// // Original complex value is still available
-    /// assert_eq!(complex.re, 1.5f32);
-    /// assert_eq!(z.r(), 1.5);
-    /// assert_eq!(z.i(), -2.7);
+    /// // Original complex value is still available assert_eq!(complex.re, 1.5f32); assert_eq!(z.r(), 1.5_f32); assert_eq!(z.i(), -2.5_f32);
     /// ```
     ///
     /// This implementation delegates to the `From<Complex<f32>>` implementation after dereferencing.

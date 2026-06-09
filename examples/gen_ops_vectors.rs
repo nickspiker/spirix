@@ -2,9 +2,7 @@
 ///
 /// Covers all 16 frac×exp width combos (F3-F6 × E3-E6). Output: hex file with lines: op fw ew a_frac a_exp b_frac b_exp r_frac r_exp
 ///
-/// Op: 05=CMP 06=NEG 07=FLOOR 08=ABS
-/// CMP encodes flags in r_frac: bit0=lt, bit1=eq, bit2=gt, bit3=unord
-/// Unary ops (NEG/FLOOR/ABS): b_frac=0 b_exp=0
+/// Op: 05=CMP 06=NEG 07=FLOOR 08=ABS CMP encodes flags in r_frac: bit0=lt, bit1=eq, bit2=gt, bit3=unord Unary ops (NEG/FLOOR/ABS): b_frac=0 b_exp=0
 ///
 /// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 use spirix::Scalar;

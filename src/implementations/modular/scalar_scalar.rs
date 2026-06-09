@@ -104,31 +104,17 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Basic modulus
-    /// let a = ScalarF5E3::from(7);
-    /// let b = ScalarF5E3::from(3);
-    /// assert!(a % b == 1);  // 7 % 3 = 1
+    /// // Basic modulus let a = ScalarF5E3::from(7_i32); let b = ScalarF5E3::from(3_i32); assert!(a % b == 1_i32);  // 7 % 3 = 1
     ///
-    /// // Result takes sign of period
-    /// let neg_a = ScalarF5E3::from(-7);
-    /// assert!(neg_a % b == 2);   // -7 % 3 = 2
-    /// let neg_b = ScalarF5E3::from(-3);
-    /// assert!(a % neg_b == -2);  // 7 % -3 = -2
+    /// // Result takes sign of period let neg_a = ScalarF5E3::from(-7_i32); assert!(neg_a % b == 2_i32);   // -7 % 3 = 2 let neg_b = ScalarF5E3::from(-3_i32); assert!(a % neg_b == -2_i32);  // 7 % -3 = -2
     ///
-    /// // Exploded period, matching signs: numerator preserved
-    /// let exploded = ScalarF5E3::MAX * 2;
-    /// assert!((ScalarF5E3::PI % exploded) == ScalarF5E3::PI);
+    /// // Exploded period, matching signs: numerator preserved let exploded: ScalarF5E3 = ScalarF5E3::MAX * 2_i32; assert!((ScalarF5E3::PI % exploded) == ScalarF5E3::PI);
     ///
-    /// // Exploded period, differing signs: undefined
-    /// assert!((ScalarF5E3::PI % -exploded).is_undefined());
+    /// // Exploded period, differing signs: undefined assert!((ScalarF5E3::PI % -exploded).is_undefined());
     ///
-    /// // Vanished period: undefined
-    /// let vanished = ScalarF5E3::MIN_POS / 19;
-    /// assert!((ScalarF5E3::from(42) % vanished).is_undefined());
+    /// // Vanished period: undefined let vanished: ScalarF5E3 = ScalarF5E3::MIN_POS / 19_i32; assert!((ScalarF5E3::from(42_i32) % vanished).is_undefined());
     ///
-    /// // Zero cases
-    /// assert!((ScalarF5E3::ZERO % ScalarF5E3::PI).is_zero());
-    /// assert!((ScalarF5E3::PI % ScalarF5E3::ZERO).is_zero());
+    /// // Zero cases assert!((ScalarF5E3::ZERO % ScalarF5E3::PI).is_zero()); assert!((ScalarF5E3::PI % ScalarF5E3::ZERO).is_zero());
     /// ```
     pub(crate) fn scalar_modulus_scalar(&self, modulus: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !modulus.is_normal() {
@@ -199,12 +185,10 @@ where
 
         // Both operands are normal. Compute floored modulus using proper restoring-divider style remainder: align fractions by exponent, do integer modulo on inflated wide values, apply floored sign rule.
         //
-        // Floored mod: result has the sign of the divisor.
-        //   same signs:    result = a_mag mod b_mag, signed like a/b diff signs:    result = b_mag - (a_mag mod b_mag), signed like b
+        // Floored mod: result has the sign of the divisor. same signs:    result = a_mag mod b_mag, signed like a/b diff signs:    result = b_mag - (a_mag mod b_mag), signed like b
         //
         // |a| < |b| short-circuit:
-        //   same signs:    result = a (already in [0, b) magnitude)
-        //   diff signs:    result = a + b (one b-step over to land on b's side)
+        //   same signs:    result = a (already in [0, b) magnitude) diff signs:    result = a + b (one b-step over to land on b's side)
 
         let a_neg = self.is_negative();
         let b_neg = modulus.is_negative();

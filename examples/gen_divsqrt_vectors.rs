@@ -1,7 +1,6 @@
 /// Generate test vectors for spirix_alu_divsqrt — all 16 frac×exp width combos.
 ///
-/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp" op: 0=DIV, 1=SQRT, 2=MOD
-/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
+/// Output: hex lines "op fw ew a_frac a_exp b_frac b_exp r_frac r_exp" op: 0=DIV, 1=SQRT, 2=MOD Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 ///
 /// Edge case outputs match the HARDWARE convention (UNDEF_GENERAL for non-normal cases that Rust would compute Euclidean), not the Rust model.
 use spirix::Scalar;
@@ -151,8 +150,7 @@ macro_rules! gen_width {
 
             // Normal mod: exact restoring-divider algorithm (matches hardware)
             //
-            // All magnitude values use the hardware's 64-bit register layout: abs_X = a_frac[62:0] (63 bits, MSB at bit 62, bit 63 always 0)
-            // This mirrors the Verilog's MAG = MAX_FRAC-1 = 63 bit abs extraction.
+            // All magnitude values use the hardware's 64-bit register layout: abs_X = a_frac[62:0] (63 bits, MSB at bit 62, bit 63 always 0) This mirrors the Verilog's MAG = MAX_FRAC-1 = 63 bit abs extraction.
             let sign_a = a.fraction < (0 as $f);
             let sign_b = b.fraction < (0 as $f);
             let same_sign = sign_a == sign_b;
@@ -160,8 +158,7 @@ macro_rules! gen_width {
             let a_is_neg_one = a.fraction == <$f>::MIN;
             let b_is_neg_one = b.fraction == <$f>::MIN;
 
-            // Hardware: abs_a = a_is_neg_one ? POS_HALF[62:0] : (a_frac[63] ? (~a_frac[62:0]+1) : a_frac[62:0])
-            // In u64: bit 63 = 0, magnitude in bits 62:0
+            // Hardware: abs_a = a_is_neg_one ? POS_HALF[62:0] : (a_frac[63] ? (~a_frac[62:0]+1) : a_frac[62:0]) In u64: bit 63 = 0, magnitude in bits 62:0
             let pos_half_64: u64 = 1u64 << 62; // always 0x4000000000000000
             let neg_one_64: u64 = 1u64 << 63;  // always 0x8000000000000000
 
@@ -232,8 +229,7 @@ macro_rules! gen_width {
                     return S::new((frac_out >> shift_to_64) as $f, ambig);
                 }
                 if exp_result < exp_min {
-                    // Exp underflow → vanished: arithmetic right shift by 1, then mask
-                    // Hardware: {frac[63], frac[63:1]} & mask
+                    // Exp underflow → vanished: arithmetic right shift by 1, then mask Hardware: {frac[63], frac[63:1]} & mask
                     let sign_bit = frac_out >> 63;
                     let small_frac = (sign_bit << 63) | (frac_out >> 1);
                     let small_out = small_frac & frac_mask_64;
@@ -261,9 +257,7 @@ macro_rules! gen_width {
                 return S::ZERO;
             }
 
-            // Restoring binary division for d iterations
-            // Mirrors hardware: S_IDLE does first trial (unshifted), S_COMPUTE shifts+trials
-            // Iteration 0 (S_IDLE): trial on {1'b0, abs_a} vs {2'b00, abs_b}
+            // Restoring binary division for d iterations Mirrors hardware: S_IDLE does first trial (unshifted), S_COMPUTE shifts+trials Iteration 0 (S_IDLE): trial on {1'b0, abs_a} vs {2'b00, abs_b}
             let mut r: u64 = abs_a;
             if r >= abs_b {
                 r = r.wrapping_sub(abs_b);
@@ -276,8 +270,7 @@ macro_rules! gen_width {
                 }
             }
 
-            // r = R_d (Euclidean remainder)
-            // Floored-mod sign correction: diff signs and R≠0 → complement
+            // r = R_d (Euclidean remainder) Floored-mod sign correction: diff signs and R≠0 → complement
             let mod_mag = if !same_sign && r != 0 {
                 abs_b.wrapping_sub(r)
             } else {
@@ -540,8 +533,7 @@ macro_rules! gen_width {
             *$count += 1;
         }
 
-        // Same-sign and diff-sign pairs (important for floored mod correction)
-        // Only N1 fractions: positive 01xxxxxx, negative 10xxxxxx
+        // Same-sign and diff-sign pairs (important for floored mod correction) Only N1 fractions: positive 01xxxxxx, negative 10xxxxxx
         let sign_fracs: Vec<$f> = vec![
             (1 as $f) << (fbits - 2),              // POS_HALF = 0.5 (+)
             <$f>::MIN,                              // NEG_ONE = -1.0 (-)

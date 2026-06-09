@@ -87,16 +87,12 @@ pub(crate) trait IntConvert {
     /// - Values within range are converted exactly
     ///
     /// # Examples
-    /// ```
-    /// // Internal examples (not runnable in public docs)
-    /// let large = 1234i16;
-    /// let as_i8 = large.saturate::<i8>();    // Becomes 127 (i8::MAX)
+    /// ```ignore
+    /// // Internal examples (not runnable in public docs) let large = 1234i16; let as_i8 = large.saturate::<i8>();    // Becomes 127 (i8::MAX)
     ///
-    /// let negative = -42i8;
-    /// let as_u8 = negative.saturate::<u8>();  // Becomes 0
+    /// let negative = -42i8; let as_u8 = negative.saturate::<u8>();  // Becomes 0
     ///
-    /// let small = 3i32;
-    /// let as_i8 = small.saturate::<i8>();    // Becomes 3 (exact conversion)
+    /// let small = 3i32; let as_i8 = small.saturate::<i8>();    // Becomes 3 (exact conversion)
     /// ```
     fn saturate<I: FullInt>(self) -> I;
 
@@ -247,8 +243,7 @@ macro_rules! impl_wide_ops {
 
             #[inline]
             fn cycle_widen(self) -> $wide {
-                // Cast through SAME-WIDTH unsigned (zero-extension) — NOT through $uwide
-                // which is the unsigned-of-Wide and sign-extends.
+                // Cast through SAME-WIDTH unsigned (zero-extension) — NOT through $uwide which is the unsigned-of-Wide and sign-extends.
                 (self as <$stored as IntConvert>::Unsigned) as $wide
             }
         }

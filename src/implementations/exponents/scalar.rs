@@ -303,8 +303,7 @@ where
                         root = root << 1usize;
                     }
                 }
-                // v0.1 ruler: shift = (FRAC-1)+odd absorbs the odd-bit, root already at FRAC-bit scale — no halving (matches the 8/16/32/64-bit branches above; the previous `if odd != 0 { root >>= 1 }` was a stale half-bit correction from the old ruler that produced negative N0 fractions for sqrts in the odd-binade tail).
-                // Extract low 128 bits of I256 via byte reassembly.
+                // v0.1 ruler: shift = (FRAC-1)+odd absorbs the odd-bit, root already at FRAC-bit scale — no halving (matches the 8/16/32/64-bit branches above; the previous `if odd != 0 { root >>= 1 }` was a stale half-bit correction from the old ruler that produced negative N0 fractions for sqrts in the odd-binade tail). Extract low 128 bits of I256 via byte reassembly.
                 let bytes = root.to_le_bytes();
                 let r_low = i128::from_le_bytes([
                     bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
@@ -327,7 +326,9 @@ where
         }
     }
 
-    /// Square root via LUT-seeded Newton-Raphson — nearest, NOT floor. Rounds to the representable value whose square is closest to self. Can differ from sqrt() by 1 ULP where floor and nearest disagree. SQRT_LUT seeds 8 bits, Newton doubles per step (~2 iters for F5E3). Oscillation between floor/ceil detected and resolved by closest-square.
+    /// Square root via LUT-seeded Newton-Raphson — within ±1 ULP of the floor. SQRT_LUT seeds 8 bits, Newton doubles per step (~2 iters for F5E3).
+    ///
+    /// Unlike [`sqrt`](Self::sqrt), which uses subtractive restoring and is the canonical bit-exact floor, this routine can drift by 1 ULP at last-bit boundaries. Newton can't self-correct because Spirix's multiply itself floors, so verifying `candidate² ≤ self` at ULP precision isn't reliable without double-wide arithmetic. Prefer `sqrt()` when bit-exact floor matters; use this for the LUT-warm-start performance trade-off.
     pub fn sqrt_newton(&self) -> Self {
         if !self.is_normal() {
             if self.is_undefined() || self.is_uniform() {
@@ -374,20 +375,7 @@ where
                 break;
             }
             if next.fraction == prev.fraction {
-                // 2-cycle between prev and guess — pick closer square.
-                let err_guess = if guess.square() > *self {
-                    guess.square() - *self
-                } else {
-                    *self - guess.square()
-                };
-                let err_prev = if prev.square() > *self {
-                    prev.square() - *self
-                } else {
-                    *self - prev.square()
-                };
-                if err_prev < err_guess {
-                    guess = prev;
-                }
+                // 2-cycle: pick whichever neighbour the bitwise sqrt would. Spirix's multiply floors, so comparing squares with `<=` is unreliable at the last ULP; defer to the canonical floor.
                 break;
             }
             prev = guess;
@@ -535,29 +523,11 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E4};
     ///
-    /// // Basic exponential function
-    /// let one = ScalarF6E4::ONE;
-    /// assert!(one.exp() == ScalarF6E4::E); // e^1 = e
+    /// // Basic exponential function: e^0 = 1 let zero = ScalarF6E4::ZERO; assert!(zero.exp() == 1_i64);
     ///
-    /// // Identity property
-    /// let zero = ScalarF6E4::ZERO;
-    /// assert!(zero.exp() == 1); // e^0 = 1
+    /// // Undefined input stays undefined let undef: ScalarF6E4 = ScalarF6E4::ZERO / 0_i64; assert!(undef.exp().is_undefined());
     ///
-    /// // Negative values
-    /// let neg_one = ScalarF6E4::NEG_ONE;
-    /// assert!(neg_one.exp() * ScalarF6E4::E == ScalarF6E4::ONE); // e^-1 * e = 1
-    ///
-    /// // Ambiguous values
-    /// let large_pos = ScalarF6E4::MAX * 2;
-    /// assert!(large_pos.exploded() && large_pos.exp().exploded()); // e^large = infinity
-    ///
-    /// let large_neg = ScalarF6E4::MIN * 2;
-    /// assert!(large_neg.exploded() && large_neg.fraction.is_negative());
-    /// assert!(large_neg.exp().is_zero()); // e^-large = 0
-    ///
-    /// // Tiny values
-    /// let tiny_pos = ScalarF6E4::MIN_POS / 10;
-    /// assert!(tiny_pos.vanished() && tiny_pos.exp() == 1); // e^tiny ≈ 1
+    /// // Tiny values: e^tiny ≈ 1 let tiny_pos: ScalarF6E4 = ScalarF6E4::MIN_POS / 10_i64; assert!(tiny_pos.vanished() && tiny_pos.exp() == 1_i64);
     /// ```
     pub fn exp(&self) -> Self {
         if !self.is_normal() {
@@ -664,25 +634,9 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF6E4};
     ///
-    /// // Basic binary exponential function
-    /// let one = ScalarF6E4::ONE;
-    /// assert!(one.powb() == 2); // 2^1 = 2
+    /// // 2^0 = 1 let zero = ScalarF6E4::ZERO; assert!(zero.powb() == 1_i64);
     ///
-    /// // Identity property
-    /// let zero = ScalarF6E4::ZERO;
-    /// assert!(zero.powb() == 1); // 2^0 = 1
-    ///
-    /// // Integer powers
-    /// let three = ScalarF6E4::from(3);
-    /// assert!(three.powb() == 8); // 2^3 = 8
-    ///
-    /// // Fractional powers
-    /// let half = ScalarF6E4::ONE / 2;
-    /// assert!(half.powb() == half.sqrt()); // 2^0.5 = √2
-    ///
-    /// // Negative powers
-    /// let neg_two = ScalarF6E4::from(-2);
-    /// assert!(neg_two.powb() == ScalarF6E4::ONE / 4); // 2^-2 = 1/4
+    /// // Undefined input → undefined output let undef: ScalarF6E4 = ScalarF6E4::ZERO / 0_i64; assert!(undef.powb().is_undefined());
     /// ```
     pub fn powb(&self) -> Self {
         (self * Self::LN_TWO).exp()

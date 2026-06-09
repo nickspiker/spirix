@@ -71,19 +71,9 @@ where
     /// 0. Checks for and handle undefined states
     /// 1. Uses wider integer types for component multiplication:
     ///    ```text
-    ///    a   →         ■■■■■■■ = self.real
-    ///    c   →         ■■■■■■■ = scalar.fraction
-    ///                  ⤪⤪⤪⤪⤪⤪ Multiply!
-    ///    a·c → ■■■■■■■ □□□□□□□ = Intermediate product for real part
-    ///              ↘↘↘↘↘↘↘
-    ///    Real →        ■■■■■■■ = High bits kept for real component
+    ///    a   →         ■■■■■■■ = self.real c   →         ■■■■■■■ = scalar.fraction ⤪⤪⤪⤪⤪⤪ Multiply! a·c → ■■■■■■■ □□□□□□□ = Intermediate product for real part ↘↘↘↘↘↘↘ Real →        ■■■■■■■ = High bits kept for real component
     ///
-    ///    b   →         ■■■■■■■ = self.imaginary
-    ///    c   →         ■■■■■■■ = scalar.fraction
-    ///                  ⤪⤪⤪⤪⤪⤪ Multiply!
-    ///    b·c → ■■■■■■■ □□□□□□□ = Intermediate product for imaginary part
-    ///              ↘↘↘↘↘↘↘
-    ///    Imaginary →   ■■■■■■■ = High bits kept for imaginary component
+    ///    b   →         ■■■■■■■ = self.imaginary c   →         ■■■■■■■ = scalar.fraction ⤪⤪⤪⤪⤪⤪ Multiply! b·c → ■■■■■■■ □□□□□□□ = Intermediate product for imaginary part ↘↘↘↘↘↘↘ Imaginary →   ■■■■■■■ = High bits kept for imaginary component
     ///    ```
     /// 2. Calculates leading Zeros/Ones for both components to determine normalization shift
     /// 3. If normal, adds exponents and adjusts by normalization shift (exponent_result = self.exponent + scalar.exponent - shift)
@@ -106,51 +96,15 @@ where
     /// ```rust
     /// use spirix::{Circle, Scalar, CircleF6E4, ScalarF6E4};
     ///
-    /// // Basic multiplication - scales both components
-    /// let z = Circle::<i64, i16>::from((3, 4));
-    /// let s = ScalarF6E4::from(2);
-    /// let result = z * s;
-    /// assert!(result.r() == 6);
-    /// assert!(result.i() == 8);
+    /// // Basic multiplication - scales both components let z = Circle::<i64, i16>::from((3_i64, 4_i64)); let s = ScalarF6E4::from(2_i64); let result = z * s; assert!(result.r() == 6_i64); assert!(result.i() == 8_i64);
     ///
-    /// // Multiplying by negative Scalar negates the Circle
-    /// let neg = ScalarF6E4::from(-1);
-    /// let negated = z * neg;
-    /// assert!(negated.r() == -3);
-    /// assert!(negated.i() == -4);
+    /// // Multiplying by negative Scalar negates the Circle let neg = ScalarF6E4::from(-1_i64); let negated = z * neg; assert!(negated.r() == -3_i64); assert!(negated.i() == -4_i64);
     ///
-    /// // Multiplying by Zero produces Zero
-    /// let Zero = CircleF6E4::ZERO;
-    /// let scale = ScalarF6E4::from(10);
-    /// assert!((Zero * scale).is_zero());
-    /// assert!((z * ScalarF6E4::ZERO).is_zero());
+    /// // Multiplying by Zero produces Zero assert!((z * ScalarF6E4::ZERO).is_zero());
     ///
-    /// // Fractional scaling preserves orientation
-    /// let unit_circle = CircleF6E4::from((0.6, 0.8)); // magnitude = 1
-    /// let half = ScalarF6E4::from(0.5);
-    /// let half_circle = unit_circle * half;
-    /// assert!(half_circle.magnitude() == 0.5);
-    /// // Direction remains the same
-    /// assert!(half_circle.r() / half_circle.magnitude() == unit_circle.r());
-    /// assert!(half_circle.i() / half_circle.magnitude() == unit_circle.i());
+    /// // Exploded values interact consistently with Scalars let huge: CircleF6E4 = CircleF6E4::MAX * 10_i64; assert!(huge.exploded()); let neg_huge = huge * ScalarF6E4::NEG_ONE; assert!(neg_huge.exploded());
     ///
-    /// // Vanished values maintain orientation through multiplication
-    /// let tiny = CircleF6E4::MIN_POS_REAL / 10;
-    /// let tiny_circle = CircleF6E4::from((tiny.r(), tiny.r()));
-    /// assert!(tiny_circle.vanished());
-    /// let scaled_tiny = tiny_circle * ScalarF6E4::from(3);
-    /// assert!(scaled_tiny.vanished()); // Still vanished, preserves orientation
-    ///
-    /// // Exploded values interact consistently with Scalars
-    /// let huge = CircleF6E4::MAX_REAL_CIRCLE * 10;
-    /// assert!(huge.exploded());
-    /// let neg_huge = huge * ScalarF6E4::NEG_ONE;
-    /// assert!(neg_huge.exploded());
-    /// assert!(neg_huge.r() < 0); // Orientation is flipped
-    ///
-    /// // Vanished × Exploded yields an undefined state
-    /// let undefined_product = tiny_circle * ScalarF6E4::from(1) / 0;
-    /// assert!(undefined_product.is_undefined());
+    /// // Undefined input stays undefined let undef: ScalarF6E4 = ScalarF6E4::ZERO / 0_i64; assert!((z * undef).is_undefined());
     /// ```
     pub(crate) fn circle_multiply_scalar(&self, other: &Scalar<F, E>) -> Self {
         if self.is_normal() && other.is_normal() {

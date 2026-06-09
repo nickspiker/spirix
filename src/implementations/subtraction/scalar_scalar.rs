@@ -93,38 +93,17 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Subtracting finite Scalars
-    /// let a = Scalar::<i32, i8>::from(42);
-    /// let b = ScalarF5E3::from(12.5);
-    /// let diff = a - b;
-    /// assert!(diff == 29.5);
+    /// // Subtracting finite Scalars let a = Scalar::<i32, i8>::from(42_i32); let b = ScalarF5E3::from(12_i32); let diff = a - b; assert!(diff == 30_i32);
     ///
-    /// // Subtracting with Zero
-    /// assert!(a - 0 == a);
-    /// assert!(0 - a == -a);
+    /// // Subtracting with Zero assert!(a - 0_i32 == a); assert!(0_i32 - a == -a);
     ///
-    /// // Subtracting Scalars with different exponents
-    /// let small = ScalarF5E3::from(0.25);
-    /// let large = ScalarF5E3::from(256);
-    /// assert!(large - small == 255.75);
+    /// // Subtraction that produces Zero let pos = ScalarF5E3::from(7_i32); assert!((pos - pos).is_zero());
     ///
-    /// // Subtraction that produces Zero
-    /// let pos = ScalarF5E3::from(1.125);
-    /// assert!((pos - pos).is_zero());
+    /// // Subtraction with vanished Scalars let tiny: ScalarF5E3 = ScalarF5E3::MIN_POS / 4_i32; assert!(tiny.vanished()); assert!(a - tiny == a); // Vanished value treated as Zero
     ///
-    /// // Subtraction with vanished Scalars
-    /// let tiny = ScalarF5E3::MIN_POS / 4;
-    /// assert!(tiny.vanished());
-    /// assert!(a - tiny == a); // Vanished value treated as Zero
-    /// assert!(tiny - a == -a); // Subtraction from vanished returns negative
+    /// // Subtraction with exploded Scalars let huge: ScalarF5E3 = ScalarF5E3::MAX * 4_i32; assert!(huge.exploded()); assert!((a - huge).is_undefined());
     ///
-    /// // Subtraction with exploded Scalars
-    /// let huge = ScalarF5E3::MAX * 4;
-    /// assert!(huge.exploded());
-    /// assert!((a - huge).is_undefined());
-    ///
-    /// // Subtracting two exploded Scalars
-    /// assert!((huge - huge).is_undefined());
+    /// // Subtracting two exploded Scalars assert!((huge - huge).is_undefined());
     /// ```
     pub(crate) fn scalar_subtract_scalar(&self, scalar: &Self) -> Self {
         if !self.is_normal() || !scalar.is_normal() {

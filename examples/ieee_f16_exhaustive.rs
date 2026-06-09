@@ -1,8 +1,6 @@
 /// Exhaustive IEEE f16 → Spirix comparison for +, -, *, /, sqrt
 ///
-/// Both paths start and end at f16:
-///   IEEE:   f16 → f32 → op → f32 → f16
-///   Spirix: f16 → f32 → F4E3 → op → F4E3 → f32 → f16
+/// Both paths start and end at f16: IEEE:   f16 → f32 → op → f32 → f16 Spirix: f16 → f32 → F4E3 → op → F4E3 → f32 → f16
 ///
 /// Any difference is purely the arithmetic, since both paths eat the same conversion losses at the endpoints.
 ///

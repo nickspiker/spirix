@@ -54,8 +54,7 @@ where
 
 /// Compute gradient for ReLU activation
 ///
-/// ReLU: y = max(0, x)
-/// Gradient: dy/dx = 1 if x > 0, else 0
+/// ReLU: y = max(0, x) Gradient: dy/dx = 1 if x > 0, else 0
 ///
 /// Given:
 /// - output_grad: gradient flowing back (dL/dy)
@@ -116,8 +115,7 @@ where
 {
     assert_eq!(predicted.shape, target.shape, "Shape mismatch in MSE grad");
 
-    // For simplicity, we're not dividing by n (or multiplying by 2/n)
-    // The learning rate will absorb this constant
+    // For simplicity, we're not dividing by n (or multiplying by 2/n) The learning rate will absorb this constant
     let grad_data: Vec<T> = predicted
         .data
         .iter()

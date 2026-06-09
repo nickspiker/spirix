@@ -1,15 +1,10 @@
 //! Generate test vectors for spirix_addsub vs IEEE binary32.
 //!
-//! Output format (one test per line, decimal/hex mix for iverilog $fscanf):
-//!   <a_hex> <a_exp_dec> <b_hex> <b_exp_dec> <sub> <gold_hex> <gold_exp_dec> <gold_state>
+//! Output format (one test per line, decimal/hex mix for iverilog $fscanf): <a_hex> <a_exp_dec> <b_hex> <b_exp_dec> <sub> <gold_hex> <gold_exp_dec> <gold_state>
 //!
-//! gold_state: 0=Normal, 1=Zero, 2=PosVan, 3=NegVan, 4=PosExp, 5=NegExp,
-//!             6=Inf, 7=Undefined.
+//! gold_state: 0=Normal, 1=Zero, 2=PosVan, 3=NegVan, 4=PosExp, 5=NegExp, 6=Inf, 7=Undefined.
 //!
-//! Exponents are unsigned u8 in the AMBIG=0 convention. Internal (true)
-//! exponent = stored - BIAS where BIAS = 127. Stored=0x80=128 holds the
-//! binade containing +1.0, stored=0x7F=127 holds the binade containing -1.0
-//! (via N0 canonicalization).
+//! Exponents are unsigned u8 in the AMBIG=0 convention. Internal (true) exponent = stored - BIAS where BIAS = 127. Stored=0x80=128 holds the binade containing +1.0, stored=0x7F=127 holds the binade containing -1.0 (via N0 canonicalization).
 //!
 //! Usage: cargo run --release --bin gen_addsub_vectors -- <n> <out_path>
 
@@ -30,8 +25,7 @@ fn state_code(s: SpirixState) -> u8 {
     }
 }
 
-/// Compute one gold vector: take Spirix inputs, convert to f64, do IEEE
-/// arithmetic, convert IEEE result back to Spirix.
+/// Compute one gold vector: take Spirix inputs, convert to f64, do IEEE arithmetic, convert IEEE result back to Spirix.
 fn gold(a_st: u32, a_e: u8, b_st: u32, b_e: u8, sub: bool) -> (u32, u8, SpirixState) {
     let a_state = classify(a_st, a_e);
     let b_state = classify(b_st, b_e);
@@ -80,8 +74,7 @@ fn spirix_negate_state(storage: u32, exp: u8, state: SpirixState) -> (u32, u8, S
         Normal => {
             let s24 = storage & 0x00FF_FFFF;
             if s24 == POS_ONE_NORMAL {
-                // +0.5·2^exp → -0.5·2^exp = -1.0·2^(exp-1); canonical form is
-                // NEG_ONE_NORMAL at exp-1.
+                // +0.5·2^exp → -0.5·2^exp = -1.0·2^(exp-1); canonical form is NEG_ONE_NORMAL at exp-1.
                 let new_exp = exp as i32 - 1;
                 if new_exp < MIN_EXP as i32 {
                     (NEG_ONE_VANISHED, AMBIG_EXP, NegVanished)
@@ -89,8 +82,7 @@ fn spirix_negate_state(storage: u32, exp: u8, state: SpirixState) -> (u32, u8, S
                     (NEG_ONE_NORMAL, new_exp as u8, Normal)
                 }
             } else if s24 == NEG_ONE_NORMAL {
-                // -1.0·2^exp → +1.0·2^exp = +0.5·2^(exp+1); canonical form is
-                // POS_ONE_NORMAL at exp+1.
+                // -1.0·2^exp → +1.0·2^exp = +0.5·2^(exp+1); canonical form is POS_ONE_NORMAL at exp+1.
                 let new_exp = exp as i32 + 1;
                 if new_exp > MAX_EXP as i32 {
                     (POS_ONE_EXPLODED, AMBIG_EXP, PosExploded)
@@ -123,9 +115,7 @@ fn main() -> std::io::Result<()> {
     let f = File::create(&path)?;
     let mut w = BufWriter::new(f);
 
-    // Exponent constants in new u8 convention. BIAS=127, so:
-    //   stored=128 (0x80) → internal_exp=1 (binade containing +1.0)
-    //   stored=127 (0x7F) → internal_exp=0 (binade containing -1.0)
+    // Exponent constants in new u8 convention. BIAS=127, so: stored=128 (0x80) → internal_exp=1 (binade containing +1.0) stored=127 (0x7F) → internal_exp=0 (binade containing -1.0)
     let bias: u8 = BIAS as u8;       // 127
     let exp_p1: u8 = bias + 1;        // 128: binade with +1.0
     let exp_0:  u8 = bias;            // 127: binade with -1.0

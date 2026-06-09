@@ -19,19 +19,15 @@
 //! ```rust
 //! use spirix::CircleF5E3;
 //!
-//! let z = CircleF5E3::new(3, 4);  // 3 + 4i
+//! let z = CircleF5E3::from((3_i32, 4_i32));  // 3 + 4i
 //!
-//! // Default formatting (base-10)
-//! println!("{}", z);  // ⦇+3,+4⦈
+//! // Default formatting (base-10) println!("{}", z);  // ⦇+3,+4⦈
 //!
-//! // Hexadecimal (base-16)
-//! println!("{:.16}", z);  // ⦇+3,+4⦈
+//! // Hexadecimal (base-16) println!("{:.16}", z);  // ⦇+3,+4⦈
 //!
-//! // Binary (base-2) with 16 digits
-//! println!("{:16.2}", z);  // ⦇+11,+100⦈
+//! // Binary (base-2) with 16 digits println!("{:16.2}", z);  // ⦇+11,+100⦈
 //!
-//! // Debug output shows internal bit pattern for both components
-//! println!("{:?}", z);
+//! // Debug output shows internal bit pattern for both components println!("{:?}", z);
 //! ```
 
 use crate::core::integer::FullInt;
@@ -113,11 +109,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::CircleF5E3;
-    /// let z = CircleF5E3::new(15, 31);
-    /// assert_eq!(format!("{:.16}", z), "⦇+F,+1F⦈");  // Hex
-    /// assert_eq!(format!("{:.2}", z), "⦇+1111,+11111⦈");  // Binary
-    /// assert_eq!(format!("{:3.10}", z), "⦇+15,+31⦈");  // Base-10, max 3 digits
+    /// use spirix::CircleF5E3; let z = CircleF5E3::from((15_i32, 31_i32)); assert_eq!(format!("{:.16}", z), "⦇+F,+1F⦈");  // Hex assert_eq!(format!("{:.2}", z), "⦇+1111,+11111⦈");  // Binary assert_eq!(format!("{:3.10}", z), "⦇+15,+31⦈");  // Base-10, max 3 digits
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Extract base from precision specifier (default: base-10)
@@ -229,10 +221,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use spirix::CircleF5E3;
-    /// let z = CircleF5E3::new(1, -1);
-    /// println!("{:?}", z);   // Plain binary
-    /// println!("{:#?}", z);  // Coloured with special chars
+    /// use spirix::CircleF5E3; let z = CircleF5E3::from((1_i32, -1_i32)); println!("{:?}", z);   // Plain binary println!("{:#?}", z);  // Coloured with special chars
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {

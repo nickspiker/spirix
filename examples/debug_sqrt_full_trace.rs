@@ -57,8 +57,7 @@ fn test_value(input_val: u8) {
     let mut bit_pos = 15; // bit = 1 << bit_pos
 
     for iter in 0..16 {
-        // delta = (2*y + bit) << bit_pos
-        // This is multiplication-free!
+        // delta = (2*y + bit) << bit_pos This is multiplication-free!
         let delta = (((y << 1) + bit) as u64) << bit_pos;
 
         print!(

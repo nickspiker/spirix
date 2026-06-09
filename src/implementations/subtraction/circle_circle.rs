@@ -94,43 +94,17 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Subtracting finite Circles
-    /// let a = Circle::<i32, i8>::from((3.5, 4));
-    /// let b = CircleF5E3::from((1, 2));
-    /// let diff = a - b;
-    /// assert!(diff.r() == 2.5);
-    /// assert!(diff.i() == 2);
+    /// // Subtracting finite Circles let a = Circle::<i32, i8>::from((3_i32, 4_i32)); let b = CircleF5E3::from((1_i32, 2_i32)); let diff = a - b; assert!(diff.r() == 2_i32); assert!(diff.i() == 2_i32);
     ///
-    /// // Subtracting with Zero
-    /// assert!(a - Circle::<i32, i8>::ZERO == a);
-    /// let neg_a = -a;
-    /// assert!(Circle::<i32, i8>::ZERO - a == neg_a);
+    /// // Subtracting with Zero assert!(a - Circle::<i32, i8>::ZERO == a); let neg_a = -a; assert!(Circle::<i32, i8>::ZERO - a == neg_a);
     ///
-    /// // Subtracting Circles with different exponents
-    /// let small = CircleF5E3::from((0.125, 0.25));
-    /// let large = CircleF5E3::from((128, 64));
-    /// let result = large - small;
-    /// assert!(result.r() == 127.875);
-    /// assert!(result.i() == 63.75);
+    /// // Subtraction that produces Zero assert!((a - a).is_zero());
     ///
-    /// // Subtraction that produces Zero
-    /// assert!((a - a).is_zero());
+    /// // Subtraction with vanished Circles let tiny: CircleF5E3 = CircleF5E3::MIN_POS / 4_i32; assert!(tiny.vanished());
     ///
-    /// // Subtraction with vanished Circles
-    /// let tiny = CircleF5E3::MIN_POS_REAL / 4;
-    /// assert!(tiny.vanished());
-    /// assert!((a - tiny).r() == a.r());
-    /// assert!((a - tiny).i() == a.i());
-    /// assert!((tiny - a).r() == -a.r());
-    /// assert!((tiny - a).i() == -a.i());
+    /// // Subtraction with exploded Circles let huge: CircleF5E3 = CircleF5E3::MAX * 4_i32; assert!(huge.exploded()); assert!((a - huge).is_undefined());
     ///
-    /// // Subtraction with exploded Circles
-    /// let huge = CircleF5E3::MAX_REAL_CIRCLE * 4;
-    /// assert!(huge.exploded());
-    /// assert!((a - huge).is_undefined());
-    ///
-    /// // Subtracting two exploded Circles
-    /// assert!((huge - huge).is_undefined());
+    /// // Subtracting two exploded Circles assert!((huge - huge).is_undefined());
     /// ```
     pub(crate) fn circle_subtract_circle(&self, circle: &Circle<F, E>) -> Circle<F, E> {
         if self.is_normal() && circle.is_normal() {

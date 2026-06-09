@@ -47,9 +47,7 @@ fn gold(a_st: u32, a_e: i8, b_st: u32, b_e: i8) -> (u32, i8, SpirixState) {
         (PosVanished | NegVanished, PosVanished | NegVanished) =>
             Some((UNDEF_CANONICAL, AMBIG_EXP, Undefined)),
 
-        // All other non-Normal × Anything combinations: Spirix's divide truth
-        // table returns Undefined for these (no IEEE equivalent). Gold expects
-        // Undefined-state; tb accepts any LSBC≥3 storage at AMBIG_EXP.
+        // All other non-Normal × Anything combinations: Spirix's divide truth table returns Undefined for these (no IEEE equivalent). Gold expects Undefined-state; tb accepts any LSBC≥3 storage at AMBIG_EXP.
         (PosExploded | NegExploded, _) | (_, PosExploded | NegExploded) |
         (PosVanished  | NegVanished,  _) | (_, PosVanished  | NegVanished) =>
             Some((UNDEF_CANONICAL, AMBIG_EXP, Undefined)),

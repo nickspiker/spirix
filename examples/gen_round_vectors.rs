@@ -2,8 +2,7 @@
 ///
 /// Ops: 0=FLOOR 1=CEIL 2=ROUND 3=FRAC
 ///
-/// Output: hex lines "op fw ew a_frac a_exp r_frac r_exp"
-/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
+/// Output: hex lines "op fw ew a_frac a_exp r_frac r_exp" Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 use spirix::Scalar;
 
 /// Simple deterministic PRNG (xorshift64)

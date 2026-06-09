@@ -35,8 +35,7 @@ fn main() {
         let self_cmp = a.partial_cmp(a);
         if classify_orderable(*a) {
             if self_cmp != Some(Ordering::Equal) {
-                // Escaped (van/exp) compared to itself: the current design returns None for same-sign same-class pairs, which includes same-value escaped comparisons. That's consistent with "the value is magnitude-unknown, so we can't assert equality."
-                // Only flag reflexivity failure for normal/zero.
+                // Escaped (van/exp) compared to itself: the current design returns None for same-sign same-class pairs, which includes same-value escaped comparisons. That's consistent with "the value is magnitude-unknown, so we can't assert equality." Only flag reflexivity failure for normal/zero.
                 if a.is_normal() || a.is_zero() {
                     reflex_errors += 1;
                 }

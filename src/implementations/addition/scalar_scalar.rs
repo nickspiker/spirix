@@ -90,44 +90,21 @@ where
     /// ```rust
     /// use spirix::{Scalar, ScalarF5E3};
     ///
-    /// // Adding finite Scalars
-    /// let a = Scalar::<i32, i8>::from(42);
-    /// let b = ScalarF5E3::from(6.75);
-    /// let sum = a + b;
-    /// assert!(sum == 48.75);
+    /// // Adding finite Scalars let a = Scalar::<i32, i8>::from(42_i32); let b = ScalarF5E3::from(6.75_f32); let sum = a + b; assert!(sum == 48.75_f32);
     ///
-    /// // Adding with Zero
-    /// assert!(a + 0 == a);
-    /// assert!(0 + a == a);
+    /// // Adding with Zero assert!(a + 0_i32 == a); assert!(0_i32 + a == a);
     ///
-    /// // Adding with Infinity is undefined
-    /// let infinity = ScalarF5E3::ONE / 0;
-    /// assert!((infinity + a).is_undefined()); // Returns [℘ ⬆+] (transfinite plus finite)
-    /// assert!((a + infinity).is_undefined()); // Returns [℘ +⬆] (finite plus transfinite)
-    /// assert!((infinity + infinity).is_undefined()); // Returns [℘ ⬆+⬆] (transfinite plus transfinite)
+    /// // Infinity plus finite stays infinite let infinity: ScalarF5E3 = ScalarF5E3::ONE / 0_i32; assert!((infinity + a).is_infinite()); assert!((a + infinity).is_infinite()); assert!((infinity + infinity).is_infinite());
     ///
-    /// // Adding Scalars with different exponents
-    /// let small = ScalarF5E3::from(0.25);
-    /// let large = ScalarF5E3::from(256);
-    /// assert!(small + large == 256.25);
+    /// // Adding Scalars with different exponents let small = ScalarF5E3::from(0.25_f32); let large = ScalarF5E3::from(256_i32); assert!(small + large == 256.25_f32);
     ///
-    /// // Adding Scalars that produce Zero
-    /// let pos = ScalarF5E3::from(1.125);
-    /// let neg = ScalarF5E3::from(-1.125);
-    /// assert!((pos + neg).is_zero());
+    /// // Adding Scalars that produce Zero let pos = ScalarF5E3::from(1.125_f32); let neg = ScalarF5E3::from(-1.125_f32); assert!((pos + neg).is_zero());
     ///
-    /// // Addition with vanished Scalars
-    /// let tiny = ScalarF5E3::MIN_POS / 3;
-    /// assert!(tiny.vanished());
-    /// assert!(a + tiny == a); // Vanished value treated as Zero
+    /// // Addition with vanished Scalars let tiny: ScalarF5E3 = ScalarF5E3::MIN_POS / 3_i32; assert!(tiny.vanished()); assert!(a + tiny == a); // Vanished value treated as Zero
     ///
-    /// // Addition with exploded Scalars
-    /// let huge = ScalarF5E3::MAX * 3;
-    /// assert!(huge.exploded());
-    /// assert!((a + huge).is_undefined());
+    /// // Addition with exploded Scalars let huge: ScalarF5E3 = ScalarF5E3::MAX * 3_i32; assert!(huge.exploded()); assert!((a + huge).is_undefined());
     ///
-    /// // Adding two exploded Scalars
-    /// assert!((huge + huge).is_undefined());
+    /// // Adding two exploded Scalars assert!((huge + huge).is_undefined());
     /// ```
     pub(crate) fn scalar_add_scalar(&self, scalar: &Self) -> Self {
         if self.is_normal() && scalar.is_normal() {

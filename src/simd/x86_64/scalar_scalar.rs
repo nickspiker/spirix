@@ -57,18 +57,15 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
     b: &[ScalarF4E4; 8],
     result: &mut [ScalarF4E4; 8],
 ) {
-    // Load 8× ScalarF4E4 as 256 bits (each ScalarF4E4 = 32 bits)
-    // Memory layout: [frac0|exp0][frac1|exp1]...[frac7|exp7] (each pair is 32 bits)
+    // Load 8× ScalarF4E4 as 256 bits (each ScalarF4E4 = 32 bits) Memory layout: [frac0|exp0][frac1|exp1]...[frac7|exp7] (each pair is 32 bits)
     let a_vec = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
     let b_vec = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
 
-    // Extract fractions (lower 16 bits of each 32-bit lane, sign-extended to i32)
-    // Shift left 16 to move fraction to upper position, then arithmetic shift right to sign-extend
+    // Extract fractions (lower 16 bits of each 32-bit lane, sign-extended to i32) Shift left 16 to move fraction to upper position, then arithmetic shift right to sign-extend
     let a_frac = _mm256_srai_epi32(_mm256_slli_epi32(a_vec, 16), 16);
     let b_frac = _mm256_srai_epi32(_mm256_slli_epi32(b_vec, 16), 16);
 
-    // Extract exponents (upper 16 bits of each 32-bit lane, sign-extended to i32)
-    // Arithmetic shift right 16 extracts and sign-extends
+    // Extract exponents (upper 16 bits of each 32-bit lane, sign-extended to i32) Arithmetic shift right 16 extracts and sign-extends
     let a_exp = _mm256_srai_epi32(a_vec, 16);
     let b_exp = _mm256_srai_epi32(b_vec, 16);
 
@@ -83,9 +80,7 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
     // Step 2: Compute absolute shift amount We need abs(exp_diff) to know how much to shift
     let shift_amount = _mm256_abs_epi32(exp_diff);
 
-    // Step 3: Align fractions by shifting the one with smaller exponent If a > b: shift b_frac right by (a_exp - b_exp)
-    // If b > a: shift a_frac right by (b_exp - a_exp)
-    // If equal: no shift needed
+    // Step 3: Align fractions by shifting the one with smaller exponent If a > b: shift b_frac right by (a_exp - b_exp) If b > a: shift a_frac right by (b_exp - a_exp) If equal: no shift needed
 
     // Arithmetic right shift (preserves sign bit for signed fractions)
     let a_frac_shifted = _mm256_srav_epi32(a_frac, shift_amount);
@@ -101,8 +96,7 @@ pub unsafe fn scalar_subtract_batch_avx2_8op(
     // Step 5: Select result exponent (the larger one)
     let result_exp = _mm256_blendv_epi8(a_exp, b_exp, b_gt_a);
 
-    // Step 6: Normalize (TODO: this needs lzcnt and more complex logic)
-    // For now, pack without normalization as a starting point
+    // Step 6: Normalize (TODO: this needs lzcnt and more complex logic) For now, pack without normalization as a starting point
 
     // Step 7: Pack back to i16 fractions and exponents Truncate i32 back to i16 using packs (saturates)
     let result_frac_i16 = _mm256_packs_epi32(result_frac, result_frac);
@@ -205,8 +199,7 @@ pub unsafe fn scalar_subtract_batch_sse42(
     b: &[ScalarF4E4],
     result: &mut [ScalarF4E4],
 ) {
-    // TODO: Implement SSE4.2 version (4× ScalarF4E4)
-    // Similar to AVX2 but with 128-bit registers
+    // TODO: Implement SSE4.2 version (4× ScalarF4E4) Similar to AVX2 but with 128-bit registers
     scalar_subtract_fallback(a, b, result);
 }
 

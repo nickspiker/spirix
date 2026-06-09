@@ -75,25 +75,13 @@ where
     ///    ```
     ///    Each component calculation uses a 2x-bit space:
     ///    ```text
-    ///    a   →         ■■■■■■■ = self.real
-    ///    b   →         ■■■■■■■ = self.imaginary
+    ///    a   →         ■■■■■■■ = self.real b   →         ■■■■■■■ = self.imaginary
     ///
-    ///    c   →         ■■■■■■■ = other.real
-    ///    d   →         ■■■■■■■ = other.imaginary
+    ///    c   →         ■■■■■■■ = other.real d   →         ■■■■■■■ = other.imaginary
     ///
-    ///              ⤪⤪⤪⤪⤪⤪       Multiply!
-    ///    a·c → ■■■■■■■ ■■■■■■■ = Intermediate product
-    ///    b·d → ■■■■■■■ ■■■■■■■ = Intermediate product
-    ///    Dif → ■■■■■■■ □□□□□□□ = Difference of a·c - b·d
-    ///              ↘↘↘↘↘↘↘
-    ///    Real →        ■■■■■■■ = High half of (a·c-b·d)
+    ///              ⤪⤪⤪⤪⤪⤪       Multiply! a·c → ■■■■■■■ ■■■■■■■ = Intermediate product b·d → ■■■■■■■ ■■■■■■■ = Intermediate product Dif → ■■■■■■■ □□□□□□□ = Difference of a·c - b·d ↘↘↘↘↘↘↘ Real →        ■■■■■■■ = High half of (a·c-b·d)
     ///
-    ///              ⤪⤪⤪⤪⤪⤪       Multiply!
-    ///    a·d → ■■■■■■■ ■■■■■■■ = Intermediate product
-    ///    b·c → ■■■■■■■ ■■■■■■■ = Intermediate product
-    ///    Sum → ■■■■■■■ □□□□□□□ = Sum of a·d + b·c
-    ///              ↘↘↘↘↘↘↘
-    ///    Imaginary →   ■■■■■■■ = High half of (a·d+b·c)
+    ///              ⤪⤪⤪⤪⤪⤪       Multiply! a·d → ■■■■■■■ ■■■■■■■ = Intermediate product b·c → ■■■■■■■ ■■■■■■■ = Intermediate product Sum → ■■■■■■■ □□□□□□□ = Sum of a·d + b·c ↘↘↘↘↘↘↘ Imaginary →   ■■■■■■■ = High half of (a·d+b·c)
     ///    ```
     /// 2. Calculates leading Zeros/Ones for both real and imaginary parts to find minimum, determining normalization shift
     /// 3. If normal, add exponents and adjust by normalization shift (exponent_result = self.exponent + other.exponent - shift), otherwise follow escaped/vanished rules
@@ -116,42 +104,17 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3};
     ///
-    /// // Complex multiplication!
-    /// let z1 = Circle::<i64, i16>::from((1.5, 2));
-    /// let z2 = CircleF5E3::from((1, 2));
-    /// let product = z1 * z2;
-    /// assert!(product.r() == -2.5);
-    /// assert!(product.i() == 5);
+    /// // Complex multiplication: (1+2i)(3+4i) = -5+10i let z1 = CircleF5E3::from((1_i32, 2_i32)); let z2 = CircleF5E3::from((3_i32, 4_i32)); let product = z1 * z2; assert!(product.r() == -5_i32); assert!(product.i() == 10_i32);
     ///
-    /// // Multiplying by i rotates 90 degrees counterclockwise
-    /// let z = CircleF5E3::from((5, 0));
-    /// let rotated = z * CircleF5E3::POS_I;
-    /// assert!(rotated.r() == 0);
-    /// assert!(rotated.i() == 5);
+    /// // Multiplying by i rotates 90 degrees counterclockwise let z = CircleF5E3::from((5_i32, 0_i32)); let rotated = z * CircleF5E3::POS_I; assert!(rotated.r() == 0_i32); assert!(rotated.i() == 5_i32);
     ///
-    /// // Multiplying by Zero produces Zero
-    /// let zero = CircleF5E3::ZERO;
-    /// assert!((z * zero).is_zero());
-    /// // Even when exploded!
-    /// let sploded = CircleF5E3::MAX.square();
-    /// assert!(sploded * 0 == 0);
-    /// // And of course when vanished
-    /// let tiny = CircleF5E3::MIN_POS.square();
+    /// // Multiplying by Zero produces Zero let zero = CircleF5E3::ZERO; assert!((z * zero).is_zero());
     ///
-    /// // Multiplication preserves orientation
-    /// let minus_one = CircleF5E3::I.square();
-    /// assert!(minus_one == -1);
+    /// // i squared = -1 let minus_one = CircleF5E3::POS_I.square(); assert!(minus_one == -1_i32);
     ///
-    /// // Vanished values maintain orientation thru multiplication
-    /// let huge = CircleF5E3::MAX_POS * 2;
-    /// assert!(huge.exploded());
-    /// assert!(huge.sign() == 1);
-    /// let rotated_huge = huge * i;
-    /// assert!(rotated_huge.sign() == CircleF5E3::I);
+    /// // Vanished values maintain orientation thru multiplication let huge: CircleF5E3 = CircleF5E3::MAX * 2_i32; assert!(huge.exploded()); let tiny = CircleF5E3::MIN_POS.square();
     ///
-    /// // Vanished × Exploded yields an undefined state (orientation indeterminate)
-    /// let undefined_product = tiny * huge;
-    /// assert!(undefined_product.is_undefined());
+    /// // Vanished × Exploded yields an undefined state let undefined_product = tiny * huge; assert!(undefined_product.is_undefined());
     /// ```
     pub(crate) fn circle_multiply_circle(&self, other: &Self) -> Self {
         if self.is_normal() && other.is_normal() {

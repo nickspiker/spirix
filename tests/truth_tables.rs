@@ -675,8 +675,7 @@ fn and_truth_table() {
     check("&", np, inf, np & inf, &[Normal]);
     check("&", ep, inf, ep & inf, &[Exploded]);
 
-    // Escape & escape (same rank or cross-rank with shared ambig frame).
-    // [↓] & [↓] → [℘&]
+    // Escape & escape (same rank or cross-rank with shared ambig frame). [↓] & [↓] → [℘&]
     check("&", vp, vp, vp & vp, &[Undefined]);
     check("&", vp, vn, vp & vn, &[Undefined]);
     // [↑] & [↑] → [℘&]
@@ -841,10 +840,7 @@ fn xor_truth_table() {
 }
 
 // ============================================================ Circle arithmetic class-table tests ============================================================
-// Circle ops should follow the same class-level truth tables as Scalar (the
-// Spirix README defines them at the class level, not Scalar-specific). Here we
-// spot-check the cases where a bug was likely or actually found, especially
-// around INFINITY absorbing (it has to beat is_zero / is_normal etc.).
+// Circle ops should follow the same class-level truth tables as Scalar (the Spirix README defines them at the class level, not Scalar-specific). Here we spot-check the cases where a bug was likely or actually found, especially around INFINITY absorbing (it has to beat is_zero / is_normal etc.).
 
 type C = CircleF3E3;
 

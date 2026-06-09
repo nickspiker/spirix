@@ -1,14 +1,10 @@
 //! Representable-value distribution at F5E3.
 //!
-//! At each normal exponent e (range [-127, 127], 255 exponents total):
-//!   positives cover magnitudes [2^(e-1), 2^e)   — 2^31 patterns
-//! negatives cover magnitudes (2^(e-1), 2^e]   — 2^31 patterns (neg_one_normal @ e hits the top exactly)
+//! At each normal exponent e (range [-127, 127], 255 exponents total): positives cover magnitudes [2^(e-1), 2^e)   — 2^31 patterns negatives cover magnitudes (2^(e-1), 2^e]   — 2^31 patterns (neg_one_normal @ e hits the top exactly)
 //!
-//! So exp=0 covers magnitudes [0.5, 1.0] ENTIRELY (negatives include -1, positives stop just below +1). exp=1 covers [1.0, 2.0] ENTIRELY (positives include +1).
-//! Exponents 0 and below are ALL |v| ≤ 1; exponents 1 and above are ALL |v| ≥ 1.
+//! So exp=0 covers magnitudes [0.5, 1.0] ENTIRELY (negatives include -1, positives stop just below +1). exp=1 covers [1.0, 2.0] ENTIRELY (positives include +1). Exponents 0 and below are ALL |v| ≤ 1; exponents 1 and above are ALL |v| ≥ 1.
 //!
-//! With exp in [-127, 127]: "≤ 1" exponents: e in [-127, 0] → 128 exponents
-//!   "≥ 1" exponents: e in [1, 127]  → 127 exponents
+//! With exp in [-127, 127]: "≤ 1" exponents: e in [-127, 0] → 128 exponents "≥ 1" exponents: e in [1, 127]  → 127 exponents
 //!
 //! That's the asymmetry: one more exponent-worth of values (2^32 patterns) live at
 //! |v| ≤ 1 than at |v| ≥ 1.

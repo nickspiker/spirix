@@ -1,23 +1,10 @@
 //! BRAM init for the external-clock divide-P4 silicon test harness.
 //!
-//! Emits a `.mem` file with packed 128-bit entries (one per line, hex), where
-//! each entry is one (a, b, expected_q, expected_state) test case for the
-//! spirix_divide PARALLEL=4 DUT clocked from the RC oscillator.
+//! Emits a `.mem` file with packed 128-bit entries (one per line, hex), where each entry is one (a, b, expected_q, expected_state) test case for the spirix_divide PARALLEL=4 DUT clocked from the RC oscillator.
 //!
-//! Bit layout (MSB → LSB, 128 bits per word):
-//!   [127:104] a_frac      (24)
-//!   [103: 96] a_exp       (8, signed two's complement)
-//!   [ 95: 72] b_frac      (24)
-//!   [ 71: 64] b_exp       (8)
-//!   [ 63: 40] exp_q_frac  (24)
-//!   [ 39: 32] exp_q_exp   (8)
-//!   [ 31: 28] exp_state   (4: 0=Normal, 1=Zero, 2=PosVan, 3=NegVan,
-//!                              4=PosExp, 5=NegExp, 6=Inf, 7=Undef)
-//!   [ 27:  0] reserved    (28, zero)
+//! Bit layout (MSB → LSB, 128 bits per word): [127:104] a_frac      (24) [103: 96] a_exp       (8, signed two's complement) [ 95: 72] b_frac      (24) [ 71: 64] b_exp       (8) [ 63: 40] exp_q_frac  (24) [ 39: 32] exp_q_exp   (8) [ 31: 28] exp_state   (4: 0=Normal, 1=Zero, 2=PosVan, 3=NegVan, 4=PosExp, 5=NegExp, 6=Inf, 7=Undef) [ 27:  0] reserved    (28, zero)
 //!
-//! 256 entries: every edge × edge combination (19² = 361 → first 64 chosen
-//! to span the truth-table cases), padded to 256 with LFSR-driven random
-//! Normal × Normal pairs.
+//! 256 entries: every edge × edge combination (19² = 361 → first 64 chosen to span the truth-table cases), padded to 256 with LFSR-driven random Normal × Normal pairs.
 
 use spirix_paper_comparison::*;
 use std::io::{BufWriter, Write};
@@ -110,8 +97,7 @@ fn main() -> std::io::Result<()> {
 
     let mut count = 0usize;
 
-    // First pass: a small representative spread of edge × edge cases.
-    // Take every other (a, b) combination from a 16×16 grid, giving 128 entries.
+    // First pass: a small representative spread of edge × edge cases. Take every other (a, b) combination from a 16×16 grid, giving 128 entries.
     for (i, &(a, ae)) in edges.iter().enumerate() {
         for (j, &(b, be)) in edges.iter().enumerate() {
             if (i + j) & 1 == 0 && count < n_entries / 2 {

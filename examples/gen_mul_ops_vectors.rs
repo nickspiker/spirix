@@ -1,7 +1,6 @@
 /// Generate test vectors for spirix_alu_multiply — all 16 frac×exp width combos.
 ///
-/// Output: hex lines "fw ew a_frac a_exp b_frac b_exp r_frac r_exp"
-/// Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
+/// Output: hex lines "fw ew a_frac a_exp b_frac b_exp r_frac r_exp" Fractions MSB-aligned to 64 bits, exponents LSB-aligned with universal AMBIG.
 use spirix::Scalar;
 
 /// Simple deterministic PRNG (xorshift64)

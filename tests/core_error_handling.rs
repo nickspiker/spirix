@@ -323,8 +323,11 @@ fn test_conversion_error_handling() {
     let from_nan = ScalarF5E3::from(nan_input);
     assert!(from_nan.is_undefined());
 
-    let from_inf = ScalarF5E3::from(inf_input);
-    assert!(from_inf.is_infinite());
+    // IEEE infinities are signed (±∞), so they map to Spirix exploded values with sign preserved — not to the directionless Riemann INFINITY.
+    let from_pos_inf = ScalarF5E3::from(inf_input);
+    assert!(from_pos_inf.exploded() && from_pos_inf.is_positive());
+    let from_neg_inf = ScalarF5E3::from(-inf_input);
+    assert!(from_neg_inf.exploded() && from_neg_inf.is_negative());
 }
 
 #[test]
