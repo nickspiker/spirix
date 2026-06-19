@@ -101,7 +101,7 @@ fn spirix_add(a_frac: i32, a_exp: i8, b_frac: i32, b_exp: i8) -> (i32, i8) {
     let big_ext = (big_frac as i64) << 2;
     let small_ext = (small_frac as i64) << 2;
 
-    // We use i64 throughout to avoid overflow in intermediate calculations. The Verilog uses INT_BITS=28 bit wires; we mask to 28 bits where needed.
+    // We use i64 thruout to avoid overflow in intermediate calculations. The Verilog uses INT_BITS=28 bit wires; we mask to 28 bits where needed.
 
     // Mask to simulate INT_BITS-bit signed arithmetic
     let mask = (1i64 << INT_BITS) - 1; // 0x0FFF_FFFF (28 bits)

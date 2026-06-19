@@ -192,7 +192,7 @@ module spirix_addsub_pipe2 #(
     // =========================================================================
     // STAGE 1: Swap + Close Add + CLZ + Shared Barrel
     //
-    // The full close path through the barrel completes here. The far path
+    // The full close path thru the barrel completes here. The far path
     // uses the barrel for alignment. Both produce a barrel output that
     // feeds the S1-S2 register.
     //

@@ -246,7 +246,7 @@ module spirix_fma #(
 
     // Fallback: any remaining non-normal → return product
     // Only fires when product is non-normal; normal product with weird c
-    // goes through the FMA datapath (c contributes ~0 or the math works out).
+    // goes thru the FMA datapath (c contributes ~0 or the math works out).
     wire add_sc_fallback = ~eff_prod_normal & (mul_any_non_normal | ~c_is_normal) &
                            ~add_sc_p_undef & ~add_sc_c_undef & ~add_sc_tf_tf & ~add_sc_van_van &
                            ~add_sc_p_transf & ~add_sc_c_transf & ~add_sc_p_van & ~add_sc_c_van &

@@ -1129,7 +1129,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn to_f32_powers_of_2_exact() {
-        // S44 stores exact powers of 2. These must round-trip bit-exactly through to_f32.
+        // S44 stores exact powers of 2. These must round-trip bit-exactly thru to_f32.
         for &v in &[0.25_f32, 0.5, 1.0, -1.0, 2.0, -2.0, 4.0, 0.125, -0.5] {
             let s = S44::from_f32(v);
             let back = s.to_f32();
@@ -1212,7 +1212,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn to_f32_subnormals() {
-        // f32 subnormals have known precision loss in the spirix from_f32 path: the exponent encoding for subnormals uses raw_exp - 119 (same as normals) rather than the correct 1 - 127 = -126, causing an off-by-1 in the exponent. The round-trip through S44 is therefore lossy for subnormals — acceptable. We just verify to_f32 doesn't panic and returns something non-negative for positive inputs.
+        // f32 subnormals have known precision loss in the spirix from_f32 path: the exponent encoding for subnormals uses raw_exp - 119 (same as normals) rather than the correct 1 - 127 = -126, causing an off-by-1 in the exponent. The round-trip thru S44 is therefore lossy for subnormals — acceptable. We just verify to_f32 doesn't panic and returns something non-negative for positive inputs.
 
         // Smallest positive subnormal
         let v = f32::from_bits(1u32);
@@ -1531,7 +1531,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn into_f32_nan_and_inf() {
-        // Use runtime From<f32> for special values. Spirix INFINITY is sign-indeterminate; both ±inf round through the same sentinel.
+        // Use runtime From<f32> for special values. Spirix INFINITY is sign-indeterminate; both ±inf round thru the same sentinel.
         let nan: f32 = S44::from(f32::NAN).into();
         assert!(nan.is_nan());
         let inf: f32 = S44::from(f32::INFINITY).into();

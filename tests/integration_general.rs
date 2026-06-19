@@ -179,7 +179,7 @@ mod chained_operations {
 
     #[test]
     fn test_undefined_state_preservation() {
-        // Create an undefined state and verify it propagates through a chain In Spirix, 1/0 = infinity (not undefined). Only 0/0 = undefined.
+        // Create an undefined state and verify it propagates thru a chain In Spirix, 1/0 = infinity (not undefined). Only 0/0 = undefined.
         let undefined_start = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
         assert!(undefined_start.is_undefined());
 

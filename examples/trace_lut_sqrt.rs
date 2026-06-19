@@ -8,7 +8,7 @@ fn main() {
         input.fraction, input.exponent
     );
 
-    // Manually trace through the algorithm
+    // Manually trace thru the algorithm
     let fraction = input.fraction as u32;
     let exponent = input.exponent;
     let even = (exponent & 1) as usize;

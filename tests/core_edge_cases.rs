@@ -210,7 +210,7 @@ mod rube_goldberg_chains {
 
     #[test]
     fn test_precision_cascade() {
-        // Rube Goldberg machine: Start with F3E3, cascade through all precisions
+        // Rube Goldberg machine: Start with F3E3, cascade thru all precisions
 
         // Step 1: F3E3 - Start with limited precision
         let step1 = ScalarF3E3::from(3.14159);
@@ -279,15 +279,15 @@ mod rube_goldberg_chains {
         let exploded: ScalarF5E3 = large * large;
         assert!(exploded.exploded());
 
-        // Use exploded state to create vanished (through reciprocal)
+        // Use exploded state to create vanished (thru reciprocal)
         let reciprocal = exploded.reciprocal();
         assert!(reciprocal.vanished());
 
-        // Use vanished to create undefined (through log of very small number)
+        // Use vanished to create undefined (thru log of very small number)
         let log_vanished = reciprocal.ln();
         assert!(log_vanished.is_undefined() || log_vanished.exploded());
 
-        // Propagate undefined through arithmetic
+        // Propagate undefined thru arithmetic
         let propagated1 = log_vanished + ScalarF5E3::from(42);
         let propagated2 = propagated1 * ScalarF5E3::PI;
         let propagated3 = propagated2.exp();

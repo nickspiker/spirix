@@ -10,7 +10,7 @@
 //   FRAC bits = complement of stored MSB, giving implicit ~MSB sign).
 //
 // AMBIG_EXP = E::MAX = 2^(EXP-1) - 1. Overflow past MAX_EXP wraps UP to AMBIG;
-// underflow past MIN_EXP also wraps (through the two's-complement circle) to
+// underflow past MIN_EXP also wraps (thru the two's-complement circle) to
 // AMBIG. Both saturation directions collapse to the same sentinel without a
 // branch — detection is a single `new_exp == AMBIG_EXP` test. This frees
 // E::MIN for use as a valid normal exponent.

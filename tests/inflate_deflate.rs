@@ -1,4 +1,4 @@
-/// Test inflate/deflate via Scalar::new and internal methods. Since inflate/deflate are pub(crate), we test them indirectly through known Scalar construction patterns, or directly if exposed.
+/// Test inflate/deflate via Scalar::new and internal methods. Since inflate/deflate are pub(crate), we test them indirectly thru known Scalar construction patterns, or directly if exposed.
 ///
 /// For now, we verify the mathematical properties:
 /// - inflate(stored).deflate() == stored (round-trip)
@@ -317,7 +317,7 @@ fn addition_basic() {
     let result = neg_one + neg_one;
     assert!(result == -two, "(-1) + (-1) should be -2");
 
-    // f64 roundtrip through addition
+    // f64 roundtrip thru addition
     for &(a, b, expected) in &[
         (3.0, 5.0, 8.0),
         (1.0, -1.0, 0.0),

@@ -244,7 +244,7 @@ fn test_conversion_accuracy_stress() {
     ];
 
     for &val in &challenging_values {
-        // Test round-trip conversion through different precisions
+        // Test round-trip conversion thru different precisions
         let low_prec = ScalarF3E3::from(val);
         let mid_prec = ScalarF5E3::from(val);
         let high_prec = ScalarF7E7::from(val);

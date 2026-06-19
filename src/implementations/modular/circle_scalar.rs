@@ -71,7 +71,7 @@ where
     /// - Scalar denominator is effectively zero
     pub(crate) fn circle_modulus_scalar(&self, denominator: &Scalar<F, E>) -> Scalar<F, E> {
         if !self.is_normal() || !denominator.is_normal() {
-            // Mirror scalar_modulus_scalar rule order, treating Circle's magnitude as the numerator. Circle.magnitude() goes through sqrt which collapses vanished/exploded → undefined, so we classify directly instead of delegating.
+            // Mirror scalar_modulus_scalar rule order, treating Circle's magnitude as the numerator. Circle.magnitude() goes thru sqrt which collapses vanished/exploded → undefined, so we classify directly instead of delegating.
             if self.is_undefined() {
                 return Scalar::<F, E> {
                     fraction: self.real,

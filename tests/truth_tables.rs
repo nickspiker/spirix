@@ -1043,7 +1043,7 @@ fn circle_and_truth_table() {
     check_c("&", inf, inf, inf & inf, &[Infinity]);
     check_c("&", np, inf, np & inf, &[Normal]);
 
-    // Escape ↔ normal (rather than [0]) — earlier escape block fell through to per-component AND returning [0].
+    // Escape ↔ normal (rather than [0]) — earlier escape block fell thru to per-component AND returning [0].
     check_c("&", vp, np, vp & np, &[Undefined]);
     check_c("&", np, vp, np & vp, &[Undefined]);
     check_c("&", ep, np, ep & np, &[Undefined]);

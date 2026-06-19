@@ -58,7 +58,7 @@ module spirix_addsub #(
 
     // Working width FRAC+5: 1 sign-ext + FRAC+1 inflated + 3 in-band sub-LSB
     // (G,R,S). The HardFloat idiom: keep guard/round/sticky in-band so the
-    // single signed adder/subtractor carries them through naturally. Normalize
+    // single signed adder/subtractor carries them thru naturally. Normalize
     // then exposes them at canonical[2:0] with no encoding asymmetry between
     // ADD and SUB.
     localparam WORK_BITS  = FRAC_BITS + 5;
@@ -286,8 +286,8 @@ module spirix_addsub #(
     // Big and small at WORK_BITS = FRAC+4. The inflated value occupies the
     // top FRAC+1 bits of the WORK_BITS word (with 1 sign-ext bit above);
     // the bottom 3 bits are reserved for in-band G, R, sticky carrying
-    // through the adder. This is the HardFloat idiom of {sig, R, S} packed
-    // into the same word that flows through one carry chain.
+    // thru the adder. This is the HardFloat idiom of {sig, R, S} packed
+    // into the same word that flows thru one carry chain.
     //   bit [WORK_BITS-1]      sign-ext above inflated MSB
     //   bit [WORK_BITS-2]      inflated MSB
     //   bits [WORK_BITS-3 : 3] stored fraction (FRAC bits)

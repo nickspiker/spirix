@@ -34,7 +34,7 @@ struct ScalarF4E4 {
 var<storage> data_packed: array<u32>;  // 4 bytes each
 ```
 
-**Memory layout is identical** (4 bytes/scalar), achieved through packing/unpacking at I/O boundaries.
+**Memory layout is identical** (4 bytes/scalar), achieved thru packing/unpacking at I/O boundaries.
 
 ### Compute Model
 

@@ -3,7 +3,7 @@
 // Spirix negation with edge case handling.
 // POS_HALF ↔ NEG_ONE with exponent adjust.
 // POS_SMALL ↔ NEG_SMALL for non-normal.
-// Zero, infinity, undefined pass through unchanged.
+// Zero, infinity, undefined pass thru unchanged.
 //
 // Runtime-selectable precision:
 //   frac_width[1:0]: 00=8 01=16 10=32 11=64

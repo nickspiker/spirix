@@ -116,7 +116,7 @@ from the gold phase contaminates the first test-phase result and produces
 repeatable mismatches at any frequency. FPnew's wrapper is held via its
 `Rst_RBI` port; Spirix iterative modules have no reset port but achieve
 equivalent discipline by blocking `start` pulses during reset phases (the FSM
-self-clears through S_FINALIZE → S_IDLE on the prior operation, and the
+self-clears thru S_FINALIZE → S_IDLE on the prior operation, and the
 protocol guarantees PH_GOLD only exits after the final `done` fires).
 Combinational DUTs (Spirix add/sub, multiply) have no carryover state and need
 no extra discipline.

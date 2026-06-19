@@ -183,7 +183,7 @@
 //! (a + b*i).modulo(c + d*i) = (a % c) + (b % d)*i
 //! ```
 //!
-//! Both operations handle special cases (undefined, exploded, vanished) appropriately, preserving mathematical consistency throughout numerical space.
+//! Both operations handle special cases (undefined, exploded, vanished) appropriately, preserving mathematical consistency thruout numerical space.
 //!
 //! ### 7. Circles!
 //!

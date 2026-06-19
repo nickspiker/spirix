@@ -88,7 +88,7 @@ mod undefined_propagation {
 
     #[test]
     fn test_arithmetic_propagation() {
-        // Truly undefined values (0/0) propagate through addition/subtraction
+        // Truly undefined values (0/0) propagate thru addition/subtraction
         let undefined = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
         assert!(undefined.is_undefined());
 
@@ -113,7 +113,7 @@ mod undefined_propagation {
 
     #[test]
     fn test_function_propagation() {
-        // Undefined values should propagate through mathematical functions
+        // Undefined values should propagate thru mathematical functions
         let undefined = ScalarF5E3::from(-1).sqrt(); // undefined
         assert!(undefined.is_undefined());
 
@@ -163,10 +163,10 @@ mod undefined_propagation {
 
     #[test]
     fn test_undefined_chaining() {
-        // Test that undefined propagates through complex chains
+        // Test that undefined propagates thru complex chains
         let start = ScalarF5E3::from(-1);
 
-        // Create undefined through sqrt of negative
+        // Create undefined thru sqrt of negative
         let step1 = start.sqrt(); // undefined
         assert!(step1.is_undefined());
 
@@ -244,18 +244,18 @@ mod undefined_across_types {
             let undefined = $scalar_type::ZERO / $scalar_type::ZERO;
             assert!(undefined.is_undefined());
 
-            // Test propagation through basic arithmetic
+            // Test propagation thru basic arithmetic
             let normal = $scalar_type::from(42);
             assert!((undefined + normal).is_undefined());
             assert!((undefined * normal).is_undefined());
             assert!((normal - undefined).is_undefined());
 
-            // Test propagation through functions
+            // Test propagation thru functions
             assert!(undefined.sin().is_undefined());
             assert!(undefined.exp().is_undefined());
             assert!(undefined.sqrt().is_undefined());
 
-            // Test undefined creation through invalid operations
+            // Test undefined creation thru invalid operations
             assert!(($scalar_type::from(-1).sqrt()).is_undefined());
             assert!(($scalar_type::from(-1).ln()).is_undefined());
         };

@@ -72,7 +72,7 @@ module spirix_sqrt_nr #(
     wire s1_a_undef = !s1_a_n0 && s1_a_top3;
     wire s1_a_is_normal = s1_a_n1 && !s1_is_ambig;
 
-    // Edge case shortcut: compute result in stage 1, propagate through pipeline
+    // Edge case shortcut: compute result in stage 1, propagate thru pipeline
     wire s1_invalid = s1_is_negative | !s1_a_is_normal;
     reg signed [FRAC_BITS-1:0] s1_sc_frac;
     reg signed [EXP_BITS-1:0]  s1_sc_exp;

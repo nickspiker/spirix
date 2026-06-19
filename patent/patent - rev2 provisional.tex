@@ -230,7 +230,7 @@ As used herein, the following terms shall have the following meanings, unless th
 
 \ppara{\textbf{"AMBIGUOUS\_EXPONENT"} refers to the specific reserved exponent value (one followed by all zeros, e.g., 10000000...) that indicates an ambiguous state. It serves as a single consistent marker for all states outside normal representation.}
 
-ppara{\textbf{"Escaped value"} refers to a value that has exceeded normal representation range but maintains its phase/orientation information. Unlike IEEE-754, which truncates to infinity or zero, escaped values preserve directional information even though their magnitude is no longer representable. The system implements two types of escaped values: exploded (exceeding maximum magnitude) and vanished (below minimum magnitude).}
+ppara{\textbf{"Escaped value"} refers to a value that has exceeded normal representation range but maintains its phase/orientation information. Unlike IEEE-754, which truncates to infinity or zero, escaped values preserve directional information even tho their magnitude is no longer representable. The system implements two types of escaped values: exploded (exceeding maximum magnitude) and vanished (below minimum magnitude).}
 
 \ppara{\textbf{"Exploded"} refers to a value that has exceeded the maximum representable magnitude but maintains its phase/orientation information. Exploded values are represented by a fraction with N-1 normalization and an ambiguous exponent, allowing continued absolute operations (approaching but not infinity).}
 

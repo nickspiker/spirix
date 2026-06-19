@@ -217,7 +217,7 @@ where
             }
         };
 
-        // AMBIG=0 native wrap detection: stored_pos = pa + pb - bo + 1 - leading. Single compare against max_pos / min_pos catches overflow and underflow (including the tail cases where the cycle position would land on AMBIG = 0). `leading` is isize from w_leading_zeros — funnel through E to cycle_widen for the type-correct Wide value.
+        // AMBIG=0 native wrap detection: stored_pos = pa + pb - bo + 1 - leading. Single compare against max_pos / min_pos catches overflow and underflow (including the tail cases where the cycle position would land on AMBIG = 0). `leading` is isize from w_leading_zeros — funnel thru E to cycle_widen for the type-correct Wide value.
         let leading_e: E = leading.as_();
         let w_leading = leading_e.cycle_widen();
         let stored_pos = pa.w_add(pb).w_sub(bo).w_add(w_one).w_sub(w_leading);

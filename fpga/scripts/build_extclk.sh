@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the standalone frequency counter on Colorlight 5A-75B v8.0.
 # RC oscillator wired between E16 (ext_clk) and F15 (osc_drive); FPGA inverts
-# ext_clk back through the pot. OLED shows live frequency in MHz + the raw
+# ext_clk back thru the pot. OLED shows live frequency in MHz + the raw
 # 32-bit count_per_frame as a binary ruler.
 # Usage: bash scripts/build_extclk.sh [--program] [--flash]
 set -e

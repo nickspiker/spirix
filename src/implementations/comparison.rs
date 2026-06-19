@@ -226,7 +226,7 @@ where
     /// ```
     pub(crate) fn compare(&self, other: &Scalar<F, E>) -> Option<Ordering> {
         if self.is_normal() && other.is_normal() {
-            // Different signs: positive > negative regardless of exponents. Without this, cross-sign + different-exp pairs misdirect through the cmp.reverse() branch (e.g. +exp=5 vs -exp=10 returns Less).
+            // Different signs: positive > negative regardless of exponents. Without this, cross-sign + different-exp pairs misdirect thru the cmp.reverse() branch (e.g. +exp=5 vs -exp=10 returns Less).
             if self.is_negative() != other.is_negative() {
                 return Some(if self.is_negative() {
                     Ordering::Less

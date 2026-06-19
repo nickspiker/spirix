@@ -68,7 +68,7 @@ where
         SimpleNet { layer1, layer2 }
     }
 
-    /// Forward pass through the network
+    /// Forward pass thru the network
     pub fn forward(&self, input: &Tensor<T>, zero: T) -> Tensor<T> {
         // Layer 1
         let h = self.layer1.forward(input, zero.clone());

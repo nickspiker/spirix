@@ -17,7 +17,7 @@ Fundamental functionality tests verifying basic operations work correctly.
 #### Scalar Tests
 - **`core_scalar_tests.rs`** (42 KB) - Comprehensive scalar arithmetic
   - Addition, subtraction, multiplication, division
-  - All bit widths (F3E3 through F7E7)
+  - All bit widths (F3E3 thru F7E7)
   - ~475 tests covering all operations
 - **`core_scalar_clamp.rs`** (742 bytes) - Clamp function
 - **`core_scalar_max_values.rs`** (700 bytes) - Max value verification

@@ -124,7 +124,7 @@ where
             let leading: isize = c.leading_ones().max(c.leading_zeros()) as isize;
             let shift_amount: isize = leading.wrapping_sub(1);
             let shift_e: E = shift_amount.as_();
-            // Sub-canonical extraction underflow: the silent component normalized into a fraction whose own binade would land below MIN_NORMAL. The cycle-position subtract would wrap through AMBIG and surface as a huge positive Scalar. Detect by `self.exp.into_unsigned() <= shift_amount` and re-shape the component to the N-2 vanished form at AMBIG (mag bit at FRAC-3, shift = leading - 2) instead. Underflow shift is always strictly less than FRAC (shift = leading - 2 ≤ FRAC - 2), so native `c << shift` is safe.
+            // Sub-canonical extraction underflow: the silent component normalized into a fraction whose own binade would land below MIN_NORMAL. The cycle-position subtract would wrap thru AMBIG and surface as a huge positive Scalar. Detect by `self.exp.into_unsigned() <= shift_amount` and re-shape the component to the N-2 vanished form at AMBIG (mag bit at FRAC-3, shift = leading - 2) instead. Underflow shift is always strictly less than FRAC (shift = leading - 2 ≤ FRAC - 2), so native `c << shift` is safe.
             if shift_amount > 0
                 && self.exponent.into_unsigned() <= shift_e.into_unsigned()
             {

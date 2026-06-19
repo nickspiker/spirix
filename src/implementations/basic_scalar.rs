@@ -833,7 +833,7 @@ where
         }
     }
 
-    /// Negates this Scalar in place using the unified inflate→negate→normalize pipeline shared with add/sub/mul/div. Branch-free except for one unavoidable signless check (zero/infinity/undefined have no sign and must pass through unchanged).
+    /// Negates this Scalar in place using the unified inflate→negate→normalize pipeline shared with add/sub/mul/div. Branch-free except for one unavoidable signless check (zero/infinity/undefined have no sign and must pass thru unchanged).
     ///
     /// Steps:
     /// 1. Inflate stored fraction to the wide signed representation.
@@ -1637,7 +1637,7 @@ where
                     self.exponent = Self::ambiguous_exponent();
                     return;
                 }
-                // All ones in stored — uniform pattern, falls through to the cycle-widened path below.
+                // All ones in stored — uniform pattern, falls thru to the cycle-widened path below.
             }
 
             // AMBIG=0 underflow detection via cycle math: widen, subtract, bounds-check. New cycle position < min_pos (= 1) means we wrapped past AMBIG → vanished.

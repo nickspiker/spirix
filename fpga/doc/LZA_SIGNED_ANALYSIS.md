@@ -34,7 +34,7 @@ T = A XOR B gives the carry-save sum (sum without carries). XOR-adjacent on T
 
 - Works when T pattern is a solid run (all propagate, no generate/kill "holes")
 - Fails when isolated G (A[i] AND B[i]) or Z (~A[i] AND ~B[i]) positions create
-  false positives — carries propagate through holes, shifting the actual boundary
+  false positives — carries propagate thru holes, shifting the actual boundary
 - **Result: 6006 failures / 1M tests** (completely wrong for same-sign close)
 - After adding eff_sub detection (LZA only for opposite-sign): **1165 failures / 1M**
 - Remaining failures off by 3-4 positions, not the expected ±1

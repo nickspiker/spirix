@@ -51,7 +51,7 @@ module top_ntsc (
         end
     endgenerate
 
-    // Explicitly buffer ring_q[0] through a DCCA (global clock network)
+    // Explicitly buffer ring_q[0] thru a DCCA (global clock network)
     // for low-skew distribution to all sys_clk-clocked FFs (blake3, FSM,
     // accumulator, ...). Without DCCA, sys_clk is direct-routed and the
     // skew across blake3's wide datapath causes setup/hold failures even
@@ -311,7 +311,7 @@ module top_ntsc (
 `endif
 
 `ifdef DUT_MULTI_COMBO
-    // Multi-round: cycle through all 16 width combos (4 frac × 4 exp)
+    // Multi-round: cycle thru all 16 width combos (4 frac × 4 exp)
     reg [3:0]  combo = 0;          // sequential counter 0..15
     reg [3:0]  combo_mask = 0;     // random XOR mask (captured at start)
     wire [3:0] combo_actual = combo ^ combo_mask;  // shuffled combo index
@@ -1168,7 +1168,7 @@ module top_ntsc (
     // ----- BLAKE3 compression core (iterative, ~30 cycles per hash) -----
     // 256-bit chain (BLAKE3 IV), 512-bit message tiled from lfsr/lfsr2,
     // counter=0, numbytes=64, dflags = ROOT|CHUNK_END|CHUNK_START.
-    // Reset gated through PH_IDLE/PH_SWITCH so internal state doesn't leak
+    // Reset gated thru PH_IDLE/PH_SWITCH so internal state doesn't leak
     // gold→test (parity with FPnew div/sqrt iter pattern, see SYNTH_NOTES.md).
     wire [255:0] b3_chain_in = {
         32'h5BE0CD19, 32'h1F83D9AB, 32'h9B05688C, 32'h510E527F,
@@ -1852,7 +1852,7 @@ module top_ntsc (
     // (which only updates at the per-capture PH_DONE edge), so the LED
     // reports the *last completed* gold-vs-test comparison and stays steady
     // between captures. Previously this was a live `gold_reg == test_reg`
-    // comparison that flickered through every cycle as the registers were
+    // comparison that flickered thru every cycle as the registers were
     // being mutated — useless for visual pass/fail.
     assign ext_led = (display_miss == 32'd0);
 
@@ -2126,7 +2126,7 @@ module top_ntsc (
     end
 
     // Per-test latch on display_miss. Fires when capture_pulse goes high
-    // (one clk cycle per PH_TEST → PH_DONE transition, edge-detected through
+    // (one clk cycle per PH_TEST → PH_DONE transition, edge-detected thru
     // a toggle CDC). At that moment both gold_reg and test_reg are stable
     // and reflect the SAME cycle's gold/test accumulators.
     always @(posedge clk) begin

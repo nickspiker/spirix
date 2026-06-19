@@ -148,7 +148,7 @@ mod scalar_conversions {
 
         let temp_exploded: f32 = (&exploded_f7e7).into();
         let converted_f3e3 = ScalarF3E3::from(temp_exploded);
-        // After roundtrip through f32 infinity, should not be normal
+        // After roundtrip thru f32 infinity, should not be normal
         assert!(!converted_f3e3.is_normal());
 
         // Undefined should propagate (use 0/0 for true undefined, not 1/0 which is infinity)
@@ -274,7 +274,7 @@ mod circle_conversions {
 
         let temp_exp_val: f32 = (&exploded_scalar).into();
         let z_with_exploded = CircleF5E3::from((temp_exp_val, 1.0));
-        // After roundtrip through f32 infinity, should not be normal
+        // After roundtrip thru f32 infinity, should not be normal
         assert!(!z_with_exploded.is_normal());
 
         // Undefined complex numbers (use 0/0 for true undefined, not 1/0 which is infinity)

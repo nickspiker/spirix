@@ -1,4 +1,4 @@
-//! Exhaustive F3E3 verification of << and >> against their expected truth table and sign-preservation rules. Shift by integer is "adjust exponent", which can keep a Normal in-range, push it to Exploded (overflow), or drop it to Vanished (underflow). Non-normals pass through unchanged.
+//! Exhaustive F3E3 verification of << and >> against their expected truth table and sign-preservation rules. Shift by integer is "adjust exponent", which can keep a Normal in-range, push it to Exploded (overflow), or drop it to Vanished (underflow). Non-normals pass thru unchanged.
 use spirix::*;
 use std::collections::BTreeMap;
 
@@ -84,7 +84,7 @@ fn expected_class(o: Op, ca: Class, self_exp: i32, n: i32) -> Class {
     };
     match ca {
         Class::Zero | Class::Infinity | Class::Undefined => ca,
-        Class::Vanished | Class::Exploded => ca, // design: non-normal passes through
+        Class::Vanished | Class::Exploded => ca, // design: non-normal passes thru
         Class::Normal => expected_normal_class(self_exp, delta),
     }
 }

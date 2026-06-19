@@ -77,7 +77,7 @@ where
         .zip(input.data.iter())
         .map(|(g, x)| {
             if x > &zero {
-                g.clone() // Gradient passes through
+                g.clone() // Gradient passes thru
             } else {
                 zero.clone() // Gradient is zero
             }

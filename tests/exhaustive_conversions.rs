@@ -12,7 +12,7 @@ type S128 = Scalar<i128, i8>;
 
 // ───────────────────────────────────────────────────────────────────────────── Integer round trips ─────────────────────────────────────────────────────────────────────────────
 
-/// Every i8 value must round-trip through Scalar<i8, i8>.
+/// Every i8 value must round-trip thru Scalar<i8, i8>.
 #[test]
 fn f3e3_int_roundtrip_all_i8() {
     let mut fail = 0;
@@ -30,7 +30,7 @@ fn f3e3_int_roundtrip_all_i8() {
     assert_eq!(fail, 0, "{} i8 values failed integer round-trip", fail);
 }
 
-/// All 256 i32 values in [-128, 127] should round-trip through every width.
+/// All 256 i32 values in [-128, 127] should round-trip thru every width.
 #[test]
 fn int_roundtrip_all_widths() {
     for v in -128i32..=127 {
@@ -75,7 +75,7 @@ fn negative_ints_have_negative_value() {
 
 // ───────────────────────────────────────────────────────────────────────────── Powers of 2 (positive and negative) ─────────────────────────────────────────────────────────────────────────────
 
-/// All powers of 2 from 2^-10 to 2^10 round-trip through f64 exactly.
+/// All powers of 2 from 2^-10 to 2^10 round-trip thru f64 exactly.
 #[test]
 fn powers_of_2_exact_roundtrip() {
     for exp in -10i32..=10 {

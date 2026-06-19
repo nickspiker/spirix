@@ -510,7 +510,7 @@ mod undefined_propagation_properties {
         let result2 = undefined * zero;
         assert!(result2.is_undefined());
 
-        // Test that first cause is preserved through chain of operations
+        // Test that first cause is preserved thru chain of operations
         let chained = undefined.square().exp().ln().sin();
         assert!(chained.is_undefined());
     }

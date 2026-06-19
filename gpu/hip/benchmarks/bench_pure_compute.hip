@@ -3,7 +3,7 @@
 //
 // Eliminates memory bandwidth bottleneck by:
 // - Loading static 'a' value once per thread
-// - Rotating through pre-loaded 'b' array (32 elements)
+// - Rotating thru pre-loaded 'b' array (32 elements)
 // - Performing 32 consecutive subtractions: a - b[0] - b[1] - ... - b[31]
 // - Storing result once
 //
@@ -23,10 +23,10 @@ struct ScalarF4E4
 
 #define AMBIGUOUS_EXPONENT ((int16_t)0x8000)
 #define FRACTION_BITS 16
-#define ROTATION_SIZE 32  // Number of b values to rotate through
+#define ROTATION_SIZE 32  // Number of b values to rotate thru
 
 // ============================================================================
-// Pure Compute Kernels - Rotate through pre-loaded b values
+// Pure Compute Kernels - Rotate thru pre-loaded b values
 // ============================================================================
 
 // ScalarF4E4: Load a once, subtract b[0..31] sequentially
@@ -42,7 +42,7 @@ __global__ void scalar_subtract_rotate32(
     // Load a once
     ScalarF4E4 acc = a[idx];
 
-    // Rotate through 32 b values, doing 32 subtractions
+    // Rotate thru 32 b values, doing 32 subtractions
     for (int i = 0; i < ROTATION_SIZE; i++)
     {
         ScalarF4E4 b = b_values[i];
@@ -137,7 +137,7 @@ __global__ void f32_subtract_rotate32(
 
     float acc = a[idx];
 
-    // Rotate through 32 b values
+    // Rotate thru 32 b values
     for (int i = 0; i < ROTATION_SIZE; i++)
     {
         acc = acc - b_values[i];
@@ -467,7 +467,7 @@ int main()
 
     printf("Methodology:\n");
     printf("  • Load 'a' once per element\n");
-    printf("  • Rotate through N pre-loaded 'b' values\n");
+    printf("  • Rotate thru N pre-loaded 'b' values\n");
     printf("  • Perform N consecutive subtractions: a - b[0] - b[1] - ... - b[N-1]\n");
     printf("  • Store result once\n");
     printf("  • High compute intensity = N ops per (1 + N + 1) memory accesses\n\n");

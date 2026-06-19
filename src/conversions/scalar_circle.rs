@@ -104,7 +104,7 @@ where
     /// let z2 = Circle::<i32, i8>::from_ri(zero, huge); assert!(z2.exploded());  // Exploded state is preserved assert!(z2.r().is_zero()); assert!(z2.i() > 0_i32);   // Sign is also preserved
     /// ```
     pub(crate) fn from_ri(real: Scalar<F, E>, imaginary: Scalar<F, E>) -> Self {
-        // Unified AMBIG=0 encoding: Scalar and Circle share the same exp form (stored = logical k ^ E::MIN). Fraction encoding still differs (N0 vs N1), but the exp passes through unchanged.
+        // Unified AMBIG=0 encoding: Scalar and Circle share the same exp form (stored = logical k ^ E::MIN). Fraction encoding still differs (N0 vs N1), but the exp passes thru unchanged.
         let to_circle_exp = |e: E| -> E { e };
         // Undefined propagates: first undefined wins.
         if real.is_undefined() {
@@ -134,7 +134,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Escape patterns are identical between Scalar and Circle (escapes carry no normal sign bit), so their fractions copy through without translation. Single exploded: preserve on its axis, other axis = 0. Circle::exploded checks !is_normal() && is_n1(), so exponent must be ambiguous.
+        // Escape patterns are identical between Scalar and Circle (escapes carry no normal sign bit), so their fractions copy thru without translation. Single exploded: preserve on its axis, other axis = 0. Circle::exploded checks !is_normal() && is_n1(), so exponent must be ambiguous.
         if real.exploded() {
             return Circle {
                 real: real.fraction,

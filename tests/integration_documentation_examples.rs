@@ -32,7 +32,7 @@ fn test_readme_undefined_tracking_example() {
     let still_undefined_zero_div_zero = (zero_div_zero + b).pow(-5.71).ln();
     assert!(still_undefined_zero_div_zero.is_undefined());
 
-    // First cause should be preserved through the operation chain (Implementation detail: the undefined prefix should indicate division by zero)
+    // First cause should be preserved thru the operation chain (Implementation detail: the undefined prefix should indicate division by zero)
 }
 
 #[test]

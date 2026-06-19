@@ -89,7 +89,7 @@ fn test_undefined_state_generation() {
 
 #[test]
 fn test_undefined_state_propagation() {
-    // Test that undefined states propagate through operations
+    // Test that undefined states propagate thru operations
     let undefined = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
     assert!(undefined.is_undefined());
 
@@ -125,7 +125,7 @@ fn test_undefined_state_propagation() {
 
 #[test]
 fn test_first_cause_preservation() {
-    // Test that the first undefined cause is preserved through operation chains
+    // Test that the first undefined cause is preserved thru operation chains
     let zero = ScalarF5E3::ZERO;
     let normal = ScalarF5E3::from(42);
 
@@ -159,7 +159,7 @@ fn test_exploded_state_preservation() {
     let exploded_diff = pos_exploded - neg_exploded;
     assert!(exploded_diff.is_undefined());
 
-    // Test that exploded values can return to normal through division
+    // Test that exploded values can return to normal thru division
     let normalized = pos_exploded / ScalarF5E3::from(1000);
     if normalized.is_normal() {
         assert!(normalized.is_positive());
@@ -186,7 +186,7 @@ fn test_vanished_state_preservation() {
         assert!(vanished_diff.is_positive());
     }
 
-    // Test that vanished values can return to normal through multiplication
+    // Test that vanished values can return to normal thru multiplication
     let normalized = pos_vanished * ScalarF5E3::from(1000);
     if normalized.is_normal() {
         assert!(normalized.is_positive());
@@ -198,7 +198,7 @@ fn test_state_transition_reversibility() {
     // Test that some state transitions are reversible
     let normal = ScalarF5E3::from(42);
 
-    // Normal -> Exploded -> Normal (through division)
+    // Normal -> Exploded -> Normal (thru division)
     let exploded = normal * ScalarF5E3::from(1e30);
     if exploded.exploded() {
         let back_to_normal = exploded / ScalarF5E3::from(1e30);
@@ -209,7 +209,7 @@ fn test_state_transition_reversibility() {
         }
     }
 
-    // Normal -> Vanished -> Normal (through multiplication)
+    // Normal -> Vanished -> Normal (thru multiplication)
     let vanished = normal / ScalarF5E3::from(1e30);
     if vanished.vanished() {
         let back_to_normal = vanished * ScalarF5E3::from(1e30);

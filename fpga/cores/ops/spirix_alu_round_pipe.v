@@ -255,7 +255,7 @@ module spirix_alu_round_pipe #(
         end
     end
 
-    // Output: ceil negates, floor passes through
+    // Output: ceil negates, floor passes thru
     assign result_frac = s2_op ? neg_frac : s2_frac;
     assign result_exp  = s2_op ? neg_exp  : s2_exp;
 

@@ -76,7 +76,7 @@ pub(crate) trait IntConvert {
         + AsPrimitive<i128>
         + 'static;
 
-    /// Reinterpret the bit pattern as the same-width unsigned type. For an i8 stored exponent in AMBIG=0 form, this gives the unsigned cycle position (0 = AMBIG, 1..255 = normal). Widening this through `.saturate::<isize>()` afterward gives a positive integer in [0, 2^N), suitable for native AMBIG=0 arithmetic without XOR translation.
+    /// Reinterpret the bit pattern as the same-width unsigned type. For an i8 stored exponent in AMBIG=0 form, this gives the unsigned cycle position (0 = AMBIG, 1..255 = normal). Widening this thru `.saturate::<isize>()` afterward gives a positive integer in [0, 2^N), suitable for native AMBIG=0 arithmetic without XOR translation.
     fn into_unsigned(self) -> Self::Unsigned;
 
     /// Converts self to type I, saturating at bounds instead of wrapping.
@@ -210,7 +210,7 @@ pub trait Inflate: Sized + Copy {
     fn left_hand_load(self) -> Self::Wide;
     /// Branchless inflate-or-sign-extend. Normal class: inflate (XOR mask). Escaped class: sign_extend (no XOR).
     fn inflate(self, is_normal: bool) -> Self::Wide;
-    /// Zero-extends the stored bit pattern into Wide, treating self as an unsigned cycle position. Used by AMBIG=0 native exponent arithmetic so cycle position math has enough headroom to detect wrap without the i8/i16/i32-only `isize` widening trap. For i8 (Wide=i16) this is `(self as u8) as i16`; for i128 (Wide=I256) it's a zero-padded byte-copy through I256::from_le_bytes.
+    /// Zero-extends the stored bit pattern into Wide, treating self as an unsigned cycle position. Used by AMBIG=0 native exponent arithmetic so cycle position math has enough headroom to detect wrap without the i8/i16/i32-only `isize` widening trap. For i8 (Wide=i16) this is `(self as u8) as i16`; for i128 (Wide=I256) it's a zero-padded byte-copy thru I256::from_le_bytes.
     fn cycle_widen(self) -> Self::Wide;
 }
 
@@ -243,7 +243,7 @@ macro_rules! impl_wide_ops {
 
             #[inline]
             fn cycle_widen(self) -> $wide {
-                // Cast through SAME-WIDTH unsigned (zero-extension) — NOT through $uwide which is the unsigned-of-Wide and sign-extends.
+                // Cast thru SAME-WIDTH unsigned (zero-extension) — NOT thru $uwide which is the unsigned-of-Wide and sign-extends.
                 (self as <$stored as IntConvert>::Unsigned) as $wide
             }
         }

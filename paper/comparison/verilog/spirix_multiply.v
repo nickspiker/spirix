@@ -96,7 +96,7 @@ module spirix_multiply #(
                        ((a_exploded & b_vanished) | (a_vanished & b_exploded));
 
     // Remaining non-normal cases (e.g. exploded × normal, vanished × normal,
-    // inf × normal): these still fall through to "any_inf" or get treated as
+    // inf × normal): these still fall thru to "any_inf" or get treated as
     // abnormal compute. For the IEEE comparison we don't deeply distinguish
     // these — Spirix's truth table will produce a sensible state and our
     // gold model maps to either Exploded, Vanished, or Undefined accordingly.

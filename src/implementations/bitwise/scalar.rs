@@ -242,7 +242,7 @@ where
         let delta: isize = Self::fraction_bits().wrapping_sub(leading);
         let delta_e: E = delta.as_();
         let offset = small.exponent.wrapping_add(&delta_e);
-        // Underflow happens two ways: offset lands exactly on the AMBIGUOUS_EXPONENT slot (reserved), or it wraps past MIN through the negative/positive sign. Compare in unsigned cycle-position space; a signed `>` on E here misfires near MIN_EXP because `offset.wrapping_sub(1)` flips into a large positive signed value and looks "greater" than `small.exp` even though it's still below it on the cycle.
+        // Underflow happens two ways: offset lands exactly on the AMBIGUOUS_EXPONENT slot (reserved), or it wraps past MIN thru the negative/positive sign. Compare in unsigned cycle-position space; a signed `>` on E here misfires near MIN_EXP because `offset.wrapping_sub(1)` flips into a large positive signed value and looks "greater" than `small.exp` even tho it's still below it on the cycle.
         let one_e: E = 1u8.as_();
         let underflowed = delta.is_negative()
             && offset.wrapping_sub(&one_e).into_unsigned() >= small.exponent.into_unsigned();

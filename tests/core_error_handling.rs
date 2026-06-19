@@ -168,7 +168,7 @@ fn test_hyperbolic_function_error_handling() {
 
 #[test]
 fn test_undefined_state_propagation_chain() {
-    // Test that undefined states propagate through operation chains
+    // Test that undefined states propagate thru operation chains
     let undefined = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
     let normal = ScalarF5E3::from(42.0);
 

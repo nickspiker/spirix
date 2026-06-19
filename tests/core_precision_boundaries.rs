@@ -73,7 +73,7 @@ macro_rules! test_precision_boundaries_for_type {
 
             #[test]
             fn [<test_escaped_value_operations_ $scalar_type:lower>]() {
-                // Test that exploded values maintain orientation through operations
+                // Test that exploded values maintain orientation thru operations
                 let pos_exploded = $scalar_type::MAX * $scalar_type::from(2);
                 let neg_exploded = $scalar_type::MIN * $scalar_type::from(2);
 
@@ -87,7 +87,7 @@ macro_rules! test_precision_boundaries_for_type {
                 let exploded_quotient = pos_exploded / neg_exploded;
                 assert!(exploded_quotient.is_undefined()); // exploded / exploded = undefined
 
-                // Test that vanished values maintain orientation through operations
+                // Test that vanished values maintain orientation thru operations
                 let pos_vanished = $scalar_type::MIN_POS / $scalar_type::from(2);
                 let neg_vanished = $scalar_type::MAX_NEG / $scalar_type::from(2);
 
