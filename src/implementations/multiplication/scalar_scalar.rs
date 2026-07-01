@@ -145,16 +145,38 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            // Escaped × escaped/normal: result classifies as exploded or vanished; use canonical bit patterns with sign preserved. The earlier formula-extraction approach (inflate→multiply→leading-same shift→deflate) could land on N3+ (undefined) bit patterns when the signed-wide multiply wrapped, breaking pow chains. Phase info is preserved by sign; magnitude is the class itself.
+            // Escaped × escaped/normal: the result class is fixed by magnitude-class dominance (exploded if either operand exploded, else vanished), but we carry the SIGNIFICAND through so orientation survives — an escaped value's phase is the only information it still holds, and Circle complex orientation is built on it.
+            // An escaped fraction stores its significand shifted by class (exploded `01mmm` = normal `1mmm` >> 1, vanished `001mm` = >> 2), so |a|·|b| of the raw fractions, renormalized by leading-zero count, recovers the significand product regardless of each operand's class scale.
+            // Unlike the old formula-extraction (which recomputed the class from the wrapped signed product and could land on N3+ undefined), the result class here is predetermined and the fixed shift stamps the `01`/`001` prefix, so the value can never wander out of its class.
             let result_exploded = self.exploded() || other.exploded();
             let result_negative = self.is_negative() != other.is_negative();
-            let fraction = match (result_exploded, result_negative) {
-                (true, true) => Self::neg_one_exploded(),
-                (true, false) => Self::pos_one_exploded(),
-                (false, true) => Self::neg_one_vanished(),
-                (false, false) => Self::pos_one_vanished(),
+            // Significand mantissa of each operand, as an unsigned magnitude with the leading 1 at bit FRAC-1. magnitude() folds sign (its phase survives negation), then `cycle_widen` zero-extends into the wide type and the class shift restores the significand scale: escaped classes store the significand shifted down (exploded `01mmm` = >> 1 of the normal `1mmm`, vanished `001mm` = >> 2), so shifting back up re-aligns all classes to a common leading-1 position.
+            // NOTE: do NOT use inflate() here — inflate(true) applies the N0 sign decode, which is only correct for normal fractions; escaped fractions carry an explicit sign bit and would be corrupted.
+            let class_shift = |v: &Self| -> isize {
+                if v.exploded() { 1 } else if v.vanished() { 2 } else { 0 }
             };
-            return Self { fraction, exponent: Self::ambiguous_exponent() };
+            let mant_a = self.magnitude().fraction.cycle_widen().w_shl(class_shift(self));
+            let mant_b = other.magnitude().fraction.cycle_widen().w_shl(class_shift(other));
+            let u_product = mant_a.w_mul(mant_b);
+            let leading = u_product.w_leading_zeros();
+            let fb = Self::fraction_bits();
+            // Extract the positive-magnitude escaped fraction: exploded places the leading 1 at bit FRAC-2 (`01`), vanished at FRAC-3 (`001`). Reading u_product as unsigned (w_leading_zeros / w_shr_logical) means the wide product wrapping into the sign bit is harmless.
+            let k = if result_exploded {
+                fb.wrapping_sub(leading).wrapping_add(1)
+            } else {
+                fb.wrapping_sub(leading).wrapping_add(2)
+            };
+            let pos_frac = if k >= 0 {
+                u_product.w_shr_logical(k).deflate()
+            } else {
+                u_product.w_shl(k.wrapping_neg()).deflate()
+            };
+            // Apply sign via the library's own two's-complement negation. Negatives are the two's-complement of positives across ALL bits (not a top-bit XOR flip), so delegating to scalar_negate keeps escaped phase consistent with `-x`, magnitude(), and the number-line continuity, and guarantees a*(-b) == -(a*b). (A top-bit flip only agrees at phase 0, which is why the old canonical-only path never exposed the difference.)
+            let mut result = Self { fraction: pos_frac, exponent: Self::ambiguous_exponent() };
+            if result_negative {
+                result.scalar_negate();
+            }
+            return result;
         }
 
         // AMBIG=0 native: view stored exponents as UNSIGNED cycle positions (1..2^N - 1 = normal, 0 = AMBIG). `cycle_widen` zero-extends each stored exponent into <E as Inflate>::Wide (i8→i16, ..., i128→I256) — enough headroom to detect wrap regardless of E's width. Arithmetic uses WideOps' wrapping ops. `bo` is subtracted once to undo the doubled bias from adding two biased operands.
@@ -201,17 +223,18 @@ where
         };
         let leading = u_product.w_leading_zeros();
 
-        // Exploded/vanished extract: u_product (magnitude) >> k logical, then XOR with class-appropriate sign-flip mask if neg_bit. Magnitude-based so wrap doesn't bite. Rounding mode here doesn't matter.
-        let exploded_flip = Self::pos_one_exploded() ^ Self::neg_one_exploded();
-        let vanished_flip = Self::pos_one_vanished() ^ Self::neg_one_vanished();
-        let extract_escaped = |k: isize, flip: F| -> F {
+        // Exploded/vanished extract: u_product (magnitude) >> k logical gives the positive escaped fraction. Magnitude-based so wrap doesn't bite; rounding mode is moot here.
+        // Sign is applied by the library's two's-complement negation (scalar_negate), NOT a top-bit XOR flip: negatives are the two's-complement of positives across all bits, so a XOR flip only agrees at phase 0. Matching scalar_negate keeps escaped phase consistent with -x / magnitude() and the escaped-operand path above.
+        let extract_escaped = |k: isize| -> F {
             let pos = if k >= 0 {
                 u_product.w_shr_logical(k).deflate()
             } else {
                 u_product.w_shl(k.wrapping_neg()).deflate()
             };
             if expect_negative {
-                pos ^ flip
+                let mut s = Self { fraction: pos, exponent: Self::ambiguous_exponent() };
+                s.scalar_negate();
+                s.fraction
             } else {
                 pos
             }
@@ -224,14 +247,14 @@ where
         if stored_pos > max_pos {
             let k = fb.wrapping_sub(leading).wrapping_add(1);
             return Self {
-                fraction: extract_escaped(k, exploded_flip),
+                fraction: extract_escaped(k),
                 exponent: Self::ambiguous_exponent(),
             };
         }
         if stored_pos < min_pos {
             let k = fb.wrapping_sub(leading).wrapping_add(2);
             return Self {
-                fraction: extract_escaped(k, vanished_flip),
+                fraction: extract_escaped(k),
                 exponent: Self::ambiguous_exponent(),
             };
         }
