@@ -587,18 +587,25 @@ where
 
         let mut remaining_exponent = integer_part.magnitude();
 
-        for _bit in 0..Self::exponent_bits() {
+        // Walk every set bit of the integer part.
+        // The bound is the FRACTION width, not the exponent width: `remaining_exponent` is a magnitude living in the fraction, so it can carry far more bits than the exponent type (e.g. 2^1108.5 needs e^768, and 768 is 10 bits wide in an i8-exponent Scalar).
+        // The old `exponent_bits()` cap silently dropped the high bits, collapsing large results back to a bogus normal.
+        for _bit in 0..Self::fraction_bits() {
             if (remaining_exponent & Self::ONE) == 1 {
                 integer_result *= current_power;
-            }
-            current_power = current_power.square();
-            if !current_power.is_normal() {
-                break; // Exit if power becomes abnormal
             }
             remaining_exponent = remaining_exponent >> 1;
             if remaining_exponent.vanished() || remaining_exponent.is_zero() {
                 break; // Exit when done processing bits
             }
+            // Once the running product has escaped it can never return to normal range (multiply carries [^] x [#] = [^]), so the result is already settled and further squaring is wasted work.
+            if !integer_result.is_normal() {
+                break;
+            }
+            // Square for the next set bit.
+            // If this escapes (e.g. E^128 in an i8 exponent), we must NOT stop on the square alone: a higher set bit still needs to multiply this escaped power into the result so the answer escapes too.
+            // reciprocal() later turns a negative integer_part into the matching vanished/zero.
+            current_power = current_power.square();
         }
 
         if integer_part.is_negative() {
