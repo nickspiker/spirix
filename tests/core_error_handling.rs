@@ -104,13 +104,16 @@ fn test_power_function_error_handling() {
     let zero_pow_pos = zero.pow(one);
     assert!(zero_pow_pos.is_undefined());
 
-    // Negative base to fractional power should be undefined (complex result)
+    // Negative base to a NON-integer power is undefined (would be complex): (-2)^0.5.
     let neg_pow_frac = negative.pow(ScalarF5E3::from(0.5));
     assert!(neg_pow_frac.is_undefined());
 
-    // Negative base to any power is undefined in Spirix
+    // Negative base to an INTEGER power is well-defined — exponentiation by squaring keeps
+    // the sign: (-2)^2 = 4, (-2)^3 = -8.
     let neg_pow_int = negative.pow(ScalarF5E3::from(2.0));
-    assert!(neg_pow_int.is_undefined());
+    assert!(neg_pow_int.is_normal());
+    assert!(neg_pow_int == 4);
+    assert!(negative.pow(ScalarF5E3::from(3.0)) == -8);
 
     // Infinity to the power of zero should be 1 (anything^0 = 1)
     let inf_pow_zero = ScalarF5E3::INFINITY.pow(zero);
@@ -127,10 +130,14 @@ fn test_trigonometric_function_error_handling() {
     assert!(undefined.cos().is_undefined());
     assert!(undefined.tan().is_undefined());
 
-    // Trigonometric functions of infinity in Spirix
-    assert!(infinity.sin().is_infinite());
-    assert!(infinity.cos().is_normal());
-    assert!(infinity.tan().is_infinite());
+    // Trigonometric functions of infinity are undefined: the unsigned point-at-infinity has
+    // no position on the unit circle, so there is no resolvable angle / period.
+    assert!(infinity.sin().is_undefined());
+    assert!(infinity.cos().is_undefined());
+    assert!(infinity.tan().is_undefined());
+    assert!(infinity.asin().is_undefined()); // out of [-1, 1] domain
+    assert!(infinity.acos().is_undefined()); // out of [-1, 1] domain
+    assert!(infinity.atan().is_undefined()); // direction of infinity indeterminate (±π/2)
 
     // Inverse trigonometric functions with invalid domains
     let invalid_asin = ScalarF5E3::from(2.0).asin(); // |x| > 1
@@ -159,11 +166,11 @@ fn test_hyperbolic_function_error_handling() {
 
     // Hyperbolic functions of infinity
     assert!(infinity.sinh().is_infinite());
-    assert!(infinity.cosh().is_normal());
+    assert!(infinity.cosh().is_infinite());
 
-    // tanh of infinity is infinite in Spirix
+    // tanh(∞): sign indeterminate (unsigned ∞ has no direction), so undefined
     let tanh_inf = infinity.tanh();
-    assert!(tanh_inf.is_infinite());
+    assert!(tanh_inf.is_undefined());
 }
 
 #[test]

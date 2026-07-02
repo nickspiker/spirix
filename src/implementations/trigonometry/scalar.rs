@@ -62,7 +62,9 @@ where
 {
     pub fn sin(&self) -> Self {
         if !self.is_normal() {
-            if self.exploded() {
+            // Infinity is the unsigned point-at-infinity — no position on the unit circle, so
+            // its period is as unresolvable as an exploded value's. Same undefined for both.
+            if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: SINE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -70,7 +72,9 @@ where
             }
             return *self;
         }
-        if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
+        if (self.magnitude().exponent ^ Self::binade_origin()).saturate::<isize>()
+            >= Self::fraction_bits()
+        {
             return Self {
                 fraction: SINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -129,7 +133,9 @@ where
             if self.is_undefined() {
                 return *self;
             }
-            if self.exploded() {
+            // Infinity: no resolvable period position, same as exploded. Must precede the
+            // vanished/zero fallthrough below (which returns ≈1) — ∞ is NOT ≈1.
+            if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: COSINE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -141,7 +147,9 @@ where
             return Self::EFFECTIVELY_POS_ONE;
         }
 
-        if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
+        if (self.magnitude().exponent ^ Self::binade_origin()).saturate::<isize>()
+            >= Self::fraction_bits()
+        {
             return Self {
                 fraction: COSINE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -206,7 +214,8 @@ where
 
     pub fn tan(&self) -> Self {
         if !self.is_normal() {
-            if self.exploded() {
+            // Infinity: no resolvable period position, same as exploded.
+            if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: TANGENT.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -214,7 +223,9 @@ where
             }
             return *self;
         }
-        if (self.exponent ^ Self::binade_origin()).saturate::<isize>() > Self::fraction_bits() {
+        if (self.magnitude().exponent ^ Self::binade_origin()).saturate::<isize>()
+            >= Self::fraction_bits()
+        {
             return Self {
                 fraction: TANGENT.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
@@ -225,7 +236,8 @@ where
 
     pub fn asin(&self) -> Self {
         if !self.is_normal() {
-            if self.exploded() {
+            // Infinity is out of the [-1, 1] domain, same as exploded.
+            if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: ARCSINE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -315,7 +327,9 @@ where
             if self.is_undefined() {
                 return *self;
             }
-            if self.exploded() {
+            // Infinity is out of the [-1, 1] domain, same as exploded. Must precede the π/2
+            // fallthrough below.
+            if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: ARCCOSINE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
@@ -382,11 +396,20 @@ where
     }
     pub fn atan(&self) -> Self {
         if !self.is_normal() {
+            // Exploded carries a sign, so atan → ±π/2 (its true limit). But the unsigned
+            // point-at-infinity has no direction — atan can't choose +π/2 vs -π/2 — so it's
+            // undefined for the "direction of infinity is indeterminate" reason.
             if self.exploded() {
                 return if self.is_negative() {
                     Self::NEG_HALF_PI
                 } else {
                     Self::HALF_PI
+                };
+            }
+            if self.is_infinite() {
+                return Self {
+                    fraction: SIGN_INDETERMINATE.prefix.sa(),
+                    exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
@@ -485,17 +508,18 @@ where
     /// - The hyperbolic sine of the input
     pub fn sinh(&self) -> Self {
         if !self.is_normal() {
-            if self.exploded() {
-                return Self {
-                    fraction: SINE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
+            // Exploded: sinh(±∞-ish) = ±∞-ish — same class and phase as the input.
+            // Vanished/zero pass thru (sinh(0) = 0, sinh(vanished) ≈ vanished).
             return *self;
         }
-
-        // Calculate using the exponential definition: sinh(x) = (e^x - e^(-x))/2
-        (self.exp() - (-self).exp()) >> 1
+        // When |x| is large enough that exp(x) escapes, sinh(x) ≈ sign(x)·exp(|x|)/2,
+        // which is also escaped with the same sign. Let exp() carry the phase thru.
+        // The shortcut avoids exploded/exploded arithmetic in the general case.
+        let ex = self.exp();
+        if !ex.is_normal() {
+            return ex;
+        }
+        (ex - (-self).exp()) >> 1
     }
 
     /// Computes the hyperbolic cosine of a scalar.
@@ -512,16 +536,22 @@ where
             if self.is_undefined() {
                 return *self;
             }
-
+            // Exploded: cosh(±big) = +big (always positive — both exponential arms are
+            // positive). Strip the sign from the input's escaped fraction.
             if self.exploded() {
-                return Self {
-                    fraction: COSINE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
+                return self.magnitude();
+            }
+            // Infinity: cosh(∞) = +∞ (unsigned point-at-infinity stays infinite).
+            if self.is_infinite() {
+                return *self;
             }
             return Self::ONE;
         }
-
+        // When exp(x) escapes, cosh(x) ≈ exp(|x|)/2 — also escaped, always positive.
+        let ex = self.magnitude().exp();
+        if !ex.is_normal() {
+            return ex;
+        }
         (self.exp() + (-self).exp()) >> 1
     }
     /// Computes the hyperbolic tangent of a scalar.
@@ -535,16 +565,29 @@ where
     /// - The hyperbolic tangent of the input
     pub fn tanh(&self) -> Self {
         if !self.is_normal() {
+            if self.is_undefined() {
+                return *self;
+            }
+            // Exploded: tanh(±big) → ±1. sign() returns the Spirix ±1 matching input sign.
+            // Infinity is the unsigned point-at-infinity — no sign, so undefined.
             if self.exploded() {
+                return self.sign();
+            }
+            if self.is_infinite() {
                 return Self {
-                    fraction: TANGENT.prefix.sa(),
+                    fraction: SIGN_INDETERMINATE.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }
             return *self;
         }
-
-        self.sinh() / self.cosh()
+        // When exp(x) escapes, tanh → ±1 immediately rather than computing exploded/exploded.
+        let ex = self.exp();
+        if !ex.is_normal() {
+            return self.sign();
+        }
+        let enx = (-self).exp();
+        (ex.clone() - enx.clone()) / (ex + enx)
     }
     // pub fn erf(&self) -> Self { // Handle special cases first if !self.is_normal() { if self.exploded() { return Self { fraction: GENERAL.prefix.sa(), exponent: Self::ambiguous_exponent(), }; } // Zero returns zero if self.is_zero() { return Self::ZERO; } return *self; }
 
