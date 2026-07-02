@@ -512,8 +512,7 @@ where
             // Vanished/zero pass thru (sinh(0) = 0, sinh(vanished) ≈ vanished).
             return *self;
         }
-        // When |x| is large enough that exp(x) escapes, sinh(x) ≈ sign(x)·exp(|x|)/2,
-        // which is also escaped with the same sign. Let exp() carry the phase thru.
+        // When |x| is large enough that exp(x) escapes, sinh(x) ≈ sign(x)·exp(|x|)/2, which is also escaped with the same sign — let exp() carry the phase thru.
         // The shortcut avoids exploded/exploded arithmetic in the general case.
         let ex = self.exp();
         if !ex.is_normal() {
@@ -536,8 +535,7 @@ where
             if self.is_undefined() {
                 return *self;
             }
-            // Exploded: cosh(±big) = +big (always positive — both exponential arms are
-            // positive). Strip the sign from the input's escaped fraction.
+            // Exploded: cosh(±big) = +big (always positive — both exponential arms are positive), so strip the sign from the input's escaped fraction.
             if self.exploded() {
                 return self.magnitude();
             }
@@ -568,7 +566,7 @@ where
             if self.is_undefined() {
                 return *self;
             }
-            // Exploded: tanh(±big) → ±1. sign() returns the Spirix ±1 matching input sign.
+            // Exploded: tanh(±big) → ±1; sign() returns the Spirix ±1 matching input sign.
             // Infinity is the unsigned point-at-infinity — no sign, so undefined.
             if self.exploded() {
                 return self.sign();

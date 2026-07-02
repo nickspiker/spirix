@@ -122,15 +122,13 @@ where
                 };
             }
         }
-        // Integer exponent is defined for ANY base sign — exponentiation by squaring keeps
-        // the sign correct ((-3)^2 = 9, (-3)^3 = -27). This MUST come before rejecting
-        // negative bases, otherwise x^2 goes undefined for every x < 0.
+        // Integer exponent is defined for ANY base sign — exponentiation by squaring keeps the sign correct ((-3)^2 = 9, (-3)^3 = -27).
+        // This MUST come before rejecting negative bases, otherwise x^2 goes undefined for every x < 0.
         if exp.is_integer() {
             return self.integer_power(exp);
         }
 
-        // Only a NON-integer (fractional / irrational) exponent of a negative base has no
-        // real value — e.g. (-2)^0.5.
+        // Only a NON-integer (fractional / irrational) exponent of a negative base has no real value — e.g. (-2)^0.5.
         if self.is_negative() {
             return Self {
                 fraction: NEGATIVE_POWER.prefix.sa(),
