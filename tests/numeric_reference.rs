@@ -438,3 +438,48 @@ fn constants_match_reference() {
         assert!(((got - want) / want).abs() < 1e-12, "{name}: {got} vs {want}");
     }
 }
+
+#[test]
+fn rand_binade_occupancy_and_endpoints() {
+    // Locks the sampler's construction at F3E3 (narrow width makes endpoints reachable):
+    // - interval is [-1, +1): exact -1 IS drawable (fraction 0 in the top binade is the NEG_ONE pattern, P = 1/512), exact +1 is NOT (positive significands cap at 1.9921875 × 2⁻¹).
+    // - binade occupancy halves per level (P(|x| ∈ [2⁻ᵏ⁻¹, 2⁻ᵏ)) = 2⁻ᵏ⁻¹) — the "proper fraction extension" property: fresh full-width significand per draw, geometric binade selection, no zero-fill.
+    // - exact zero is never drawn (measure zero on a real uniform).
+    type T = ScalarF3E3;
+    let n = 100_000usize;
+    let (mut exact_neg1, mut exact_pos1, mut zeros) = (0usize, 0usize, 0usize);
+    let mut binade = [0usize; 3];
+    let mut max_seen = -2.0f64;
+    for _ in 0..n {
+        let r = T::random();
+        if r == T::NEG_ONE {
+            exact_neg1 += 1;
+        }
+        if r == T::ONE {
+            exact_pos1 += 1;
+        }
+        if r.is_zero() {
+            zeros += 1;
+        }
+        let v = r.to_f64();
+        max_seen = max_seen.max(v);
+        let a = v.abs();
+        for k in 0..3 {
+            if a < 2f64.powi(-(k as i32)) && a >= 2f64.powi(-(k as i32) - 1) {
+                binade[k] += 1;
+            }
+        }
+    }
+    assert_eq!(exact_pos1, 0, "+1 must be unreachable ([-1, +1))");
+    assert_eq!(zeros, 0, "exact zero must never be drawn");
+    // Theory n/512 ≈ 195, sigma ≈ 14; bounds sit ~±8 sigma out.
+    assert!((80..=320).contains(&exact_neg1), "exact -1 rate off (theory ≈195): {exact_neg1}");
+    assert!(max_seen < 1.0, "max must stay below +1: {max_seen}");
+    // First three binades: theory n/2, n/4, n/8 — allow ±10% relative.
+    for (k, &c) in binade.iter().enumerate() {
+        let want = n >> (k + 1);
+        let lo = want - want / 10;
+        let hi = want + want / 10;
+        assert!((lo..=hi).contains(&c), "binade {k} occupancy {c} outside [{lo}, {hi}] (theory {want})");
+    }
+}
