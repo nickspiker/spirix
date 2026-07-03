@@ -65,6 +65,19 @@ where
         if self.is_undefined() || self.is_n0() {
             return *self;
         }
+        // Escaped: sqrt halves the (lost) magnitude exponent, which can land back INSIDE normal range (sqrt of 2^200 = 2^100) — class indeterminate → ℘√↑ / ℘√↓ (was falling into the magnitude+add path below and leaking a ℘⬆+⬆ addition tag).
+        if self.exploded() || self.vanished() {
+            let prefix: F = if self.exploded() {
+                SQRT_EXPLODED.prefix.sa()
+            } else {
+                SQRT_VANISHED.prefix.sa()
+            };
+            return Self {
+                real: prefix,
+                imaginary: prefix,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
         let magnitude = self.magnitude();
         let mut real = magnitude + self.r();
         real = real >> 1;
@@ -170,15 +183,11 @@ where
             if self.is_undefined() {
                 return *self;
             }
-
-            if self.is_zero() {
-                let prefix: F = NEGLIGIBLE_LOG.prefix.sa();
-                return Self {
-                    real: prefix,
-                    imaginary: prefix,
-                    exponent: Self::ambiguous_exponent(),
-                };
+            // ln(0) is unboundedly negative-real — the Scalar convention maps it to the singular ∞ ([0] → [∞] in the log table); ln(∞) likewise (was falling thru to the normal path and leaking a ℘⬆/⬆ division tag).
+            if self.is_zero() || self.is_infinite() {
+                return Self::INFINITY;
             }
+            // Escaped: ln|z| is huge-with-magnitude-lost while iθ is finite and known — one unrepresentable component poisons the pair → ℘, tagged by which class.
             if self.vanished() {
                 let prefix: F = NEGLIGIBLE_LOG.prefix.sa();
                 return Self {
@@ -208,21 +217,25 @@ where
             if self.is_zero() {
                 return Self::ONE;
             }
+            // e^(tiny·direction) = 1 + tiny ≈ 1 for any direction — definite, matching the Scalar table's [±↓] → ≈1.
             if self.vanished() {
-                let prefix: F = POWER_VANISHED.prefix.sa();
-                return Self {
-                    real: prefix,
-                    imaginary: prefix,
-                    exponent: Self::ambiguous_exponent(),
-                };
+                return Self::ONE;
             }
+            // Exploded: |e^z| = e^Re(z), and Re(z)'s SIGN is stored in the orientation even though the magnitude is lost. Re < 0 → e^(-huge) = 0, definite (Scalar parallel: exp(-↑) = 0). Re ≥ 0 → the result's angle Im(z) mod 2π is unknowable → ℘^⬆. Circle components are plain two's complement, so the raw sign test is correct here.
             if self.exploded() {
+                if self.real.is_negative() {
+                    return Self::ZERO;
+                }
                 let prefix: F = POWER_TRANSFINITE.prefix.sa();
                 return Self {
                     real: prefix,
                     imaginary: prefix,
                     exponent: Self::ambiguous_exponent(),
                 };
+            }
+            // Infinity: match the Scalar convention exp(∞) = ∞ (was falling thru to the normal path and leaking a ℘c cosine tag).
+            if self.is_infinite() {
+                return Self::INFINITY;
             }
         }
         Circle::from((

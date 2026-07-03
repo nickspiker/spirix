@@ -65,6 +65,10 @@ where
     I256: From<E>,
 {
     pub(crate) fn circle_power_circle(&self, exp: &Self) -> Self {
+        // A purely-real exponent is the scalar-exponent op: reroute so all of circle_power_scalar's resolutions (zero base, escaped base thru the multiply chain / rotation, ∞ base) apply uniformly.
+        if exp.is_normal() && exp.i().is_zero() {
+            return self.circle_power_scalar(&exp.r());
+        }
         if !self.is_normal() || !exp.is_normal() {
             if self.is_undefined() {
                 return *self;
@@ -72,9 +76,19 @@ where
             if exp.is_undefined() {
                 return *exp;
             }
+            // z^0 = 1 for any finite z (0^0 = 1 included). The old code fell past this: a zero exponent has real = 0, so the is_positive test below sent 0^0 to ℘.
+            if exp.is_zero() {
+                return Self::ONE;
+            }
+            // Zero base, complex exponent w: 0^w = e^(w·ln 0) — magnitude by the sign of Re(w) (Circle components are plain two's complement, so the raw sign test is the right one). Re > 0 → 0, Re < 0 → ∞, Re = 0 (pure imaginary) → oscillates → ℘.
             if self.is_zero() {
-                if exp.real.is_positive() {
-                    return Self::ZERO;
+                if exp.is_normal() {
+                    if exp.real > F::zero() {
+                        return Self::ZERO;
+                    }
+                    if exp.real < F::zero() {
+                        return Self::INFINITY;
+                    }
                 }
                 let prefix: F = VANISHED_POWER.prefix.sa();
                 return Self {
@@ -83,6 +97,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Escaped base with a truly-complex exponent w = a+bi: the result angle contains b·ln|z| with ln|z| unknowable → ℘ regardless of a. (b = 0 was rerouted above.)
             if self.exploded() {
                 let prefix: F = TRANSFINITE_POWER.prefix.sa();
                 return Self {
@@ -99,25 +114,26 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if exp.exploded() {
-                let prefix: F = POWER_TRANSFINITE.prefix.sa();
-                return Self {
-                    real: prefix,
-                    imaginary: prefix,
-                    exponent: Self::ambiguous_exponent(),
-                };
+            // Infinite base (single point, no angle to lose): magnitude by sign of Re(w).
+            if self.is_infinite() && exp.is_normal() {
+                if exp.real > F::zero() {
+                    return Self::INFINITY;
+                }
+                if exp.real < F::zero() {
+                    return Self::ZERO;
+                }
             }
-            let prefix: F = POWER_VANISHED.prefix.sa();
+            // Normal (or ∞ with Re(w) = 0) base, non-normal exponent: transfinite exponents (exploded/∞) → ℘^⬆; vanished exponent → ℘^⬇ (was a single ℘^⬇ catch-all that mislabeled the transfinite cases).
+            let prefix: F = if exp.vanished() {
+                POWER_VANISHED.prefix.sa()
+            } else {
+                POWER_TRANSFINITE.prefix.sa()
+            };
             return Self {
                 real: prefix,
                 imaginary: prefix,
                 exponent: Self::ambiguous_exponent(),
             };
-        }
-
-        // Check if exponent is real and integer for exact computation
-        if exp.i().is_zero() && exp.r().is_integer() {
-            return self.integer_power(&exp.r());
         }
 
         let ln_z = self.ln();

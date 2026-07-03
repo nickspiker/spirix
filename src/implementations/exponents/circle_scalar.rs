@@ -91,46 +91,69 @@ where
                     exponent: exp.exponent,
                 };
             }
+            // z^0 = 1 for any finite z (mathematical identity, 0^0 = 1 included) — matches the Scalar convention.
+            if exp.is_zero() {
+                return Self::ONE;
+            }
+            // Zero base: only the exponent's SIGN matters — 0^(+) = 0, 0^(−) = ∞ — for any positive/negative exponent, normal or escaped.
+            // NOTE: exp is an N0-convention Scalar, so use its is_negative(), never the raw fraction sign (stored MSB=1 reads POSITIVE, the opposite of a plain int).
             if self.is_zero() {
-                // Special case: 0^0 = 1 by convention
-                if exp.is_zero() {
-                    return Self::ONE;
+                return if exp.is_negative() {
+                    Self::INFINITY
+                } else {
+                    Self::ZERO
+                };
+            }
+            // Escaped base: the orientation θ is stored, so much more resolves than the Scalar case — see escaped_rotate_to_power for the non-integer rules.
+            if self.exploded() || self.vanished() {
+                let base_exploded = self.exploded();
+                if exp.is_normal() {
+                    if exp.is_integer() {
+                        // Multiply chain: class, parity, and orientation all survive — and z^1 ≡ z.
+                        return self.integer_power(exp);
+                    }
+                    if exp.magnitude() > Scalar::<F, E>::ONE {
+                        // Non-integer |p| > 1: magnitude class is determinate (dominance; p < 0 inverts thru the reciprocal) and the direction rotates to p·θ, computable from the stored orientation.
+                        return self.escaped_rotate_to_power(exp, base_exploded);
+                    }
+                    // Non-integer 0 < |p| < 1: tiny^p / huge^p can re-enter normal range — class indeterminate.
+                    let prefix: F = if base_exploded {
+                        TRANSFINITE_POWER.prefix.sa()
+                    } else {
+                        VANISHED_POWER.prefix.sa()
+                    };
+                    return Self {
+                        real: prefix,
+                        imaginary: prefix,
+                        exponent: Self::ambiguous_exponent(),
+                    };
                 }
-                if exp.fraction.is_positive() {
-                    return Self::ZERO;
-                }
-                let prefix: F = VANISHED_POWER.prefix.sa();
+                // Vanished exponent: p·lb|z| is a 0·∞ form → ℘^⬇. Anything transfinite (exploded/∞ exponent): the rotation p·θ mod 2π is unknowable → ℘^⬆.
+                let prefix: F = if exp.vanished() {
+                    POWER_VANISHED.prefix.sa()
+                } else {
+                    POWER_TRANSFINITE.prefix.sa()
+                };
                 return Self {
                     real: prefix,
                     imaginary: prefix,
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            if self.exploded() {
-                let prefix: F = TRANSFINITE_POWER.prefix.sa();
-                return Self {
-                    real: prefix,
-                    imaginary: prefix,
-                    exponent: Self::ambiguous_exponent(),
+            // Infinite base (the single unsigned point at infinity, no angle to lose): ∞^(+) = ∞, ∞^(−) = 0. (∞^0 = 1 returned above.)
+            if self.is_infinite() {
+                return if exp.is_negative() {
+                    Self::ZERO
+                } else {
+                    Self::INFINITY
                 };
             }
-            if self.vanished() {
-                let prefix: F = VANISHED_POWER.prefix.sa();
-                return Self {
-                    real: prefix,
-                    imaginary: prefix,
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if exp.exploded() {
-                let prefix: F = POWER_TRANSFINITE.prefix.sa();
-                return Self {
-                    real: prefix,
-                    imaginary: prefix,
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            let prefix: F = POWER_VANISHED.prefix.sa();
+            // Normal base, non-normal exponent: transfinite exponents (exploded or ∞) can't commit a rotation → ℘^⬆; a vanished exponent is the 0·∞-adjacent form ℘^⬇.
+            let prefix: F = if exp.vanished() {
+                POWER_VANISHED.prefix.sa()
+            } else {
+                POWER_TRANSFINITE.prefix.sa()
+            };
             return Self {
                 real: prefix,
                 imaginary: prefix,
@@ -146,6 +169,42 @@ where
         let ln_z = self.ln();
         let s_ln_z = ln_z * exp;
         s_ln_z.exp()
+    }
+
+    /// Raise an escaped Circle to a non-integer real power with |p| > 1: the magnitude class is fixed by dominance (same class for p > 0, inverted thru the reciprocal for p < 0), and the direction rotates from the stored θ to p·θ.
+    /// The stored escaped fractions ARE the unit direction (N1 shape for exploded, N2 for vanished), so rebuild them as a normal Circle, extract θ via atan2, rotate, and stamp the result class shape.
+    /// If p·θ's period position exceeds precision, sin/cos return their imprecision undefineds — propagated honestly.
+    fn escaped_rotate_to_power(&self, exp: &Scalar<F, E>, base_exploded: bool) -> Self {
+        let n_shift: isize = if base_exploded { 0 } else { 1 };
+        let dir = Self {
+            real: self.real << n_shift,
+            imaginary: self.imaginary << n_shift,
+            exponent: Self::ONE.exponent,
+        };
+        let theta = dir.i().atan2(dir.r());
+        let phi = theta * *exp;
+        let unit = Self::from((phi.cos(), phi.sin()));
+        if !unit.is_normal() {
+            return unit;
+        }
+        let result_exploded = if exp.is_positive() {
+            base_exploded
+        } else {
+            !base_exploded
+        };
+        if result_exploded {
+            Self {
+                real: unit.real,
+                imaginary: unit.imaginary,
+                exponent: Self::ambiguous_exponent(),
+            }
+        } else {
+            Self {
+                real: unit.real >> 1isize,
+                imaginary: unit.imaginary >> 1isize,
+                exponent: Self::ambiguous_exponent(),
+            }
+        }
     }
 
     pub(crate) fn integer_power(&self, n: &Scalar<F, E>) -> Self {

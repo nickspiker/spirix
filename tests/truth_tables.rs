@@ -1556,3 +1556,211 @@ fn circle_xor_truth_table() {
     // Undefined propagates
     check_c("^", und, np, und ^ np, &[Undefined]);
 }
+
+// ============================================================ Circle: pow, exp, ln, sqrt class tables + escaped-orientation preservation (F4E3 for angle precision) ============================================================
+
+type C4 = CircleF4E3;
+type S4 = ScalarF4E3;
+
+fn classify_c4(c: &C4) -> Class {
+    if c.is_undefined() {
+        Class::Undefined
+    } else if c.is_zero() {
+        Class::Zero
+    } else if c.is_infinite() {
+        Class::Infinity
+    } else if c.exploded() {
+        Class::Exploded
+    } else if c.vanished() {
+        Class::Vanished
+    } else {
+        Class::Normal
+    }
+}
+
+fn check_c4(what: &str, result: C4, expected: &[Class]) {
+    let rc = classify_c4(&result);
+    assert!(expected.contains(&rc), "{what}: got {rc:?}, expected {expected:?} (result {result:?})");
+}
+
+/// Angle (degrees) read straight from a Circle's fraction pair — for escaped values this IS the stored orientation.
+fn angle_deg(c: &C4) -> f64 {
+    (c.imaginary as f64).atan2(c.real as f64).to_degrees()
+}
+
+/// Assert an angle within half a degree (16-bit fractions resolve ~0.002°, so 0.5° allows for the atan2→rotate→cos/sin round trip).
+fn assert_angle(what: &str, c: &C4, want: f64) {
+    let got = angle_deg(c);
+    let mut d = (got - want).abs() % 360.0;
+    if d > 180.0 {
+        d = 360.0 - d;
+    }
+    assert!(d < 0.5, "{what}: angle {got:.2}° != {want:.2}° (Δ {d:.2}°)");
+}
+
+/// Escaped 3-4-5 representatives: exploded and vanished Circles at +53.13°, built by walking a normal across the range boundary so the stored orientation is genuine.
+fn escaped_circles() -> (C4, C4) {
+    let base = C4::from((3, 4));
+    let mut e = base;
+    for _ in 0..600 {
+        if e.exploded() {
+            break;
+        }
+        e = e + e;
+    }
+    let mut t = base;
+    let half = S4::from(1) / S4::from(2);
+    for _ in 0..600 {
+        if t.vanished() {
+            break;
+        }
+        t = t * half;
+    }
+    assert!(e.exploded() && t.vanished(), "representative construction failed");
+    (e, t)
+}
+
+#[test]
+fn circle_pow_scalar_truth_table() {
+    let (e, t) = escaped_circles();
+    let z = C4::ZERO;
+    let inf = C4::INFINITY;
+    let two = S4::from(2);
+    let neg_two = S4::from(-2);
+    let two5 = S4::from(5) / S4::from(2);
+    let half = S4::from(1) / S4::from(2);
+
+    // Zero base resolves by exponent sign; 0^0 = 1.
+    check_c4("0^0", z.pow(S4::ZERO), &[Normal]);
+    check_c4("0^2", z.pow(two), &[Zero]);
+    check_c4("0^-2", z.pow(neg_two), &[Infinity]);
+    // ∞ base: sign dominance, ∞^0 = 1.
+    check_c4("∞^2", inf.pow(two), &[Infinity]);
+    check_c4("∞^-2", inf.pow(neg_two), &[Zero]);
+    check_c4("∞^0", inf.pow(S4::ZERO), &[Normal]);
+
+    // Escaped base, integer exponent: class + ORIENTATION thru the multiply chain; z^1 ≡ z.
+    let e1 = e.pow(S4::from(1));
+    assert!(e1.exploded() && e1.real == e.real && e1.imaginary == e.imaginary, "↑^1 must be the identity");
+    let e2 = e.pow(two);
+    assert!(e2.exploded());
+    assert_angle("↑^2", &e2, 106.26);
+    let em1 = e.pow(S4::from(-1));
+    assert!(em1.vanished());
+    assert_angle("↑^-1", &em1, -53.13);
+    let t2 = t.pow(two);
+    assert!(t2.vanished());
+    assert_angle("↓^2", &t2, 106.26);
+    let tm2 = t.pow(neg_two);
+    assert!(tm2.exploded());
+    assert_angle("↓^-2", &tm2, -106.26);
+
+    // Escaped base, non-integer |p| > 1: class by dominance, orientation rotates to p·θ.
+    let e25 = e.pow(two5);
+    assert!(e25.exploded());
+    assert_angle("↑^2.5", &e25, 132.83);
+    let t25 = t.pow(two5);
+    assert!(t25.vanished());
+    assert_angle("↓^2.5", &t25, 132.83);
+    let em25 = e.pow(-two5);
+    assert!(em25.vanished());
+    assert_angle("↑^-2.5", &em25, -132.83);
+
+    // Non-integer |p| < 1: class indeterminate (huge^0.5 can re-enter normal range).
+    check_c4("↑^0.5", e.pow(half), &[Undefined]);
+    check_c4("↓^0.5", t.pow(half), &[Undefined]);
+}
+
+#[test]
+fn circle_pow_circle_truth_table() {
+    let (e, _t) = escaped_circles();
+    let z = C4::ZERO;
+    let inf = C4::INFINITY;
+    let i = C4::POS_I;
+
+    // Real-axis complex exponents reroute thru the scalar path.
+    check_c4("0^(2+0i)", z.pow(C4::from((2, 0))), &[Zero]);
+    check_c4("0^(-2+0i)", z.pow(C4::from((-2, 0))), &[Infinity]);
+    check_c4("0^(0)", z.pow(C4::ZERO), &[Normal]); // 0^0 = 1 (was ℘ before the exp.is_zero guard)
+    let e2 = e.pow(C4::from((2, 0)));
+    assert!(e2.exploded());
+    assert_angle("↑^(2+0i)", &e2, 106.26);
+
+    // Truly complex exponents: zero/∞ base by Re(w) sign; escaped base unknowable → ℘.
+    check_c4("0^i", z.pow(i), &[Undefined]); // oscillates
+    check_c4("∞^(2+i)", inf.pow(C4::from((2, 1))), &[Infinity]);
+    check_c4("∞^(-2+i)", inf.pow(C4::from((-2, 1))), &[Zero]);
+    check_c4("↑^(1+i)", e.pow(C4::from((1, 1))), &[Undefined]);
+
+    // Normal-path sanity: (1+i)² = 2i, i^i = e^(-π/2) ≈ 0.2079 (real).
+    let sq = C4::from((1, 1)).pow(C4::from((2, 0)));
+    assert!(sq.is_normal());
+    let ii = i.pow(i);
+    assert!(ii.is_normal() && ii.i().is_negligible(), "i^i must be real");
+}
+
+#[test]
+fn circle_exp_ln_sqrt_truth_tables() {
+    let (e, t) = escaped_circles();
+    let z = C4::ZERO;
+    let inf = C4::INFINITY;
+    let und = z / z;
+
+    // exp: vanished ≈ 1; exploded resolves by the SIGN of Re (stored in the orientation): Re<0 → 0, Re≥0 → ℘; ∞ → ∞ (Scalar convention).
+    check_c4("exp(0)", z.exp(), &[Normal]); // = 1
+    check_c4("exp(↓)", t.exp(), &[Normal]); // ≈ 1
+    let mut west = C4::from((-3, 1));
+    for _ in 0..600 {
+        if west.exploded() {
+            break;
+        }
+        west = west + west;
+    }
+    check_c4("exp(↑ Re<0)", west.exp(), &[Zero]); // e^(-huge·dir) = 0
+    check_c4("exp(↑ Re>0)", e.exp(), &[Undefined]); // angle unknowable
+    check_c4("exp(∞)", inf.exp(), &[Infinity]);
+    check_c4("exp(℘)", und.exp(), &[Undefined]);
+
+    // ln: 0 and ∞ → singular ∞ (Scalar convention); escaped → ℘ (ln|z| unrepresentable poisons the pair).
+    check_c4("ln(0)", z.ln(), &[Infinity]);
+    check_c4("ln(∞)", inf.ln(), &[Infinity]);
+    check_c4("ln(↑)", e.ln(), &[Undefined]);
+    check_c4("ln(↓)", t.ln(), &[Undefined]);
+    check_c4("ln(℘)", und.ln(), &[Undefined]);
+
+    // sqrt: escaped is class-indeterminate (sqrt can re-enter normal range) → ℘√; 0/∞ pass thru.
+    check_c4("sqrt(0)", z.sqrt(), &[Zero]);
+    check_c4("sqrt(∞)", inf.sqrt(), &[Infinity]);
+    check_c4("sqrt(↑)", e.sqrt(), &[Undefined]);
+    check_c4("sqrt(↓)", t.sqrt(), &[Undefined]);
+
+    // square: escaped preserves class AND doubles the orientation.
+    let esq = e.square();
+    assert!(esq.exploded());
+    assert_angle("square(↑)", &esq, 106.26);
+}
+
+#[test]
+fn circle_escaped_orientation_thru_ops() {
+    // The Circle promise: an escaped value's angle survives every orientation-preserving op.
+    let (e, t) = escaped_circles();
+    assert_angle("↑ base", &e, 53.13);
+    assert_angle("↑ × i", &(e * C4::POS_I), 143.13);
+    assert_angle("-↑", &(-e), -126.87);
+    assert_angle("conj ↑", &e.conjugate(), -53.13);
+    assert_angle("↑ × ↑", &(e * e), 106.26);
+    let r = e.reciprocal();
+    assert!(r.vanished());
+    assert_angle("1/↑", &r, -53.13);
+    assert_angle("↓ × i", &(t * C4::POS_I), 143.13);
+    let rv = t.reciprocal();
+    assert!(rv.exploded());
+    assert_angle("1/↓", &rv, -53.13);
+    // Scalar scale keeps direction; a negative scalar rotates by 180°.
+    assert_angle("↑ × 3", &(e * S4::from(3)), 53.13);
+    assert_angle("↑ × -3", &(e * S4::from(-3)), -126.87);
+    // Addition dominance: ↑ + ↓ keeps the exploded orientation; ↓ + normal yields the normal.
+    assert_angle("↑ + ↓", &(e + t), 53.13);
+    let vn = t + C4::from((1, 1));
+    assert!(vn.is_normal());
+}
