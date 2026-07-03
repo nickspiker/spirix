@@ -140,48 +140,65 @@ where
         (exp * self.ln()).exp()
     }
     pub(crate) fn scalar_logarithm_scalar(&self, base: &Self) -> Self {
-        // Needs infinity handling!
-        if !self.is_normal() || !base.is_normal() {
-            if self.is_undefined() {
-                return *self;
-            }
-            if base.is_undefined() {
-                return *base;
-            }
-            if self.exploded() {
-                return Self {
-                    fraction: TRANSFINITE_LOG.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if self.vanished() {
-                return Self {
-                    fraction: NEGLIGIBLE_LOG.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if base.exploded() {
-                return Self {
-                    fraction: LOG_TRANSFINITE.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            return Self {
-                fraction: LOG_NEGLIGIBLE.prefix.sa(),
-                exponent: Self::ambiguous_exponent(),
-            };
+        // Undefined operands propagate their cause.
+        if self.is_undefined() {
+            return *self;
         }
+        if base.is_undefined() {
+            return *base;
+        }
+        // Base One is singular (ln 1 = 0), so log base 1 is undefined for any value.
         if base == 1 {
             return Self {
                 fraction: LOG_ONE.prefix.sa(),
                 exponent: Self::ambiguous_exponent(),
             };
         }
-
-        let self_lb = self.lb();
-        let base_lb = base.lb();
-        let result = self_lb / base_lb;
-        result
+        // Domain violations, most-primary first: a non-positive VALUE is undefined regardless of
+        // base; then a negative BASE. Escaped operands keep the magnitude-lost undefined the
+        // README specifies, but tagged with which operand (value vs base) escaped.
+        if self.is_negative() {
+            return Self {
+                fraction: NEGATIVE_LOG.prefix.sa(), // ℘-@  log of negative value
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if base.is_negative() {
+            return Self {
+                fraction: LOG_NEGATIVE.prefix.sa(), // ℘@-  logarithm with negative base
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.exploded() {
+            return Self {
+                fraction: TRANSFINITE_LOG.prefix.sa(), // ℘⬆@  log of transfinite value
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if self.vanished() {
+            return Self {
+                fraction: NEGLIGIBLE_LOG.prefix.sa(), // ℘⬇@  log of negligible value
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if base.exploded() {
+            return Self {
+                fraction: LOG_TRANSFINITE.prefix.sa(), // ℘@⬆  logarithm with transfinite base
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if base.vanished() {
+            return Self {
+                fraction: LOG_NEGLIGIBLE.prefix.sa(), // ℘@⬇  logarithm with negligible base
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        // Remaining operands are Zero, positive Normal, or Infinity. Change of base
+        // log_b(a) = lb(a) / lb(b) now resolves the definite limits exactly, because
+        // lb(0) = lb(∞) = ∞:
+        //   log(0)     = ∞/lb(b) = ∞      log(∞)     = ∞/lb(b) = ∞
+        //   log base 0 = lb(a)/∞ = 0      log base ∞ = lb(a)/∞ = 0
+        self.lb() / base.lb()
     }
 
     pub(crate) fn integer_power(&self, n: &Self) -> Self {
