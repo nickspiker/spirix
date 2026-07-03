@@ -75,6 +75,17 @@ where
             if self == 1 {
                 return *self;
             }
+            // Zero base: 0^0 = 1 (handled above); otherwise only the exponent's SIGN matters —
+            // 0^(+) = 0 and 0^(−) = ∞ — for any positive/negative exponent, normal or escaped.
+            // (Without this, zero falls into the `is_negligible` catch-all below and 0^2 comes
+            // back undefined; a zero base is definite where a vanished base is not.)
+            if self.is_zero() {
+                return if exp.is_negative() {
+                    Self::INFINITY
+                } else {
+                    Self::ZERO
+                };
+            }
 
             if self.is_infinite() {
                 if exp.is_negative() || exp.exponent.is_positive() {
