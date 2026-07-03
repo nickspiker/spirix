@@ -448,7 +448,11 @@ where
 
             for k in (1..iterations).rev() {
                 let denom = 2isize.wrapping_mul(k).wrapping_sub(1);
-                result = denom + x_squared / result;
+                // Gauss continued fraction for arctan: the k-th numerator is (k·x)² = k²·x²,
+                // NOT plain x². Missing the k² factor made this converge to the wrong value
+                // (exact only where the reduced argument is 0, i.e. at x = 0 and x = 1).
+                let k_sq = Self::from(k.wrapping_mul(k));
+                result = denom + k_sq * x_squared / result;
             }
 
             if previous == result {

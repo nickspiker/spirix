@@ -223,8 +223,6 @@ fn u_acos() {
     run_unary("acos", |a| a.acos(), |x| x.acos());
 }
 #[test]
-#[ignore = "KNOWN BUG: Spirix atan is only ~3-4 digits accurate (abs err ~2.4e-4 near x=0.5/2, \
-            exact at 0/1/inf) — low-order approximation with no range refinement. Remove #[ignore] once fixed."]
 fn u_atan() {
     run_unary("atan", |a| a.atan(), |x| x.atan());
 }
@@ -284,7 +282,6 @@ fn b_clamp() {
     run_unary("clamp[-1,1]", |a| a.clamp(lo, hi), |x| x.clamp(-1.0, 1.0));
 }
 #[test]
-#[ignore = "KNOWN BUG: atan2 routes through the inaccurate atan (~2.4e-4). Remove once atan is fixed."]
 fn b_atan2() {
     // y.atan2(x): oracle is f64 atan2.
     run_binary("atan2", |y, x| y.atan2(x), |y, x| y.atan2(x));
