@@ -576,6 +576,380 @@ fn not_unary_truth_table() {
     assert_eq!(classify(&!und), Undefined);
 }
 
+// ============================================================ Algebraic unary truth tables: neg, abs, sign, recip, floor, ceil, round, frac ============================================================
+
+/// Common representatives for the unary class tables. `np`/`nn` are non-boundary normals so
+/// negation/abs don't hit the exponent-edge escape cases (those are their own tests).
+fn unary_reps() -> (S, S, S, S, S, S, S, S, S) {
+    (
+        S::ZERO,
+        S::VANISHED_POS,
+        S::VANISHED_NEG,
+        S::from(2),
+        S::from(-2),
+        S::EXPLODED_POS,
+        S::EXPLODED_NEG,
+        S::INFINITY,
+        S::ZERO / S::ZERO,
+    )
+}
+
+#[test]
+fn neg_unary_truth_table() {
+    let (z, vp, vn, np, nn, ep, en, inf, und) = unary_reps();
+    check_unary("neg", "[0]", z, -z, &[Zero]);
+    check_unary("neg", "[+↓]", vp, -vp, &[Vanished]);
+    check_unary("neg", "[-↓]", vn, -vn, &[Vanished]);
+    check_unary("neg", "[+#]", np, -np, &[Normal]);
+    check_unary("neg", "[-#]", nn, -nn, &[Normal]);
+    check_unary("neg", "[+↑]", ep, -ep, &[Exploded]);
+    check_unary("neg", "[-↑]", en, -en, &[Exploded]);
+    check_unary("neg", "[∞]", inf, -inf, &[Infinity]);
+    check_unary("neg", "[℘]", und, -und, &[Undefined]);
+}
+
+#[test]
+fn abs_unary_truth_table() {
+    let (z, vp, vn, np, nn, ep, en, inf, und) = unary_reps();
+    check_unary("abs", "[0]", z, z.magnitude(), &[Zero]);
+    check_unary("abs", "[+↓]", vp, vp.magnitude(), &[Vanished]);
+    check_unary("abs", "[-↓]", vn, vn.magnitude(), &[Vanished]);
+    check_unary("abs", "[+#]", np, np.magnitude(), &[Normal]);
+    check_unary("abs", "[-#]", nn, nn.magnitude(), &[Normal]);
+    check_unary("abs", "[+↑]", ep, ep.magnitude(), &[Exploded]);
+    check_unary("abs", "[-↑]", en, en.magnitude(), &[Exploded]);
+    check_unary("abs", "[∞]", inf, inf.magnitude(), &[Infinity]);
+    check_unary("abs", "[℘]", und, und.magnitude(), &[Undefined]);
+    // abs must be non-negative for every signed input.
+    for x in [vn, nn, en] {
+        assert!(!x.magnitude().is_negative(), "abs should be non-negative");
+    }
+}
+
+#[test]
+fn sign_unary_truth_table() {
+    // sign(0) and sign(∞) are directionless → undefined (℘±∅); everything with a definite
+    // orientation (vanished/normal/exploded) yields ±1 (Normal).
+    let (z, vp, vn, np, nn, ep, en, inf, und) = unary_reps();
+    check_unary("sign", "[0]", z, z.sign(), &[Undefined]);
+    check_unary("sign", "[+↓]", vp, vp.sign(), &[Normal]);
+    check_unary("sign", "[-↓]", vn, vn.sign(), &[Normal]);
+    check_unary("sign", "[+#]", np, np.sign(), &[Normal]);
+    check_unary("sign", "[-#]", nn, nn.sign(), &[Normal]);
+    check_unary("sign", "[+↑]", ep, ep.sign(), &[Normal]);
+    check_unary("sign", "[-↑]", en, en.sign(), &[Normal]);
+    check_unary("sign", "[∞]", inf, inf.sign(), &[Undefined]);
+    check_unary("sign", "[℘]", und, und.sign(), &[Undefined]);
+}
+
+#[test]
+fn recip_unary_truth_table() {
+    // 1/x inverts the magnitude class: 0↔∞, vanished↔exploded, normal↔normal.
+    let (z, vp, vn, np, nn, ep, en, inf, und) = unary_reps();
+    check_unary("recip", "[0]", z, z.reciprocal(), &[Infinity]);
+    check_unary("recip", "[+↓]", vp, vp.reciprocal(), &[Exploded]);
+    check_unary("recip", "[-↓]", vn, vn.reciprocal(), &[Exploded]);
+    check_unary("recip", "[+#]", np, np.reciprocal(), &[Normal]); // 1/2
+    check_unary("recip", "[-#]", nn, nn.reciprocal(), &[Normal]);
+    check_unary("recip", "[+↑]", ep, ep.reciprocal(), &[Vanished]);
+    check_unary("recip", "[-↑]", en, en.reciprocal(), &[Vanished]);
+    check_unary("recip", "[∞]", inf, inf.reciprocal(), &[Zero]);
+    check_unary("recip", "[℘]", und, und.reciprocal(), &[Undefined]);
+}
+
+#[test]
+fn floor_ceil_round_unary_truth_tables() {
+    let (z, _vp, _vn, _np, _nn, ep, en, inf, und) = unary_reps();
+    let half = S::from(1) / S::from(2); // 0.5
+    let neg_half = S::from(-1) / S::from(2); // -0.5
+    let two = S::from(2);
+
+    // floor: 0.5→0, -0.5→-1, integer 2→2. Escaped/∞/℘ pass thru class.
+    check_unary("floor", "0.5", half, half.floor(), &[Zero]);
+    check_unary("floor", "-0.5", neg_half, neg_half.floor(), &[Normal]); // -1
+    check_unary("floor", "2", two, two.floor(), &[Normal]);
+    check_unary("floor", "[+↑]", ep, ep.floor(), &[Exploded]);
+    check_unary("floor", "[-↑]", en, en.floor(), &[Exploded]);
+    check_unary("floor", "[∞]", inf, inf.floor(), &[Infinity]);
+    check_unary("floor", "[℘]", und, und.floor(), &[Undefined]);
+
+    // ceil: 0.5→1, -0.5→0.
+    check_unary("ceil", "0.5", half, half.ceil(), &[Normal]); // 1
+    check_unary("ceil", "-0.5", neg_half, neg_half.ceil(), &[Zero]);
+    check_unary("ceil", "[+↑]", ep, ep.ceil(), &[Exploded]);
+    check_unary("ceil", "[∞]", inf, inf.ceil(), &[Infinity]);
+    check_unary("ceil", "[℘]", und, und.ceil(), &[Undefined]);
+
+    // round: banker's — round(0.5)=0, round(2.5)=2 (both to even).
+    check_unary("round", "0.5", half, half.round(), &[Zero]);
+    let two_half = S::from(5) / S::from(2); // 2.5 → 2 (even)
+    check_unary("round", "2.5", two_half, two_half.round(), &[Normal]);
+    check_unary("round", "[+↑]", ep, ep.round(), &[Exploded]);
+    check_unary("round", "[∞]", inf, inf.round(), &[Infinity]);
+    check_unary("round", "0", z, z.round(), &[Zero]);
+}
+
+#[test]
+fn frac_unary_truth_table() {
+    // frac = x - floor(x) ∈ [0,1). Integer/escaped → 0; ∞ → undefined (℘⨅∞).
+    let (z, vp, _vn, _np, _nn, ep, en, inf, und) = unary_reps();
+    let half = S::from(1) / S::from(2);
+    let two = S::from(2);
+    check_unary("frac", "0", z, z.frac(), &[Zero]);
+    check_unary("frac", "2", two, two.frac(), &[Zero]); // integer → 0
+    check_unary("frac", "0.5", half, half.frac(), &[Normal]);
+    check_unary("frac", "[+↓]", vp, vp.frac(), &[Zero, Vanished]); // ≈0
+    check_unary("frac", "[+↑]", ep, ep.frac(), &[Zero]); // huge integer → 0
+    check_unary("frac", "[-↑]", en, en.frac(), &[Zero]);
+    check_unary("frac", "[∞]", inf, inf.frac(), &[Undefined]); // ℘⨅∞
+    check_unary("frac", "[℘]", und, und.frac(), &[Undefined]);
+}
+
+// ============================================================ Trigonometric / hyperbolic class tables (class edges only — accuracy is checked in tests/numeric_reference.rs) ============================================================
+
+#[test]
+fn sin_cos_tan_truth_tables() {
+    // sin/cos/tan output bounded ranges (tan unbounded near poles), so escaped/∞ inputs lose
+    // phase and go undefined. Near-zero inputs track x (sin), or → 1 (cos).
+    let (z, vp, vn, _np, _nn, ep, en, inf, und) = unary_reps();
+    let half = S::from(1) / S::from(2);
+    let one = S::ONE;
+    let inrange = &[Zero, Vanished, Normal]; // any value in [-1, 1]
+
+    check_unary("sin", "[0]", z, z.sin(), &[Zero]);
+    check_unary("sin", "[+↓]", vp, vp.sin(), &[Vanished]);
+    check_unary("sin", "[-↓]", vn, vn.sin(), &[Vanished]);
+    check_unary("sin", "0.5", half, half.sin(), inrange);
+    check_unary("sin", "1", one, one.sin(), inrange);
+    check_unary("sin", "[+↑]", ep, ep.sin(), &[Undefined]);
+    check_unary("sin", "[-↑]", en, en.sin(), &[Undefined]);
+    check_unary("sin", "[∞]", inf, inf.sin(), &[Undefined]);
+    check_unary("sin", "[℘]", und, und.sin(), &[Undefined]);
+
+    check_unary("cos", "[0]", z, z.cos(), &[Normal]); // = 1
+    check_unary("cos", "[+↓]", vp, vp.cos(), &[Normal]); // ≈ 1
+    check_unary("cos", "0.5", half, half.cos(), inrange);
+    check_unary("cos", "[+↑]", ep, ep.cos(), &[Undefined]);
+    check_unary("cos", "[∞]", inf, inf.cos(), &[Undefined]);
+    check_unary("cos", "[℘]", und, und.cos(), &[Undefined]);
+
+    check_unary("tan", "[0]", z, z.tan(), &[Zero]);
+    check_unary("tan", "[+↓]", vp, vp.tan(), &[Vanished]);
+    check_unary(
+        "tan",
+        "1",
+        one,
+        one.tan(),
+        &[Zero, Vanished, Normal, Exploded, Infinity],
+    );
+    check_unary("tan", "[+↑]", ep, ep.tan(), &[Undefined]);
+    check_unary("tan", "[∞]", inf, inf.tan(), &[Undefined]);
+    check_unary("tan", "[℘]", und, und.tan(), &[Undefined]);
+}
+
+#[test]
+fn asin_acos_atan_truth_tables() {
+    // asin/acos: hard domain |x| ≤ 1 (out of range → undefined). atan: all reals, ±↑ → ±π/2,
+    // but ∞ is directionless → undefined.
+    let (z, vp, vn, _np, _nn, ep, en, inf, und) = unary_reps();
+    let half = S::from(1) / S::from(2);
+    let neg_half = S::from(-1) / S::from(2);
+    let two = S::from(2); // out of asin/acos domain
+
+    check_unary("asin", "[0]", z, z.asin(), &[Zero]);
+    check_unary("asin", "[+↓]", vp, vp.asin(), &[Vanished]);
+    check_unary("asin", "[-↓]", vn, vn.asin(), &[Vanished]);
+    check_unary("asin", "0.5", half, half.asin(), &[Normal]);
+    check_unary("asin", "-0.5", neg_half, neg_half.asin(), &[Normal]);
+    check_unary("asin", "2 (>1)", two, two.asin(), &[Undefined]);
+    check_unary("asin", "[+↑]", ep, ep.asin(), &[Undefined]);
+    check_unary("asin", "[∞]", inf, inf.asin(), &[Undefined]);
+    check_unary("asin", "[℘]", und, und.asin(), &[Undefined]);
+
+    check_unary("acos", "[0]", z, z.acos(), &[Normal]); // π/2
+    check_unary("acos", "0.5", half, half.acos(), &[Normal]);
+    check_unary("acos", "2 (>1)", two, two.acos(), &[Undefined]);
+    check_unary("acos", "[+↑]", ep, ep.acos(), &[Undefined]);
+    check_unary("acos", "[∞]", inf, inf.acos(), &[Undefined]);
+    check_unary("acos", "[℘]", und, und.acos(), &[Undefined]);
+
+    check_unary("atan", "[0]", z, z.atan(), &[Zero]);
+    check_unary("atan", "[+↓]", vp, vp.atan(), &[Vanished]);
+    check_unary("atan", "0.5", half, half.atan(), &[Normal]);
+    check_unary("atan", "[+↑]", ep, ep.atan(), &[Normal]); // → +π/2
+    check_unary("atan", "[-↑]", en, en.atan(), &[Normal]); // → -π/2
+    check_unary("atan", "[∞]", inf, inf.atan(), &[Undefined]); // direction undetermined
+    check_unary("atan", "[℘]", und, und.atan(), &[Undefined]);
+}
+
+#[test]
+fn sinh_cosh_tanh_truth_tables() {
+    // Hyperbolics grow like exp (sinh/cosh unbounded), tanh saturates to ±1.
+    let (z, vp, vn, _np, _nn, ep, en, inf, und) = unary_reps();
+    let two = S::from(2);
+    let neg_two = S::from(-2);
+
+    check_unary("sinh", "[0]", z, z.sinh(), &[Zero]);
+    check_unary("sinh", "[+↓]", vp, vp.sinh(), &[Vanished]);
+    check_unary("sinh", "[-↓]", vn, vn.sinh(), &[Vanished]);
+    check_unary("sinh", "2", two, two.sinh(), &[Normal, Exploded]);
+    check_unary("sinh", "[+↑]", ep, ep.sinh(), &[Exploded]);
+    check_unary("sinh", "[-↑]", en, en.sinh(), &[Exploded]);
+    check_unary("sinh", "[∞]", inf, inf.sinh(), &[Infinity]);
+    check_unary("sinh", "[℘]", und, und.sinh(), &[Undefined]);
+
+    check_unary("cosh", "[0]", z, z.cosh(), &[Normal]); // = 1
+    check_unary("cosh", "[+↓]", vp, vp.cosh(), &[Normal]);
+    check_unary("cosh", "2", two, two.cosh(), &[Normal, Exploded]);
+    check_unary("cosh", "-2", neg_two, neg_two.cosh(), &[Normal, Exploded]);
+    check_unary("cosh", "[+↑]", ep, ep.cosh(), &[Exploded]);
+    check_unary("cosh", "[-↑]", en, en.cosh(), &[Exploded]);
+    check_unary("cosh", "[∞]", inf, inf.cosh(), &[Infinity]);
+    check_unary("cosh", "[℘]", und, und.cosh(), &[Undefined]);
+    // cosh ≥ 1 always → never negative.
+    assert!(!neg_two.cosh().is_negative());
+
+    check_unary("tanh", "[0]", z, z.tanh(), &[Zero]);
+    check_unary("tanh", "[+↓]", vp, vp.tanh(), &[Vanished]);
+    check_unary("tanh", "2", two, two.tanh(), &[Normal]); // in (-1,1)
+    check_unary("tanh", "[+↑]", ep, ep.tanh(), &[Normal]); // → +1
+    check_unary("tanh", "[-↑]", en, en.tanh(), &[Normal]); // → -1
+    check_unary("tanh", "[℘]", und, und.tanh(), &[Undefined]);
+}
+
+// ============================================================ Binary: log (base), pow, shifts, min/max/clamp ============================================================
+
+#[test]
+fn log_truth_table() {
+    // log_b(a) = lb(a)/lb(b). Definite transfinite limits resolve; escaped/negative operands
+    // are undefined with which-operand reason tags. (Locks the scalar_logarithm_scalar fix.)
+    let two = S::from(2);
+    let four = S::from(4);
+    let five = S::from(5);
+    let z = S::ZERO;
+    let inf = S::INFINITY;
+    let ep = S::EXPLODED_POS;
+    let und = z / z;
+
+    check("$", four, two, four.log(two), &[Normal]); // log2(4) = 2
+    check("$", S::ONE, two, S::ONE.log(two), &[Zero]); // log2(1) = 0
+    check("$", inf, two, inf.log(two), &[Infinity]); // log(∞) = ∞
+    check("$", z, two, z.log(two), &[Infinity]); // log(0) = ∞
+    check("$", five, inf, five.log(inf), &[Zero]); // log base ∞ = 0
+    check("$", five, z, five.log(z), &[Zero]); // log base 0 = 0
+    check("$", five, S::ONE, five.log(S::ONE), &[Undefined]); // base 1 = ℘@1
+    check("$", S::from(-4), two, S::from(-4).log(two), &[Undefined]); // neg value
+    check("$", four, S::from(-2), four.log(S::from(-2)), &[Undefined]); // neg base
+    check("$", ep, two, ep.log(two), &[Undefined]); // escaped value
+    check("$", five, ep, five.log(ep), &[Undefined]); // escaped base
+    check("$", inf, inf, inf.log(inf), &[Undefined]); // ∞/∞
+    check("$", und, two, und.log(two), &[Undefined]); // ℘ propagates
+    check("$", two, und, two.log(und), &[Undefined]);
+}
+
+#[test]
+fn pow_truth_table() {
+    let two = S::from(2);
+    let three = S::from(3);
+    let half = S::from(1) / S::from(2);
+    let z = S::ZERO;
+    let inf = S::INFINITY;
+    let und = z / z;
+
+    // Definite normals.
+    check("^", two, three, two.pow(three), &[Normal, Exploded]); // 2^3 = 8
+    check("^", three, two, three.pow(two), &[Normal]); // 3^2 = 9
+    // x^0 = 1 for any finite x (identity).
+    check("^", three, z, three.pow(z), &[Normal]);
+    check("^", z, z, z.pow(z), &[Normal]); // 0^0 = 1 (Spirix convention)
+    // 0^positive = 0, 0^negative = ∞ (only the exponent's sign matters for a zero base).
+    check("^", z, two, z.pow(two), &[Zero]);
+    check("^", z, half, z.pow(half), &[Zero]);
+    check("^", z, S::from(-2), z.pow(S::from(-2)), &[Infinity]);
+    // Large exponent escapes at F3E3 (i8 exponent, ceiling 2^127).
+    check("^", two, S::from(200), two.pow(S::from(200)), &[Exploded]);
+    check("^", two, S::from(-200), two.pow(S::from(-200)), &[Vanished]);
+    // Negative base to a non-integer power → undefined (℘-^).
+    check("^", S::from(-2), half, S::from(-2).pow(half), &[Undefined]);
+    // Undefined propagates.
+    check("^", und, two, und.pow(two), &[Undefined]);
+    check("^", two, und, two.pow(und), &[Undefined]);
+}
+
+#[test]
+fn shift_truth_table() {
+    // `<<` = ×2ⁿ, `>>` = ÷2ⁿ by an integer amount. NOTE: the shift amount is E-typed, so at
+    // F3E3 (E = i8) it saturates at ±127 — a shift of 200 becomes 127, which is a width limit,
+    // not an escape. Escapes here use amounts within i8 range that still cross the boundary.
+    let two = S::from(2);
+    let z = S::ZERO;
+    let inf = S::INFINITY;
+    check("<<", two, S::ZERO, two << 0, &[Normal]); // ×1
+    check("<<", two, S::ZERO, two << 1, &[Normal]); // = 4
+    check("<<", two, S::ZERO, two << 127, &[Exploded]); // 2^128 over the ceiling → escapes
+    check(">>", two, S::ZERO, two >> 1, &[Normal]); // = 1
+    // A right shift escapes to vanished symmetrically once it crosses the floor; a small value
+    // reaches it within i8's shift range where `2` (exp +1) cannot.
+    let tiny_normal = S::ONE >> 120; // 2^-120, still normal
+    check(">>", tiny_normal, S::ZERO, tiny_normal >> 20, &[Vanished]);
+    // Zero and infinity are fixed points of scaling.
+    check("<<", z, S::ZERO, z << 5, &[Zero]);
+    check("<<", inf, S::ZERO, inf << 5, &[Infinity]);
+}
+
+#[test]
+fn min_max_clamp_truth_table() {
+    let two = S::from(2);
+    let five = S::from(5);
+    let neg_three = S::from(-3);
+    let inf = S::INFINITY;
+    let z = S::ZERO;
+    let und = z / z;
+
+    // Ordered normals.
+    check("min", two, five, two.min(five), &[Normal]); // → 2
+    check("max", two, five, two.max(five), &[Normal]); // → 5
+    // Against infinity: Spirix's ∞ is the UNSIGNED point-at-infinity, so it is not ordered
+    // relative to a finite value — min/max return undefined (℘⌊ / ℘⌈), not the finite operand.
+    // This is a design choice (not a bug): a signless ∞ sits at "both ends" of the line.
+    check("min", two, inf, two.min(inf), &[Undefined]);
+    check("max", two, inf, two.max(inf), &[Undefined]);
+    // Undefined operand → undefined (non-orderable).
+    check("min", two, und, two.min(und), &[Undefined]);
+    check("max", two, und, two.max(und), &[Undefined]);
+
+    // clamp(x, -3, 5): below → -3, inside → x, above → 5.
+    assert_eq!(
+        classify(&neg_three.clamp(z, five)),
+        Zero,
+        "clamp(-3, [0,5]) → 0"
+    );
+    assert_eq!(classify(&two.clamp(neg_three, five)), Normal, "clamp inside");
+    // clamp against ∞ inherits the same unsigned-∞ non-ordering as min/max → undefined (℘∩).
+    assert_eq!(
+        classify(&inf.clamp(neg_three, five)),
+        Undefined,
+        "clamp(∞, [-3,5]) is non-orderable → ℘∩"
+    );
+}
+
+#[test]
+fn powb_unary_truth_table() {
+    // 2^x — same class table as exp (different base doesn't change it).
+    let (z, vp, vn, _np, _nn, ep, en, inf, und) = unary_reps();
+    let two = S::from(2);
+    let neg_two = S::from(-2);
+    check_unary("powb", "[0]", z, z.powb(), &[Normal]); // = 1
+    check_unary("powb", "[+↓]", vp, vp.powb(), &[Normal]);
+    check_unary("powb", "[-↓]", vn, vn.powb(), &[Normal]);
+    check_unary("powb", "2", two, two.powb(), &[Normal]); // = 4
+    check_unary("powb", "-2", neg_two, neg_two.powb(), &[Normal]); // = 0.25
+    check_unary("powb", "[+↑]", ep, ep.powb(), &[Exploded, Infinity, Undefined]);
+    check_unary("powb", "[-↑]", en, en.powb(), &[Zero]); // 2^-∞ = 0
+    check_unary("powb", "[∞]", inf, inf.powb(), &[Infinity]);
+    check_unary("powb", "[℘]", und, und.powb(), &[Undefined]);
+}
+
 #[test]
 fn square_unary_truth_table() {
     let z = S::ZERO;
