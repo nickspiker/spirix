@@ -102,12 +102,77 @@ where
                 }
             }
 
-            if self.exploded() {
+            // Escaped BASE (vanished or exploded): an escaped value is m·2^E with the significand m (phase) known and the integer exponent E hidden past the range boundary. Resolve everything that stays determinate:
+            //  - integer p:  (m·2^E)^p = m^p · 2^(pE) — pE is still an integer, still hidden, so class, two's-complement sign (parity), AND phase all survive. Route thru integer_power; the phase-preserving multiply chain does the work, and pow(x,n) ≡ x·…·x, x^1 ≡ x.
+            //  - non-integer |p| > 1, positive base: class is determinate (tiny^p ≤ tiny, huge^p ≥ huge; p < 0 inverts thru the reciprocal), but the fractional part of pE bleeds into the significand with E unknown → canonical positive escaped (phase lost honestly).
+            //  - non-integer 0 < |p| < 1: tiny^p can land back in normal range (2^-1000^0.01 = 2^-10) — class indeterminate → keep ℘⬇^ / ℘⬆^.
+            //  - negative base, non-integer p: no real value, same as normals → ℘-^.
+            //  - escaped exponent: magnitude dominance resolves a positive base (tiny^huge = tinier, etc.), but a transfinite exponent's parity is unknowable so a negative base can't commit a sign → ℘^⬆.
+            //  - vanished exponent: p·lb(base) is a 0·∞ form → ℘^⬇. Infinite exponent: unsigned ∞ has no direction → ℘^⬆.
+            if self.exploded() || self.vanished() {
+                let base_exploded = self.exploded();
+                if exp.is_normal() {
+                    if exp.is_integer() {
+                        return self.integer_power(exp);
+                    }
+                    if self.is_negative() {
+                        return Self {
+                            fraction: NEGATIVE_POWER.prefix.sa(),
+                            exponent: Self::ambiguous_exponent(),
+                        };
+                    }
+                    if exp.magnitude() > Self::ONE {
+                        let result_exploded = if exp.is_positive() {
+                            base_exploded
+                        } else {
+                            !base_exploded
+                        };
+                        return Self {
+                            fraction: if result_exploded {
+                                Self::pos_one_exploded()
+                            } else {
+                                Self::pos_one_vanished()
+                            },
+                            exponent: Self::ambiguous_exponent(),
+                        };
+                    }
+                    return Self {
+                        fraction: if base_exploded {
+                            TRANSFINITE_POWER.prefix.sa()
+                        } else {
+                            VANISHED_POWER.prefix.sa()
+                        },
+                        exponent: Self::ambiguous_exponent(),
+                    };
+                }
+                if exp.vanished() {
+                    return Self {
+                        fraction: POWER_VANISHED.prefix.sa(),
+                        exponent: Self::ambiguous_exponent(),
+                    };
+                }
+                if exp.is_infinite() || self.is_negative() {
+                    return Self {
+                        fraction: POWER_TRANSFINITE.prefix.sa(),
+                        exponent: Self::ambiguous_exponent(),
+                    };
+                }
+                // Positive escaped base, exploded exponent: pure magnitude dominance.
+                let result_exploded = if exp.is_positive() {
+                    base_exploded
+                } else {
+                    !base_exploded
+                };
                 return Self {
-                    fraction: TRANSFINITE_POWER.prefix.sa(),
+                    fraction: if result_exploded {
+                        Self::pos_one_exploded()
+                    } else {
+                        Self::pos_one_vanished()
+                    },
                     exponent: Self::ambiguous_exponent(),
                 };
             }
+            // Normal base with an escaped/infinite exponent, unchanged behavior:
             if exp.exploded() {
                 return Self {
                     fraction: POWER_TRANSFINITE.prefix.sa(),
@@ -123,12 +188,6 @@ where
             if exp.is_negligible() {
                 return Self {
                     fraction: POWER_VANISHED.prefix.sa(),
-                    exponent: Self::ambiguous_exponent(),
-                };
-            }
-            if self.is_negligible() {
-                return Self {
-                    fraction: VANISHED_POWER.prefix.sa(),
                     exponent: Self::ambiguous_exponent(),
                 };
             }

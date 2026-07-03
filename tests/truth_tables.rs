@@ -877,6 +877,69 @@ fn pow_truth_table() {
 }
 
 #[test]
+fn pow_escaped_base_truth_table() {
+    // Escaped base m·2^E: integer exponents resolve fully (class + parity sign + phase, via the
+    // multiply chain); non-integer |p| > 1 resolves class only (canonical positive escaped);
+    // non-integer |p| < 1 is class-indeterminate (tiny^0.01 can re-enter normal range) → ℘.
+    let vp = S::VANISHED_POS;
+    let vn = S::VANISHED_NEG;
+    let ep = S::EXPLODED_POS;
+    let en = S::EXPLODED_NEG;
+    let one = S::ONE;
+    let two = S::from(2);
+    let three = S::from(3);
+    let half = S::from(1) / S::from(2);
+    let five_halves = S::from(5) / S::from(2);
+    let inf = S::INFINITY;
+
+    // x^1 = x exactly — identity holds for escaped values (phase included).
+    let r = vp.pow(one);
+    assert_eq!(
+        (r.fraction, r.exponent),
+        (vp.fraction, vp.exponent),
+        "↓^1 must be the identity"
+    );
+
+    // Integer exponents: class + parity sign.
+    check("^", vp, two, vp.pow(two), &[Vanished]); // ↓² = ↓
+    check("^", vn, two, vn.pow(two), &[Vanished]);
+    assert!(!vn.pow(two).is_negative(), "(-↓)² is positive");
+    check("^", vn, three, vn.pow(three), &[Vanished]);
+    assert!(vn.pow(three).is_negative(), "(-↓)³ is negative");
+    check("^", vp, S::from(-2), vp.pow(S::from(-2)), &[Exploded]); // ↓⁻² = ↑
+    check("^", ep, two, ep.pow(two), &[Exploded]); // ↑² = ↑
+    check("^", en, three, en.pow(three), &[Exploded]);
+    assert!(en.pow(three).is_negative(), "(-↑)³ is negative");
+    check("^", ep, S::from(-2), ep.pow(S::from(-2)), &[Vanished]); // ↑⁻² = ↓
+
+    // Non-integer |p| > 1: class resolves, canonical positive (phase honestly lost).
+    check("^", vp, five_halves, vp.pow(five_halves), &[Vanished]);
+    check("^", ep, five_halves, ep.pow(five_halves), &[Exploded]);
+    check("^", vp, -five_halves, vp.pow(-five_halves), &[Exploded]);
+    check("^", ep, -five_halves, ep.pow(-five_halves), &[Vanished]);
+    // Negative escaped base, non-integer p → ℘-^ like normals.
+    check("^", vn, five_halves, vn.pow(five_halves), &[Undefined]);
+    check("^", en, half, en.pow(half), &[Undefined]);
+
+    // Non-integer |p| < 1: class indeterminate → ℘.
+    check("^", vp, half, vp.pow(half), &[Undefined]);
+    check("^", ep, half, ep.pow(half), &[Undefined]);
+
+    // Escaped exponent: positive base resolves by dominance; negative base can't commit parity.
+    check("^", vp, ep, vp.pow(ep), &[Vanished]); // tiny^huge = tinier
+    check("^", vp, en, vp.pow(en), &[Exploded]); // tiny^-huge = huge
+    check("^", ep, ep, ep.pow(ep), &[Exploded]);
+    check("^", ep, en, ep.pow(en), &[Vanished]);
+    check("^", vn, ep, vn.pow(ep), &[Undefined]); // parity of ↑ unknown
+    // Vanished / infinite exponent stays undefined (0·∞ form / directionless ∞).
+    check("^", vp, vp, vp.pow(vp), &[Undefined]);
+    check("^", ep, inf, ep.pow(inf), &[Undefined]);
+    // x^0 = 1 still holds for escaped bases.
+    check("^", vp, S::ZERO, vp.pow(S::ZERO), &[Normal]);
+    check("^", ep, S::ZERO, ep.pow(S::ZERO), &[Normal]);
+}
+
+#[test]
 fn shift_truth_table() {
     // `<<` = ×2ⁿ, `>>` = ÷2ⁿ by an integer amount. NOTE: the shift amount is E-typed, so at
     // F3E3 (E = i8) it saturates at ±127 — a shift of 200 becomes 127, which is a width limit,
