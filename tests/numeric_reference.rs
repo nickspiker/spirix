@@ -1,25 +1,18 @@
-//! Numeric-reference truth tables: run every op over a fixed set of representative values and
-//! check the result against an IEEE `f64` oracle.
+//! Numeric-reference truth tables: run every op over a fixed set of representative values and check the result against an IEEE `f64` oracle.
 //!
 //! The rule, per op and input(s):
-//! - oracle is a *moderate finite* number (|x| in [1e-250, 1e250]) → Spirix must be Normal and
-//!   equal to the oracle within a relative tolerance.
-//! - oracle is `NaN` (a domain error like `sqrt(-4)`, `ln(-1)`, `(-2)^0.5`) → Spirix must be
-//!   Undefined.
-//! - oracle is `0`, `±inf`, or beyond the f64 range → SKIPPED here: Spirix's range and its
-//!   Zero/Vanished/Exploded/Infinity distinctions exceed what f64 can witness, so those are
-//!   covered by the class truth tables (with escaped/infinite representatives) instead.
+//! - oracle is a *moderate finite* number (|x| in [1e-250, 1e250]) → Spirix must be Normal and equal to the oracle within a relative tolerance.
+//! - oracle is `NaN` (a domain error like `sqrt(-4)`, `ln(-1)`, `(-2)^0.5`) → Spirix must be Undefined.
+//! - oracle is `0`, `±inf`, or beyond the f64 range → SKIPPED here: Spirix's range and its Zero/Vanished/Exploded/Infinity distinctions exceed what f64 can witness, so those are covered by the class truth tables (with escaped/infinite representatives) instead.
 //!
-//! So this file pins the *values* on the meat of the domain and the *domain errors*; the class
-//! edges live alongside it. Type is `ScalarF6E5` (i64 fraction ≈ 18 digits, i32 exponent) so
-//! `2^32`, `2^-32`, `1/42` are all exact and in range.
+//! So this file pins the *values* on the meat of the domain and the *domain errors*; the class edges live alongside it.
+//! Type is `ScalarF6E5` (i64 fraction ≈ 18 digits, i32 exponent) so `2^32`, `2^-32`, `1/42` are all exact and in range.
 
 use spirix::*;
 
 type S = ScalarF6E5;
 
-/// Relative tolerance for value comparison. Loose enough for the transcendental series at this
-/// width, tight enough to catch a wrong formula or a leaked escape value.
+/// Relative tolerance for value comparison. Loose enough for the transcendental series at this width, tight enough to catch a wrong formula or a leaked escape value.
 const TOL: f64 = 1e-6;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,9 +42,8 @@ fn classify(s: &S) -> Class {
     }
 }
 
-/// The shared value set: label, Spirix value, and its exact f64 oracle. Finite entries span
-/// small/large magnitudes and both signs; specials carry the class the oracle can't represent
-/// (their f64 is a sentinel used only when they appear as an *operand*, never asserted on).
+/// The shared value set: label, Spirix value, and its exact f64 oracle.
+/// Finite entries span small/large magnitudes and both signs; specials carry the class the oracle can't represent (their f64 is a sentinel used only when they appear as an *operand*, never asserted on).
 fn finite_set() -> Vec<(&'static str, S, f64)> {
     let p2_32 = 4_294_967_296_i64; // 2^32
     vec![
@@ -73,8 +65,8 @@ fn finite_set() -> Vec<(&'static str, S, f64)> {
     ]
 }
 
-/// Assert a single result against its oracle, per the rules in the module doc. Returns `true`
-/// if a strict check was applied (for coverage counting), `false` if skipped.
+/// Assert a single result against its oracle, per the rules in the module doc.
+/// Returns `true` if a strict check was applied (for coverage counting), `false` if skipped.
 fn check(label: &str, r: S, oracle: f64) -> bool {
     let rc = classify(&r);
     if oracle.is_nan() {
@@ -121,8 +113,7 @@ fn run_binary(name: &str, f: impl Fn(S, S) -> S, oracle: impl Fn(f64, f64) -> f6
     run_binary_where(name, |_, _| false, f, oracle)
 }
 
-/// Like [`run_binary`] but skips input pairs for which `skip(fa, fb)` is true — used to keep an
-/// op's genuine class edges (e.g. mod-by-zero) out of the numeric-value layer.
+/// Like [`run_binary`] but skips input pairs for which `skip(fa, fb)` is true — used to keep an op's genuine class edges (e.g. mod-by-zero) out of the numeric-value layer.
 fn run_binary_where(
     name: &str,
     skip: impl Fn(f64, f64) -> bool,
@@ -193,8 +184,7 @@ fn u_ceil() {
 }
 #[test]
 fn u_round() {
-    // Spirix rounds half-to-even (banker's). `1/2` and `-1/2` in the set ARE ties → oracle must
-    // match, so use round_ties_even (round(0.5) = 0, round(-0.5) = 0).
+    // Spirix rounds half-to-even (banker's). `1/2` and `-1/2` in the set ARE ties → oracle must match, so use round_ties_even (round(0.5) = 0, round(-0.5) = 0).
     run_unary("round", |a| a.round(), |x| x.round_ties_even());
 }
 #[test]
@@ -288,8 +278,7 @@ fn b_atan2() {
 }
 #[test]
 fn b_shl() {
-    // Shift is ×2ⁿ by an integer amount; test each set value against small shift counts so the
-    // result stays in a witnessable range. Oracle: a * 2^n.
+    // Shift is ×2ⁿ by an integer amount; test each set value against small shift counts so the result stays in a witnessable range. Oracle: a * 2^n.
     let amounts: [(i32, f64); 6] = [
         (0, 1.0),
         (1, 2.0),
@@ -332,9 +321,8 @@ fn b_shr() {
 }
 #[test]
 fn b_mod() {
-    // Spirix "proper modulus": result sign follows the divisor (floored modulus), unlike f64's
-    // truncated `%` (sign of dividend). Oracle uses the floored form. Mod-by-zero is a class
-    // edge (Spirix defines [0]%[0]=[0], n%0 escapes), handled by the class tables, so skip it.
+    // Spirix "proper modulus": result sign follows the divisor (floored modulus), unlike f64's truncated `%` (sign of dividend). Oracle uses the floored form.
+    // Mod-by-zero is a class edge (Spirix defines [0]%[0]=[0], n%0 escapes), handled by the class tables, so skip it.
     run_binary_where(
         "%",
         |_, y| y == 0.0,

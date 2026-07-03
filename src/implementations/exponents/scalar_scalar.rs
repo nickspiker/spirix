@@ -75,10 +75,8 @@ where
             if self == 1 {
                 return *self;
             }
-            // Zero base: 0^0 = 1 (handled above); otherwise only the exponent's SIGN matters —
-            // 0^(+) = 0 and 0^(−) = ∞ — for any positive/negative exponent, normal or escaped.
-            // (Without this, zero falls into the `is_negligible` catch-all below and 0^2 comes
-            // back undefined; a zero base is definite where a vanished base is not.)
+            // Zero base: 0^0 = 1 (handled above); otherwise only the exponent's SIGN matters — 0^(+) = 0 and 0^(−) = ∞ — for any positive/negative exponent, normal or escaped.
+            // (Without this, zero falls into the `is_negligible` catch-all below and 0^2 comes back undefined; a zero base is definite where a vanished base is not.)
             if self.is_zero() {
                 return if exp.is_negative() {
                     Self::INFINITY
@@ -224,9 +222,8 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Domain violations, most-primary first: a non-positive VALUE is undefined regardless of
-        // base; then a negative BASE. Escaped operands keep the magnitude-lost undefined the
-        // README specifies, but tagged with which operand (value vs base) escaped.
+        // Domain violations, most-primary first: a non-positive VALUE is undefined regardless of base; then a negative BASE.
+        // Escaped operands keep the magnitude-lost undefined the README specifies, but tagged with which operand (value vs base) escaped.
         if self.is_negative() {
             return Self {
                 fraction: NEGATIVE_LOG.prefix.sa(), // ℘-@  log of negative value
@@ -263,9 +260,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        // Remaining operands are Zero, positive Normal, or Infinity. Change of base
-        // log_b(a) = lb(a) / lb(b) now resolves the definite limits exactly, because
-        // lb(0) = lb(∞) = ∞:
+        // Remaining operands are Zero, positive Normal, or Infinity. Change of base log_b(a) = lb(a) / lb(b) now resolves the definite limits exactly, because lb(0) = lb(∞) = ∞:
         //   log(0)     = ∞/lb(b) = ∞      log(∞)     = ∞/lb(b) = ∞
         //   log base 0 = lb(a)/∞ = 0      log base ∞ = lb(a)/∞ = 0
         self.lb() / base.lb()

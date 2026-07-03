@@ -281,10 +281,9 @@ where
     /// ```
     #[inline]
     pub fn is_negligible(&self) -> bool {
-        // Negligible = Zero or Vanished. Do NOT shortcut on `prefix == 0`: the negative
-        // boundary values (-1, -2, -4, … = -2^k) also store a zero fraction, but with a
-        // NORMAL exponent, so a prefix-only test wrongly flags them as negligible. is_zero()
-        // checks the ambiguous exponent too, which is what distinguishes Zero from -2^k.
+        // Negligible = Zero or Vanished.
+        // Do NOT shortcut on `prefix == 0`: the negative boundary values (-1, -2, -4, … = -2^k) also store a zero fraction, but with a NORMAL exponent, so a prefix-only test wrongly flags them as negligible.
+        // is_zero() checks the ambiguous exponent too, which is what distinguishes Zero from -2^k.
         self.is_zero() || self.is_vanished()
     }
 

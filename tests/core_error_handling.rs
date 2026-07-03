@@ -108,8 +108,7 @@ fn test_power_function_error_handling() {
     let neg_pow_frac = negative.pow(ScalarF5E3::from(0.5));
     assert!(neg_pow_frac.is_undefined());
 
-    // Negative base to an INTEGER power is well-defined — exponentiation by squaring keeps
-    // the sign: (-2)^2 = 4, (-2)^3 = -8.
+    // Negative base to an INTEGER power is well-defined — exponentiation by squaring keeps the sign: (-2)^2 = 4, (-2)^3 = -8.
     let neg_pow_int = negative.pow(ScalarF5E3::from(2.0));
     assert!(neg_pow_int.is_normal());
     assert!(neg_pow_int == 4);
@@ -130,8 +129,7 @@ fn test_trigonometric_function_error_handling() {
     assert!(undefined.cos().is_undefined());
     assert!(undefined.tan().is_undefined());
 
-    // Trigonometric functions of infinity are undefined: the unsigned point-at-infinity has
-    // no position on the unit circle, so there is no resolvable angle / period.
+    // Trigonometric functions of infinity are undefined: the unsigned point-at-infinity has no position on the unit circle, so there is no resolvable angle / period.
     assert!(infinity.sin().is_undefined());
     assert!(infinity.cos().is_undefined());
     assert!(infinity.tan().is_undefined());

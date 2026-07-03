@@ -62,8 +62,7 @@ where
 {
     pub fn sin(&self) -> Self {
         if !self.is_normal() {
-            // Infinity is the unsigned point-at-infinity — no position on the unit circle, so
-            // its period is as unresolvable as an exploded value's. Same undefined for both.
+            // Infinity is the unsigned point-at-infinity — no position on the unit circle, so its period is as unresolvable as an exploded value's. Same undefined for both.
             if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: SINE.prefix.sa(),
@@ -133,8 +132,8 @@ where
             if self.is_undefined() {
                 return *self;
             }
-            // Infinity: no resolvable period position, same as exploded. Must precede the
-            // vanished/zero fallthrough below (which returns ≈1) — ∞ is NOT ≈1.
+            // Infinity: no resolvable period position, same as exploded.
+            // Must precede the vanished/zero fallthrough below (which returns ≈1) — ∞ is NOT ≈1.
             if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: COSINE.prefix.sa(),
@@ -327,8 +326,7 @@ where
             if self.is_undefined() {
                 return *self;
             }
-            // Infinity is out of the [-1, 1] domain, same as exploded. Must precede the π/2
-            // fallthrough below.
+            // Infinity is out of the [-1, 1] domain, same as exploded. Must precede the π/2 fallthrough below.
             if self.exploded() || self.is_infinite() {
                 return Self {
                     fraction: ARCCOSINE.prefix.sa(),
@@ -396,9 +394,8 @@ where
     }
     pub fn atan(&self) -> Self {
         if !self.is_normal() {
-            // Exploded carries a sign, so atan → ±π/2 (its true limit). But the unsigned
-            // point-at-infinity has no direction — atan can't choose +π/2 vs -π/2 — so it's
-            // undefined for the "direction of infinity is indeterminate" reason.
+            // Exploded carries a sign, so atan → ±π/2 (its true limit).
+            // But the unsigned point-at-infinity has no direction — atan can't choose +π/2 vs -π/2 — so it's undefined for the "direction of infinity is indeterminate" reason.
             if self.exploded() {
                 return if self.is_negative() {
                     Self::NEG_HALF_PI
@@ -448,9 +445,8 @@ where
 
             for k in (1..iterations).rev() {
                 let denom = 2isize.wrapping_mul(k).wrapping_sub(1);
-                // Gauss continued fraction for arctan: the k-th numerator is (k·x)² = k²·x²,
-                // NOT plain x². Missing the k² factor made this converge to the wrong value
-                // (exact only where the reduced argument is 0, i.e. at x = 0 and x = 1).
+                // Gauss continued fraction for arctan: the k-th numerator is (k·x)² = k²·x², NOT plain x².
+                // Missing the k² factor made this converge to the wrong value (exact only where the reduced argument is 0, i.e. at x = 0 and x = 1).
                 let k_sq = Self::from(k.wrapping_mul(k));
                 result = denom + k_sq * x_squared / result;
             }

@@ -578,8 +578,7 @@ fn not_unary_truth_table() {
 
 // ============================================================ Algebraic unary truth tables: neg, abs, sign, recip, floor, ceil, round, frac ============================================================
 
-/// Common representatives for the unary class tables. `np`/`nn` are non-boundary normals so
-/// negation/abs don't hit the exponent-edge escape cases (those are their own tests).
+/// Common representatives for the unary class tables. `np`/`nn` are non-boundary normals so negation/abs don't hit the exponent-edge escape cases (those are their own tests).
 fn unary_reps() -> (S, S, S, S, S, S, S, S, S) {
     (
         S::ZERO,
@@ -628,8 +627,7 @@ fn abs_unary_truth_table() {
 
 #[test]
 fn sign_unary_truth_table() {
-    // sign(0) and sign(∞) are directionless → undefined (℘±∅); everything with a definite
-    // orientation (vanished/normal/exploded) yields ±1 (Normal).
+    // sign(0) and sign(∞) are directionless → undefined (℘±∅); everything with a definite orientation (vanished/normal/exploded) yields ±1 (Normal).
     let (z, vp, vn, np, nn, ep, en, inf, und) = unary_reps();
     check_unary("sign", "[0]", z, z.sign(), &[Undefined]);
     check_unary("sign", "[+↓]", vp, vp.sign(), &[Normal]);
@@ -709,8 +707,8 @@ fn frac_unary_truth_table() {
 
 #[test]
 fn sin_cos_tan_truth_tables() {
-    // sin/cos/tan output bounded ranges (tan unbounded near poles), so escaped/∞ inputs lose
-    // phase and go undefined. Near-zero inputs track x (sin), or → 1 (cos).
+    // sin/cos/tan output bounded ranges (tan unbounded near poles), so escaped/∞ inputs lose phase and go undefined.
+    // Near-zero inputs track x (sin), or → 1 (cos).
     let (z, vp, vn, _np, _nn, ep, en, inf, und) = unary_reps();
     let half = S::from(1) / S::from(2);
     let one = S::ONE;
@@ -749,8 +747,8 @@ fn sin_cos_tan_truth_tables() {
 
 #[test]
 fn asin_acos_atan_truth_tables() {
-    // asin/acos: hard domain |x| ≤ 1 (out of range → undefined). atan: all reals, ±↑ → ±π/2,
-    // but ∞ is directionless → undefined.
+    // asin/acos: hard domain |x| ≤ 1 (out of range → undefined).
+    // atan: all reals, ±↑ → ±π/2, but ∞ is directionless → undefined.
     let (z, vp, vn, _np, _nn, ep, en, inf, und) = unary_reps();
     let half = S::from(1) / S::from(2);
     let neg_half = S::from(-1) / S::from(2);
@@ -821,8 +819,7 @@ fn sinh_cosh_tanh_truth_tables() {
 
 #[test]
 fn log_truth_table() {
-    // log_b(a) = lb(a)/lb(b). Definite transfinite limits resolve; escaped/negative operands
-    // are undefined with which-operand reason tags. (Locks the scalar_logarithm_scalar fix.)
+    // log_b(a) = lb(a)/lb(b). Definite transfinite limits resolve; escaped/negative operands are undefined with which-operand reason tags. (Locks the scalar_logarithm_scalar fix.)
     let two = S::from(2);
     let four = S::from(4);
     let five = S::from(5);
@@ -878,9 +875,7 @@ fn pow_truth_table() {
 
 #[test]
 fn pow_escaped_base_truth_table() {
-    // Escaped base m·2^E: integer exponents resolve fully (class + parity sign + phase, via the
-    // multiply chain); non-integer |p| > 1 resolves class only (canonical positive escaped);
-    // non-integer |p| < 1 is class-indeterminate (tiny^0.01 can re-enter normal range) → ℘.
+    // Escaped base m·2^E: integer exponents resolve fully (class + parity sign + phase, via the multiply chain); non-integer |p| > 1 resolves class only (canonical positive escaped); non-integer |p| < 1 is class-indeterminate (tiny^0.01 can re-enter normal range) → ℘.
     let vp = S::VANISHED_POS;
     let vn = S::VANISHED_NEG;
     let ep = S::EXPLODED_POS;
@@ -941,9 +936,8 @@ fn pow_escaped_base_truth_table() {
 
 #[test]
 fn shift_truth_table() {
-    // `<<` = ×2ⁿ, `>>` = ÷2ⁿ by an integer amount. NOTE: the shift amount is E-typed, so at
-    // F3E3 (E = i8) it saturates at ±127 — a shift of 200 becomes 127, which is a width limit,
-    // not an escape. Escapes here use amounts within i8 range that still cross the boundary.
+    // `<<` = ×2ⁿ, `>>` = ÷2ⁿ by an integer amount.
+    // NOTE: the shift amount is E-typed, so at F3E3 (E = i8) it saturates at ±127 — a shift of 200 becomes 127, which is a width limit, not an escape. Escapes here use amounts within i8 range that still cross the boundary.
     let two = S::from(2);
     let z = S::ZERO;
     let inf = S::INFINITY;
@@ -951,8 +945,7 @@ fn shift_truth_table() {
     check("<<", two, S::ZERO, two << 1, &[Normal]); // = 4
     check("<<", two, S::ZERO, two << 127, &[Exploded]); // 2^128 over the ceiling → escapes
     check(">>", two, S::ZERO, two >> 1, &[Normal]); // = 1
-    // A right shift escapes to vanished symmetrically once it crosses the floor; a small value
-    // reaches it within i8's shift range where `2` (exp +1) cannot.
+    // A right shift escapes to vanished symmetrically once it crosses the floor; a small value reaches it within i8's shift range where `2` (exp +1) cannot.
     let tiny_normal = S::ONE >> 120; // 2^-120, still normal
     check(">>", tiny_normal, S::ZERO, tiny_normal >> 20, &[Vanished]);
     // Zero and infinity are fixed points of scaling.
@@ -972,8 +965,7 @@ fn min_max_clamp_truth_table() {
     // Ordered normals.
     check("min", two, five, two.min(five), &[Normal]); // → 2
     check("max", two, five, two.max(five), &[Normal]); // → 5
-    // Against infinity: Spirix's ∞ is the UNSIGNED point-at-infinity, so it is not ordered
-    // relative to a finite value — min/max return undefined (℘⌊ / ℘⌈), not the finite operand.
+    // Against infinity: Spirix's ∞ is the UNSIGNED point-at-infinity, so it is not ordered relative to a finite value — min/max return undefined (℘⌊ / ℘⌈), not the finite operand.
     // This is a design choice (not a bug): a signless ∞ sits at "both ends" of the line.
     check("min", two, inf, two.min(inf), &[Undefined]);
     check("max", two, inf, two.max(inf), &[Undefined]);
