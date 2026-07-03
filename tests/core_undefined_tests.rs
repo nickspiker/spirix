@@ -375,8 +375,8 @@ mod undefined_special_cases {
         let modulo_result = ScalarF5E3::from(5) % ScalarF5E3::ZERO;
         assert!(modulo_result.is_zero());
 
-        // Power of zero with negative exponent: 0^(-x) = 1/0 = undefined
+        // Power of zero with negative exponent: 0^(-1) = 1/0 = ∞ (infinity, not undefined).
         let zero_power_neg = ScalarF5E3::ZERO.pow(ScalarF5E3::from(-1));
-        assert!(zero_power_neg.is_undefined());
+        assert!(zero_power_neg.is_infinite());
     }
 }

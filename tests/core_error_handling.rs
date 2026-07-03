@@ -96,13 +96,13 @@ fn test_power_function_error_handling() {
     let zero_pow_zero = zero.pow(zero);
     assert!(zero_pow_zero.is_normal());
 
-    // Zero to negative power should be undefined
+    // Zero to a negative power is infinity: 0^-2 = 1/0^2 = 1/0 = ∞.
     let zero_pow_neg = zero.pow(negative);
-    assert!(zero_pow_neg.is_undefined());
+    assert!(zero_pow_neg.is_infinite());
 
-    // Zero to positive power is undefined in Spirix
+    // Zero to a positive power is zero: 0^1 = 0.
     let zero_pow_pos = zero.pow(one);
-    assert!(zero_pow_pos.is_undefined());
+    assert!(zero_pow_pos.is_zero());
 
     // Negative base to a NON-integer power is undefined (would be complex): (-2)^0.5.
     let neg_pow_frac = negative.pow(ScalarF5E3::from(0.5));
