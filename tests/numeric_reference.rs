@@ -330,3 +330,111 @@ fn b_mod() {
         |x, y| x - y * (x / y).floor(),
     );
 }
+
+// ==================================================== Bitwise values & randoms =====
+
+#[test]
+fn b_bitwise_values() {
+    // Spirix bitwise is two's-complement aligned at the binary point — no f64 oracle exists, so pin known values directly.
+    let v = |x: S| x.to_f64();
+    let six = S::from(6);
+    let five = S::from(5);
+    let three = S::from(3);
+    // Integer patterns.
+    assert_eq!(v(six & three), 2.0, "6 & 3");
+    assert_eq!(v(six | three), 7.0, "6 | 3");
+    assert_eq!(v(six ^ three), 5.0, "6 ⊻ 3");
+    assert_eq!(v(five & three), 1.0, "5 & 3");
+    assert_eq!(v(five | three), 7.0, "5 | 3");
+    assert_eq!(v(five ^ three), 6.0, "5 ⊻ 3");
+    // Fractional alignment: 2.5 = 10.1₂, 1.5 = 01.1₂ → and 00.1₂ = 0.5, or 11.1₂ = 3.5, xor 11.0₂ = 3.
+    let half = S::from(1) / S::from(2);
+    let two5 = S::from(5) * half;
+    let one5 = S::from(3) * half;
+    assert_eq!(v(two5 & one5), 0.5, "2.5 & 1.5");
+    assert_eq!(v(two5 | one5), 3.5, "2.5 | 1.5");
+    assert_eq!(v(two5 ^ one5), 3.0, "2.5 ⊻ 1.5");
+    // Identities.
+    assert_eq!(six & six, six, "x & x = x");
+    assert_eq!(six | six, six, "x | x = x");
+    assert!((six ^ six).is_zero(), "x ⊻ x = 0");
+    assert_eq!(!!six, six, "!!x = x");
+    // -1 is all-ones in two's complement: AND-identity, OR-absorber.
+    let n1 = S::from(-1);
+    assert_eq!(v(n1 & six), 6.0, "-1 & x = x");
+    assert_eq!(v(n1 | six), -1.0, "-1 | x = -1");
+}
+
+/// Class + range + statistical sanity for the random generators. Bounds sit >8 sigma from the expected statistics at n=10000, so a healthy generator can't flake this test; a broken one (stuck bit, wrong normalization, class leak) lands far outside.
+#[test]
+fn rand_uniform_statistics() {
+    let n = 10_000usize;
+    let mut sum = 0.0f64;
+    let mut sumsq = 0.0f64;
+    let mut distinct = std::collections::BTreeSet::new();
+    for _ in 0..n {
+        let r = S::random();
+        assert!(!r.is_undefined() && !r.is_infinite() && !r.exploded(), "random() must never produce undefined/∞/exploded, got {r:?}");
+        let v = r.to_f64();
+        assert!((-1.0..=1.0).contains(&v), "random() out of [-1,1]: {v}");
+        sum += v;
+        sumsq += v * v;
+        distinct.insert(v.to_bits());
+    }
+    let mean = sum / n as f64;
+    let var = sumsq / n as f64 - mean * mean;
+    assert!(mean.abs() < 0.05, "uniform mean drifted: {mean}");
+    assert!((0.28..=0.39).contains(&var), "uniform variance off (expect ≈1/3): {var}");
+    assert!(distinct.len() > n / 2, "generator not varying: {} distinct of {n}", distinct.len());
+}
+
+#[test]
+fn rand_gauss_statistics() {
+    let n = 10_000usize;
+    let mut sum = 0.0f64;
+    let mut sumsq = 0.0f64;
+    let mut absmax = 0.0f64;
+    for _ in 0..n {
+        let r = S::random_gauss();
+        assert!(!r.is_undefined() && !r.is_infinite() && !r.exploded(), "random_gauss() must never produce undefined/∞/exploded, got {r:?}");
+        let v = r.to_f64();
+        sum += v;
+        sumsq += v * v;
+        absmax = absmax.max(v.abs());
+    }
+    let mean = sum / n as f64;
+    let var = sumsq / n as f64 - mean * mean;
+    assert!(mean.abs() < 0.08, "gauss mean drifted: {mean}");
+    assert!((0.85..=1.15).contains(&var), "gauss variance off (expect ≈1): {var}");
+    assert!(absmax < 8.0, "gauss tail implausible (P(|z|>8) ≈ 1e-15): {absmax}");
+    assert!(absmax > 2.0, "gauss tails missing (10k samples should exceed 2σ): {absmax}");
+}
+
+#[test]
+fn rand_works_at_narrow_width() {
+    // The 8-bit-fraction type exercises the normalization edge cases hardest.
+    for _ in 0..2_000 {
+        let r = ScalarF3E3::random();
+        assert!(!r.is_undefined() && !r.is_infinite() && !r.exploded(), "F3E3 random() bad class: {r:?}");
+        let v = r.to_f64();
+        assert!((-1.0..=1.0).contains(&v), "F3E3 random() out of [-1,1]: {v}");
+    }
+}
+
+#[test]
+fn constants_match_reference() {
+    // Every constant the formula layer exposes, against its f64 reference.
+    let cases: [(&str, S, f64); 7] = [
+        ("PI", S::PI, std::f64::consts::PI),
+        ("TAU", S::TAU, std::f64::consts::TAU),
+        ("E", S::E, std::f64::consts::E),
+        ("LN_TWO", S::LN_TWO, std::f64::consts::LN_2),
+        ("PHI", S::PHI, 1.618_033_988_749_894_8),
+        ("EULER_GAMMA", S::EULER_GAMMA, 0.577_215_664_901_532_9),
+        ("CATALAN", S::CATALAN, 0.915_965_594_177_219_0),
+    ];
+    for (name, s, want) in cases {
+        let got = s.to_f64();
+        assert!(((got - want) / want).abs() < 1e-12, "{name}: {got} vs {want}");
+    }
+}
