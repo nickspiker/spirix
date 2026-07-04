@@ -770,7 +770,7 @@ dependencies = [
 
 [[package]]
 name = "spirix"
-version = "0.0.12"
+version = "0.1.0"
 dependencies = [
  "approx",
  "criterion",
