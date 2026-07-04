@@ -219,6 +219,18 @@ where
             *self
         };
         let mut exp = n.magnitude();
+        // Two's-complement boundary: n = -2^MAX_EXP escapes under magnitude() and would hang the squaring loop (see the Scalar twin). For a Circle the result DIRECTION is n·θ with |n| = 2^MAX_EXP — a period position far beyond any stored precision — so the honest result is undefined, transfinite-power tagged.
+        if !exp.is_normal() {
+            if base.is_undefined() {
+                return base;
+            }
+            let prefix: F = POWER_TRANSFINITE.prefix.sa();
+            return Self {
+                real: prefix,
+                imaginary: prefix,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
 
         while !exp.is_zero() {
             if (exp & Scalar::<F, E>::ONE) == 1 {

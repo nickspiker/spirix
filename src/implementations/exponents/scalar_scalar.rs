@@ -278,6 +278,33 @@ where
             *self
         };
         let mut exp = n.magnitude();
+        // Two's-complement boundary: n = -2^MAX_EXP negates PAST the ceiling, so magnitude() escapes to exploded — and an exploded loop counter never reaches zero (exploded & 1 is ℘, exploded >> 1 is itself), hanging the squaring loop. The math is still definite: |n| is a power of two (even), so the sign is positive, and the magnitude resolves by |base| vs 1 dominance thru the (negative) exponent.
+        if !exp.is_normal() {
+            if base.is_undefined() {
+                return base;
+            }
+            if base.is_zero() {
+                return Self::ZERO; // 0^(2^MAX) = 0
+            }
+            if base.is_infinite() {
+                return Self::INFINITY;
+            }
+            let mag = base.magnitude(); // base already carries the reciprocal for negative n
+            if mag == 1 {
+                return Self::ONE; // (±1)^(even) = 1
+            }
+            return if mag > Self::ONE {
+                Self {
+                    fraction: Self::pos_one_exploded(),
+                    exponent: Self::ambiguous_exponent(),
+                }
+            } else {
+                Self {
+                    fraction: Self::pos_one_vanished(),
+                    exponent: Self::ambiguous_exponent(),
+                }
+            };
+        }
 
         while !exp.is_zero() {
             if (exp & Self::ONE) == 1 {
