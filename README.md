@@ -12,18 +12,16 @@
 
 ## ⚠️ Beta Warning
 
-**This is early beta software under active development.** While the core arithmetic operations and many mathematical functions have been tested fairly extensively, this library is not ready for production use. Please do not use this library in critical systems or applications where incorrect calculations could cause harm.
+**This is beta software.** The 0.1.x line is the first release series on the production track: every operation carries class truth tables, values are checked against IEEE f64 / `Complex<f64>` oracles over a shared reference set, and the whole op surface is fuzzed for totality — no panics, no hangs, and every raw bit pattern (including non-canonical ones constructed through the pub fields) classifies into exactly one state. The API and some semantics are still settling before 1.0 — validate results independently before trusting them in critical systems.
 
 Current status:
-- ✅ Core arithmetic operations (addition, subtraction, multiplication, division)
-- ✅ Basic mathematical functions (sqrt, power, etc.)
-- ✅ Complex number support
-- ⚠️ Advanced mathematical functions still under development
-- ⚠️ API may change in future versions
+- ✅ Core arithmetic (addition, subtraction, multiplication, division, modulus) with edge-case truth tables
+- ✅ Mathematical functions (sqrt, pow, exp/ln/lb, trig, hyperbolic) with edge-case truth tables
+- ✅ Complex number support with escaped-orientation preservation
+- ✅ Conversions to/from IEEE f32/f64, integers, and `num_complex::Complex`
+- ⚠️ API may still change before 1.0
 
-Use at your own risk and always validate results independently for important maths.
-
-> **Note:** Version 0.0.12 is the last release using the current representation format. The next major version will introduce an implicit sign bit for normal numbers, gaining one bit of precision at every width. This is a breaking change to the binary representation — existing stored values will not be compatible.
+> **Note:** 0.1.0 introduces the new binary representation (implicit sign bit for normal numbers — one extra bit of precision at every width, AMBIG=0 exponent convention). It is a breaking change from the 0.0.x series: stored 0.0.x values are not compatible.
 
 ## Overview
 
@@ -240,6 +238,17 @@ Precision picks the base (any base 2-36), width controls how many digits before 
 ### Arithmetic Operations
 Rust primitives like `f32` and `i8` convert to Scalar automatically. A Circle constructs from either a single real value (imaginary becomes zero) — `CircleF3E3::from(3)`, `CircleF3E3::from(my_scalar)` — or from a `(real, imag)` tuple, where the two values can be any mix of Scalar-convertible types: `CircleF5E4::from((my_scalar, 7i8))`. Note the double parens: `from((r, i))` takes one tuple argument, while `from(r, i)` won't compile. Circles also convert to and from `num_complex::Complex<f32>` / `Complex<f64>` directly — `CircleF5E4::from(Complex::new(1.5, 2.0))`. Going the other way, `circle.r()` and `circle.i()` extract the real and imaginary components as Scalars.
 
+Conversion edge semantics, both directions:
+
+| IEEE → Spirix | | Spirix → IEEE | |
+|---|---|---|---|
+| `NaN` | `[℘]` | `[℘]` | `NaN` |
+| `±inf` | `[±↑]` (sign kept) | `[±↑]` | `±inf` |
+| `±0.0` | `[0]` (Spirix zero is signless) | `[±↓]` | `±0.0` (sign kept in IEEE's signed zero) |
+| subnormal | `[↓]` or normal, by the target width's range | `[∞]` | `NaN` (the unsigned point-at-infinity has no IEEE sign to give) |
+
+Integer casts (`to_i32()` etc.) **floor** rather than truncate — `(-2.9).to_i32() == -3` — consistent with Spirix's floor-based `frac`, division, and modulus, and unlike Rust's toward-zero `as`. Out-of-range saturates (`[↑]` → `MAX`, `[-↑]` → `MIN`), `[℘]` → 0 (the Rust NaN-cast convention), and `[±↓]` → 0.
+
 ### Truth Tables
 
 **Classes:**
@@ -407,6 +416,38 @@ undefined sub-states differ.
 | **[↑]** | [0] | [↓] / [↑] | [#] / [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
 | **[∞]** | [0] | [℘%⬆] | [℘%⬆] | [℘⬆%⬆] | [℘⬆%⬆] | [℘?] |
 | **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
+
+#### Power (`base ^ p`)
+
+`x^0 = 1` for any finite `x` (including `0^0 = 1`), and a zero base resolves purely by the exponent's sign: `0^(+) = 0`, `0^(−) = ∞`. An **integer** exponent is defined for any base sign (exponentiation by squaring keeps parity: `(-3)² = 9`, `(-3)³ = -27`); a **non-integer** exponent of a negative base has no real value (`℘-^`).
+
+Escaped bases resolve much further than a blanket undefined, because the escape still carries its sign/orientation. With `m·2^E` (significand `m` stored, integer exponent `E` lost past the range boundary):
+
+- **integer p** — `(m·2^E)^p = m^p · 2^(pE)`: `pE` is still an integer, still hidden, so class, parity sign, AND phase all survive thru the multiply chain. `x^1 ≡ x` holds for escaped values, and `pow(x, 2) ≡ x.square()`.
+- **non-integer |p| > 1, positive base** — the class is determinate (`tiny^p` stays tiny, `huge^p` stays huge; `p < 0` inverts thru the reciprocal) but the fractional part of `pE` bleeds into the significand with `E` unknown, so the phase is honestly lost → canonical escaped. (A Circle does better: its angle rotates to `p·θ` without touching the hidden magnitude, so escaped Circles keep exact orientation even here.)
+- **non-integer 0 < |p| < 1** — `tiny^p` can re-enter normal range (`(2^-1000)^0.01 = 2^-10`), so the class itself is indeterminate → `℘⬇^` / `℘⬆^`.
+- **escaped exponent** — magnitude dominance resolves a positive base (`↓^↑ = ↓`, `↓^-↑ = ↑`), but a transfinite exponent's parity is unknowable, so a negative base → `℘^⬆`.
+
+Reading: columns are the exponent's class (`[±#]` = normal split by sign where it matters); `X / Y` resolves to `X` for a positive exponent and `Y` for a negative one.
+
+| ^ | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
+|---|-----|-----|-----|-----|-----|------|
+| **base [0]** | [#] =1 | [0] / [∞] | [0] / [∞] | [0] / [∞] | [0] / [∞] | [℘?] |
+| **base [↓]** | [#] =1 | [℘^⬇] | int p: [↓] / [↑] with phase · frac \|p\|>1: [↓] / [↑] canonical · frac \|p\|<1: [℘⬇^] | [↓] / [↑] (neg base: [℘^⬆]) | [℘^⬆] | [℘?] |
+| **base [#]** | [#] =1 | [℘^⬇] | [#], [↓], [↑] (neg base, frac p: [℘-^]) | [℘^⬆] | [℘^⬆] | [℘?] |
+| **base [↑]** | [#] =1 | [℘^⬇] | int p: [↑] / [↓] with phase · frac \|p\|>1: [↑] / [↓] canonical · frac \|p\|<1: [℘⬆^] | [↑] / [↓] (neg base: [℘^⬆]) | [℘^⬆] | [℘?] |
+| **base [∞]** | [#] =1 | [∞] / [0] | [∞] / [0] | [∞] / [0] | [∞] / [0] | [℘?] |
+| **[℘¿]** | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘¿] | [℘?] |
+
+### Equality and Ordering
+
+Spirix comparison semantics are **strict**: equality is only ever asserted between values the representation can actually vouch for.
+
+- **Normal values and Zero** compare exactly: `a == a`, total ordering among themselves.
+- **Escaped values order against normals** where the answer is knowable: `[↑] > any normal`, `[↓] <` any normal of larger magnitude, `[-↓] < [+↓]`.
+- **`℘`, `∞`, `[↑]`, `[↓]` never compare equal to anything — including themselves.** Two exploded values with identical stored phase may still be *different* true magnitudes; claiming equality would be a lie. This is NaN-style strictness, applied to every class that has lost information.
+- `partial_cmp` returns `None` for the unordered pairs (`℘` vs anything, `∞` vs finite), so `sort_by(|a, b| a.partial_cmp(b).unwrap())` **will panic** on escaped data — deliberately. Filter or classify first.
+- Want bit identity? The representation is fully exposed: compare `a.fraction == b.fraction && a.exponent == b.exponent` directly. No bias, no hidden payload bits — unlike IEEE, what you see is the whole value.
 
 ### Unary Operations
 
@@ -691,7 +732,7 @@ let negative = x.is_negative(); // Less than Zero
 ## Random Number Generation
 ```rust
 // Random values
-let uniform = ScalarF5E3::random();        // Uniform -1 to 1 distribution
+let uniform = ScalarF5E3::random();        // Uniform over [-1, +1): exact -1 is drawable, +1 is not (two's-complement asymmetry). Fresh full-width significand at every scale — no zero-fill near zero; the sub-range tail becomes vanished-with-random-phase, never a silent zero.
 let gaussian = ScalarF6E4::random_gauss(); // Normal distribution
 
 // For complex numbers
