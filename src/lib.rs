@@ -237,13 +237,16 @@
 //! ```rust
 //! use spirix::Scalar;
 //!
-//! // High precision with limited range. type HighPrecisionNearOne = Scalar<i128, i8>;
+//! // High precision with limited range.
+//! type HighPrecisionNearOne = Scalar<i128, i8>;
 //!
-//! // Medium precision with large range. type ScientificNotation = Scalar<i32, i64>;
+//! // Medium precision with large range.
+//! type ScientificNotation = Scalar<i32, i64>;
 //!
-//! // Extreme range with limited precision. type RoughApproximation = Scalar<i8, i128>;
-//! # let _ = (HighPrecisionNearOne::ONE, ScientificNotation::ONE, RoughApproximation::ONE);
+//! // Extreme range with limited precision.
+//! type RoughApproximation = Scalar<i8, i128>;
 //! # use spirix::ScalarConstants;
+//! # let _ = (HighPrecisionNearOne::ONE, ScientificNotation::ONE, RoughApproximation::ONE);
 //! ```
 //!
 //! | Type   | Precision (decimal digits) | Range                    |
@@ -289,7 +292,8 @@
 //! ```rust
 //! use spirix::CircleF5E3;
 //!
-//! // Wrapping a point to an 8×8 grid cell. fn wrap_to_grid(point: &CircleF5E3, grid_size: &CircleF5E3) -> CircleF5E3 { point.modulo(*grid_size) }
+//! // Wrapping a point to an 8×8 grid cell.
+//! fn wrap_to_grid(point: &CircleF5E3, grid_size: &CircleF5E3) -> CircleF5E3 { point.modulo(*grid_size) }
 //!
 //! let point = CircleF5E3::from((37.54_f32, -12.3_f32)); let grid = CircleF5E3::from((8_i8, 8_i8)); let _wrapped = wrap_to_grid(&point, &grid);
 //! ```
@@ -299,7 +303,8 @@
 //! ```rust
 //! use spirix::{ScalarConstants, ScalarF5E3};
 //!
-//! // Map angle to [0, 2π) range. fn normalize_angle(angle: ScalarF5E3) -> ScalarF5E3 { angle % ScalarF5E3::TAU }
+//! // Map angle to [0, 2π) range.
+//! fn normalize_angle(angle: ScalarF5E3) -> ScalarF5E3 { angle % ScalarF5E3::TAU }
 //!
 //! let angle = ScalarF5E3::from(8.5_f32); let normalized = normalize_angle(angle); assert!(normalized >= ScalarF5E3::ZERO); assert!(normalized < ScalarF5E3::PI * 2_i8);
 //! ```

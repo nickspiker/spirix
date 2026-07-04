@@ -578,19 +578,26 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF6E4};
     ///
-    /// // The one and only Zero let zero = Circle::<i64, i16>::ZERO; assert!(zero.is_zero());
+    /// // The one and only Zero
+    /// let zero = Circle::<i64, i16>::ZERO; assert!(zero.is_zero());
     ///
-    /// // Even a very small Circle is not Zero let tiny: CircleF6E4 = CircleF6E4::MIN_POS / 61_i64; assert!(!tiny.is_zero()); assert!(tiny.vanished());  // It's vanished, not Zero
+    /// // Even a very small Circle is not Zero — it's vanished, not Zero
+    /// let tiny: CircleF6E4 = CircleF6E4::MIN_POS / 61_i64; assert!(!tiny.is_zero()); assert!(tiny.vanished());
     ///
-    /// // Normal values are not Zero let normal = CircleF6E4::from((42_i64, 17_i64)); assert!(!normal.is_zero());
+    /// // Normal values are not Zero
+    /// let normal = CircleF6E4::from((42_i64, 17_i64)); assert!(!normal.is_zero());
     ///
-    /// // Exploded values are not Zero let huge = CircleF6E4::MAX * CircleF6E4::MAX; assert!(!huge.is_zero());
+    /// // Exploded values are not Zero
+    /// let huge = CircleF6E4::MAX * CircleF6E4::MAX; assert!(!huge.is_zero());
     ///
-    /// // Infinity is not Zero let infinity: CircleF6E4 = CircleF6E4::ONE / 0_i64; assert!(!infinity.is_zero());
+    /// // Infinity is not Zero
+    /// let infinity: CircleF6E4 = CircleF6E4::ONE / 0_i64; assert!(!infinity.is_zero());
     ///
-    /// // Undefined states aren't Zero let undefined: CircleF6E4 = CircleF6E4::ZERO / 0_i64; assert!(!undefined.is_zero());
+    /// // Undefined states aren't Zero
+    /// let undefined: CircleF6E4 = CircleF6E4::ZERO / 0_i64; assert!(!undefined.is_zero());
     ///
-    /// // Mathematical operations with Zero behave as expected let still_zero = zero * CircleF6E4::from((3_i64, 4_i64)); assert!(still_zero.is_zero());
+    /// // Mathematical operations with Zero behave as expected
+    /// let still_zero = zero * CircleF6E4::from((3_i64, 4_i64)); assert!(still_zero.is_zero());
     ///
     /// let normal_again = still_zero + CircleF6E4::from((163_i64, -16_i64)); assert!(!normal_again.is_zero()); assert!(normal_again.is_normal());
     /// ```

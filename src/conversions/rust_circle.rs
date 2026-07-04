@@ -215,9 +215,11 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3}; use num_complex::Complex;
     ///
-    /// // Create a `std::num::Complex<f64>` let complex = Complex::new(1.5, -2.7);
+    /// // Create a `std::num::Complex<f64>`
+    /// let complex = Complex::new(1.5, -2.7);
     ///
-    /// // Convert to Circle let z = CircleF5E3::from(complex);
+    /// // Convert to Circle
+    /// let z = CircleF5E3::from(complex);
     ///
     /// assert_eq!(z.r(), 1.5); assert_eq!(z.i(), -2.7);
     /// ```
@@ -310,9 +312,11 @@ where
     /// ```rust
     /// use spirix::{Circle, CircleF5E3}; use num_complex::Complex;
     ///
-    /// // Create a `std::num::Complex<f32>` with exactly-representable values let complex = Complex::new(1.5f32, -2.5f32);
+    /// // Create a `std::num::Complex<f32>` with exactly-representable values
+    /// let complex = Complex::new(1.5f32, -2.5f32);
     ///
-    /// // Convert to Circle let z = CircleF5E3::from(complex);
+    /// // Convert to Circle
+    /// let z = CircleF5E3::from(complex);
     ///
     /// assert_eq!(z.r(), 1.5_f32); assert_eq!(z.i(), -2.5_f32);
     /// ```
