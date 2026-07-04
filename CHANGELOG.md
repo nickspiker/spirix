@@ -2,6 +2,12 @@
 
 All notable changes to Spirix are documented here.
 
+## [0.1.1] - 2026-07-04
+
+### Fixed
+- Shift and overflow panics in consumers' debug builds (overflow checks were masked in spirix's own profiles): square()'s exploded branch panicked thru pow → exp on boundary-adjacent significands, round()'s banker's tie at ±0.5, Circle construction from Scalars at E7 widths, and every escaped-path normalization shift. Wide shift primitives are now total (negative counts flip direction, counts past the width saturate to the mathematical limit); dev builds now run with overflow checks on so this class stays caught.
+- The crates.io package no longer ships the patent/ and paper/ directories (also brought it under the upload size limit).
+
 ## [0.1.0] - 2026-07-03
 
 First production-track release. Breaking change from the 0.0.x series.
