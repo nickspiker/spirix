@@ -276,21 +276,43 @@ macro_rules! impl_wide_ops {
             fn w_leading_ones(&self) -> isize {
                 (*self as $uwide).leading_ones() as isize
             }
+            // Total shifts: a negative count shifts the other way, and a count past the width saturates to the mathematical limit (0 for shl / logical shr, the sign fill for arithmetic shr). Rust's raw shift would PANIC on both in checked builds and silently mask the count in release (x << width == x << 0) — neither is the multiply-by-2^n the pipelines mean. Escaped-path normalization legitimately produces counts of -1 (leading == 1 with n_level == -2) and width (a zero or all-same wide), so the primitives must absorb them.
             #[inline]
             fn w_shl(self, n: isize) -> Self {
+                const BITS: isize = (core::mem::size_of::<$wide>() * 8) as isize;
+                if n < 0 {
+                    return self.w_shr(n.wrapping_neg());
+                }
+                if n >= BITS {
+                    return 0;
+                }
                 self << n
             }
             #[inline]
             fn w_shr(self, n: isize) -> Self {
+                const BITS: isize = (core::mem::size_of::<$wide>() * 8) as isize;
+                if n < 0 {
+                    return self.w_shl(n.wrapping_neg());
+                }
+                if n >= BITS {
+                    return if self < 0 { -1 } else { 0 };
+                }
                 self >> n
             }
             #[inline]
             fn w_shr_logical(self, n: isize) -> Self {
+                const BITS: isize = (core::mem::size_of::<$wide>() * 8) as isize;
+                if n < 0 {
+                    return self.w_shl(n.wrapping_neg());
+                }
+                if n >= BITS {
+                    return 0;
+                }
                 ((self as $uwide) >> n) as $wide
             }
             #[inline]
             fn w_shl_assign(&mut self, n: isize) {
-                *self <<= n;
+                *self = self.w_shl(n);
             }
             #[inline]
             fn w_add(self, other: Self) -> Self {
@@ -413,16 +435,39 @@ impl WideOps for i256::I256 {
     fn w_leading_ones(&self) -> isize {
         self.leading_ones() as isize
     }
+    // Total shifts — same semantics as the macro impls above (negative count flips direction, count ≥ 256 saturates).
     #[inline]
     fn w_shl(self, n: isize) -> Self {
+        if n < 0 {
+            return self.w_shr(n.wrapping_neg());
+        }
+        if n >= 256 {
+            return i256::I256::from_le_bytes([0u8; 32]);
+        }
         self << n
     }
     #[inline]
     fn w_shr(self, n: isize) -> Self {
+        if n < 0 {
+            return self.w_shl(n.wrapping_neg());
+        }
+        if n >= 256 {
+            return if self.w_is_negative() {
+                i256::I256::from_le_bytes([0xFFu8; 32])
+            } else {
+                i256::I256::from_le_bytes([0u8; 32])
+            };
+        }
         self >> n
     }
     #[inline]
     fn w_shr_logical(self, n: isize) -> Self {
+        if n < 0 {
+            return self.w_shl(n.wrapping_neg());
+        }
+        if n >= 256 {
+            return i256::I256::from_le_bytes([0u8; 32]);
+        }
         let bytes = self.to_le_bytes();
         let unsigned = i256::U256::from_le_bytes(bytes);
         let shifted = unsigned >> n;
@@ -430,7 +475,7 @@ impl WideOps for i256::I256 {
     }
     #[inline]
     fn w_shl_assign(&mut self, n: isize) {
-        *self <<= n;
+        *self = self.w_shl(n);
     }
     #[inline]
     fn w_add(self, other: Self) -> Self {

@@ -53,7 +53,8 @@ paste = "1.0"
 
 [profile.dev]
 opt-level = 3
-overflow-checks = false
+# Overflow checks ON in dev: consumers' debug builds have them on, so our tests and fuzz must run under the same rules — masking them here is how a shift-overflow panic shipped in 0.1.0 unseen.
+overflow-checks = true
 debug = true
 
 [profile.release]

@@ -105,11 +105,14 @@ where
         let w_leading = leading_e.cycle_widen();
         let stored_pos = w_one.w_add(pa).w_add(pa).w_sub(bo).w_sub(w_leading);
         if stored_pos > max_pos {
-            // Exponent overflow → exploded. Fraction extraction unchanged (depends only on `leading`).
-            let fraction = product
-                .w_shl(leading.wrapping_sub(1))
-                .w_shr(Self::fraction_bits())
-                .deflate();
+            // Exponent overflow → exploded. When the squared wide wraps negative (the signed wide is one bit short for boundary-adjacent significands), leading == 0 and the shl(-1) would panic under overflow checks; the true product is positive read UNSIGNED, so shift right logically instead.
+            let shl_amount = leading.wrapping_sub(1);
+            let shifted = if shl_amount >= 0 {
+                product.w_shl(shl_amount)
+            } else {
+                product.w_shr_logical(shl_amount.wrapping_neg())
+            };
+            let fraction = shifted.w_shr(Self::fraction_bits()).deflate();
             return Self {
                 fraction,
                 exponent: Self::ambiguous_exponent(),

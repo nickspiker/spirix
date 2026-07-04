@@ -213,7 +213,8 @@ where
                 exponent: to_circle_exp(real.exponent),
             };
         } else if exp_diff > 0.as_() {
-            let shift: isize = exp_diff.as_();
+            // saturate, not as_(): an i128 exponent diff truncated to isize can wrap negative and blow past the fraction_bits guard into a panicking shift.
+            let shift: isize = exp_diff.saturate();
             if shift >= Self::fraction_bits() {
                 return Circle {
                     real: real_c,
@@ -228,7 +229,7 @@ where
             };
         } else {
             let zero_e: E = 0.as_();
-            let shift: isize = zero_e.wrapping_sub(&exp_diff).as_();
+            let shift: isize = zero_e.wrapping_sub(&exp_diff).saturate();
             if shift >= Self::fraction_bits() {
                 return Circle {
                     real: 0.as_(),

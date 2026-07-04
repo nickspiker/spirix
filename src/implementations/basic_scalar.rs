@@ -1184,7 +1184,12 @@ where
             return f + Self::ONE;
         } // > 0.5, ceil
           // Exactly 0.5: banker's — round to even. int_lsb at position guard_pos + 1 = FRAC - e - 1, always a real stored bit (no implicit-sign-bit special case needed since logical e=0 spans [1,2) and has FRAC-1 as an actual integer ones bit).
-        let int_lsb = (self.fraction >> guard_pos.wrapping_add(1)) & F::one();
+        let int_pos = guard_pos.wrapping_add(1);
+        if int_pos >= Self::fraction_bits() {
+            // e == -1 tie (value = ±0.5): the integer bit would sit past the stored fraction. Integer part is 0 (even) for +0.5 and -1 (odd) for -0.5 — banker's lands on ZERO either way.
+            return if self.is_negative() { f + Self::ONE } else { f };
+        }
+        let int_lsb = (self.fraction >> int_pos) & F::one();
         if int_lsb != F::zero() {
             f + Self::ONE
         } else {
