@@ -1,5 +1,5 @@
-use spirix::*;
 use spirix::core::integer::*;
+use spirix::*;
 
 fn main() {
     // Replicate what From<f32> for Circle does

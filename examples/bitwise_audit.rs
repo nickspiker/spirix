@@ -93,7 +93,7 @@ fn main() {
     run("pow2 +/- 3", &p2);
 
     // 3) Random pairs
-    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use rand::{rngs::StdRng, Rng, SeedableRng};
     let mut rng = StdRng::seed_from_u64(42);
     let mut rand_pairs = Vec::with_capacity(200_000);
     for _ in 0..200_000 {

@@ -2,7 +2,7 @@ use crate::core::integer::*;
 use crate::core::undefined::*;
 use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
-use i256::{I256, U256};
+use i256::I256;
 use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
@@ -91,7 +91,9 @@ where
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
-            let scale = F::one().sign_extend().w_shl(fb.wrapping_shl(1).wrapping_sub(2));
+            let scale = F::one()
+                .sign_extend()
+                .w_shl(fb.wrapping_shl(1).wrapping_sub(2));
             let reciprocal = scale.w_div_unsigned(mag_sq.w_shr_logical(fb));
 
             let real_num = a.w_mul(c).w_add(b.w_mul(d));
@@ -194,7 +196,11 @@ where
                 };
             }
             // Mixed escape: compute the division anyway, output at AMBIG with the right N1/N2 shape via n_level.
-            let n_level: isize = if self.vanished() || other.exploded() { -2 } else { -1 };
+            let n_level: isize = if self.vanished() || other.exploded() {
+                -2
+            } else {
+                -1
+            };
             // Canonicalize (a non-canonical NORMAL operand can zero the reciprocal's divisor; exponents are already discarded on this path, so no bookkeeping). Zero-valued pairs resolve directly.
             let (nr, ni, s_num) = Self::canonical_n1_pair(self.real, self.imaginary);
             let (dr, di, s_den) = Self::canonical_n1_pair(other.real, other.imaginary);
@@ -211,7 +217,9 @@ where
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
-            let scale = F::one().sign_extend().w_shl(fb.wrapping_shl(1).wrapping_sub(2));
+            let scale = F::one()
+                .sign_extend()
+                .w_shl(fb.wrapping_shl(1).wrapping_sub(2));
             let reciprocal = scale.w_div_unsigned(mag_sq.w_shr_logical(fb));
 
             let real_num = a.w_mul(c).w_add(b.w_mul(d));

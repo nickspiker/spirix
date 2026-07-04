@@ -350,47 +350,8 @@ where
             };
         }
 
-        return Self::HALF_PI - self.asin();
-
-        let one_minus_abs_x = Self::ONE - self.magnitude();
-
-        if one_minus_abs_x.is_negligible() {
-            if self.is_negative() {
-                return Self::PI;
-            } else {
-                return Self::ZERO;
-            }
-        }
-
-        let one_minus_abs_x_half = one_minus_abs_x >> 1i8;
-        let sqrt_term = one_minus_abs_x_half.sqrt();
-
-        let mut series_sum = sqrt_term.clone();
-        let mut term = sqrt_term.clone();
-        let term_squared = sqrt_term.square();
-        let mut n = 0;
-
-        loop {
-            let prev_sum = series_sum.clone();
-            n = n.wrapping_add(&1);
-
-            let numerator = Self::from(2isize.wrapping_mul(n).wrapping_sub(1));
-            let denominator = Self::from(2isize.wrapping_mul(n));
-            let coefficient = numerator / denominator;
-
-            term = term * term_squared * coefficient;
-            series_sum = series_sum + term / Self::from(2isize.wrapping_mul(n).wrapping_add(1));
-
-            if series_sum == prev_sum || n > (Self::fraction_bits() >> 1) {
-                break;
-            }
-        }
-
-        if self.is_negative() {
-            return Self::PI - (series_sum << 1);
-        } else {
-            return series_sum << 1;
-        }
+        // acos(x) = π/2 − asin(x). (An older direct series implementation lived below this return, dead, until 0.1.0 cleanup.)
+        Self::HALF_PI - self.asin()
     }
     pub fn atan(&self) -> Self {
         if !self.is_normal() {

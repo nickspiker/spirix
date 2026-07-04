@@ -166,7 +166,11 @@ where
                 };
             }
             // Mixed escape: divide each Circle component by the (N0→N1 for normal, pass-thru for escape) Scalar, renormalize to N-2 (numerator vanished or denom exploded) or N-1 (otherwise) at AMBIG exp.
-            let n_level: isize = if self.vanished() || other.exploded() { -2 } else { -1 };
+            let n_level: isize = if self.vanished() || other.exploded() {
+                -2
+            } else {
+                -1
+            };
             let denom_narrow: F = if other.is_normal() {
                 (other.fraction >> 1isize) ^ F::min_value()
             } else {

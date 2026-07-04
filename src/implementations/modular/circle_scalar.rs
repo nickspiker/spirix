@@ -90,7 +90,10 @@ where
                 } else {
                     TRANSFINITE_MODULUS.prefix.sa()
                 };
-                return Scalar::<F, E> { fraction, exponent: Self::ambiguous_exponent() };
+                return Scalar::<F, E> {
+                    fraction,
+                    exponent: Self::ambiguous_exponent(),
+                };
             }
             if denominator.vanished() {
                 let fraction = if self.vanished() {
@@ -98,7 +101,10 @@ where
                 } else {
                     MODULUS_VANISHED.prefix.sa()
                 };
-                return Scalar::<F, E> { fraction, exponent: Self::ambiguous_exponent() };
+                return Scalar::<F, E> {
+                    fraction,
+                    exponent: Self::ambiguous_exponent(),
+                };
             }
             if denominator.is_infinite() {
                 return Scalar::<F, E> {

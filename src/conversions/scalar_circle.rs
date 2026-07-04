@@ -1,5 +1,5 @@
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{Deflate, FullInt, Inflate, IntConvert, WideOps};
+use crate::core::integer::{FullInt, IntConvert};
 use crate::core::undefined::*;
 use crate::{Circle, Integer, Scalar};
 use core::ops::*;

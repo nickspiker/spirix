@@ -285,22 +285,6 @@ impl<F: Integer, E: Integer> Circle<F, E> {
         F::min_value()
     }
     #[inline]
-    pub(crate) fn max_fraction() -> F {
-        F::max_value()
-    }
-    #[inline]
-    pub(crate) fn min_fraction() -> F {
-        F::min_value()
-    }
-    #[inline]
-    pub(crate) fn pos_one_exploded() -> F {
-        -(F::min_value() >> 1usize) >> 1usize
-    }
-    #[inline]
-    pub(crate) fn neg_one_exploded() -> F {
-        F::min_value() >> 1usize
-    }
-    #[inline]
     pub(crate) fn pos_one_vanished() -> F {
         -(F::min_value() >> 1usize) >> 2usize
     }

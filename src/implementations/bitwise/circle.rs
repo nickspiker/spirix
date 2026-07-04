@@ -611,9 +611,7 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let leading = real_result
-            .leading_same()
-            .min(imag_result.leading_same());
+        let leading = real_result.leading_same().min(imag_result.leading_same());
         let fb = Self::fraction_bits();
         let delta: isize = fb.wrapping_sub(leading);
         let delta_e: E = delta.as_();

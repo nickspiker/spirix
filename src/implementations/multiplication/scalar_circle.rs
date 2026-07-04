@@ -192,7 +192,11 @@ where
                 };
             } else {
                 // Mixed escape: at least one of self/other is non-normal, and the early-return class checks above didn't apply. Compute the product directly with WideOps, then renormalize to the N-1 (one operand exploded) or N-2 (both vanished) shape at AMBIG exp. The N0→N1 conversion `(x>>1)^MIN` is only valid for normal-class fractions where the MSB implicitly encodes sign; vanished/exploded use top-3-bit (001/110) or top-2-bit (01/10) tags whose layout is identical between N0 and N1, so escape-class self uses its bit pattern directly.
-                let n_level: isize = if self.exploded() || other.exploded() { -1 } else { -2 };
+                let n_level: isize = if self.exploded() || other.exploded() {
+                    -1
+                } else {
+                    -2
+                };
                 let multiplicand_narrow: F = if self.is_normal() {
                     (self.fraction >> 1isize) ^ F::min_value()
                 } else {

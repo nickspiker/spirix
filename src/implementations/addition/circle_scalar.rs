@@ -3,7 +3,7 @@ use crate::core::undefined::*;
 use crate::{Circle, CircleConstants, Integer, Scalar, ScalarConstants};
 use core::ops::*;
 use i256::I256;
-use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub, Zero};
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -111,8 +111,7 @@ where
     pub(crate) fn circle_add_scalar(&self, scalar: &Scalar<F, E>) -> Self {
         if self.is_normal() && scalar.is_normal() {
             // AMBIG=0 native unified pipeline. Scalar's N0 fraction → N1 via (s >> 1) ^ F::MIN before sign_extend; Scalar contributes 0 to the imaginary side.
-            let self_is_big =
-                self.exponent.into_unsigned() > scalar.exponent.into_unsigned();
+            let self_is_big = self.exponent.into_unsigned() > scalar.exponent.into_unsigned();
             let (big_exp, small_exp) = if self_is_big {
                 (self.exponent, scalar.exponent)
             } else {

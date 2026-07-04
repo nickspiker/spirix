@@ -200,7 +200,11 @@ where
                 };
             } else {
                 // Mixed escape: same shape as scalar_multiply_circle's escape — compute the product via WideOps, renormalize to N-1 (one exploded) or N-2 (both vanished) at AMBIG exp. N0→N1 conversion only applies to normal-class fractions; escape patterns share layout across N0 and N1.
-                let n_level: isize = if self.exploded() || other.exploded() { -1 } else { -2 };
+                let n_level: isize = if self.exploded() || other.exploded() {
+                    -1
+                } else {
+                    -2
+                };
                 let multiplicand_narrow: F = if other.is_normal() {
                     (other.fraction >> 1isize) ^ F::min_value()
                 } else {

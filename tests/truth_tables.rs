@@ -856,10 +856,10 @@ fn pow_truth_table() {
     // Definite normals.
     check("^", two, three, two.pow(three), &[Normal, Exploded]); // 2^3 = 8
     check("^", three, two, three.pow(two), &[Normal]); // 3^2 = 9
-    // x^0 = 1 for any finite x (identity).
+                                                       // x^0 = 1 for any finite x (identity).
     check("^", three, z, three.pow(z), &[Normal]);
     check("^", z, z, z.pow(z), &[Normal]); // 0^0 = 1 (Spirix convention)
-    // 0^positive = 0, 0^negative = ∞ (only the exponent's sign matters for a zero base).
+                                           // 0^positive = 0, 0^negative = ∞ (only the exponent's sign matters for a zero base).
     check("^", z, two, z.pow(two), &[Zero]);
     check("^", z, half, z.pow(half), &[Zero]);
     check("^", z, S::from(-2), z.pow(S::from(-2)), &[Infinity]);
@@ -937,7 +937,7 @@ fn pow_escaped_base_truth_table() {
     check("^", ep, ep, ep.pow(ep), &[Exploded]);
     check("^", ep, en, ep.pow(en), &[Vanished]);
     check("^", vn, ep, vn.pow(ep), &[Undefined]); // parity of ↑ unknown
-    // Vanished / infinite exponent stays undefined (0·∞ form / directionless ∞).
+                                                  // Vanished / infinite exponent stays undefined (0·∞ form / directionless ∞).
     check("^", vp, vp, vp.pow(vp), &[Undefined]);
     check("^", ep, inf, ep.pow(inf), &[Undefined]);
     // x^0 = 1 still holds for escaped bases.
@@ -956,7 +956,7 @@ fn shift_truth_table() {
     check("<<", two, S::ZERO, two << 1, &[Normal]); // = 4
     check("<<", two, S::ZERO, two << 127, &[Exploded]); // 2^128 over the ceiling → escapes
     check(">>", two, S::ZERO, two >> 1, &[Normal]); // = 1
-    // A right shift escapes to vanished symmetrically once it crosses the floor; a small value reaches it within i8's shift range where `2` (exp +1) cannot.
+                                                    // A right shift escapes to vanished symmetrically once it crosses the floor; a small value reaches it within i8's shift range where `2` (exp +1) cannot.
     let tiny_normal = S::ONE >> 120; // 2^-120, still normal
     check(">>", tiny_normal, S::ZERO, tiny_normal >> 20, &[Vanished]);
     // Zero and infinity are fixed points of scaling.
@@ -976,8 +976,8 @@ fn min_max_clamp_truth_table() {
     // Ordered normals.
     check("min", two, five, two.min(five), &[Normal]); // → 2
     check("max", two, five, two.max(five), &[Normal]); // → 5
-    // Against infinity: Spirix's ∞ is the UNSIGNED point-at-infinity, so it is not ordered relative to a finite value — min/max return undefined (℘⌊ / ℘⌈), not the finite operand.
-    // This is a design choice (not a bug): a signless ∞ sits at "both ends" of the line.
+                                                       // Against infinity: Spirix's ∞ is the UNSIGNED point-at-infinity, so it is not ordered relative to a finite value — min/max return undefined (℘⌊ / ℘⌈), not the finite operand.
+                                                       // This is a design choice (not a bug): a signless ∞ sits at "both ends" of the line.
     check("min", two, inf, two.min(inf), &[Undefined]);
     check("max", two, inf, two.max(inf), &[Undefined]);
     // Undefined operand → undefined (non-orderable).
@@ -990,7 +990,11 @@ fn min_max_clamp_truth_table() {
         Zero,
         "clamp(-3, [0,5]) → 0"
     );
-    assert_eq!(classify(&two.clamp(neg_three, five)), Normal, "clamp inside");
+    assert_eq!(
+        classify(&two.clamp(neg_three, five)),
+        Normal,
+        "clamp inside"
+    );
     // clamp against ∞ inherits the same unsigned-∞ non-ordering as min/max → undefined (℘∩).
     assert_eq!(
         classify(&inf.clamp(neg_three, five)),
@@ -1010,7 +1014,13 @@ fn powb_unary_truth_table() {
     check_unary("powb", "[-↓]", vn, vn.powb(), &[Normal]);
     check_unary("powb", "2", two, two.powb(), &[Normal]); // = 4
     check_unary("powb", "-2", neg_two, neg_two.powb(), &[Normal]); // = 0.25
-    check_unary("powb", "[+↑]", ep, ep.powb(), &[Exploded, Infinity, Undefined]);
+    check_unary(
+        "powb",
+        "[+↑]",
+        ep,
+        ep.powb(),
+        &[Exploded, Infinity, Undefined],
+    );
     check_unary("powb", "[-↑]", en, en.powb(), &[Zero]); // 2^-∞ = 0
     check_unary("powb", "[∞]", inf, inf.powb(), &[Infinity]);
     check_unary("powb", "[℘]", und, und.powb(), &[Undefined]);
@@ -1591,7 +1601,10 @@ fn classify_c4(c: &C4) -> Class {
 
 fn check_c4(what: &str, result: C4, expected: &[Class]) {
     let rc = classify_c4(&result);
-    assert!(expected.contains(&rc), "{what}: got {rc:?}, expected {expected:?} (result {result:?})");
+    assert!(
+        expected.contains(&rc),
+        "{what}: got {rc:?}, expected {expected:?} (result {result:?})"
+    );
 }
 
 /// Angle (degrees) read straight from a Circle's fraction pair — for escaped values this IS the stored orientation.
@@ -1627,7 +1640,10 @@ fn escaped_circles() -> (C4, C4) {
         }
         t = t * half;
     }
-    assert!(e.exploded() && t.vanished(), "representative construction failed");
+    assert!(
+        e.exploded() && t.vanished(),
+        "representative construction failed"
+    );
     (e, t)
 }
 
@@ -1652,7 +1668,10 @@ fn circle_pow_scalar_truth_table() {
 
     // Escaped base, integer exponent: class + ORIENTATION thru the multiply chain; z^1 ≡ z.
     let e1 = e.pow(S4::from(1));
-    assert!(e1.exploded() && e1.real == e.real && e1.imaginary == e.imaginary, "↑^1 must be the identity");
+    assert!(
+        e1.exploded() && e1.real == e.real && e1.imaginary == e.imaginary,
+        "↑^1 must be the identity"
+    );
     let e2 = e.pow(two);
     assert!(e2.exploded());
     assert_angle("↑^2", &e2, 106.26);
@@ -1790,11 +1809,17 @@ fn equality_ordering_semantics() {
     // Reflexive equality fails for every non-value class (NaN-style, but broader).
     assert!(und != und);
     assert!(inf != inf);
-    assert!(ep != ep, "↑ == ↑ must be false: identical phase does not mean identical magnitude");
+    assert!(
+        ep != ep,
+        "↑ == ↑ must be false: identical phase does not mean identical magnitude"
+    );
     assert!(vp != vp);
     // Normal equality is exact.
     assert!(two == S::from(2));
-    assert!(S::ZERO == S::ZERO, "Zero is a definite value and equals itself");
+    assert!(
+        S::ZERO == S::ZERO,
+        "Zero is a definite value and equals itself"
+    );
 
     // Ordering: escaped values DO order against normals (the answer is knowable)...
     assert!(ep > two);

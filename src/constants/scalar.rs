@@ -271,14 +271,6 @@ impl<F: Integer, E: Integer> Scalar<F, E> {
         F::zero()
     }
     #[inline]
-    pub(crate) fn max_fraction() -> F {
-        -F::one()
-    }
-    #[inline]
-    pub(crate) fn min_fraction() -> F {
-        F::zero()
-    }
-    #[inline]
     pub(crate) fn pos_one_exploded() -> F {
         -(F::min_value() >> 1usize)
     }

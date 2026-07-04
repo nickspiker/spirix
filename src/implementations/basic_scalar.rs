@@ -213,7 +213,6 @@ where
     ///
     /// // Infinity is defined let infinity: ScalarF5E3 = normal / 0_i32; assert!(!infinity.is_undefined());
     /// ```
-    #[inline]
     /// XOR fingerprint of the prefix: result bit i = (prefix bit i) XOR (prefix bit i-1). Encodes all four escape-class patterns at once, so each `is_*` check below is a branchless mask. Unsigned shift to skip Rust's `i8::MIN << 1` overflow check. 0 or 1   → uniform (prefix == 0 or -1, i.e. ZERO or INFINITY) [2, 63]  → undefined (top 3 same, lower bits not — bit 7 & 6 of XOR clear, but not all-zero) [64, 127] → vanished (top 2 same, third differs — bit 7 of XOR clear, bit 6 set) [128, 255] → exploded (top 2 differ — bit 7 of XOR set)
     #[inline]
     fn class_xor(&self) -> u8 {
@@ -1056,7 +1055,9 @@ where
             return result;
         }
         // Fractional bit count = FRAC - logical_k - 1.
-        let frac_bits = Self::fraction_bits().wrapping_sub(logical_k).wrapping_sub(1);
+        let frac_bits = Self::fraction_bits()
+            .wrapping_sub(logical_k)
+            .wrapping_sub(1);
         let mask: F = !((F::one() << frac_bits).wrapping_sub(&F::one()));
         result.fraction = result.fraction & mask;
         result

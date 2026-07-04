@@ -41,8 +41,16 @@ fn main() {
     }
 
     println!("n = {}", n);
-    println!("in normal range: {} ({:.2}%)", in_range, 100.0 * in_range as f64 / n as f64);
-    println!("vanished: {} ({:.4}%)", vanished, 100.0 * vanished as f64 / n as f64);
+    println!(
+        "in normal range: {} ({:.2}%)",
+        in_range,
+        100.0 * in_range as f64 / n as f64
+    );
+    println!(
+        "vanished: {} ({:.4}%)",
+        vanished,
+        100.0 * vanished as f64 / n as f64
+    );
     println!("min = {}, max = {}", min_seen.to_f64(), max_seen.to_f64());
     println!("\nBinade histogram (logical k = -1, -2, ...):");
     for (k, count) in binade_hist.iter().enumerate() {

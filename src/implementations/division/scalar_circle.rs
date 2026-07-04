@@ -75,7 +75,9 @@ where
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
-            let scale = F::one().sign_extend().w_shl(fb.wrapping_shl(1).wrapping_sub(2));
+            let scale = F::one()
+                .sign_extend()
+                .w_shl(fb.wrapping_shl(1).wrapping_sub(2));
             let reciprocal = scale.w_div_unsigned(mag_sq.w_shr_logical(fb));
 
             // s * conj(other) = (s * c) + (-s * d)i
@@ -177,7 +179,11 @@ where
                 };
             }
             // Mixed escape: same shape as the normal path — reciprocal of |c|² × s × conj(c) — but renormalized to N-2 (numerator vanished or denom exploded) or N-1 at AMBIG exp. The N0→N1 conversion only applies to normal self; escape patterns share layout across N0 and N1.
-            let n_level: isize = if self.vanished() || other.exploded() { -2 } else { -1 };
+            let n_level: isize = if self.vanished() || other.exploded() {
+                -2
+            } else {
+                -1
+            };
             let a_narrow: F = if self.is_normal() {
                 (self.fraction >> 1isize) ^ F::min_value()
             } else {
@@ -194,7 +200,9 @@ where
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
-            let scale = F::one().sign_extend().w_shl(fb.wrapping_shl(1).wrapping_sub(2));
+            let scale = F::one()
+                .sign_extend()
+                .w_shl(fb.wrapping_shl(1).wrapping_sub(2));
             let reciprocal = scale.w_div_unsigned(mag_sq.w_shr_logical(fb));
 
             let real_num = a.w_mul(c);

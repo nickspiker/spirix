@@ -21,11 +21,18 @@ fn check(what: &str, got: C, want: Complex<f64>) {
         assert!(got.is_zero(), "{what}: expected Zero, got {got:?}");
         return;
     }
-    assert!(got.is_normal(), "{what}: expected normal ≈ {want}, got {got:?}");
+    assert!(
+        got.is_normal(),
+        "{what}: expected normal ≈ {want}, got {got:?}"
+    );
     let g = to_c64(&got);
     let d = (g - want).norm();
     let scale = want.norm().max(1e-300);
-    assert!(d / scale <= TOL, "{what}: {g} != oracle {want} (rel {:.3e})", d / scale);
+    assert!(
+        d / scale <= TOL,
+        "{what}: {g} != oracle {want} (rel {:.3e})",
+        d / scale
+    );
 }
 
 /// The complex value set: axis points, quadrant representatives, small/large magnitudes.
@@ -45,7 +52,9 @@ fn value_set() -> Vec<(Complex<f64>, C)> {
         (0.0, -1.0),
         (-2.0, 0.0),
     ];
-    pts.iter().map(|&(r, i)| (Complex::new(r, i), C::from((r, i)))).collect()
+    pts.iter()
+        .map(|&(r, i)| (Complex::new(r, i), C::from((r, i))))
+        .collect()
 }
 
 #[test]
@@ -89,7 +98,11 @@ fn circle_pow_vs_oracle() {
     // Complex exponents thru powc.
     for &(pr, pi) in &[(0.5f64, 0.5f64), (1.0, 1.0), (0.0, 1.0), (-1.0, 0.5)] {
         let w = Complex::new(pr, pi);
-        check(&format!("(3+4i)^({w})"), z.pow(C::from((pr, pi))), wz.powc(w));
+        check(
+            &format!("(3+4i)^({w})"),
+            z.pow(C::from((pr, pi))),
+            wz.powc(w),
+        );
     }
     // i^i is real: e^(-π/2).
     let ii = C::POS_I.pow(C::POS_I);
@@ -117,8 +130,15 @@ fn real_axis_circle_matches_scalar() {
             let cv = cr.r().to_f64();
             let sv = sr.to_f64();
             let rel = ((cv - sv) / sv.abs().max(1e-300)).abs();
-            assert!(rel < 1e-9, "{name}({x}): circle {cv} vs scalar {sv} (rel {rel:.3e})");
-            assert!(cr.i().is_negligible() || cr.i().to_f64().abs() < 1e-9 * cv.abs().max(1.0), "{name}({x}): imaginary leaked {:?}", cr.i());
+            assert!(
+                rel < 1e-9,
+                "{name}({x}): circle {cv} vs scalar {sv} (rel {rel:.3e})"
+            );
+            assert!(
+                cr.i().is_negligible() || cr.i().to_f64().abs() < 1e-9 * cv.abs().max(1.0),
+                "{name}({x}): imaginary leaked {:?}",
+                cr.i()
+            );
         }
         // Binary ops between real-axis circles.
         let c2 = C::from((2.5, 0.0));
@@ -131,13 +151,20 @@ fn real_axis_circle_matches_scalar() {
         ];
         for (name, cr, sr) in bins {
             let rel = ((cr.r().to_f64() - sr.to_f64()) / sr.to_f64().abs().max(1e-300)).abs();
-            assert!(rel < 1e-12, "{x} {name} 2.5: circle vs scalar rel {rel:.3e}");
+            assert!(
+                rel < 1e-12,
+                "{x} {name} 2.5: circle vs scalar rel {rel:.3e}"
+            );
         }
     }
     // Negative real axis: the Circle resolves what the Scalar cannot — sqrt(-4) = 2i, ln(-1) = iπ.
     let neg = C::from((-4.0, 0.0));
     check("sqrt(-4)", neg.sqrt(), Complex::new(0.0, 2.0));
-    check("ln(-1)", C::from((-1.0, 0.0)).ln(), Complex::new(0.0, std::f64::consts::PI));
+    check(
+        "ln(-1)",
+        C::from((-1.0, 0.0)).ln(),
+        Complex::new(0.0, std::f64::consts::PI),
+    );
     // While the Scalar goes undefined — both answers are right, for their domains.
     assert!(S::from(-4).sqrt().is_undefined());
     assert!(S::from(-1).ln().is_undefined());

@@ -580,7 +580,6 @@ fn multiplication_basic() {
         (neg_vanished * one).vanished() && (neg_vanished * one).is_negative(),
         "[-↓]*[#]=[-↓]"
     );
-
 }
 
 #[test]

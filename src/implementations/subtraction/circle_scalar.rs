@@ -104,8 +104,7 @@ where
     pub(crate) fn circle_subtract_scalar(&self, scalar: &Scalar<F, E>) -> Self {
         if self.is_normal() && scalar.is_normal() {
             // AMBIG=0 unified pipeline. Circle - Scalar: track self_is_big for subtraction order. Scalar's N0 frac converted N1 via (s>>1)^F::MIN; scalar.imag = 0.
-            let self_is_big =
-                self.exponent.into_unsigned() > scalar.exponent.into_unsigned();
+            let self_is_big = self.exponent.into_unsigned() > scalar.exponent.into_unsigned();
             let (big_exp, small_exp) = if self_is_big {
                 (self.exponent, scalar.exponent)
             } else {

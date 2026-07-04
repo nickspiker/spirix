@@ -35,9 +35,15 @@ fn main() -> std::io::Result<()> {
         let s_or = to_i16(ls | rs);
         let s_xor = to_i16(ls ^ rs);
 
-        if s_and != l & r { and_mismatch += 1; }
-        if s_or  != l | r { or_mismatch  += 1; }
-        if s_xor != l ^ r { xor_mismatch += 1; }
+        if s_and != l & r {
+            and_mismatch += 1;
+        }
+        if s_or != l | r {
+            or_mismatch += 1;
+        }
+        if s_xor != l ^ r {
+            xor_mismatch += 1;
+        }
 
         and_out.extend_from_slice(&s_and.to_le_bytes());
         or_out.extend_from_slice(&s_or.to_le_bytes());

@@ -109,8 +109,7 @@ where
     pub(crate) fn circle_subtract_circle(&self, circle: &Circle<F, E>) -> Circle<F, E> {
         if self.is_normal() && circle.is_normal() {
             // AMBIG=0 native: dominance via unsigned-cyclic compare. self_is_big tracks the subtraction order so the wide sub produces the right sign.
-            let self_is_big =
-                self.exponent.into_unsigned() > circle.exponent.into_unsigned();
+            let self_is_big = self.exponent.into_unsigned() > circle.exponent.into_unsigned();
             let (big, small) = if self_is_big {
                 (self, circle)
             } else {

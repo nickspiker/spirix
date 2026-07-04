@@ -153,10 +153,24 @@ where
             // Significand mantissa of each operand, as an unsigned magnitude with the leading 1 at bit FRAC-1. magnitude() folds sign (its phase survives negation), then `cycle_widen` zero-extends into the wide type and the class shift restores the significand scale: escaped classes store the significand shifted down (exploded `01mmm` = >> 1 of the normal `1mmm`, vanished `001mm` = >> 2), so shifting back up re-aligns all classes to a common leading-1 position.
             // NOTE: do NOT use inflate() here — inflate(true) applies the N0 sign decode, which is only correct for normal fractions; escaped fractions carry an explicit sign bit and would be corrupted.
             let class_shift = |v: &Self| -> isize {
-                if v.exploded() { 1 } else if v.vanished() { 2 } else { 0 }
+                if v.exploded() {
+                    1
+                } else if v.vanished() {
+                    2
+                } else {
+                    0
+                }
             };
-            let mant_a = self.magnitude().fraction.cycle_widen().w_shl(class_shift(self));
-            let mant_b = other.magnitude().fraction.cycle_widen().w_shl(class_shift(other));
+            let mant_a = self
+                .magnitude()
+                .fraction
+                .cycle_widen()
+                .w_shl(class_shift(self));
+            let mant_b = other
+                .magnitude()
+                .fraction
+                .cycle_widen()
+                .w_shl(class_shift(other));
             let u_product = mant_a.w_mul(mant_b);
             let leading = u_product.w_leading_zeros();
             let fb = Self::fraction_bits();
@@ -172,7 +186,10 @@ where
                 u_product.w_shl(k.wrapping_neg()).deflate()
             };
             // Apply sign via the library's own two's-complement negation. Negatives are the two's-complement of positives across ALL bits (not a top-bit XOR flip), so delegating to scalar_negate keeps escaped phase consistent with `-x`, magnitude(), and the number-line continuity, and guarantees a*(-b) == -(a*b). (A top-bit flip only agrees at phase 0, which is why the old canonical-only path never exposed the difference.)
-            let mut result = Self { fraction: pos_frac, exponent: Self::ambiguous_exponent() };
+            let mut result = Self {
+                fraction: pos_frac,
+                exponent: Self::ambiguous_exponent(),
+            };
             if result_negative {
                 result.scalar_negate();
             }
@@ -232,7 +249,10 @@ where
                 u_product.w_shl(k.wrapping_neg()).deflate()
             };
             if expect_negative {
-                let mut s = Self { fraction: pos, exponent: Self::ambiguous_exponent() };
+                let mut s = Self {
+                    fraction: pos,
+                    exponent: Self::ambiguous_exponent(),
+                };
                 s.scalar_negate();
                 s.fraction
             } else {

@@ -1,6 +1,8 @@
 use spirix::ScalarF5E3;
 
-fn f(x: ScalarF5E3) -> f32 { x.into() }
+fn f(x: ScalarF5E3) -> f32 {
+    x.into()
+}
 
 fn main() {
     let x = ScalarF5E3::from(-0.99f32);
@@ -12,9 +14,16 @@ fn main() {
 
     let one = ScalarF5E3::from(1);
     let one_minus = one - mag;
-    println!("one_minus_abs_x = {} bits={:?} neg={} van={}", f(one_minus), one_minus, one_minus.is_negligible(), one_minus.vanished());
+    println!(
+        "one_minus_abs_x = {} bits={:?} neg={} van={}",
+        f(one_minus),
+        one_minus,
+        one_minus.is_negligible(),
+        one_minus.vanished()
+    );
 
-    let three_quarters = ScalarF5E3::from(0.5f32) + ScalarF5E3::from(0.5f32) * ScalarF5E3::from(0.5f32);
+    let three_quarters =
+        ScalarF5E3::from(0.5f32) + ScalarF5E3::from(0.5f32) * ScalarF5E3::from(0.5f32);
     println!("3/4 = {} bits={:?}", f(three_quarters), three_quarters);
     println!("mag < 3/4 = {}", mag < three_quarters);
 
@@ -22,5 +31,10 @@ fn main() {
     println!("one_minus >> 1 = {} bits={:?}", f(omah), omah);
 
     let sqrt_term = omah.sqrt();
-    println!("sqrt(omah) = {} bits={:?} norm={}", f(sqrt_term), sqrt_term, sqrt_term.is_normal());
+    println!(
+        "sqrt(omah) = {} bits={:?} norm={}",
+        f(sqrt_term),
+        sqrt_term,
+        sqrt_term.is_normal()
+    );
 }

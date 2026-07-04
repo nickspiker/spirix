@@ -32,13 +32,19 @@ fn ieee_subnormals_map_by_width() {
     // An f32 subnormal (~1e-40) is below F5E3's 2^-128 floor → vanished with sign; but F6E5's i32 exponent holds it comfortably → normal.
     let sub = 1e-40f32;
     let narrow = S::from(sub);
-    assert!(narrow.vanished() && narrow.is_positive(), "subnormal → vanished at E3");
+    assert!(
+        narrow.vanished() && narrow.is_positive(),
+        "subnormal → vanished at E3"
+    );
     let narrow_n = S::from(-sub);
     assert!(narrow_n.vanished() && narrow_n.is_negative());
     let wide = W::from(sub as f64);
     assert!(wide.is_normal(), "same value is normal at E5");
     let rel = (wide.to_f64() - sub as f64).abs() / sub as f64;
-    assert!(rel < 1e-7, "subnormal value survives the wide conversion: rel {rel}");
+    assert!(
+        rel < 1e-7,
+        "subnormal value survives the wide conversion: rel {rel}"
+    );
 }
 
 // ===================================================================== Spirix → IEEE =====
@@ -62,7 +68,10 @@ fn spirix_specials_into_ieee() {
     let vz = tiny.to_f32();
     assert!(vz == 0.0 && vz.is_sign_positive());
     let nvz = (-tiny).to_f32();
-    assert!(nvz == 0.0 && nvz.is_sign_negative(), "negative vanished → -0.0");
+    assert!(
+        nvz == 0.0 && nvz.is_sign_negative(),
+        "negative vanished → -0.0"
+    );
     // Zero → +0.0.
     assert!(S::ZERO.to_f32() == 0.0);
 }
@@ -78,7 +87,11 @@ fn integer_casts_saturate_and_floor() {
     assert_eq!(und.to_i32(), 0, "undefined → 0 (Rust NaN-cast convention)");
     assert_eq!(huge.to_i32(), i32::MAX);
     assert_eq!(neg_huge.to_i32(), i32::MIN);
-    assert_eq!(inf.to_i32(), i32::MAX, "unsigned ∞ saturates high (documented quirk)");
+    assert_eq!(
+        inf.to_i32(),
+        i32::MAX,
+        "unsigned ∞ saturates high (documented quirk)"
+    );
     // Vanished of either sign casts to 0 (negligible short-circuit — NOTE: floor(-↓) is -1, but the int cast treats vanished as ≈0 before flooring).
     assert_eq!(tiny.to_i32(), 0);
     assert_eq!((-tiny).to_i32(), 0);
@@ -95,7 +108,20 @@ fn integer_casts_saturate_and_floor() {
 fn f64_round_trip_precision() {
     // f64 → ScalarF6E5 → f64 must hold ~2^-62 relative error (i64 fraction, one bit of slack for floor rounding on each leg).
     let cases = [
-        1.0f64, -1.0, 0.5, -0.5, 2.0, 42.0, 1.0 / 42.0, 3.141592653589793, 2.718281828459045, 1e300, 1e-300, -6.62607015e-34, 4294967296.0, 2.3283064365386963e-10,
+        1.0f64,
+        -1.0,
+        0.5,
+        -0.5,
+        2.0,
+        42.0,
+        1.0 / 42.0,
+        3.141592653589793,
+        2.718281828459045,
+        1e300,
+        1e-300,
+        -6.62607015e-34,
+        4294967296.0,
+        2.3283064365386963e-10,
     ];
     for &x in &cases {
         let rt = W::from(x).to_f64();
@@ -109,7 +135,9 @@ fn f32_round_trip_sweep() {
     // Deterministic sweep across every f32 binade: value bits from a fixed LCG, all finite → convert thru ScalarF6E5 and back, requiring f32-exactness after rounding.
     let mut state = 0x1234_5678_9ABC_DEF0u64;
     let mut lcg = move || {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         state
     };
     let mut checked = 0usize;

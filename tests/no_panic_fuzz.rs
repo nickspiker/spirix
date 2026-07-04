@@ -10,18 +10,38 @@ type SW = ScalarF7E7;
 
 /// Exactly one Scalar class predicate must hold for ANY bit pattern.
 fn assert_one_class_s(v: &S, what: &str) {
-    let n = [v.is_zero(), v.is_infinite(), v.vanished(), v.exploded(), v.is_undefined(), v.is_normal()]
-        .iter()
-        .filter(|&&b| b)
-        .count();
-    assert!(n == 1, "{what}: {n} classes claim {:?} (frac {:#010b}, exp {:#010b})", v, v.fraction as u8, v.exponent as u8);
+    let n = [
+        v.is_zero(),
+        v.is_infinite(),
+        v.vanished(),
+        v.exploded(),
+        v.is_undefined(),
+        v.is_normal(),
+    ]
+    .iter()
+    .filter(|&&b| b)
+    .count();
+    assert!(
+        n == 1,
+        "{what}: {n} classes claim {:?} (frac {:#010b}, exp {:#010b})",
+        v,
+        v.fraction as u8,
+        v.exponent as u8
+    );
 }
 
 fn assert_one_class_c(v: &C, what: &str) {
-    let n = [v.is_zero(), v.is_infinite(), v.vanished(), v.exploded(), v.is_undefined(), v.is_normal()]
-        .iter()
-        .filter(|&&b| b)
-        .count();
+    let n = [
+        v.is_zero(),
+        v.is_infinite(),
+        v.vanished(),
+        v.exploded(),
+        v.is_undefined(),
+        v.is_normal(),
+    ]
+    .iter()
+    .filter(|&&b| b)
+    .count();
     assert!(n == 1, "{what}: {n} classes claim {:?}", v);
 }
 
@@ -29,7 +49,10 @@ fn assert_one_class_c(v: &C, what: &str) {
 struct Lcg(u64);
 impl Lcg {
     fn next(&mut self) -> u64 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         self.0
     }
 }
@@ -119,14 +142,40 @@ fn wide_width_total_over_sampled_patterns() {
     let mut rng = Lcg(0xFEED_FACE_CAFE_BEEF);
     let mut wide = |r: &mut Lcg| -> i128 { ((r.next() as i128) << 64) | r.next() as i128 };
     for _ in 0..2_000 {
-        let a = Scalar::<i128, i128> { fraction: wide(&mut rng), exponent: wide(&mut rng) };
-        let b = Scalar::<i128, i128> { fraction: wide(&mut rng), exponent: wide(&mut rng) };
-        let n = [a.is_zero(), a.is_infinite(), a.vanished(), a.exploded(), a.is_undefined(), a.is_normal()].iter().filter(|&&x| x).count();
+        let a = Scalar::<i128, i128> {
+            fraction: wide(&mut rng),
+            exponent: wide(&mut rng),
+        };
+        let b = Scalar::<i128, i128> {
+            fraction: wide(&mut rng),
+            exponent: wide(&mut rng),
+        };
+        let n = [
+            a.is_zero(),
+            a.is_infinite(),
+            a.vanished(),
+            a.exploded(),
+            a.is_undefined(),
+            a.is_normal(),
+        ]
+        .iter()
+        .filter(|&&x| x)
+        .count();
         assert!(n == 1, "F7E7 pattern claims {n} classes");
         // The heavy ops: multiply/divide/add drive the I256 machinery; sqrt/exp the iterative loops.
         let results: [SW; 7] = [a + b, a - b, a * b, a / b, a % b, a.sqrt(), a.magnitude()];
         for r in results {
-            let n = [r.is_zero(), r.is_infinite(), r.vanished(), r.exploded(), r.is_undefined(), r.is_normal()].iter().filter(|&&x| x).count();
+            let n = [
+                r.is_zero(),
+                r.is_infinite(),
+                r.vanished(),
+                r.exploded(),
+                r.is_undefined(),
+                r.is_normal(),
+            ]
+            .iter()
+            .filter(|&&x| x)
+            .count();
             assert!(n == 1, "F7E7 result claims {n} classes");
         }
     }
@@ -137,8 +186,16 @@ fn circle_total_over_sampled_patterns() {
     let mut rng = Lcg(0xC19C_1E5E_ED00_0001);
     for _ in 0..100_000 {
         let w = rng.next();
-        let a = Circle::<i8, i8> { real: w as i8, imaginary: (w >> 8) as i8, exponent: (w >> 16) as i8 };
-        let b = Circle::<i8, i8> { real: (w >> 24) as i8, imaginary: (w >> 32) as i8, exponent: (w >> 40) as i8 };
+        let a = Circle::<i8, i8> {
+            real: w as i8,
+            imaginary: (w >> 8) as i8,
+            exponent: (w >> 16) as i8,
+        };
+        let b = Circle::<i8, i8> {
+            real: (w >> 24) as i8,
+            imaginary: (w >> 32) as i8,
+            exponent: (w >> 40) as i8,
+        };
         assert_one_class_c(&a, "circle input");
         let results = [
             ("neg", -a),
@@ -158,7 +215,10 @@ fn circle_total_over_sampled_patterns() {
             assert_one_class_c(&r, name);
         }
         // Circle^scalar and magnitude (Scalar out).
-        let p = Scalar::<i8, i8> { fraction: (w >> 48) as i8, exponent: (w >> 56) as i8 };
+        let p = Scalar::<i8, i8> {
+            fraction: (w >> 48) as i8,
+            exponent: (w >> 56) as i8,
+        };
         assert_one_class_c(&a.pow(p), "z^s");
         assert_one_class_s(&a.magnitude(), "|z|");
     }

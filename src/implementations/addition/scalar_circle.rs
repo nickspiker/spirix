@@ -111,8 +111,7 @@ where
     pub(crate) fn scalar_add_circle(&self, circle: &Circle<F, E>) -> Circle<F, E> {
         if self.is_normal() && circle.is_normal() {
             // AMBIG=0 unified pipeline. self is Scalar (N0); convert fraction to N1 before sign_extend; Scalar's imaginary contribution is 0.
-            let self_is_big =
-                self.exponent.into_unsigned() > circle.exponent.into_unsigned();
+            let self_is_big = self.exponent.into_unsigned() > circle.exponent.into_unsigned();
             let (big_exp, small_exp) = if self_is_big {
                 (self.exponent, circle.exponent)
             } else {

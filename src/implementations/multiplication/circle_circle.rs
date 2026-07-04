@@ -216,7 +216,11 @@ where
         }
 
         // Escape * (normal or escape with same class): compute the product directly, output at AMBIG with N1 (one operand exploded) or N2 (both vanished) shape.
-        let n_level: isize = if self.exploded() || other.exploded() { -1 } else { -2 };
+        let n_level: isize = if self.exploded() || other.exploded() {
+            -1
+        } else {
+            -2
+        };
         let a = self.real.sign_extend();
         let b = self.imaginary.sign_extend();
         let c = other.real.sign_extend();

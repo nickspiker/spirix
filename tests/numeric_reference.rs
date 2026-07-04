@@ -106,7 +106,10 @@ fn run_unary(name: &str, f: impl Fn(S) -> S, oracle: impl Fn(f64) -> f64) {
             checked += 1;
         }
     }
-    assert!(checked > 0, "{name}: no strict checks ran — value set too narrow?");
+    assert!(
+        checked > 0,
+        "{name}: no strict checks ran — value set too narrow?"
+    );
 }
 
 fn run_binary(name: &str, f: impl Fn(S, S) -> S, oracle: impl Fn(f64, f64) -> f64) {
@@ -374,7 +377,10 @@ fn rand_uniform_statistics() {
     let mut distinct = std::collections::BTreeSet::new();
     for _ in 0..n {
         let r = S::random();
-        assert!(!r.is_undefined() && !r.is_infinite() && !r.exploded(), "random() must never produce undefined/∞/exploded, got {r:?}");
+        assert!(
+            !r.is_undefined() && !r.is_infinite() && !r.exploded(),
+            "random() must never produce undefined/∞/exploded, got {r:?}"
+        );
         let v = r.to_f64();
         assert!((-1.0..=1.0).contains(&v), "random() out of [-1,1]: {v}");
         sum += v;
@@ -384,8 +390,15 @@ fn rand_uniform_statistics() {
     let mean = sum / n as f64;
     let var = sumsq / n as f64 - mean * mean;
     assert!(mean.abs() < 0.05, "uniform mean drifted: {mean}");
-    assert!((0.28..=0.39).contains(&var), "uniform variance off (expect ≈1/3): {var}");
-    assert!(distinct.len() > n / 2, "generator not varying: {} distinct of {n}", distinct.len());
+    assert!(
+        (0.28..=0.39).contains(&var),
+        "uniform variance off (expect ≈1/3): {var}"
+    );
+    assert!(
+        distinct.len() > n / 2,
+        "generator not varying: {} distinct of {n}",
+        distinct.len()
+    );
 }
 
 #[test]
@@ -396,7 +409,10 @@ fn rand_gauss_statistics() {
     let mut absmax = 0.0f64;
     for _ in 0..n {
         let r = S::random_gauss();
-        assert!(!r.is_undefined() && !r.is_infinite() && !r.exploded(), "random_gauss() must never produce undefined/∞/exploded, got {r:?}");
+        assert!(
+            !r.is_undefined() && !r.is_infinite() && !r.exploded(),
+            "random_gauss() must never produce undefined/∞/exploded, got {r:?}"
+        );
         let v = r.to_f64();
         sum += v;
         sumsq += v * v;
@@ -405,9 +421,18 @@ fn rand_gauss_statistics() {
     let mean = sum / n as f64;
     let var = sumsq / n as f64 - mean * mean;
     assert!(mean.abs() < 0.08, "gauss mean drifted: {mean}");
-    assert!((0.85..=1.15).contains(&var), "gauss variance off (expect ≈1): {var}");
-    assert!(absmax < 8.0, "gauss tail implausible (P(|z|>8) ≈ 1e-15): {absmax}");
-    assert!(absmax > 2.0, "gauss tails missing (10k samples should exceed 2σ): {absmax}");
+    assert!(
+        (0.85..=1.15).contains(&var),
+        "gauss variance off (expect ≈1): {var}"
+    );
+    assert!(
+        absmax < 8.0,
+        "gauss tail implausible (P(|z|>8) ≈ 1e-15): {absmax}"
+    );
+    assert!(
+        absmax > 2.0,
+        "gauss tails missing (10k samples should exceed 2σ): {absmax}"
+    );
 }
 
 #[test]
@@ -415,9 +440,15 @@ fn rand_works_at_narrow_width() {
     // The 8-bit-fraction type exercises the normalization edge cases hardest.
     for _ in 0..2_000 {
         let r = ScalarF3E3::random();
-        assert!(!r.is_undefined() && !r.is_infinite() && !r.exploded(), "F3E3 random() bad class: {r:?}");
+        assert!(
+            !r.is_undefined() && !r.is_infinite() && !r.exploded(),
+            "F3E3 random() bad class: {r:?}"
+        );
         let v = r.to_f64();
-        assert!((-1.0..=1.0).contains(&v), "F3E3 random() out of [-1,1]: {v}");
+        assert!(
+            (-1.0..=1.0).contains(&v),
+            "F3E3 random() out of [-1,1]: {v}"
+        );
     }
 }
 
@@ -435,7 +466,10 @@ fn constants_match_reference() {
     ];
     for (name, s, want) in cases {
         let got = s.to_f64();
-        assert!(((got - want) / want).abs() < 1e-12, "{name}: {got} vs {want}");
+        assert!(
+            ((got - want) / want).abs() < 1e-12,
+            "{name}: {got} vs {want}"
+        );
     }
 }
 
@@ -473,13 +507,19 @@ fn rand_binade_occupancy_and_endpoints() {
     assert_eq!(exact_pos1, 0, "+1 must be unreachable ([-1, +1))");
     assert_eq!(zeros, 0, "exact zero must never be drawn");
     // Theory n/512 ≈ 195, sigma ≈ 14; bounds sit ~±8 sigma out.
-    assert!((80..=320).contains(&exact_neg1), "exact -1 rate off (theory ≈195): {exact_neg1}");
+    assert!(
+        (80..=320).contains(&exact_neg1),
+        "exact -1 rate off (theory ≈195): {exact_neg1}"
+    );
     assert!(max_seen < 1.0, "max must stay below +1: {max_seen}");
     // First three binades: theory n/2, n/4, n/8 — allow ±10% relative.
     for (k, &c) in binade.iter().enumerate() {
         let want = n >> (k + 1);
         let lo = want - want / 10;
         let hi = want + want / 10;
-        assert!((lo..=hi).contains(&c), "binade {k} occupancy {c} outside [{lo}, {hi}] (theory {want})");
+        assert!(
+            (lo..=hi).contains(&c),
+            "binade {k} occupancy {c} outside [{lo}, {hi}] (theory {want})"
+        );
     }
 }
