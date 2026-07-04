@@ -228,7 +228,7 @@ where
             if self.vanished() {
                 return Self::ONE;
             }
-            // Exploded: |e^z| = e^Re(z), and Re(z)'s SIGN is stored in the orientation even though the magnitude is lost. Re < 0 → e^(-huge) = 0, definite (Scalar parallel: exp(-↑) = 0). Re ≥ 0 → the result's angle Im(z) mod 2π is unknowable → ℘^⬆. Circle components are plain two's complement, so the raw sign test is correct here.
+            // Exploded: |e^z| = e^Re(z), and Re(z)'s SIGN is stored in the orientation even tho the magnitude is lost. Re < 0 → e^(-huge) = 0, definite (Scalar parallel: exp(-↑) = 0). Re ≥ 0 → the result's angle Im(z) mod 2π is unknowable → ℘^⬆. Circle components are plain two's complement, so the raw sign test is correct here.
             if self.exploded() {
                 if self.real.is_negative() {
                     return Self::ZERO;

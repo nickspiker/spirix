@@ -12,7 +12,7 @@
 
 ## ⚠️ Beta Warning
 
-**This is beta software.** The 0.1.x line is the first release series on the production track: every operation carries class truth tables, values are checked against IEEE f64 / `Complex<f64>` oracles over a shared reference set, and the whole op surface is fuzzed for totality — no panics, no hangs, and every raw bit pattern (including non-canonical ones constructed through the pub fields) classifies into exactly one state. The API and some semantics are still settling before 1.0 — validate results independently before trusting them in critical systems.
+**This is beta software.** The 0.1.x line is the first release series on the production track: every operation carries class truth tables, values are checked against IEEE f64 / `Complex<f64>` oracles over a shared reference set, and the whole op surface is fuzzed for totality — no panics, no hangs, and every raw bit pattern (including non-canonical ones constructed thru the pub fields) classifies into exactly one state. The API and some semantics are still settling before 1.0 — validate results independently before trusting them in critical systems.
 
 Current status:
 - ✅ Core arithmetic (addition, subtraction, multiplication, division, modulus) with edge-case truth tables

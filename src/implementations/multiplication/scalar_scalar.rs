@@ -145,7 +145,7 @@ where
                     exponent: Self::ambiguous_exponent(),
                 };
             }
-            // Escaped × escaped/normal: the result class is fixed by magnitude-class dominance (exploded if either operand exploded, else vanished), but we carry the SIGNIFICAND through so orientation survives — an escaped value's phase is the only information it still holds, and Circle complex orientation is built on it.
+            // Escaped × escaped/normal: the result class is fixed by magnitude-class dominance (exploded if either operand exploded, else vanished), but we carry the SIGNIFICAND thru so orientation survives — an escaped value's phase is the only information it still holds, and Circle complex orientation is built on it.
             // An escaped fraction stores its significand shifted by class (exploded `01mmm` = normal `1mmm` >> 1, vanished `001mm` = >> 2), so |a|·|b| of the raw fractions, renormalized by leading-zero count, recovers the significand product regardless of each operand's class scale.
             // Unlike the old formula-extraction (which recomputed the class from the wrapped signed product and could land on N3+ undefined), the result class here is predetermined and the fixed shift stamps the `01`/`001` prefix, so the value can never wander out of its class.
             let result_exploded = self.exploded() || other.exploded();
