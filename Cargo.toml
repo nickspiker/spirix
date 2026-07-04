@@ -17,6 +17,8 @@ exclude = [
     "old hip/",
     "docs/",
     "examples/",
+    "patent/",
+    "paper/",
     "test_contiguous",
     "test_multiplication_truth",
     "*.hipi",
