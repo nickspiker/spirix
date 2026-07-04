@@ -1764,3 +1764,35 @@ fn circle_escaped_orientation_thru_ops() {
     let vn = t + C4::from((1, 1));
     assert!(vn.is_normal());
 }
+
+// ============================================================ Equality / ordering semantics (0.1.0 decision: STRICT) ============================================================
+
+#[test]
+fn equality_ordering_semantics() {
+    // DECISION (0.1.0): equality and ordering are STRICT. ℘, ∞, ↑, ↓ never compare equal to anything — including themselves — because equality between magnitudes the representation has lost would be a claim Spirix can't back. Users wanting bit identity compare the pub fields directly.
+    let und = S::ZERO / S::ZERO;
+    let inf = S::INFINITY;
+    let ep = S::EXPLODED_POS;
+    let vp = S::VANISHED_POS;
+    let two = S::from(2);
+
+    // Reflexive equality fails for every non-value class (NaN-style, but broader).
+    assert!(und != und);
+    assert!(inf != inf);
+    assert!(ep != ep, "↑ == ↑ must be false: identical phase does not mean identical magnitude");
+    assert!(vp != vp);
+    // Normal equality is exact.
+    assert!(two == S::from(2));
+    assert!(S::ZERO == S::ZERO, "Zero is a definite value and equals itself");
+
+    // Ordering: escaped values DO order against normals (the answer is knowable)...
+    assert!(ep > two);
+    assert!(vp < two);
+    assert!(-vp < vp);
+    // ...but ℘ and the unsigned point-at-infinity are unordered against everything.
+    assert!(!(und < two) && !(two < und));
+    assert!(!(inf < two) && !(two < inf) && !(inf > two));
+    // partial_cmp on non-value classes is None — sort_by(partial_cmp().unwrap()) WILL panic on escaped data; that is deliberate, not an oversight.
+    assert!(two.partial_cmp(&inf).is_none());
+    assert!(ep.partial_cmp(&ep).is_none());
+}
