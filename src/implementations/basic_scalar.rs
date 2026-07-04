@@ -229,7 +229,7 @@ where
         (x & 0xC0) == 0 && x >= 2
     }
 
-    pub fn is_uniform(&self) -> bool {
+    pub(crate) fn is_uniform(&self) -> bool {
         !self.is_normal() && self.class_xor() < 2
     }
 

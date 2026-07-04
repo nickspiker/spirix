@@ -339,6 +339,9 @@ pub use crate::constants::{CircleConstants, ScalarConstants};
 // Operator traits for mixed-type operations
 pub use crate::operators::{Clamp, Logarithm, Max, Min, Power};
 
+// Circle → (real, imag) Scalar decomposition.
+pub use crate::conversions::circle_scalar::IntoScalars;
+
 /// Compile-time `ScalarF4E4` literal from an f32 expression.
 ///
 /// `sf!(0.0031308)` expands to a `const ScalarF4E4` at compile time — no IEEE runtime ops in the binary. The argument must be a normal finite non-zero f32 literal or simple const expression.
@@ -359,11 +362,6 @@ macro_rules! sd {
     };
 }
 
+// Tensor / NN demo layer. Deliberately NOT re-exported at the crate root: the numeric core is the semver commitment; reach these via `spirix::tensor::` where the experimental scope is explicit.
 #[cfg(feature = "alloc")]
 pub mod tensor;
-
-#[cfg(feature = "alloc")]
-pub use tensor::{
-    linear_backward, matmul, mse_loss, mse_loss_grad, relu, relu_backward, scale, transpose,
-    Linear, LinearGradients, SimpleNet, Tensor, SGD,
-};

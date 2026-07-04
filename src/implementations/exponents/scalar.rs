@@ -329,6 +329,7 @@ where
     /// Square root via LUT-seeded Newton-Raphson — within ±1 ULP of the floor. SQRT_LUT seeds 8 bits, Newton doubles per step (~2 iters for F5E3).
     ///
     /// Unlike [`sqrt`](Self::sqrt), which uses subtractive restoring and is the canonical bit-exact floor, this routine can drift by 1 ULP at last-bit boundaries. Newton can't self-correct because Spirix's multiply itself floors, so verifying `candidate² ≤ self` at ULP precision isn't reliable without double-wide arithmetic. Prefer `sqrt()` when bit-exact floor matters; use this for the LUT-warm-start performance trade-off.
+    #[doc(hidden)] // Alternative sqrt used by benchmarks/comparisons — sqrt() is the stable API.
     pub fn sqrt_newton(&self) -> Self {
         if !self.is_normal() {
             if self.is_undefined() || self.is_uniform() {

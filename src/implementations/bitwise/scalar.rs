@@ -299,6 +299,7 @@ where
         }
     }
 
+    #[doc(hidden)] // Implementation behind the << / >> operators, exposed for the FPGA test-vector tooling — use the operators.
     pub fn scalar_shl_integer(&self, shift: &E) -> Scalar<F, E> {
         if !self.is_normal() {
             return *self;
@@ -337,6 +338,7 @@ where
         }
     }
 
+    #[doc(hidden)] // Implementation behind the << / >> operators, exposed for the FPGA test-vector tooling — use the operators.
     pub fn scalar_shr_integer(&self, shift: &E) -> Scalar<F, E> {
         if !self.is_normal() {
             return *self;

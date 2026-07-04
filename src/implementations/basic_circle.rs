@@ -313,6 +313,7 @@ where
         !self.is_zero() && !self.is_infinite() && !self.is_n1() && !self.is_n2()
     }
 
+    #[doc(hidden)] // N-level internals, exposed for the FPGA test-vector tooling — not part of the stable API.
     pub fn is_n0(&self) -> bool {
         let prefix: i8 = self.real.sa();
         let prefix_i: i8 = self.imaginary.sa();
@@ -350,11 +351,13 @@ where
         (r << shift, i << shift, shift)
     }
 
+    #[doc(hidden)] // N-level internals, exposed for the FPGA test-vector tooling — not part of the stable API.
     pub fn is_n1(&self) -> bool {
         // N-1 pattern (top 2 = 01 or 10) ⇔ bit 7 of XOR set on either component ⇔ bit 7 set in OR.
         self.class_xor() & 0x80 != 0
     }
 
+    #[doc(hidden)] // N-level internals, exposed for the FPGA test-vector tooling — not part of the stable API.
     pub fn is_n2(&self) -> bool {
         // N-2 pattern (top 3 = 001 or 110) ⇔ XOR bit 7 clear AND XOR bit 6 set, on the component giving the result. OR across components: if either is N-1, its XOR bit 7 contaminates the OR and the `== 0x40` check fails — exactly the "either N-1 ⇒ not N-2" precedence the old branchy version enforced.
         (self.class_xor() & 0xC0) == 0x40
@@ -435,6 +438,18 @@ where
             return self.is_n2();
         }
         false
+    }
+
+    /// Alias for [`Self::vanished`] — matches the `is_*` predicate family and the Scalar API.
+    #[inline]
+    pub fn is_vanished(&self) -> bool {
+        self.vanished()
+    }
+
+    /// Alias for [`Self::exploded`] — matches the `is_*` predicate family and the Scalar API.
+    #[inline]
+    pub fn is_exploded(&self) -> bool {
+        self.exploded()
     }
 
     /// Returns true if this Circle is ridiculously large `[↑]` but not infinity `[∞]`
