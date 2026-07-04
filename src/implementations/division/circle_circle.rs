@@ -64,10 +64,21 @@ where
     pub(crate) fn circle_divide_circle(&self, other: &Self) -> Self {
         if self.is_normal() && other.is_normal() {
             // AMBIG=0 native unified pipeline. Complex division: (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c² + d²). Reciprocal computed in fixed-point (scale = 2^(2*FRAC-2)) then multiplied with numerators.
-            let a = self.real.sign_extend();
-            let b = self.imaginary.sign_extend();
-            let c = other.real.sign_extend();
-            let d = other.imaginary.sign_extend();
+            // Two's-complement boundary guard: |F::MIN| exceeds every positive magnitude by one, and the reciprocal-multiply is exactly one bit short for it — e.g. (-1)/(i) hit +2^(2FRAC-1) and wrapped the imaginary sign. Pre-halve any operand carrying a boundary component; the exponent bump below preserves the value and the leading_same-driven normalization absorbs the shift.
+            let (ar, ai, a_bumped) = if self.real == F::min_value() || self.imaginary == F::min_value() {
+                (self.real >> 1isize, self.imaginary >> 1isize, true)
+            } else {
+                (self.real, self.imaginary, false)
+            };
+            let (cr, ci, c_bumped) = if other.real == F::min_value() || other.imaginary == F::min_value() {
+                (other.real >> 1isize, other.imaginary >> 1isize, true)
+            } else {
+                (other.real, other.imaginary, false)
+            };
+            let a = ar.sign_extend();
+            let b = ai.sign_extend();
+            let c = cr.sign_extend();
+            let d = ci.sign_extend();
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
@@ -88,8 +99,16 @@ where
             let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
 
             // AMBIG=0 exp: result wide = result_value × 2^(2*FRAC-2). Canonical N1 wide has magnitude bit at 2*FRAC-2 → leading_same=1 means value in [1, 2), leading_same=2 means value in [0.5, 1). The shl(leading-1) puts the fraction at canonical N1, so the exponent compensates by -shift (binade drops by one for every left-shift). stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1. The earlier `- w_one` was an over-correction; the reciprocal-numerator bias is already captured by the wide arithmetic and leading_same.
-            let pa = self.exponent.cycle_widen();
-            let pb = other.exponent.cycle_widen();
+            // Boundary-halved operands carry their value in exponent+1 (fraction was pre-shifted right).
+            let w_one_adj = E::one().cycle_widen();
+            let mut pa = self.exponent.cycle_widen();
+            if a_bumped {
+                pa = pa.w_add(w_one_adj);
+            }
+            let mut pb = other.exponent.cycle_widen();
+            if c_bumped {
+                pb = pb.w_add(w_one_adj);
+            }
             let shift_e: E = leading.wrapping_sub(1).as_();
             let w_shift = shift_e.sign_extend();
             let w_bo = Self::binade_origin().cycle_widen();

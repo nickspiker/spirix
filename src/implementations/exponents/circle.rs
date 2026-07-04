@@ -79,10 +79,17 @@ where
             };
         }
         let magnitude = self.magnitude();
+        // |z| ≥ |Re(z)| is an identity, so any negative half-angle operand is floor-rounding error (worst case: pure-real input where |z| rounds a hair below |Re|, sending sqrt a tiny negative → spurious ℘√-). Clamp to zero.
         let mut real = magnitude + self.r();
+        if real.is_negative() {
+            real = Scalar::<F, E>::ZERO;
+        }
         real = real >> 1;
         real = real.sqrt();
         let mut imaginary = magnitude - self.r();
+        if imaginary.is_negative() {
+            imaginary = Scalar::<F, E>::ZERO;
+        }
         imaginary = imaginary >> 1;
         imaginary = imaginary.sqrt();
         if self.imaginary.is_negative() {

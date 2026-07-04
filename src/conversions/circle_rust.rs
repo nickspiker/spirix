@@ -114,21 +114,10 @@ where
             );
         }
 
-        // Convert normalized fractions
-        let mut base_real: f64 = self.real.as_();
-        let mut base_imag: f64 = self.imaginary.as_();
-
-        // Adjust for normal value normalization
-        let frac_scale =
-            f64::from_bits(((1023i64 + Circle::<F, E>::fraction_bits() as i64 - 1) as u64) << 52);
-        base_real = base_real / frac_scale;
-        base_imag = base_imag / frac_scale;
-
-        // Apply exponent scaling
-        let exponent: i32 = self.exponent.saturate();
-        let scale = f64::from_bits(((1023i64 + exponent as i64) as u64) << 52);
-
-        Complex::new(base_real * scale, base_imag * scale)
+        // Normal path: delegate to the component extractors + the verified Scalar→f64 conversion. The previous hand-rolled exponent math predated the v0.1 ruler shift and read every value at exactly half (N1 alignment off by one).
+        let re: f64 = self.r().into();
+        let im: f64 = self.i().into();
+        Complex::new(re, im)
     }
 }
 
@@ -240,21 +229,10 @@ where
             );
         }
 
-        // Convert normalized fractions
-        let mut base_real: f32 = self.real.as_();
-        let mut base_imag: f32 = self.imaginary.as_();
-
-        // Adjust for fraction normalization
-        let frac_scale =
-            f32::from_bits(((127i32 + Circle::<F, E>::fraction_bits() as i32 - 1) as u32) << 23);
-        base_real = base_real / frac_scale;
-        base_imag = base_imag / frac_scale;
-
-        // Apply exponent scaling
-        let exponent: i32 = self.exponent.saturate();
-        let scale = f32::from_bits(((127i32 + exponent) as u32) << 23);
-
-        Complex::new(base_real * scale, base_imag * scale)
+        // Normal path: delegate to the component extractors + the verified Scalar→f32 conversion (same v0.1 ruler-shift off-by-one as the f64 version).
+        let re: f32 = self.r().into();
+        let im: f32 = self.i().into();
+        Complex::new(re, im)
     }
 }
 
