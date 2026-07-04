@@ -256,15 +256,51 @@ where
         let a_mag = if a_neg { a_wide.w_neg() } else { a_wide };
         let b_mag = if b_neg { b_wide.w_neg() } else { b_wide };
 
-        // Compute (a_mag << exp_diff) mod b_mag via chunked iterative reduction — the direct shift would overflow for exp_diff ≥ FRAC, so we shift in chunks of ≤ FRAC bits and reduce modulo b_mag after each. Unsigned interpretation keeps arithmetic correct even when signed view wraps. Invariant: rem ∈ [0, b_mag) after every iteration.
+        // Compute (a_mag << exp_diff) mod b_mag. exp_diff can be astronomically large for wide exponent types (up to ~2^127 at E7), so linear chunk-shifting is unusable — the old loop needed exp_diff/FRAC iterations and effectively hung. Instead use (a · (2^exp_diff mod b)) mod b with square-and-multiply over exp_diff's BITS: O(E_BITS) modular steps.
+        // modmul is a shift-and-conditional-subtract peasant multiply: every intermediate stays < 2·b_mag, well inside the wide width, and reads the operands unsigned-positive (all values here are magnitudes < 2^(FRAC+1)).
+        let _ = exp_diff; // superseded by bit-iteration over exp_diff_e (the saturate() could also flip sign for large diffs)
         let fb = Self::fraction_bits();
+        let modmul = |x: F::Wide, y: F::Wide, m: F::Wide| -> F::Wide {
+            let mut acc = F::zero().inflate(false);
+            // y < 2^(FRAC+1): walk its bits MSB-first.
+            let bits = fb.wrapping_add(2);
+            let mut k = bits;
+            while k > 0 {
+                k -= 1;
+                acc = acc.w_shl(1);
+                if acc >= m {
+                    acc = acc.w_sub(m);
+                }
+                let one_w = F::one().inflate(false);
+                if y.w_shr_logical(k).w_and(one_w) == one_w {
+                    acc = acc.w_add(x);
+                    if acc >= m {
+                        acc = acc.w_sub(m);
+                    }
+                }
+            }
+            acc
+        };
         let mut rem = a_mag.w_rem_unsigned(b_mag);
-        let mut remaining = exp_diff;
-        while remaining > 0 {
-            let chunk = remaining.min(fb);
-            rem = rem.w_shl(chunk).w_rem_unsigned(b_mag);
-            remaining -= chunk;
+        // pow2 = 2^exp_diff mod b_mag via square-and-multiply on the UNSIGNED cycle-position difference (bit k of the signed E value is bit k of the unsigned one, so raw-bit iteration is exact even where saturate() would have flipped sign).
+        let mut pow2 = F::one().inflate(false).w_shl(1); // 2
+        if pow2 >= b_mag {
+            pow2 = pow2.w_sub(b_mag);
         }
+        let mut acc_pow = F::one().inflate(false); // 1 (b_mag ≥ 2 for any normalized divisor)
+        let e_bits = Self::exponent_bits();
+        let mut k: isize = 0;
+        while k < e_bits {
+            let one_e: E = 1u8.as_();
+            if (exp_diff_e >> k) & one_e == one_e {
+                acc_pow = modmul(acc_pow, pow2, b_mag);
+            }
+            k += 1;
+            if k < e_bits {
+                pow2 = modmul(pow2, pow2, b_mag);
+            }
+        }
+        rem = modmul(rem, acc_pow, b_mag);
         let r_mag = rem;
 
         if r_mag.w_is_zero() {
