@@ -21,7 +21,7 @@ Current status:
 - ✅ Conversions to/from IEEE f32/f64, integers, and `num_complex::Complex`
 - ⚠️ API may still change before 1.0
 
-> **Note:** 0.1.0 introduces the new binary representation (implicit sign bit for normal numbers, gaining one bit of precision at every width, plus the AMBIG=0 exponent convention). It is a breaking change from the 0.0.x series: stored 0.0.x values are not compatible.
+> **Note:** 0.1.0 introduces the new binary representation for Scalars (implicit sign bit for normal numbers, gaining one bit of precision at every width, plus the AMBIG=0 exponent convention). It is a breaking change from the 0.0.x series: stored 0.0.x values are not compatible. Circles remain unchanged.
 
 ## Overview
 
