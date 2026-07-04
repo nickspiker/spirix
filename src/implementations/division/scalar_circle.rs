@@ -64,9 +64,14 @@ where
     pub(crate) fn scalar_divide_circle(&self, other: &Circle<F, E>) -> Circle<F, E> {
         if self.is_normal() && other.is_normal() {
             // AMBIG=0 unified pipeline. Scalar / Circle: s / (c + di) = s*(c-di) / (c²+d²). The Scalar's N0 fraction is converted N1; reciprocal of mag_sq computed in fixed-point.
+            // Canonicalize a non-canonical denominator pair (pub-field-constructible) so the reciprocal's divisor can't vanish; a zero-valued pair is x/0 = ∞.
+            let (dr, di, s_den) = Circle::<F, E>::canonical_n1_pair(other.real, other.imaginary);
+            if s_den < 0 {
+                return Circle::<F, E>::INFINITY;
+            }
             let a = ((self.fraction >> 1isize) ^ F::min_value()).sign_extend();
-            let c = other.real.sign_extend();
-            let d = other.imaginary.sign_extend();
+            let c = dr.sign_extend();
+            let d = di.sign_extend();
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
@@ -90,9 +95,10 @@ where
             let real = real_wide.w_shl(shift).w_shr(fb).deflate();
             let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
 
-            // AMBIG=0 exp: same shape as Circle/Circle div — stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1 captures the left-shift used to normalize the wide result to canonical N1.
+            // AMBIG=0 exp: same shape as Circle/Circle div — stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1 captures the left-shift used to normalize the wide result to canonical N1. The denominator canonicalization multiplied its pair by 2^s_den → exponent − s_den.
             let pa = self.exponent.cycle_widen();
-            let pb = other.exponent.cycle_widen();
+            let s_den_e: E = s_den.as_();
+            let pb = other.exponent.cycle_widen().w_sub(s_den_e.cycle_widen());
             let shift_e: E = leading.wrapping_sub(1).as_();
             let w_shift = shift_e.sign_extend();
             let w_bo = Scalar::<F, E>::binade_origin().cycle_widen();
@@ -177,9 +183,14 @@ where
             } else {
                 self.fraction
             };
+            // Canonicalize a non-canonical NORMAL denominator (escaped pairs are canonical by class); exponents are discarded on this path. Zero-valued pair → ∞.
+            let (dr, di, s_den) = Circle::<F, E>::canonical_n1_pair(other.real, other.imaginary);
+            if s_den < 0 {
+                return Circle::<F, E>::INFINITY;
+            }
             let a = a_narrow.sign_extend();
-            let c = other.real.sign_extend();
-            let d = other.imaginary.sign_extend();
+            let c = dr.sign_extend();
+            let d = di.sign_extend();
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));

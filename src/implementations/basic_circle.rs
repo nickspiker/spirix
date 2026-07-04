@@ -309,22 +309,8 @@ where
         if self.exponent != Self::ambiguous_exponent() {
             return false;
         }
-        // Extract high byte and cast
-        let prefix: i8 = self.real.sa();
-        let prefix_i: i8 = self.imaginary.sa();
-        if prefix != prefix_i {
-            // Prefixes don't match? not undefined!
-            return false;
-        }
-        if prefix == prefix.rotate_right(1) {
-            // False for Infinity and Zero
-            return false;
-        }
-
-        // Check if top 3 bits are equal by pushing 5 bits off ↓↓↓                ↓↓↓ □□□xxxxx -5-> □□□□□□□□ - Undefined (℘)
-        let top_three = prefix >> 5;
-        // Then rotate and compare.  If uniform, they will be equal
-        top_three == top_three.rotate_right(1)
+        // The AMBIG partition is TOTAL: Zero, Infinity, N1 (exploded), N2 (vanished) — everything else is undefined, INCLUDING mismatched-prefix junk constructible via the pub fields. (The old version required matching component prefixes, leaving such patterns claiming no class at all.)
+        !self.is_zero() && !self.is_infinite() && !self.is_n1() && !self.is_n2()
     }
 
     pub fn is_n0(&self) -> bool {
@@ -342,6 +328,26 @@ where
         let pr: u8 = self.real.sa::<i8>() as u8;
         let pi: u8 = self.imaginary.sa::<i8>() as u8;
         (pr ^ (pr << 1)) | (pi ^ (pi << 1))
+    }
+
+    /// Canonicalize a fraction pair to N1 (min leading-same == 1) for the wide division pipelines.
+    /// Non-canonical normals (constructible via the pub fields) can be de-normalized enough that mag_sq >> FRAC vanishes and the fixed-point reciprocal panics on divide-by-zero; canonicalizing first also recovers the precision the products would otherwise lose.
+    /// Returns (real, imag, left_shift); a (0, 0) pair returns shift = -1 as the zero sentinel.
+    pub(crate) fn canonical_n1_pair(r: F, i: F) -> (F, F, isize) {
+        if r == F::zero() && i == F::zero() {
+            return (r, i, -1);
+        }
+        let ls = |x: F| -> isize {
+            let lz = x.leading_zeros() as isize;
+            let lo = (!x).leading_zeros() as isize;
+            lz.max(lo)
+        };
+        let lead = ls(r).min(ls(i));
+        let shift = lead - 1;
+        if shift <= 0 {
+            return (r, i, 0);
+        }
+        (r << shift, i << shift, shift)
     }
 
     pub fn is_n1(&self) -> bool {
@@ -388,10 +394,8 @@ where
     /// ```
     #[inline]
     pub fn is_negligible(&self) -> bool {
-        if self.is_zero() {
-            return true;
-        }
-        self.is_n2()
+        // Negligible = Zero or Vanished; both require the AMBIG exponent (see vanished()).
+        self.is_zero() || self.vanished()
     }
 
     /// Returns true if this Circle is an infinitesimal value `[↓]` but not Zero `[0]`
@@ -426,7 +430,11 @@ where
     /// ```
     #[inline]
     pub fn vanished(&self) -> bool {
-        self.is_n2()
+        // Class shapes only mean escape at the AMBIG exponent — a normal-exponent value whose fraction pair happens to be N2-shaped (non-canonical normal) is NOT vanished. Mirrors exploded()'s gate.
+        if !self.is_normal() {
+            return self.is_n2();
+        }
+        false
     }
 
     /// Returns true if this Circle is ridiculously large `[↑]` but not infinity `[∞]`
@@ -603,6 +611,10 @@ where
     /// ```
     #[inline]
     pub fn is_zero(&self) -> bool {
+        // Zero lives at the AMBIG exponent — a normal-exponent value whose prefixes happen to be zero (pub-field-constructible) is a (degenerate) normal, not Zero.
+        if self.exponent != Self::ambiguous_exponent() {
+            return false;
+        }
         let prefix_r: i8 = self.real.sa();
         let prefix_i: i8 = self.imaginary.sa();
         prefix_r == 0 && prefix_i == 0
@@ -644,6 +656,10 @@ where
     /// ```
     #[inline]
     pub fn is_infinite(&self) -> bool {
+        // Infinity lives at the AMBIG exponent (see is_zero for the same gate rationale).
+        if self.exponent != Self::ambiguous_exponent() {
+            return false;
+        }
         let prefix_r: i8 = self.real.sa();
         let prefix_i: i8 = self.imaginary.sa();
         prefix_r == -1 && prefix_i == -1

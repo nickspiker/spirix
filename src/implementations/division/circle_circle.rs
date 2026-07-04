@@ -64,16 +64,25 @@ where
     pub(crate) fn circle_divide_circle(&self, other: &Self) -> Self {
         if self.is_normal() && other.is_normal() {
             // AMBIG=0 native unified pipeline. Complex division: (a+bi)/(c+di) = ((ac+bd) + (bc-ad)i) / (c² + d²). Reciprocal computed in fixed-point (scale = 2^(2*FRAC-2)) then multiplied with numerators.
+            // Canonicalize non-canonical pairs first (pub-field-constructible de-normalized values would zero the reciprocal's divisor and lose product precision). Zero pairs resolve immediately: 0-valued/x = 0, x/0-valued = ∞.
+            let (nr, ni, s_num) = Self::canonical_n1_pair(self.real, self.imaginary);
+            let (dr, di, s_den) = Self::canonical_n1_pair(other.real, other.imaginary);
+            if s_num < 0 {
+                return Self::ZERO;
+            }
+            if s_den < 0 {
+                return Self::INFINITY;
+            }
             // Two's-complement boundary guard: |F::MIN| exceeds every positive magnitude by one, and the reciprocal-multiply is exactly one bit short for it — e.g. (-1)/(i) hit +2^(2FRAC-1) and wrapped the imaginary sign. Pre-halve any operand carrying a boundary component; the exponent bump below preserves the value and the leading_same-driven normalization absorbs the shift.
-            let (ar, ai, a_bumped) = if self.real == F::min_value() || self.imaginary == F::min_value() {
-                (self.real >> 1isize, self.imaginary >> 1isize, true)
+            let (ar, ai, a_bumped) = if nr == F::min_value() || ni == F::min_value() {
+                (nr >> 1isize, ni >> 1isize, true)
             } else {
-                (self.real, self.imaginary, false)
+                (nr, ni, false)
             };
-            let (cr, ci, c_bumped) = if other.real == F::min_value() || other.imaginary == F::min_value() {
-                (other.real >> 1isize, other.imaginary >> 1isize, true)
+            let (cr, ci, c_bumped) = if dr == F::min_value() || di == F::min_value() {
+                (dr >> 1isize, di >> 1isize, true)
             } else {
-                (other.real, other.imaginary, false)
+                (dr, di, false)
             };
             let a = ar.sign_extend();
             let b = ai.sign_extend();
@@ -99,13 +108,15 @@ where
             let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
 
             // AMBIG=0 exp: result wide = result_value × 2^(2*FRAC-2). Canonical N1 wide has magnitude bit at 2*FRAC-2 → leading_same=1 means value in [1, 2), leading_same=2 means value in [0.5, 1). The shl(leading-1) puts the fraction at canonical N1, so the exponent compensates by -shift (binade drops by one for every left-shift). stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1. The earlier `- w_one` was an over-correction; the reciprocal-numerator bias is already captured by the wide arithmetic and leading_same.
-            // Boundary-halved operands carry their value in exponent+1 (fraction was pre-shifted right).
+            // Exponent bookkeeping for the value-preserving pre-shifts: canonicalization multiplied the fraction pair by 2^s (exponent − s); boundary halving divided it by 2 (exponent + 1).
             let w_one_adj = E::one().cycle_widen();
-            let mut pa = self.exponent.cycle_widen();
+            let s_num_e: E = s_num.as_();
+            let s_den_e: E = s_den.as_();
+            let mut pa = self.exponent.cycle_widen().w_sub(s_num_e.cycle_widen());
             if a_bumped {
                 pa = pa.w_add(w_one_adj);
             }
-            let mut pb = other.exponent.cycle_widen();
+            let mut pb = other.exponent.cycle_widen().w_sub(s_den_e.cycle_widen());
             if c_bumped {
                 pb = pb.w_add(w_one_adj);
             }
@@ -184,10 +195,19 @@ where
             }
             // Mixed escape: compute the division anyway, output at AMBIG with the right N1/N2 shape via n_level.
             let n_level: isize = if self.vanished() || other.exploded() { -2 } else { -1 };
-            let a = self.real.sign_extend();
-            let b = self.imaginary.sign_extend();
-            let c = other.real.sign_extend();
-            let d = other.imaginary.sign_extend();
+            // Canonicalize (a non-canonical NORMAL operand can zero the reciprocal's divisor; exponents are already discarded on this path, so no bookkeeping). Zero-valued pairs resolve directly.
+            let (nr, ni, s_num) = Self::canonical_n1_pair(self.real, self.imaginary);
+            let (dr, di, s_den) = Self::canonical_n1_pair(other.real, other.imaginary);
+            if s_num < 0 {
+                return Self::ZERO;
+            }
+            if s_den < 0 {
+                return Self::INFINITY;
+            }
+            let a = nr.sign_extend();
+            let b = ni.sign_extend();
+            let c = dr.sign_extend();
+            let d = di.sign_extend();
             let fb = Self::fraction_bits();
 
             let mag_sq = c.w_mul(c).w_add(d.w_mul(d));
