@@ -871,6 +871,17 @@ fn pow_truth_table() {
     // Undefined propagates.
     check("^", und, two, und.pow(two), &[Undefined]);
     check("^", two, und, two.pow(und), &[Undefined]);
+    // Infinite base: pure sign dominance for ANY nonzero exponent — the old stored-exponent test sent ∞^0.5 to ZERO.
+    let inf = S::INFINITY;
+    check("^", inf, two, inf.pow(two), &[Infinity]);
+    check("^", inf, half, inf.pow(half), &[Infinity]);
+    check("^", inf, S::from(-2), inf.pow(S::from(-2)), &[Zero]);
+    check("^", inf, half, inf.pow(-half), &[Zero]);
+    check("^", inf, z, inf.pow(z), &[Normal]); // ∞^0 = 1
+    check("^", inf, inf, inf.pow(S::EXPLODED_POS), &[Infinity]);
+    // Zero base with a VANISHED exponent still resolves by sign: 0^(+↓) = 0, 0^(-↓) = ∞.
+    check("^", z, z, z.pow(S::VANISHED_POS), &[Zero]);
+    check("^", z, z, z.pow(S::VANISHED_NEG), &[Infinity]);
 }
 
 #[test]

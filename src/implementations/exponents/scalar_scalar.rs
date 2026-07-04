@@ -85,12 +85,10 @@ where
                 };
             }
 
+            // Infinite base (single unsigned point, no orientation to lose): pure sign dominance — ∞^(+) = ∞, ∞^(−) = 0, for any positive/negative exponent, normal or escaped. (∞^0 = 1 returned above.) The old `exp.exponent.is_positive()` test predated AMBIG=0 and read stored positives for every |p| < 1, sending ∞^0.5 to ZERO.
             if self.is_infinite() {
-                if exp.is_negative() || exp.exponent.is_positive() {
+                if exp.is_negative() {
                     return Self::ZERO;
-                }
-                if exp.is_zero() {
-                    return Self::ONE;
                 }
                 return *self;
             }
