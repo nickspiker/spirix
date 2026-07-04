@@ -12,7 +12,7 @@
 
 ## ⚠️ Beta Warning
 
-**This is beta software.** The 0.1.x line is the first release series on the production track: every operation carries class truth tables, values are checked against IEEE f64 / `Complex<f64>` oracles over a shared reference set, and the whole op surface is fuzzed for totality — no panics, no hangs, and every raw bit pattern (including non-canonical ones constructed thru the pub fields) classifies into exactly one state. The API and some semantics are still settling before 1.0 — validate results independently before trusting them in critical systems.
+**This is beta software.** The 0.1.x line is the first release series on the production track: every operation carries class truth tables, values are checked against IEEE f64 / `Complex<f64>` oracles over a shared reference set, and the whole op surface is fuzzed for totality: no panics, no hangs, and every raw bit pattern (including non-canonical ones constructed thru the pub fields) classifies into exactly one state. The API and some semantics are still settling before 1.0, so validate results independently before trusting them in critical systems.
 
 Current status:
 - ✅ Core arithmetic (addition, subtraction, multiplication, division, modulus) with edge-case truth tables
@@ -21,7 +21,7 @@ Current status:
 - ✅ Conversions to/from IEEE f32/f64, integers, and `num_complex::Complex`
 - ⚠️ API may still change before 1.0
 
-> **Note:** 0.1.0 introduces the new binary representation (implicit sign bit for normal numbers — one extra bit of precision at every width, AMBIG=0 exponent convention). It is a breaking change from the 0.0.x series: stored 0.0.x values are not compatible.
+> **Note:** 0.1.0 introduces the new binary representation (implicit sign bit for normal numbers, gaining one bit of precision at every width, plus the AMBIG=0 exponent convention). It is a breaking change from the 0.0.x series: stored 0.0.x values are not compatible.
 
 ## Overview
 
@@ -125,7 +125,7 @@ value = (real + imaginary × i) × 2^exponent
 
 ### Normal Values [+#], [-#]
 
-Normal values have definite magnitudes and participate fully in all arithmetic operations. They use the N0 storage convention: there is **no separate sign bit** at the MSB. Sign is encoded by the implicit complement of the MSB — stored MSB=1 reads as positive, stored MSB=0 reads as negative.
+Normal values have definite magnitudes and participate fully in all arithmetic operations. They use the N0 storage convention: there is **no separate sign bit** at the MSB. Sign is encoded by the implicit complement of the MSB: stored MSB=1 reads as positive, stored MSB=0 reads as negative.
 
 ```
 ■xxxxxxx... - Positive normal numbers (stored MSB=1, implicit "0" above it → +)
@@ -186,7 +186,7 @@ Undefined states propagate thru operations, preserving their cause.
 
 ## Display Output
 
-Spirix's `Display` implementation renders normal values as plain signed numbers and reserves bracket notation for the special classes — so a Scalar holding 42 looks like a number, not a sentinel.
+Spirix's `Display` implementation renders normal values as plain signed numbers and reserves bracket notation for the special classes, so a Scalar holding 42 looks like a number, not a sentinel.
 
 ### Scalar
 
@@ -200,7 +200,7 @@ Spirix's `Display` implementation renders normal values as plain signed numbers 
 | Vanished | `⦉±↓⦊` | `⦉+↓⦊`, `⦉-↓⦊` |
 | Undefined | `℘<reason>` | `℘⬇/⬇` (zero-over-zero), `℘⬆+⬆` (∞+∞), etc. |
 
-Normal values always carry a sign — `+42` not `42` — so polarity is never silent. The decimal point is omitted for integers (`+42`, not `+42.0`) since the magnitude alone is unambiguous; non-integers get a decimal naturally (`+3.14159265`). Once a value exceeds the width window for the chosen `FxEy` (or falls below `base^-4`), the formatter switches to scientific notation `±d.ddd×B^±exp` where `B` is the digit character for the chosen base (so `A` = base-10, `G` = base-16, etc.).
+Normal values always carry a sign (`+42` not `42`) so polarity is never silent. The decimal point is omitted for integers (`+42`, not `+42.0`) since the magnitude alone is unambiguous; non-integers get a decimal naturally (`+3.14159265`). Once a value exceeds the width window for the chosen `FxEy` (or falls below `base^-4`), the formatter switches to scientific notation `±d.ddd×B^±exp` where `B` is the digit character for the chosen base (so `A` = base-10, `G` = base-16, etc.).
 
 ### Circle
 
@@ -216,7 +216,7 @@ Circles always wrap in `⦇ ⦈` because the comma-separated `real,imag` pair wo
 | Vanished | `⦇↓±dir_r%,↓±dir_i%⦈` | `⦇↓+0.89%,↓+0.44%⦈` |
 | Undefined | `℘<reason>` | `℘⬇/⬇` |
 
-Escape-class Circles include the unit-direction (phase) digits because that's the only information the class still carries — magnitude is what was lost, direction survives.
+Escape-class Circles include the unit-direction (phase) digits because that's the only information the class still carries; magnitude is what was lost, direction survives.
 
 ### Format specifiers
 
@@ -236,7 +236,7 @@ Precision picks the base (any base 2-36), width controls how many digits before 
 ## Mathematical Operations
 
 ### Arithmetic Operations
-Rust primitives like `f32` and `i8` convert to Scalar automatically. A Circle constructs from either a single real value (imaginary becomes zero) — `CircleF3E3::from(3)`, `CircleF3E3::from(my_scalar)` — or from a `(real, imag)` tuple, where the two values can be any mix of Scalar-convertible types: `CircleF5E4::from((my_scalar, 7i8))`. Note the double parens: `from((r, i))` takes one tuple argument, while `from(r, i)` won't compile. Circles also convert to and from `num_complex::Complex<f32>` / `Complex<f64>` directly — `CircleF5E4::from(Complex::new(1.5, 2.0))`. Going the other way, `circle.r()` and `circle.i()` extract the real and imaginary components as Scalars.
+Rust primitives like `f32` and `i8` convert to Scalar automatically. A Circle constructs from either a single real value (imaginary becomes zero), like `CircleF3E3::from(3)` or `CircleF3E3::from(my_scalar)`, or from a `(real, imag)` tuple, where the two values can be any mix of Scalar-convertible types: `CircleF5E4::from((my_scalar, 7i8))`. Note the double parens: `from((r, i))` takes one tuple argument, while `from(r, i)` won't compile. Circles also convert to and from `num_complex::Complex<f32>` / `Complex<f64>` directly, like `CircleF5E4::from(Complex::new(1.5, 2.0))`. Going the other way, `circle.r()` and `circle.i()` extract the real and imaginary components as Scalars.
 
 Conversion edge semantics, both directions:
 
@@ -247,7 +247,7 @@ Conversion edge semantics, both directions:
 | `±0.0` | `[0]` (Spirix zero is signless) | `[±↓]` | `±0.0` (sign kept in IEEE's signed zero) |
 | subnormal | `[↓]` or normal, by the target width's range | `[∞]` | `NaN` (the unsigned point-at-infinity has no IEEE sign to give) |
 
-Integer casts (`to_i32()` etc.) **floor** rather than truncate — `(-2.9).to_i32() == -3` — consistent with Spirix's floor-based `frac`, division, and modulus, and unlike Rust's toward-zero `as`. Out-of-range saturates (`[↑]` → `MAX`, `[-↑]` → `MIN`), `[℘]` → 0 (the Rust NaN-cast convention), and `[±↓]` → 0.
+Integer casts (`to_i32()` etc.) **floor** rather than truncate (`(-2.9).to_i32() == -3`), consistent with Spirix's floor-based `frac`, division, and modulus, and unlike Rust's toward-zero `as`. Out-of-range saturates (`[↑]` → `MAX`, `[-↑]` → `MIN`), `[℘]` → 0 (the Rust NaN-cast convention), and `[±↓]` → 0.
 
 ### Truth Tables
 
@@ -256,10 +256,10 @@ Integer casts (`to_i32()` etc.) **floor** rather than truncate — `(-2.9).to_i3
 | Tag | Meaning |
 |-----|---------|
 | `[0]` | Zero |
-| `[↓]` | Vanished — nonzero but too small to represent (sign preserved) |
+| `[↓]` | Vanished: nonzero but too small to represent (sign preserved) |
 | `[#]` | Normal value (sign preserved) |
-| `[↑]` | Exploded — too large to represent (sign preserved) |
-| `[∞]` | Infinity — unsigned point-at-infinity |
+| `[↑]` | Exploded: too large to represent (sign preserved) |
+| `[∞]` | Infinity: unsigned point-at-infinity |
 | `[℘?]` | Undefined; specific sub-states spell out the cause (e.g. `[℘ ⬆+⬆]`) |
 
 **Grouping shorthand** used inside cells when the exact class depends on magnitudes:
@@ -297,7 +297,7 @@ classes since the stored MSB flips.
 `[0]` is the absorber (`[0] & X = [0]`, since all-zeros erases any pattern) and
 `[∞]` is the identity (`[∞] & X = X`, since all-ones leaves every bit alone).
 Both are alignment-independent. Escape operands (`[↓]`, `[↑]`) paired with a
-normal produce `[℘&]` — the ambiguous exponent can't align with a real one.
+normal produce `[℘&]`; the ambiguous exponent can't align with a real one.
 Escape-with-escape and `[#] & [#]` can miss each other bitwise and collapse
 to `[0]` or `[↓]`.
 
@@ -313,7 +313,7 @@ to `[0]` or `[↓]`.
 #### Bitwise OR
 
 `[0]` is the identity (`[0] | X = X`) and `[∞]` is the absorber (`[∞] | X = [∞]`,
-since all-ones dominates any pattern) — the dual of AND. Both are alignment-
+since all-ones dominates any pattern), the dual of AND. Both are alignment-
 independent. Escape operands paired with a normal produce `[℘|]` for the same
 ambiguous-exponent reason. Escape-with-escape combines directly at the shared
 ambiguous frame, so `[↓] | [↑]` lands in `[↓]` or `[↑]` depending on signs.
@@ -329,10 +329,10 @@ ambiguous frame, so `[↓] | [↑]` lands in `[↓]` or `[↑]` depending on sig
 
 #### Bitwise XOR
 
-`[0]` is the identity (`[0] ⊻ X = X`) and `[∞]` inverts (`[∞] ⊻ X = ~X` — the
+`[0]` is the identity (`[0] ⊻ X = X`) and `[∞]` inverts (`[∞] ⊻ X = ~X`, the
 NOT table applied to `X`). Both are alignment-independent. Escape operands
 paired with a normal produce `[℘⊻]` (ambiguous exponent can't align). At the
-shared ambiguous frame, `[↓] ⊻ [↑]` collapses cleanly to `[↑]` — opposite-rank
+shared ambiguous frame, `[↓] ⊻ [↑]` collapses cleanly to `[↑]`: opposite-rank
 bit patterns XOR to N-1 regardless of sign. Self-XOR of identical normal
 values cancels to `[0]`.
 
@@ -347,7 +347,7 @@ values cancels to `[0]`.
 
 #### Addition
 
-Addition follows magnitude-class dominance: when one operand is utterly negligible against the other, the larger class wins and carries its phase. Vanished is negligible against everything larger — it cannot move exploded back into normal range, nor affect infinity. **Infinity absorbs everything** — it is the singularity reached only by `n / 0`, and negation of infinity is a no-op, so there is no `∞ − ∞` problem (it just stays `∞`). Indeterminate cells remain only where partial cancellation could land the result anywhere: normal against exploded (phases unknown, could cancel back into normal range), and same-class collisions where opposing phases could partially cancel. Adding two normals can land anywhere in `[0]`, `[↓]`, `[#]`, or `[↑]` depending on magnitudes and phases. Zero is the exact additive identity; zero cells pass the other operand thru unchanged.
+Addition follows magnitude-class dominance: when one operand is utterly negligible against the other, the larger class wins and carries its phase. Vanished is negligible against everything larger; it cannot move exploded back into normal range, nor affect infinity. **Infinity absorbs everything**; it is the singularity reached only by `n / 0`, and negation of infinity is a no-op, so there is no `∞ − ∞` problem (it just stays `∞`). Indeterminate cells remain only where partial cancellation could land the result anywhere: normal against exploded (phases unknown, could cancel back into normal range), and same-class collisions where opposing phases could partially cancel. Adding two normals can land anywhere in `[0]`, `[↓]`, `[#]`, or `[↑]` depending on magnitudes and phases. Zero is the exact additive identity; zero cells pass the other operand thru unchanged.
 
 | + | [0] | [↓] | [#] | [↑] | [∞] | [℘?] |
 |---|-----|-----|-----|-----|-----|------|
@@ -403,7 +403,7 @@ The indeterminate forms are `[0] ÷ [0]` / `[↓] ÷ [↓]` (`[℘ ⬇/⬇]`) an
 
 #### Proper Modulus
 
-Sign of the result follows the period, not the moduland — so `[↑] % [↓]`
+Sign of the result follows the period, not the moduland, so `[↑] % [↓]`
 resolves to `[↓]` when signs agree and `[#]` when they don't. Row header
 distinguishes `[↑]` vs `[∞]` even when output tags are identical, because the
 undefined sub-states differ.
@@ -423,10 +423,10 @@ undefined sub-states differ.
 
 Escaped bases resolve much further than a blanket undefined, because the escape still carries its sign/orientation. With `m·2^E` (significand `m` stored, integer exponent `E` lost past the range boundary):
 
-- **integer p** — `(m·2^E)^p = m^p · 2^(pE)`: `pE` is still an integer, still hidden, so class, parity sign, AND phase all survive thru the multiply chain. `x^1 ≡ x` holds for escaped values, and `pow(x, 2) ≡ x.square()`.
-- **non-integer |p| > 1, positive base** — the class is determinate (`tiny^p` stays tiny, `huge^p` stays huge; `p < 0` inverts thru the reciprocal) but the fractional part of `pE` bleeds into the significand with `E` unknown, so the phase is honestly lost → canonical escaped. (A Circle does better: its angle rotates to `p·θ` without touching the hidden magnitude, so escaped Circles keep exact orientation even here.)
-- **non-integer 0 < |p| < 1** — `tiny^p` can re-enter normal range (`(2^-1000)^0.01 = 2^-10`), so the class itself is indeterminate → `℘⬇^` / `℘⬆^`.
-- **escaped exponent** — magnitude dominance resolves a positive base (`↓^↑ = ↓`, `↓^-↑ = ↑`), but a transfinite exponent's parity is unknowable, so a negative base → `℘^⬆`.
+- **integer p**: `(m·2^E)^p = m^p · 2^(pE)`: `pE` is still an integer, still hidden, so class, parity sign, AND phase all survive thru the multiply chain. `x^1 ≡ x` holds for escaped values, and `pow(x, 2) ≡ x.square()`.
+- **non-integer |p| > 1, positive base**: the class is determinate (`tiny^p` stays tiny, `huge^p` stays huge; `p < 0` inverts thru the reciprocal) but the fractional part of `pE` bleeds into the significand with `E` unknown, so the phase is honestly lost → canonical escaped. (A Circle does better: its angle rotates to `p·θ` without touching the hidden magnitude, so escaped Circles keep exact orientation even here.)
+- **non-integer 0 < |p| < 1**: `tiny^p` can re-enter normal range (`(2^-1000)^0.01 = 2^-10`), so the class itself is indeterminate → `℘⬇^` / `℘⬆^`.
+- **escaped exponent**: magnitude dominance resolves a positive base (`↓^↑ = ↓`, `↓^-↑ = ↑`), but a transfinite exponent's parity is unknowable, so a negative base → `℘^⬆`.
 
 Reading: columns are the exponent's class (`[±#]` = normal split by sign where it matters); `X / Y` resolves to `X` for a positive exponent and `Y` for a negative one.
 
@@ -445,9 +445,9 @@ Spirix comparison semantics are **strict**: equality is only ever asserted betwe
 
 - **Normal values and Zero** compare exactly: `a == a`, total ordering among themselves.
 - **Escaped values order against normals** where the answer is knowable: `[↑] > any normal`, `[↓] <` any normal of larger magnitude, `[-↓] < [+↓]`.
-- **`℘`, `∞`, `[↑]`, `[↓]` never compare equal to anything — including themselves.** Two exploded values with identical stored phase may still be *different* true magnitudes; claiming equality would be a lie. This is NaN-style strictness, applied to every class that has lost information.
-- `partial_cmp` returns `None` for the unordered pairs (`℘` vs anything, `∞` vs finite), so `sort_by(|a, b| a.partial_cmp(b).unwrap())` **will panic** on escaped data — deliberately. Filter or classify first.
-- Want bit identity? The representation is fully exposed: compare `a.fraction == b.fraction && a.exponent == b.exponent` directly. No bias, no hidden payload bits — unlike IEEE, what you see is the whole value.
+- **`℘`, `∞`, `[↑]`, `[↓]` never compare equal to anything, including themselves.** Two exploded values with identical stored phase may still be *different* true magnitudes; claiming equality would be a lie. This is NaN-style strictness, applied to every class that has lost information.
+- `partial_cmp` returns `None` for the unordered pairs (`℘` vs anything, `∞` vs finite), so `sort_by(|a, b| a.partial_cmp(b).unwrap())` **will panic** on escaped data, deliberately. Filter or classify first.
+- Want bit identity? The representation is fully exposed: compare `a.fraction == b.fraction && a.exponent == b.exponent` directly. No bias, no hidden payload bits: what you see is the whole value.
 
 ### Unary Operations
 
@@ -457,7 +457,7 @@ treats them differently.
 #### Negation (`-x`)
 
 Sign flips for any value that has one. Signless classes (`[0]`, `[∞]`, `[℘?]`)
-pass thru unchanged — there's no sign to flip. Normal values can escape
+pass thru unchanged; there's no sign to flip. Normal values can escape
 their class at the exponent boundaries: negating `pos_one_normal` at `MIN_EXP`
 drops the result to `neg_one_vanished` (the extra exp step falls below valid
 range); negating `neg_one_normal` at `MAX_EXP` bumps to `pos_one_exploded`.
@@ -494,7 +494,7 @@ specific undefined sub-states.
 
 #### Binary Logarithm (`lb`) and Natural Log (`ln`)
 
-Same class behavior — `ln` is just `lb × ln(2)`. Non-positive inputs have no real
+Same class behavior; `ln` is just `lb × ln(2)`. Non-positive inputs have no real
 log; positive normal inputs yield sign-varying output since `log(x)` crosses zero
 at `x = 1`.
 
@@ -512,7 +512,7 @@ at `x = 1`.
 
 #### Exponential (`exp` = e^x) and Binary Exponential (`powb` = 2^x)
 
-Same class behavior — different bases don't change the table. Negligible inputs
+Same class behavior; different bases don't change the table. Negligible inputs
 (`[0]`, `[±↓]`) land at `1` since `e^0 = 2^0 = 1`. `[-↑]` rigorously collapses
 to `[0]` (e^-∞ = 0); `[+↑]` can't resolve without magnitude.
 
@@ -572,7 +572,7 @@ odd multiples of π/2 (normal inputs near those poles can escape to any class).
 | `[∞]` | `[℘ cos∞]` |
 | `[℘?]` | `[℘?]` |
 
-##### `tan` (unbounded — poles at odd multiples of π/2)
+##### `tan` (unbounded; poles at odd multiples of π/2)
 
 | Input | Output |
 |-------|--------|
@@ -618,7 +618,7 @@ odd multiples of π/2 (normal inputs near those poles can escape to any class).
 | `[-#]` | `[-#]` |
 | `[+↑]` | `[+#]` (→ π/2) |
 | `[-↑]` | `[-#]` (→ -π/2) |
-| `[∞]` | `[℘ atan∞]` (unsigned infinity — direction undetermined) |
+| `[∞]` | `[℘ atan∞]` (unsigned infinity, direction undetermined) |
 | `[℘?]` | `[℘?]` |
 
 Hyperbolic variants (`sinh`/`cosh`/`tanh`) follow the unbounded-growth pattern of
@@ -732,7 +732,7 @@ let negative = x.is_negative(); // Less than Zero
 ## Random Number Generation
 ```rust
 // Random values
-let uniform = ScalarF5E3::random();        // Uniform over [-1, +1): exact -1 is drawable, +1 is not (two's-complement asymmetry). Fresh full-width significand at every scale — no zero-fill near zero; the sub-range tail becomes vanished-with-random-phase, never a silent zero.
+let uniform = ScalarF5E3::random();        // Uniform over [-1, +1): exact -1 is drawable, +1 is not (two's-complement asymmetry). Fresh full-width significand at every scale, no zero-fill near zero; the sub-range tail becomes vanished-with-random-phase, never a silent zero.
 let gaussian = ScalarF6E4::random_gauss(); // Normal distribution
 
 // For complex numbers
