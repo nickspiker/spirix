@@ -71,4 +71,4 @@ gpu/hip/tests/test_accuracy_add
 gpu/hip/tests/test_denormal_ftz
 gpu/hip/tests/test_scalar_add
 gpu/hip/tests/test_scalar_sqrt
-gpu/hip/tests/test_subtractfpga/bench/fpnew/
+gpu/hip/tests/test_subtract

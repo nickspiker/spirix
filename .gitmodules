@@ -1,0 +1,4 @@
+[submodule "fpga/bench/fpnew"]
+	path = fpga/bench/fpnew
+	url = https://github.com/openhwgroup/cvfpu.git
+	ignore = untracked
