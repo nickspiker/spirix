@@ -1,6 +1,6 @@
 [package]
 name = "spirix"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Two's complement floating-point arithmetic library"
 authors = ["Nick Spiker <fractaldecoder@proton.me>"]
