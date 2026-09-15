@@ -110,6 +110,7 @@ where
     ///
     /// - **Precision** (`.N`): Specifies the base (2-36). Default is 10.
     /// - **Width** (`:N`): Specifies how many digits to display. Default is calculated from the fraction bits as `log_base(2^fraction_bits)`.
+    /// - **Alternate** (`#`): Emit digits in the PRIVATE-USE block — digit N as codepoint `0x10 + N` — instead of ASCII, so a consumer whose font maps that range draws its own numerals with no transliteration pass (see [`digit_char`]). Requires base ≤ 16, since the block holds sixteen slots; above that the flag is ignored and digits stay ASCII.
     ///
     /// # Examples
     ///
@@ -146,7 +147,10 @@ where
             digits = width as isize;
         }
 
-        let string = self.format_scalar(base, digits);
+        // `#` asks for glyph-coded digits. The C0 block from 0x10 holds sixteen slots, so above base sixteen there is nowhere to put digit 16 that is not 0x20 (space) — the flag is dropped rather than silently emitting whitespace as a numeral.
+        let glyphs = f.alternate() && base <= 16;
+
+        let string = self.format_scalar(base, digits, glyphs);
         write!(f, "{}", string)
     }
 }
@@ -240,6 +244,21 @@ where
     }
 }
 
+/// ONE digit → character, for every emission site in this module.
+///
+/// `glyphs` selects the PRIVATE-USE encoding: digit N becomes codepoint `0x10 + N`, the otherwise-unused C0 block (DLE..US). A consumer that ships a font mapping those codepoints draws its own numerals — photon's dozenal digits live exactly there — and gets them straight out of the formatter instead of transliterating ASCII afterwards, which cannot be done safely: the output also carries a base marker, exponent digits and escape-class tags, and a post-hoc mapper has no way to tell a digit `B` from a structural one.
+///
+/// The block holds sixteen slots, so glyph output is valid only for **base ≤ 16**; `Display` falls back to ASCII above that rather than walking into `0x20` (space).
+fn digit_char(digit: u8, glyphs: bool) -> char {
+    if glyphs {
+        char::from(0x10u8.wrapping_add(digit))
+    } else if digit < 10 {
+        digit.wrapping_add(b'0') as char
+    } else {
+        digit.wrapping_sub(10).wrapping_add(b'A') as char
+    }
+}
+
 #[allow(private_bounds)]
 impl<
         F: Integer
@@ -325,7 +344,7 @@ where
     /// # Important Note
     ///
     /// The `to_u8()` call is ONLY used for converting already-extracted single digits (0-35) to their character representation. The actual digit extraction uses Spirix division and multiplication, which works for any base and precision.
-    fn format_scalar(&self, base: u8, digits: isize) -> String {
+    fn format_scalar(&self, base: u8, digits: isize, glyphs: bool) -> String {
         if !self.is_normal() {
             if self.is_undefined() {
                 let prefix = self.prefix();
@@ -357,7 +376,8 @@ where
                 };
                 string.push('⦊');
             } else {
-                string.push('0');
+                // Zero is a DIGIT, so it takes the glyph encoding like any other — an ASCII '0' loose in glyph output would resolve from a different font face and read as a hole in the number.
+                string.push(digit_char(0, glyphs));
             }
         } else {
             let base_scalar = Self::from(base);
@@ -367,37 +387,37 @@ where
                 if Self::fraction_bits() < Self::exponent_bits() {
                     match Self::exponent_bits() {
                         16 => string
-                            .push_str(&ScalarF4E4::from(self).format_scientific_big(base, digits)),
+                            .push_str(&ScalarF4E4::from(self).format_scientific_big(base, digits, glyphs)),
                         32 => string
-                            .push_str(&ScalarF5E5::from(self).format_scientific_big(base, digits)),
+                            .push_str(&ScalarF5E5::from(self).format_scientific_big(base, digits, glyphs)),
                         64 => string
-                            .push_str(&ScalarF6E6::from(self).format_scientific_big(base, digits)),
+                            .push_str(&ScalarF6E6::from(self).format_scientific_big(base, digits, glyphs)),
                         128 => string
-                            .push_str(&ScalarF7E7::from(self).format_scientific_big(base, digits)),
-                        _ => string.push_str(&self.format_scientific_big(base, digits)),
+                            .push_str(&ScalarF7E7::from(self).format_scientific_big(base, digits, glyphs)),
+                        _ => string.push_str(&self.format_scientific_big(base, digits, glyphs)),
                     }
                 } else {
-                    string.push_str(&self.format_scientific_big(base, digits))
+                    string.push_str(&self.format_scientific_big(base, digits, glyphs))
                 }
             } else if self < base_scalar.pow(-4) && self > -base_scalar.pow(-4) {
                 if Self::fraction_bits() < Self::exponent_bits() {
                     match Self::exponent_bits() {
                         16 => string.push_str(
-                            &ScalarF4E4::from(self).format_scientific_small(base, digits),
+                            &ScalarF4E4::from(self).format_scientific_small(base, digits, glyphs),
                         ),
                         32 => string.push_str(
-                            &ScalarF5E5::from(self).format_scientific_small(base, digits),
+                            &ScalarF5E5::from(self).format_scientific_small(base, digits, glyphs),
                         ),
                         64 => string.push_str(
-                            &ScalarF6E6::from(self).format_scientific_small(base, digits),
+                            &ScalarF6E6::from(self).format_scientific_small(base, digits, glyphs),
                         ),
                         128 => string.push_str(
-                            &ScalarF7E7::from(self).format_scientific_small(base, digits),
+                            &ScalarF7E7::from(self).format_scientific_small(base, digits, glyphs),
                         ),
-                        _ => string.push_str(&self.format_scientific_small(base, digits)),
+                        _ => string.push_str(&self.format_scientific_small(base, digits, glyphs)),
                     }
                 } else {
-                    string.push_str(&self.format_scientific_small(base, digits))
+                    string.push_str(&self.format_scientific_small(base, digits, glyphs))
                 }
             } else {
                 if self.is_negative() {
@@ -436,11 +456,7 @@ where
 
                 // Convert integer part
                 for &digit in int_digits.iter().rev() {
-                    let digit_char = if digit < 10 {
-                        digit.wrapping_add(b'0') as char
-                    } else {
-                        digit.wrapping_sub(10).wrapping_add(b'A') as char
-                    };
+                    let digit_char = digit_char(digit, glyphs);
                     string.push(digit_char);
                 }
 
@@ -457,11 +473,7 @@ where
                             digit_count += 1;
                         }
 
-                        let digit_char = if digit < 10 {
-                            digit.wrapping_add(b'0') as char
-                        } else {
-                            digit.wrapping_sub(10).wrapping_add(b'A') as char
-                        };
+                        let digit_char = digit_char(digit, glyphs);
                         string.push(digit_char);
                     }
                 }
@@ -489,7 +501,7 @@ where
     /// # Key Point
     ///
     /// This function demonstrates that **digit extraction works for any base** because it uses Spirix division and multiplication, not bitmasks or u8 conversions. The `to_u8()` is only called on individual digits (0-35), not on the full number.
-    fn format_scientific_big(&self, base: u8, digits: isize) -> String {
+    fn format_scientific_big(&self, base: u8, digits: isize, glyphs: bool) -> String {
         let base_scalar = Self::from(base);
 
         let magnitude = if self == Self::MIN {
@@ -521,11 +533,7 @@ where
             let digit = scaled.to_u8();
             scaled = (scaled - digit) * base_scalar;
 
-            let digit_char = if digit < 10 {
-                digit.wrapping_add(b'0') as char
-            } else {
-                digit.wrapping_sub(10).wrapping_add(b'A') as char
-            };
+            let digit_char = digit_char(digit, glyphs);
             result.push(digit_char);
 
             if d == 0 {
@@ -538,11 +546,7 @@ where
         }
 
         result.push('×');
-        let base_char = if base < 10 {
-            base.wrapping_add(b'0') as char
-        } else {
-            base.wrapping_sub(10).wrapping_add(b'A') as char
-        };
+        let base_char = digit_char(base, false);
         result.push(base_char);
         result.push('^');
         result.push('+');
@@ -563,11 +567,7 @@ where
         }
 
         for &digit in exp_digits.iter().rev() {
-            let digit_char = if digit < 10 {
-                digit.wrapping_add(b'0') as char
-            } else {
-                digit.wrapping_sub(10).wrapping_add(b'A') as char
-            };
+            let digit_char = digit_char(digit, glyphs);
             result.push(digit_char);
         }
 
@@ -592,7 +592,7 @@ where
     /// # Why This Works
     ///
     /// The formatter handles arbitrary precision because it never converts the whole number to a primitive type. It only extracts one digit at a time using Spirix arithmetic (division/multiplication), then converts that single digit to a char.
-    fn format_scientific_small(&self, base: u8, digits: isize) -> String {
+    fn format_scientific_small(&self, base: u8, digits: isize, glyphs: bool) -> String {
         let base_scalar = Self::from(base);
 
         let magnitude = self.magnitude();
@@ -632,11 +632,7 @@ where
             let digit = scaled.to_u8();
             scaled = (scaled - digit) * base_scalar;
 
-            let digit_char = if digit < 10 {
-                digit.wrapping_add(b'0') as char
-            } else {
-                digit.wrapping_sub(10).wrapping_add(b'A') as char
-            };
+            let digit_char = digit_char(digit, glyphs);
             result.push(digit_char);
 
             if d == 0 {
@@ -649,11 +645,7 @@ where
         }
 
         result.push('×');
-        let base_char = if base < 10 {
-            base.wrapping_add(b'0') as char
-        } else {
-            base.wrapping_sub(10).wrapping_add(b'A') as char
-        };
+        let base_char = digit_char(base, false);
         result.push(base_char);
         result.push('^');
         result.push('-');
@@ -674,11 +666,7 @@ where
         }
 
         for &digit in exp_digits.iter().rev() {
-            let digit_char = if digit < 10 {
-                digit.wrapping_add(b'0') as char
-            } else {
-                digit.wrapping_sub(10).wrapping_add(b'A') as char
-            };
+            let digit_char = digit_char(digit, glyphs);
             result.push(digit_char);
         }
 
@@ -867,5 +855,61 @@ where
         } else {
             ('○', '●')
         }
+    }
+}
+
+#[cfg(test)]
+mod glyph_tests {
+    use crate::ScalarF6E4;
+    extern crate alloc;
+    use alloc::format;
+    use alloc::string::{String, ToString};
+
+    /// Render the private-use digits back to something a test failure can print.
+    fn readable(s: &str) -> String {
+        s.chars().map(|c| match c as u32 {
+            d @ 0x10..=0x1F => char::from_digit(d - 0x10, 16).unwrap().to_ascii_uppercase(),
+            _ => c,
+        }).collect()
+    }
+
+    /// `#` emits digit N as codepoint 0x10+N and touches nothing else — the sign, the radix point and the digit ORDER all survive, which is what lets a consumer print the result straight out instead of transliterating ASCII afterwards.
+    #[test]
+    fn alternate_emits_private_use_digits() {
+        let x = ScalarF6E4::from(255);
+        assert_eq!(format!("{:.16}", x), "+FF", "ASCII hex unchanged");
+        let g = format!("{:#.16}", x);
+        assert_eq!(g.chars().next(), Some('+'), "the sign is structure, not a digit");
+        assert_eq!(&g[1..].chars().map(|c| c as u32).collect::<alloc::vec::Vec<_>>(), &[0x1F, 0x1F], "F is digit fifteen → 0x1F");
+        assert_eq!(readable(&g), "+FF", "and it reads back identically");
+    }
+
+    /// THE photon case (docs/languages.md, the Base page): an hour is log2(3600) doublings, and in dozenal that is Ɛ.992… — a fractional magnitude that ASCII would spell `B.992` and the glyph form hands over ready to draw.
+    #[test]
+    fn dozenal_fraction_of_an_hour() {
+        let hour = ScalarF6E4::from(3600.0f64).lb();
+        assert_eq!(format!("{:3.12}", hour), "+B.99", "ASCII dozenal");
+        let g = format!("{:#3.12}", hour);
+        assert_eq!(readable(&g), "+B.99", "same number, private-use digits");
+        // B is digit eleven (Stelor), 9 is digit nine; the point stays an ASCII '.'.
+        let cp: alloc::vec::Vec<u32> = g.chars().map(|c| c as u32).collect();
+        assert_eq!(cp, alloc::vec![b'+' as u32, 0x1B, '.' as u32, 0x19, 0x19]);
+    }
+
+    /// Exact values stay exact and negatives keep their sign: half a second is precisely one halving.
+    #[test]
+    fn exact_and_negative_survive() {
+        let half = ScalarF6E4::from(0.5f64).lb();
+        assert_eq!(format!("{:#3.12}", half), "-1".chars().map(|c| if c == '1' { char::from(0x11) } else { c }).collect::<String>());
+        let sec = ScalarF6E4::from(1.0f64).lb();
+        assert_eq!(format!("{:#3.12}", sec), char::from(0x10).to_string(), "zero is the Zil glyph, no sign");
+    }
+
+    /// The block has sixteen slots, so base seventeen has nowhere to put digit sixteen except 0x20 — a space masquerading as a numeral. The flag drops instead.
+    #[test]
+    fn above_base_sixteen_falls_back_to_ascii() {
+        let x = ScalarF6E4::from(255);
+        assert_eq!(format!("{:#.17}", x), format!("{:.17}", x), "base 17 ignores the flag");
+        assert!(!format!("{:#.17}", x).chars().any(|c| (c as u32) < 0x20), "no C0 bytes escaped");
     }
 }
