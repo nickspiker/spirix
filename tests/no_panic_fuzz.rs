@@ -140,7 +140,7 @@ fn scalar_binary_total_over_sampled_pairs() {
 fn wide_width_total_over_sampled_patterns() {
     // F7E7 (i128 fraction + i128 exponent) exercises the widest arithmetic paths (I256 wide ops).
     let mut rng = Lcg(0xFEED_FACE_CAFE_BEEF);
-    let mut wide = |r: &mut Lcg| -> i128 { ((r.next() as i128) << 64) | r.next() as i128 };
+    let wide = |r: &mut Lcg| -> i128 { ((r.next() as i128) << 64) | r.next() as i128 };
     for _ in 0..2_000 {
         let a = Scalar::<i128, i128> {
             fraction: wide(&mut rng),

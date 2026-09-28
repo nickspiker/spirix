@@ -62,43 +62,6 @@ fn check(op: &str, a: S, b: S, result: S, expected: &[Class]) {
     }
 }
 
-// Representative values for each class
-fn zeros() -> Vec<S> {
-    vec![S::ZERO]
-}
-
-fn vanished_pos() -> Vec<S> {
-    vec![S::VANISHED_POS]
-}
-
-fn vanished_neg() -> Vec<S> {
-    vec![S::VANISHED_NEG]
-}
-
-fn normals_pos() -> Vec<S> {
-    vec![S::from(1), S::from(42)]
-}
-
-fn normals_neg() -> Vec<S> {
-    vec![S::from(-1), S::from(-42)]
-}
-
-fn exploded_pos() -> Vec<S> {
-    vec![S::EXPLODED_POS]
-}
-
-fn exploded_neg() -> Vec<S> {
-    vec![S::EXPLODED_NEG]
-}
-
-fn infinities() -> Vec<S> {
-    vec![S::INFINITY]
-}
-
-fn undefineds() -> Vec<S> {
-    vec![S::ZERO / S::ZERO] // 0/0 = undefined
-}
-
 use Class::*;
 
 // ============================================================ Addition truth table (col + row) ============================================================
@@ -182,7 +145,7 @@ fn subtraction_truth_table() {
     let np = S::from(7);
     let nn = S::from(-7);
     let ep = S::EXPLODED_POS;
-    let en = S::EXPLODED_NEG;
+    let _en = S::EXPLODED_NEG;
     let inf = S::INFINITY;
     let und = S::ZERO / S::ZERO;
 
@@ -850,7 +813,7 @@ fn pow_truth_table() {
     let three = S::from(3);
     let half = S::from(1) / S::from(2);
     let z = S::ZERO;
-    let inf = S::INFINITY;
+    let _inf = S::INFINITY;
     let und = z / z;
 
     // Definite normals.
@@ -1078,7 +1041,7 @@ fn square_unary_truth_table() {
 fn subtraction_min_boundary_exploded() {
     // NEG_ONE at MIN_EXPONENT: negating requires exp+1 which wraps → exploded
     let min_neg = S::MAX_NEG; // smallest magnitude negative normal
-    let result = S::ZERO - min_neg;
+    let _result = S::ZERO - min_neg;
     // 0 - (tiny negative) = tiny positive, could be normal or edge-case But the interesting case: negate MIN at exp boundary
     let at_boundary = S::ONE; // fraction = POS_ONE_NORMAL (MIN stored), exp=1
     let neg_boundary = S::NEG_ONE; // fraction = NEG_ONE_NORMAL (0 stored), exp=0
@@ -1406,7 +1369,7 @@ fn circle_division_truth_table() {
     let np = C::from((3.0f32, 4.0));
     let ep = C::MAX * C::from((2.0f32, 0.0));
     let inf = C::INFINITY;
-    let und = z / z;
+    let _und = z / z;
 
     // INFINITY in numerator absorbs (except /0 and /undef)
     check_c("/", inf, np, inf / np, &[Infinity]);

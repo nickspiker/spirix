@@ -305,7 +305,7 @@ fn test_type_system_consistency() {
 fn test_complex_arithmetic_identities() {
     // Test complex number identities
     let i = CircleF5E3::POS_I;
-    let one = CircleF5E3::ONE;
+    let _one = CircleF5E3::ONE;
 
     // i² = -1
     let i_squared = i * i;

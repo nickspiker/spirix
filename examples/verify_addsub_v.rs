@@ -5,6 +5,7 @@ use spirix::*;
 
 type S = ScalarF3E3;
 const FRAC: i32 = 8;
+#[allow(dead_code)] // mirrors the Verilog parameter set; not referenced by this port
 const EXP_BITS: i32 = 8;
 const WORK_BITS: i32 = FRAC + 2;
 const AMBIG_EXP: i8 = i8::MAX; // = 0x7F = E::MAX
@@ -66,6 +67,7 @@ fn is_inf(f: i8, e: i8) -> bool {
 fn is_exploded(f: i8, e: i8) -> bool {
     is_ambig(e) && is_n1(f)
 }
+#[allow(dead_code)] // mirrors an RTL predicate; not referenced by this port
 fn is_transf(f: i8, e: i8) -> bool {
     is_inf(f, e) || is_exploded(f, e)
 }
@@ -146,6 +148,7 @@ fn to_frac_plus_1(v: i16) -> i16 {
 }
 
 // Leading-same count on a WORK_BITS-bit signed value held in i16. Returns the count of MSBs of `v` (interpreted as WORK_BITS-wide signed) that match the sign bit at position WORK_BITS-1.
+#[allow(dead_code)] // mirrors an RTL predicate; not referenced by this port
 fn leading_same(v: i16) -> i32 {
     let u = v as u16;
     let masked = u & ((1u16 << WORK_BITS) - 1);
@@ -300,7 +303,7 @@ fn addsub_v(a_f: i8, a_e: i8, b_f: i8, b_e: i8, sub: bool) -> (i8, i8) {
     } else {
         sum_masked
     };
-    let is_zero_sum = sum_sext == 0;
+    let _is_zero_sum = sum_sext == 0;
 
     // Extended sum: append guard bit at position -1. This puts us at the same scale as Rust's shift-big-LEFT (small_exp scale for shift=1). Working width is WORK_BITS+1 = FRAC+3 here, with target leading-same = 3.
     let extended_sum: i32 = ((sum_sext as i32) << 1) | (if guard { 1 } else { 0 });

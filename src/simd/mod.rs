@@ -35,6 +35,8 @@ use crate::ScalarF4E4;
 /// - x86-64: AVX2 (8×) → SSE4.2 (4×) → scalar
 /// - ARM: NEON (4×) → scalar
 /// - WASM: SIMD128 → scalar
+// The cfg-gated early returns below mean that on any target where a SIMD path is compiled in (e.g. aarch64, where `neon` is on by default) the scalar fallback is statically unreachable. That is the intended dispatch shape, not dead code.
+#[allow(unreachable_code)]
 pub fn scalar_subtract_batch(a: &[ScalarF4E4], b: &[ScalarF4E4], result: &mut [ScalarF4E4]) {
     assert_eq!(a.len(), b.len());
     assert_eq!(a.len(), result.len());

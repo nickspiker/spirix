@@ -49,8 +49,8 @@ fn main() {
 
     // Two-input ops: ADD(0), SUB(1), MUL(2), AND(3), OR(4), XOR(5)
     for op in 0u8..=5 {
-        for (aname, af, ae) in &categories {
-            for (bname, bf, be) in &categories {
+        for (_aname, af, ae) in &categories {
+            for (_bname, bf, be) in &categories {
                 let a = S::new(*af, *ae);
                 let b = S::new(*bf, *be);
 
@@ -93,7 +93,7 @@ fn main() {
 
     // One-input ops: NOT(6), NEG(10), MAG(11), SIGN(12)
     for op in [6u8, 10, 11, 12] {
-        for (aname, af, ae) in &categories {
+        for (_aname, af, ae) in &categories {
             let a = S::new(*af, *ae);
 
             let r = match op {
@@ -131,7 +131,7 @@ fn main() {
     // SHL(7), SHR(8): a is the value, b_exp is the shift amount
     for op in [7u8, 8] {
         let shift_amounts: Vec<i8> = vec![-127, -64, -1, 0, 1, 5, 64, 127, AMBIG];
-        for (aname, af, ae) in &categories {
+        for (_aname, af, ae) in &categories {
             for &shift in &shift_amounts {
                 let a = S::new(*af, *ae);
 
@@ -168,8 +168,8 @@ fn main() {
     }
 
     // CMP(9): need lt/eq/gt/unord flags
-    for (aname, af, ae) in &categories {
-        for (bname, bf, be) in &categories {
+    for (_aname, af, ae) in &categories {
+        for (_bname, bf, be) in &categories {
             let a = S::new(*af, *ae);
             let b = S::new(*bf, *be);
 

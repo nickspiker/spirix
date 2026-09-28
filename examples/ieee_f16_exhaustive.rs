@@ -127,10 +127,13 @@ fn f16_is_zero(bits: u16) -> bool {
     (bits & 0x7FFF) == 0
 }
 
+// Rounds out the f16 classification set alongside f16_is_zero/f16_sign; not called by the current sweep.
+#[allow(dead_code)]
 fn f16_is_neg_zero(bits: u16) -> bool {
     bits == 0x8000
 }
 
+#[allow(dead_code)]
 fn f16_is_denormal(bits: u16) -> bool {
     let exp = (bits >> 10) & 0x1F;
     let frac = bits & 0x3FF;
@@ -143,6 +146,8 @@ fn f16_sign(bits: u16) -> bool {
 
 // ── Result tracking ────────────────────────────────────────────────────────
 
+// Full disagreement taxonomy. both_nan/both_zero are counted but not printed by the current report.
+#[allow(dead_code)]
 #[derive(Default)]
 struct OpStats {
     total: u64,

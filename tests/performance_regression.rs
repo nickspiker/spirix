@@ -1,5 +1,5 @@
 use spirix::*;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Performance regression tests to ensure Spirix maintains reasonable performance characteristics These tests verify that operations complete within expected time bounds
 

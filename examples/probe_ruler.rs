@@ -6,7 +6,7 @@ fn main() {
     let one: S = 1.into();
     let two: S = 2.into();
     let three: S = 3.into();
-    let half: S = 0.5.into();
+    let _half: S = 0.5.into();
 
     fn chk<T: Into<f64> + Copy>(label: &str, got: T, want: f64) {
         let g: f64 = got.into();

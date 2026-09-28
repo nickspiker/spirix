@@ -1,23 +1,15 @@
 // Tide-prediction numeric proof for the nRF52840 project.
 //
-// Question: can a Spirix Scalar, at some tunable (fraction, exponent) width,
-// compute a harmonic tide sum `Σ aᵢ·cos(ωᵢ·t − φᵢ)` accurately enough that the
-// height error stays below the clock-margin floor (~0.0005 ft), while feeding
-// the RAW large phase argument ωᵢ·t (billions of radians) into `.cos()`?
+// Question: can a Spirix Scalar, at some tunable (fraction, exponent) width, compute a harmonic tide sum `Σ aᵢ·cos(ωᵢ·t − φᵢ)` accurately enough that the height error stays below the clock-margin floor (~0.0005 ft), while feeding the RAW large phase argument ωᵢ·t (billions of radians) into `.cos()`?
 //
-// The known risk is argument reduction: cos() reduces mod τ via `.frac()`, so a
-// huge integer quotient eats fraction bits before any describe the angle. This
-// program computes the same sum in f64 (reference) and in several Spirix widths,
-// then reports max error vs f64 — showing exactly where each width breaks.
+// The known risk is argument reduction: cos() reduces mod τ via `.frac()`, so a huge integer quotient eats fraction bits before any describe the angle. This program computes the same sum in f64 (reference) and in several Spirix widths, then reports max error vs f64 — showing exactly where each width breaks.
 //
 // Run: cargo run --release --example tide_predict
 
 use spirix::*;
 
-// Bremerton 9445958 constituents: (speed °/hr, amplitude ft, phase_GMT °).
-// From NOAA harcon.json. Node factors / equilibrium args omitted — this proof
-// isolates the NUMERIC question (does Spirix hold precision at these arg
-// magnitudes), comparing Spirix against f64 computing the identical formula.
+// Bremerton 9445958 constituents: (speed °/hr, amplitude ft, phase_GMT °). From NOAA harcon.json. Node factors / equilibrium args omitted — this proof isolates the NUMERIC question (does Spirix hold precision at these arg magnitudes), comparing Spirix against f64 computing the identical formula.
+#[rustfmt::skip] // hand-aligned data table: 3 constituents per row, columns lined up
 const CONSTITUENTS: &[(f64, f64, f64)] = &[
     (28.9841040, 3.60, 17.0), (30.0000000, 0.89, 45.1), (28.4397300, 0.70, 349.0),
     (15.0410690, 2.73, 280.4), (57.9682100, 0.08, 243.9), (13.9430350, 1.50, 257.8),
@@ -44,8 +36,7 @@ fn height_f64(t_hours: f64) -> f64 {
     h
 }
 
-// Same sum in a Spirix Scalar type S. The phase argument ωt is built and reduced
-// entirely in S — the stress test. `to_f64()`/`from` bridge only at the edges.
+// Same sum in a Spirix Scalar type S. The phase argument ωt is built and reduced entirely in S — the stress test. `to_f64()`/`from` bridge only at the edges.
 macro_rules! height_spirix {
     ($S:ty, $t_hours:expr) => {{
         type S = $S;
@@ -61,15 +52,16 @@ macro_rules! height_spirix {
 }
 
 fn main() {
-    // EXPONENT RANGE PROBE (E3 = i8 exponent).
-    // Push t_hours outward across many years and watch where F5E3 diverges from
-    // f64 — that reveals when the i8 exponent (range ~2^127) runs out for the
-    // magnitudes flowing through the harmonic sum (dominated by omega*t).
-    println!("Exponent-range probe: F5E3 (i8 exp) vs f64, growing t
-");
-    println!("  {:>14}  {:>10}  {:>14}  {}", "t_hours", "years", "max omega*t", "F5E3 max_err (ft)");
+    // EXPONENT RANGE PROBE (E3 = i8 exponent). Push t_hours outward across many years and watch where F5E3 diverges from f64 — that reveals when the i8 exponent (range ~2^127) runs out for the magnitudes flowing through the harmonic sum (dominated by omega*t).
+    println!("Exponent-range probe: F5E3 (i8 exp) vs f64, growing t\n");
+    println!(
+        "  {:>14}  {:>10}  {:>14}  {}",
+        "t_hours", "years", "max omega*t", "F5E3 max_err (ft)"
+    );
     let year_hours = 8766.0_f64;
-    for &years in &[1.0_f64, 10.0, 100.0, 1_000.0, 1e4, 1e5, 1e6, 1e9, 1e12, 1e15, 1e18, 1e30, 1e36] {
+    for &years in &[
+        1.0_f64, 10.0, 100.0, 1_000.0, 1e4, 1e5, 1e6, 1e9, 1e12, 1e15, 1e18, 1e30, 1e36,
+    ] {
         let base = years * year_hours;
         let max_arg = (115.9364_f64 * (base + 24.0)).to_radians();
         let mut max_err = 0.0_f64;
@@ -78,18 +70,30 @@ fn main() {
             let r = height_f64(t);
             let g = height_spirix!(ScalarF5E3, t);
             let e = (g - r).abs();
-            if e.is_finite() { max_err = max_err.max(e); } else { max_err = f64::INFINITY; }
+            if e.is_finite() {
+                max_err = max_err.max(e);
+            } else {
+                max_err = f64::INFINITY;
+            }
         }
-        println!("  {:>14.3e}  {:>10.0e}  {:>14.3e}  {:e}", base, years, max_arg, max_err);
+        println!(
+            "  {:>14.3e}  {:>10.0e}  {:>14.3e}  {:e}",
+            base, years, max_arg, max_err
+        );
     }
     // And where does the i8 exponent itself saturate? Largest magnitude F5E3 holds.
-    println!("
-Raw magnitude probe (F5E3): largest 2^k it represents before exploding:");
+    println!("\nRaw magnitude probe (F5E3): largest 2^k it represents before exploding:");
     for k in [100i32, 120, 125, 126, 127, 128, 130, 200] {
         let v = 2f64.powi(k);
         let s = ScalarF5E3::from(v);
         let back = s.to_f64();
-        let ok = back.is_finite() && (back/v - 1.0).abs() < 0.01;
-        println!("  2^{:<4} = {:.3e}  ->  F5E3 back = {:.3e}  {}", k, v, back, if ok {"ok"} else {"OVERFLOW/exploded"});
+        let ok = back.is_finite() && (back / v - 1.0).abs() < 0.01;
+        println!(
+            "  2^{:<4} = {:.3e}  ->  F5E3 back = {:.3e}  {}",
+            k,
+            v,
+            back,
+            if ok { "ok" } else { "OVERFLOW/exploded" }
+        );
     }
 }

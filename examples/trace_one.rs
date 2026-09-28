@@ -1,4 +1,3 @@
-use i256::I256;
 use spirix::*;
 type S = ScalarF3E3;
 

@@ -103,32 +103,34 @@ fn negation_via_wrapping_neg_i8() {
 fn fraction_constants_i8() {
     use spirix::ScalarF3E3;
 
+    // Every assertion below pins a class constant's stored fraction to the bit pattern the encoding requires, then (for the normal class) checks what inflate maps that stored value to.
+
     // Normal class
-    assert_eq!(i8::MIN, i8::MIN); // -128 = 10000000
-    let eff = inflate_i8(i8::MIN);
+    assert_eq!(ScalarF3E3::ONE.fraction, i8::MIN); // -128 = 10000000
+    let eff = inflate_i8(ScalarF3E3::ONE.fraction);
     assert_eq!(eff, 128);
     assert!(eff > 0);
 
-    assert_eq!(0i8, 0); // 00000000
-    let eff = inflate_i8(0i8);
+    assert_eq!(ScalarF3E3::NEG_ONE.fraction, 0); // 00000000
+    let eff = inflate_i8(ScalarF3E3::NEG_ONE.fraction);
     assert_eq!(eff, -256);
     assert!(eff < 0);
 
-    assert_eq!(-1i8, -1); // 11111111
-    let eff = inflate_i8(-1i8);
+    assert_eq!(ScalarF3E3::INFINITY.fraction, -1); // 11111111
+    let eff = inflate_i8(ScalarF3E3::INFINITY.fraction);
     assert_eq!(eff, 255);
 
-    assert_eq!(0i8, 0); // 00000000
-    let eff = inflate_i8(0i8);
+    assert_eq!(ScalarF3E3::ZERO.fraction, 0); // 00000000
+    let eff = inflate_i8(ScalarF3E3::ZERO.fraction);
     assert_eq!(eff, -256);
 
     // Escaped class: exploded (N-1 stored, sign direct)
-    assert_eq!(64i8, 64); // 01000000
-    assert_eq!(i8::MIN, -128); // 10000000
+    assert_eq!(ScalarF3E3::EXPLODED_POS.fraction, 64); // 01000000
+    assert_eq!(ScalarF3E3::EXPLODED_NEG.fraction, i8::MIN); // 10000000
 
     // Escaped class: vanished (N-2 stored, sign direct)
-    assert_eq!(32i8, 32); // 00100000
-    assert_eq!(-64i8, -64); // 11000000
+    assert_eq!(ScalarF3E3::VANISHED_POS.fraction, 32); // 00100000
+    assert_eq!(ScalarF3E3::VANISHED_NEG.fraction, -64); // 11000000
 }
 
 #[test]

@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use spirix::{ScalarF3E3, ScalarF4E4, ScalarF5E5, ScalarF6E6};
 
 fn bench_sqrt_8bit(c: &mut Criterion) {
@@ -6,9 +6,9 @@ fn bench_sqrt_8bit(c: &mut Criterion) {
 
     let input = ScalarF3E3::from(100i8);
 
-    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt()));
+    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt_newton()));
 
-    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt_bb()));
+    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt()));
 
     group.finish();
 }
@@ -18,9 +18,9 @@ fn bench_sqrt_16bit(c: &mut Criterion) {
 
     let input = ScalarF4E4::from(100u8);
 
-    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt()));
+    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt_newton()));
 
-    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt_bb()));
+    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt()));
 
     group.finish();
 }
@@ -30,9 +30,9 @@ fn bench_sqrt_32bit(c: &mut Criterion) {
 
     let input = ScalarF5E5::from(10000u16);
 
-    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt()));
+    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt_newton()));
 
-    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt_bb()));
+    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt()));
 
     group.finish();
 }
@@ -42,9 +42,9 @@ fn bench_sqrt_64bit(c: &mut Criterion) {
 
     let input = ScalarF6E6::from(10000u16);
 
-    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt()));
+    group.bench_function("newton", |b| b.iter(|| black_box(input).sqrt_newton()));
 
-    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt_bb()));
+    group.bench_function("bitwise", |b| b.iter(|| black_box(input).sqrt()));
 
     group.finish();
 }

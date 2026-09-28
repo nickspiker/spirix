@@ -141,7 +141,8 @@ fn circle_undefined_extracts_to_undefined() {
 
 // ───────────────────────────────────────────────────────────────────────────── Scalar → Circle class truth table (via from_ri / from((r, i))) ─────────────────────────────────────────────────────────────────────────────
 
-// Representatives for each Scalar class
+// Representatives for each Scalar class. Unused by the per-case tests below, which inline one class at a time; kept as the single place collecting all nine name/class/value triples.
+#[allow(dead_code)]
 fn reps() -> [(&'static str, Class, S); 9] {
     let z = S::ZERO;
     let vp = S::VANISHED_POS;

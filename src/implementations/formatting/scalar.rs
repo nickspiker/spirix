@@ -386,14 +386,18 @@ where
             if self <= -base_scalar.pow(digits) || self >= base_scalar.pow(digits) {
                 if Self::fraction_bits() < Self::exponent_bits() {
                     match Self::exponent_bits() {
-                        16 => string
-                            .push_str(&ScalarF4E4::from(self).format_scientific_big(base, digits, glyphs)),
-                        32 => string
-                            .push_str(&ScalarF5E5::from(self).format_scientific_big(base, digits, glyphs)),
-                        64 => string
-                            .push_str(&ScalarF6E6::from(self).format_scientific_big(base, digits, glyphs)),
-                        128 => string
-                            .push_str(&ScalarF7E7::from(self).format_scientific_big(base, digits, glyphs)),
+                        16 => string.push_str(
+                            &ScalarF4E4::from(self).format_scientific_big(base, digits, glyphs),
+                        ),
+                        32 => string.push_str(
+                            &ScalarF5E5::from(self).format_scientific_big(base, digits, glyphs),
+                        ),
+                        64 => string.push_str(
+                            &ScalarF6E6::from(self).format_scientific_big(base, digits, glyphs),
+                        ),
+                        128 => string.push_str(
+                            &ScalarF7E7::from(self).format_scientific_big(base, digits, glyphs),
+                        ),
                         _ => string.push_str(&self.format_scientific_big(base, digits, glyphs)),
                     }
                 } else {
@@ -867,10 +871,12 @@ mod glyph_tests {
 
     /// Render the private-use digits back to something a test failure can print.
     fn readable(s: &str) -> String {
-        s.chars().map(|c| match c as u32 {
-            d @ 0x10..=0x1F => char::from_digit(d - 0x10, 16).unwrap().to_ascii_uppercase(),
-            _ => c,
-        }).collect()
+        s.chars()
+            .map(|c| match c as u32 {
+                d @ 0x10..=0x1F => char::from_digit(d - 0x10, 16).unwrap().to_ascii_uppercase(),
+                _ => c,
+            })
+            .collect()
     }
 
     /// `#` emits digit N as codepoint 0x10+N and touches nothing else — the sign, the radix point and the digit ORDER all survive, which is what lets a consumer print the result straight out instead of transliterating ASCII afterwards.
@@ -879,8 +885,19 @@ mod glyph_tests {
         let x = ScalarF6E4::from(255);
         assert_eq!(format!("{:.16}", x), "+FF", "ASCII hex unchanged");
         let g = format!("{:#.16}", x);
-        assert_eq!(g.chars().next(), Some('+'), "the sign is structure, not a digit");
-        assert_eq!(&g[1..].chars().map(|c| c as u32).collect::<alloc::vec::Vec<_>>(), &[0x1F, 0x1F], "F is digit fifteen → 0x1F");
+        assert_eq!(
+            g.chars().next(),
+            Some('+'),
+            "the sign is structure, not a digit"
+        );
+        assert_eq!(
+            &g[1..]
+                .chars()
+                .map(|c| c as u32)
+                .collect::<alloc::vec::Vec<_>>(),
+            &[0x1F, 0x1F],
+            "F is digit fifteen → 0x1F"
+        );
         assert_eq!(readable(&g), "+FF", "and it reads back identically");
     }
 
@@ -900,16 +917,32 @@ mod glyph_tests {
     #[test]
     fn exact_and_negative_survive() {
         let half = ScalarF6E4::from(0.5f64).lb();
-        assert_eq!(format!("{:#3.12}", half), "-1".chars().map(|c| if c == '1' { char::from(0x11) } else { c }).collect::<String>());
+        assert_eq!(
+            format!("{:#3.12}", half),
+            "-1".chars()
+                .map(|c| if c == '1' { char::from(0x11) } else { c })
+                .collect::<String>()
+        );
         let sec = ScalarF6E4::from(1.0f64).lb();
-        assert_eq!(format!("{:#3.12}", sec), char::from(0x10).to_string(), "zero is the Zil glyph, no sign");
+        assert_eq!(
+            format!("{:#3.12}", sec),
+            char::from(0x10).to_string(),
+            "zero is the Zil glyph, no sign"
+        );
     }
 
     /// The block has sixteen slots, so base seventeen has nowhere to put digit sixteen except 0x20 — a space masquerading as a numeral. The flag drops instead.
     #[test]
     fn above_base_sixteen_falls_back_to_ascii() {
         let x = ScalarF6E4::from(255);
-        assert_eq!(format!("{:#.17}", x), format!("{:.17}", x), "base 17 ignores the flag");
-        assert!(!format!("{:#.17}", x).chars().any(|c| (c as u32) < 0x20), "no C0 bytes escaped");
+        assert_eq!(
+            format!("{:#.17}", x),
+            format!("{:.17}", x),
+            "base 17 ignores the flag"
+        );
+        assert!(
+            !format!("{:#.17}", x).chars().any(|c| (c as u32) < 0x20),
+            "no C0 bytes escaped"
+        );
     }
 }

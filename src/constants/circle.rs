@@ -284,10 +284,14 @@ impl<F: Integer, E: Integer> Circle<F, E> {
     pub(crate) fn neg_one_normal() -> F {
         F::min_value()
     }
+    // Only consumer today is the `rand`-gated random module; keep the pattern available for any build but do not warn where nothing calls it.
+    #[cfg_attr(not(feature = "rand"), allow(dead_code))]
     #[inline]
     pub(crate) fn pos_one_vanished() -> F {
         -(F::min_value() >> 1usize) >> 2usize
     }
+    // Only consumer today is the `rand`-gated random module; keep the pattern available for any build but do not warn where nothing calls it.
+    #[cfg_attr(not(feature = "rand"), allow(dead_code))]
     #[inline]
     pub(crate) fn neg_one_vanished() -> F {
         F::min_value() >> 2usize

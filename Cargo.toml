@@ -14,6 +14,7 @@ documentation = "https://docs.rs/spirix"
 exclude = [
     "gpu/",
     "fpga/",
+    "ports/",
     "old hip/",
     "docs/",
     "examples/",

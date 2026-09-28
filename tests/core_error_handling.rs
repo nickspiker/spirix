@@ -257,10 +257,10 @@ fn test_escaped_value_error_conditions() {
     assert!(vanished_squared.vanished());
 
     // Operations that might transition escaped states
-    let exploded_div_exploded = exploded / exploded;
+    let _exploded_div_exploded = exploded / exploded;
     // This could be normal (≈1), exploded, or undefined depending on implementation
 
-    let vanished_div_vanished = vanished / vanished;
+    let _vanished_div_vanished = vanished / vanished;
     // This could be normal (≈1), vanished, or undefined depending on implementation
 
     // Exploded + normal = undefined (Spirix: exploded + finite = ℘)
@@ -276,7 +276,7 @@ fn test_escaped_value_error_conditions() {
 fn test_complex_error_propagation() {
     // Test error handling in complex numbers
     let normal_circle = CircleF5E3::from((3.0, 4.0));
-    let undefined_scalar = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
+    let _undefined_scalar = ScalarF5E3::ZERO / ScalarF5E3::ZERO;
     let undefined_circle = CircleF5E3::from((f32::NAN, 1.0));
 
     // Operations with undefined complex numbers

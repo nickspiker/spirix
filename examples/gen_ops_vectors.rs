@@ -25,6 +25,8 @@ impl Rng {
 }
 
 /// Trait to abstract over width-specific operations
+// frac_bits/exp_bits round out the interface; only fw/ew are called today.
+#[allow(dead_code)]
 trait TestWidth: Copy {
     fn msb_frac_64(self) -> u64;
     fn lsb_exp_64(self) -> u64;
@@ -129,17 +131,6 @@ macro_rules! gen_for_width {
         let ambig: $e = <$e>::MIN;
 
         // Edge values for this width
-        let edge_fracs: Vec<$f> = vec![
-            0,                      // zero frac
-            <$f>::MIN,              // neg_one / infinity frac
-            (<$f>::MIN >> 1),       // pos_half (N1 positive)
-            ((<$f>::MIN >> 1) + 1).wrapping_neg(), // N1 negative (~-65 for i8)
-            (<$f>::MIN >> 2),       // N2 positive (vanished)
-            (<$f>::MIN >> 2).wrapping_neg().wrapping_neg().wrapping_add(<$f>::MIN >> 2).wrapping_neg(), // N2 negative
-            (<$f>::MIN >> 3),       // N3 positive (undefined)
-            (<$f>::MIN >> 3).wrapping_neg(), // N3 negative (undefined)
-        ];
-        // Simpler: use known patterns
         let edge_values: Vec<($f, $e)> = vec![
             (0, ambig),             // zero
             (<$f>::MIN, ambig),     // infinity (NEG_ONE frac)

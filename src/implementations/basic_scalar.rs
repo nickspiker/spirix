@@ -4,7 +4,7 @@ use crate::core::undefined::*;
 use crate::{Integer, Scalar};
 use core::ops::*;
 use i256::I256;
-use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 macro_rules! impl_scalar_new {
     ($($f:ty, $e:ty);*) => {
@@ -1004,7 +1004,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rustI
+    /// ```rust
     /// use spirix::{Scalar, ScalarF5E5};
     ///
     /// // The floor of the answer to everything is itself let integer = Scalar::<i32, i32>::from(42); assert!(integer.floor() == integer);
@@ -1674,6 +1674,8 @@ where
     /// Normalizes a vanished Scalar by shifting its fraction to the N-2 position. Sign bits occupy N-0 and N-1, exponent is not touched
     ///
     /// Example bit positions: 01234567... □□■xxxxx... - Vanished positive numbers ■■□xxxxx... - Vanished negative numbers
+    // Only callers today are in the `rand`-gated random module.
+    #[cfg_attr(not(feature = "rand"), allow(dead_code))]
     pub(crate) fn normalize_vanished(&mut self) {
         let shift = self
             .fraction
@@ -1689,6 +1691,9 @@ where
 
 #[cfg(feature = "alloc")]
 use alloc::string::String;
+// PrimInt is used only by the alloc-gated _printey below, so it carries the same gate.
+#[cfg(feature = "alloc")]
+use num_traits::PrimInt;
 #[cfg(feature = "alloc")]
 #[allow(dead_code)]
 fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {

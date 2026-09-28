@@ -411,8 +411,8 @@ fn benchmark_random_generation(c: &mut Criterion) {
     use rand::Rng;
     group.bench_function("std_random_f32", |b| {
         b.iter(|| {
-            let mut rng = rand::thread_rng();
-            let result: f32 = rng.gen_range(-1.0..1.0);
+            let mut rng = rand::rng();
+            let result: f32 = rng.random_range(-1.0..1.0);
             hint_black_box(result)
         })
     });

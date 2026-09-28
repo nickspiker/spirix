@@ -1061,7 +1061,6 @@ mod random_testing {
             let mut gauss_samples = Vec::with_capacity(SAMPLE_SIZE);
             let mut positive_count = 0u32;
             let mut negative_count = 0u32;
-            let mut zero_count = 0u32;
 
             // Collect samples for statistical analysis
             for _ in 0..SAMPLE_SIZE {
@@ -1075,8 +1074,6 @@ mod random_testing {
                     } else if random_val.is_negative() {
                         negative_count += 1;
                     }
-                } else if random_val.is_zero() {
-                    zero_count += 1;
                 }
 
                 let random_gauss = $scalar_type::random_gauss();
@@ -1142,10 +1139,9 @@ mod random_testing {
 
             // Statistical tests for Gaussian distribution
             if gauss_samples.len() > 20 {
-                // Count values within 1, 2, 3 standard deviations
+                // Count values within 1 and 2 standard deviations
                 let mut within_1_sigma = 0u32;
                 let mut within_2_sigma = 0u32;
-                let mut within_3_sigma = 0u32;
 
                 for &sample in &gauss_samples {
                     let abs_val = sample.magnitude();
@@ -1154,9 +1150,6 @@ mod random_testing {
                     }
                     if abs_val < 2.0 {
                         within_2_sigma += 1;
-                    }
-                    if abs_val < 3.0 {
-                        within_3_sigma += 1;
                     }
                 }
 

@@ -1,5 +1,5 @@
 /// Generate exhaustive multiply edge-case test vectors for F3E3 (FRAC=8, EXP=8). Covers all pairs where at least one input has AMBIG exponent. Output: hex file with lines "a_frac a_exp b_frac b_exp r_frac r_exp"
-use spirix::{Scalar, ScalarF3E3};
+use spirix::Scalar;
 
 fn main() {
     let ambig: i8 = -128; // AMBIGUOUS_EXPONENT for 8-bit

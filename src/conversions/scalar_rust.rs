@@ -3,7 +3,7 @@ use crate::ScalarConstants;
 use crate::{Integer, Scalar};
 use core::ops::*;
 use i256::I256;
-use num_traits::{AsPrimitive, PrimInt, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
+use num_traits::{AsPrimitive, WrappingAdd, WrappingMul, WrappingNeg, WrappingSub};
 
 impl<
         F: Integer
@@ -1543,6 +1543,9 @@ mod tests_scalar_ieee {
 
 #[cfg(feature = "alloc")]
 use alloc::string::String;
+// PrimInt is used only by the alloc-gated _printey below, so it carries the same gate.
+#[cfg(feature = "alloc")]
+use num_traits::PrimInt;
 #[cfg(feature = "alloc")]
 #[allow(dead_code)]
 fn _printey<T: core::ops::BitAnd<Output = T> + Copy + PartialEq + PrimInt>(number: T) -> String {
