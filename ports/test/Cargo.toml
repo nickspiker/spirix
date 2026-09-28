@@ -1,0 +1,13 @@
+[package]
+name = "spirix-ports-test"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Differential test: the ports in ports/ vs the Rust Circle division they mirror."
+
+# Deliberately NOT a member of the parent workspace: building this needs clang
+# (and optionally swiftc) on PATH, and `cargo test` at the repo root must not.
+[workspace]
+
+[dependencies]
+spirix = { path = "../.." }
