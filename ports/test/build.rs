@@ -1,6 +1,6 @@
 // Compiles each port and links it in.
 //
-// clang accepts LLVM IR and Objective-C directly; swiftc needs -parse-as-library because the file has no top-level entry point. A missing toolchain is not a build failure: the port is skipped and the harness reports it as skipped, so this still runs somewhere without Swift installed.
+// clang accepts LLVM IR and Objective-C directly, so no separate LLVM install is needed.
 use std::{
     env,
     path::{Path, PathBuf},
@@ -37,7 +37,7 @@ fn main() {
     let ports = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     println!("cargo:rustc-link-search=native={}", out.display());
-    for f in ["circle_divide.ll", "circle_divide.m", "CircleDivide.swift"] {
+    for f in ["circle_divide.ll", "circle_divide.m"] {
         println!("cargo:rerun-if-changed={}", ports.join(f).display());
     }
 
@@ -75,39 +75,4 @@ fn main() {
         "clang failed on circle_divide.m"
     );
     archive(&out, "spxobjc", &obj);
-
-    // --- Swift ---
-    if have("swiftc") {
-        let obj = out.join("swift.o");
-        // -module-name is explicit: without it the module is named after the output file, which leaks into every mangled symbol.
-        let ok = Command::new("swiftc")
-            .args([
-                "-O",
-                "-wmo",
-                "-parse-as-library",
-                "-module-name",
-                "SpirixPorts",
-                "-c",
-            ])
-            .arg(ports.join("CircleDivide.swift"))
-            .arg("-o")
-            .arg(&obj)
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
-        if ok {
-            archive(&out, "spxswift", &obj);
-            // The struct's Equatable conformance needs Swift runtime metadata.
-            if cfg!(target_os = "macos") {
-                println!("cargo:rustc-link-search=native=/usr/lib/swift");
-            }
-            println!("cargo:rustc-link-lib=dylib=swiftCore");
-            println!("cargo:rustc-cfg=have_swift");
-        } else {
-            println!("cargo:warning=swiftc present but failed; skipping the Swift port");
-        }
-    } else {
-        println!("cargo:warning=swiftc not found; skipping the Swift port");
-    }
-    println!("cargo:rustc-check-cfg=cfg(have_swift)");
 }

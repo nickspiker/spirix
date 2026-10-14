@@ -2,7 +2,7 @@
 //!
 //! Each port is required to be bit-identical to `CircleF5E4 / CircleF5E4` on every normal input, and to correctly report "escape class, did not handle it" on every non-normal one.
 //!
-//! Run with `cargo run --release` from `ports/test/`. Exits non-zero on any mismatch. The Swift port is skipped if `swiftc` is unavailable.
+//! Run with `cargo run --release` from `ports/test/`. Exits non-zero on any mismatch.
 
 use spirix::CircleF5E4;
 
@@ -49,20 +49,13 @@ type Port = unsafe extern "C" fn(*mut CircleAbi, *const CircleAbi, *const Circle
 extern "C" {
     fn circle_divide_f5e4(out: *mut CircleAbi, n: *const CircleAbi, d: *const CircleAbi) -> bool;
     fn circle_divide_struct(out: *mut CircleAbi, n: *const CircleAbi, d: *const CircleAbi) -> bool;
-    #[cfg(have_swift)]
-    fn circle_divide_swift(out: *mut CircleAbi, n: *const CircleAbi, d: *const CircleAbi) -> bool;
 }
 
 fn ports() -> Vec<(&'static str, Port)> {
-    // `mut` is only used by the Swift push below, which cfg's out without it.
-    #[cfg_attr(not(have_swift), allow(unused_mut))]
-    let mut v: Vec<(&'static str, Port)> = vec![
+    vec![
         ("llvm-ir    ", circle_divide_f5e4 as Port),
         ("objective-c", circle_divide_struct as Port),
-    ];
-    #[cfg(have_swift)]
-    v.push(("swift      ", circle_divide_swift as Port));
-    v
+    ]
 }
 
 /// Same LCG the crate's own fuzz tests use, so runs are reproducible and the harness stays dependency-free.
@@ -235,9 +228,6 @@ fn main() {
     let cases = corpus();
     let ports = ports();
     println!("{} cases x {} ports\n", cases.len(), ports.len());
-
-    #[cfg(not(have_swift))]
-    println!("note: swiftc unavailable, Swift port skipped\n");
 
     let mut total_fail = 0usize;
     for (name, f) in &ports {

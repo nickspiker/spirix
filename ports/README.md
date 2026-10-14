@@ -8,12 +8,11 @@ Each port mirrors `Circle::circle_divide_circle` from [`src/implementations/divi
 |------|----------|-------|
 | [`circle_divide.ll`](circle_divide.ll) | LLVM IR | Hand-written, target-independent |
 | [`circle_divide.m`](circle_divide.m) | Objective-C | C structs, no Foundation, no ObjC runtime |
-| [`CircleDivide.swift`](CircleDivide.swift) | Swift | Value-type struct, generic `leadingSame` |
 | [`nsobject_overhead.m`](nsobject_overhead.m) | Objective-C | Not a port: measures what NSObject costs |
 
 ## Contract
 
-Every port implements the **normal × normal fast path only** and reports whether it handled the operands — `i1`/`bool` in IR and Objective-C, a `nil` Optional in Swift:
+Every port implements the **normal × normal fast path only** and reports whether it handled the operands (`i1`/`bool` in IR and Objective-C):
 
 - handled — result written, bit-identical to Rust
 - declined — an operand is in an escape class, **nothing written**, the
@@ -27,11 +26,11 @@ Spirix's escape classes (undefined, zero, infinity, exploded, vanished) all live
 cd ports/test && cargo run --release
 ```
 
-Requires `clang` on `PATH`; it compiles both the `.ll` and the `.m` directly, so a separate LLVM install with `llvm-as` is not needed. The Swift port additionally needs `swiftc` — without it that port is skipped with a warning rather than failing the build.
+Requires `clang` on `PATH`; it compiles both the `.ll` and the `.m` directly, so a separate LLVM install with `llvm-as` is not needed.
 
 The harness compares every port against `CircleF5E4 / CircleF5E4` over ~240k cases: randomized normal pairs with arbitrary non-canonical components, values built thru the public API, the two's-complement boundary where `i32::MIN` forces the pre-halving guard, quotients large enough to wrap the 64-bit wide product (the wide-wrap guard), exponent saturation in both directions, degenerate zero-component normals, and every escape-class combination. It exits non-zero on mismatch and prints both results in stored and rendered form.
 
-The test crate declares its own `[workspace]`, so `cargo test` at the repo root neither builds it nor needs a C or Swift toolchain.
+The test crate declares its own `[workspace]`, so `cargo test` at the repo root neither builds it nor needs a C toolchain.
 
 ## What the comparison showed
 
@@ -41,12 +40,12 @@ Measured on an M-series Mac, arm64, `-O2` / `-O`. Instruction counts are for the
 |------|-------------------:|----------:|-------:|--------------|
 | LLVM IR | 121 | 10.5 | — | none |
 | Objective-C | 122 | 9.9 | 1.1 KB | none |
-| Swift | 160 + thunks | 10.4 | 6.8 KB | 4 metadata symbols |
+| Swift (removed) | 160 + thunks | 10.4 | 6.8 KB | 4 metadata symbols |
 | Rust (full impl) | — | 12.8 | — | none |
 
 Objective-C lands **one instruction** away from hand-written IR. Its struct path is plain C, clang's optimizer reaches the same fixed point, and it gets there from readable source — hand-writing the IR bought nothing on this operation.
 
-Swift costs ~30% more instructions, mostly register traffic around the `Optional<CircleF5E4>` return (32 `mov` against the IR's 13), plus a specialization thunk. It also emits getter/setter/`modify` accessors for every property, and the bare `Equatable` conformance pulls in Swift runtime metadata, so it will not link freestanding.
+A Swift port (`CircleDivide.swift`, removed after `2987453`; it was a one-off comparison and there is no `swiftc` on the build machine to keep it verified) cost ~30% more instructions, mostly register traffic around the `Optional<CircleF5E4>` return (32 `mov` against the IR's 13), plus a specialization thunk. It also emits getter/setter/`modify` accessors for every property, and the bare `Equatable` conformance pulls in Swift runtime metadata, so it will not link freestanding.
 
 `nsobject_overhead.m` covers the other half of the Objective-C answer: the same arithmetic behind an `NSObject` with ARC properties runs **17× slower** (7.3 → 124 ns), because every property read is an `objc_msgSend` and every result an `objc_alloc_init` plus an autorelease. That is a cost of objects on a hot path, not of the language.
 
@@ -72,7 +71,7 @@ The remaining time is dominated by the single 64-bit `udiv`. Getting past that n
 
 ## Keeping the ports honest
 
-The encoding constants in each port are transcribed from Rust, so they go stale silently if the encoding moves — and all three inherited the same v0.0.x mistakes before the harness existed: AMBIG written as `E::MIN` instead of `0`, `binade_origin` left at zero, saturation checked against i16's signed range instead of the widened cycle positions `[1, 65535]`, and the exponent sign-extended where `cycle_widen` zero-extends.
+The encoding constants in each port are transcribed from Rust, so they go stale silently if the encoding moves, and all three ports at the time (Swift included) inherited the same v0.0.x mistakes before the harness existed: AMBIG written as `E::MIN` instead of `0`, `binade_origin` left at zero, saturation checked against i16's signed range instead of the widened cycle positions `[1, 65535]`, and the exponent sign-extended where `cycle_widen` zero-extends.
 
 That last one is the easiest to get wrong and the hardest to see: the fraction is signed and wants `sext`, the exponent is an unsigned cycle position and wants `zext`, and they sit a few lines apart. Sign-extending the exponent breaks every value ≥ 1.0 and nothing else.
 
