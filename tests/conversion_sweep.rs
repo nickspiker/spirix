@@ -768,6 +768,116 @@ fn neg_two_pow_neg_127_vanishes() {
     assert_eq!((s.fraction, s.exponent), (neg.fraction, neg.exponent));
 }
 
+/// Splits a nonzero finite f64 into its F4 positive significand `1mmm` (top 16 bits of the normalized mantissa, truncated) and its true exponent k.
+fn decompose(x: f64) -> (u16, i32) {
+    let bits = x.abs().to_bits();
+    let e = (bits >> 52) as i32;
+    let mant = bits & ((1u64 << 52) - 1);
+    let (full, k) = if e == 0 {
+        let s = mant.leading_zeros() as i32 - 11;
+        (mant << s, -1022 - s)
+    } else {
+        (mant | (1u64 << 52), e - 1023)
+    };
+    ((full >> 37) as u16, k)
+}
+
+/// Out-of-range float inputs escape with their mantissa as phase: the bit pattern is the positive significand >> 1 (exploded) or >> 2 (vanished), negatives the scalar_negate of that, which is also what multiply produces for the same value.
+fn check_float_escape_phase(name: &str, use_f32: bool) {
+    let js: [u64; 6] = [0, 1, 0x2A5B, 0x4000, 0x5A5A, 0x7FFF];
+    let (k_lo, k_hi) = if use_f32 { (-149, 127) } else { (-1074, 1023) };
+    let mut failures = Vec::new();
+    let mut escapes = 0usize;
+    for k in k_lo..=k_hi {
+        for &j in js.iter() {
+            for &junk in [false, true].iter() {
+                for &negative in [false, true].iter() {
+                    // m = 1.j (15 fraction bits) plus an optional low junk bit that truncation must drop.
+                    let m = 1.0 + j as f64 / 32768.0 + if junk { 2f64.powi(-20) } else { 0.0 };
+                    let mut x = if negative { -m } else { m } * 2f64.powi(k);
+                    if use_f32 {
+                        x = x as f32 as f64;
+                    }
+                    if x == 0.0 || !x.is_finite() {
+                        continue;
+                    }
+                    let (sig, kx) = decompose(x);
+                    // Float to Scalar truncates the magnitude, so a negative whose significand truncates to the 1.0 pole is treated as the exact power of two (one binade lower in N0) for range purposes.
+                    let pow2 = sig == 0x8000;
+                    let want = f_expect(if pow2 { 1.0 } else { 1.5 }, kx, negative);
+                    if want == "normal" {
+                        continue;
+                    }
+                    escapes += 1;
+                    let s = if use_f32 {
+                        S43::from(x as f32)
+                    } else {
+                        S43::from(x)
+                    };
+                    let expected = scalar_escape16(sig, want == "exploded", negative);
+                    let class_ok = if want == "exploded" {
+                        s.exploded()
+                    } else {
+                        s.vanished()
+                    };
+                    if s.exponent != 0
+                        || s.fraction != expected
+                        || !class_ok
+                        || s.is_negative() != negative
+                    {
+                        failures.push(format!(
+                            "{} x={:e} (k={}): got {:#06x} expected {:#06x} ({})",
+                            name, x, kx, s.fraction, expected, want
+                        ));
+                        continue;
+                    }
+                    // The Circle carries the same escape pattern on its real axis.
+                    let c = if use_f32 {
+                        C43::from(x as f32)
+                    } else {
+                        C43::from(x)
+                    };
+                    if (c.real, c.imaginary, c.exponent) != (s.fraction, 0, 0) {
+                        failures.push(format!("{} x={:e}: Circle {:?}", name, x, c));
+                    }
+                    // Multiply agrees: split x into two in-range factors and multiply them back out.
+                    if kx.abs() <= 254 {
+                        let half = kx / 2;
+                        let a = S43::from(x / 2f64.powi(half));
+                        let b = S43::from(2f64.powi(half));
+                        if a.is_normal() && b.is_normal() {
+                            let p = a * b;
+                            if (p.fraction, p.exponent) != (s.fraction, s.exponent) {
+                                failures.push(format!(
+                                    "{} x={:e}: from gives {:#06x}, multiply gives {:#06x}",
+                                    name, x, s.fraction, p.fraction
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        escapes > 200,
+        "{}: only {} escape cases exercised",
+        name,
+        escapes
+    );
+    report(name, &failures);
+}
+
+#[test]
+fn f64_escape_phase_sweep() {
+    check_float_escape_phase("f64_escape_phase_sweep", false);
+}
+
+#[test]
+fn f32_escape_phase_sweep() {
+    check_float_escape_phase("f32_escape_phase_sweep", true);
+}
+
 // ───────────────────────────── Bug 6: integer MIN into Scalar ─────────────────────────────
 
 #[test]

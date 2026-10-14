@@ -8,7 +8,7 @@
 //! |---------------------------|---------------------|--------|
 //! | finite normal             | `[#]` Normal        | exact math when precision allows |
 //! | finite subnormal          | `[#]` Normal (or `[↓]` if it underflows Spirix) | IEEE's subnormals are genuinely-tiny non-zeros. |
-//! | `±0.0`                    | `[0]`               | IEEE `+0.0 == -0.0` (both are defined as mathematically zero). The sign bit is informational — used for direction-of-approach in `atan2`, `1/x`, etc. — not part of the value. |
+//! | `±0.0`                    | `[0]`               | IEEE `+0.0 == -0.0` (both are defined as mathematically zero). The sign bit is informational (used for direction-of-approach in `atan2`, `1/x`, etc.), not part of the value. |
 //! | `±∞`                      | `[+↑]` / `[-↑]` Exploded | see below |
 //! | NaN                       | `[℘?]` Undefined    | mantissa bits lost, first-cause prefix set to GENERAL |
 //!
@@ -18,15 +18,40 @@
 //!
 //! - **IEEE `±∞` has direction**: `+∞` and `-∞` are distinct, with a sign bit. A true singular infinity has no direction.
 //! - **IEEE `±∞` is reached by overflow**: `f64::MAX * 2.0 = +∞`. That's an overflow, not "we divided by zero and got infinity". In Spirix, reaching the representable upper bound is exactly what `[↑]` Exploded means.
-//! - **IEEE `±∞ - ±∞ = NaN`** and **`0 × ±∞ = NaN`**: these indicate IEEE doesn't actually treat `±∞` as an absorbing element the way mathematical infinity would. Spirix's Exploded has matching semantics here — arithmetic with Exploded operands can produce Undefined results.
+//! - **IEEE `±∞ - ±∞ = NaN`** and **`0 × ±∞ = NaN`**: these indicate IEEE doesn't actually treat `±∞` as an absorbing element the way mathematical infinity would. Spirix's Exploded has matching semantics here: arithmetic with Exploded operands can produce Undefined results.
 //! - **Conservation of information**: rounding IEEE `+∞` to singular `[∞]` silently discards the sign. Mapping to `[+↑]` / `[-↑]` keeps the sign and roundtrips cleanly (Exploded → f64 goes back to `±∞`).
 //!
-//! Spirix reserves the singular `[∞]` for cases where the result genuinely is directionless — e.g. `1/0`, `ln(0)`, or other operations whose true mathematical result is a point-at-infinity with no well-defined sign.
+//! Spirix reserves the singular `[∞]` for cases where the result genuinely is directionless, e.g. `1/0`, `ln(0)`, or other operations whose true mathematical result is a point-at-infinity with no well-defined sign.
 
 use crate::core::integer::*;
 use crate::core::undefined::*;
 use crate::{Integer, Scalar, ScalarConstants};
 use num_traits::AsPrimitive;
+
+impl<F: Integer, E: Integer> Scalar<F, E> {
+    /// Escape for a finite float outside the exponent range, keeping its mantissa as phase. `significand` is the positive N0 form `1mmm` (leading 1 at bit FRAC-1): positive exploded is that >> 1 (`01mmm`), positive vanished >> 2 (`001mm`), and a negative is the two's complement of its positive escape with the canonical poles swapped, the same pattern scalar_negate and multiply's escape path produce for the same value.
+    fn float_escape(significand: F, exploded: bool, negative: bool) -> Self {
+        let class_shift: isize = if exploded { 1 } else { 2 };
+        let positive: F = significand
+            .cycle_widen()
+            .w_shr_logical(class_shift)
+            .deflate();
+        let fraction = if !negative {
+            positive
+        } else if positive == Self::pos_one_exploded() {
+            Self::neg_one_exploded()
+        } else if positive == Self::pos_one_vanished() {
+            Self::neg_one_vanished()
+        } else {
+            // positive tops out at 0x7F..F after the logical shift, so this never overflows.
+            F::zero() - positive
+        };
+        Self {
+            fraction,
+            exponent: Self::ambiguous_exponent(),
+        }
+    }
+}
 
 impl<F: Integer + FullInt, E: Integer + FullInt> From<f64> for Scalar<F, E>
 where
@@ -183,23 +208,9 @@ where
                         exponent: E::max_value() ^ E::min_value(),
                     };
                 }
-                return Self {
-                    fraction: if sign != 0 {
-                        Self::neg_one_exploded()
-                    } else {
-                        Self::pos_one_exploded()
-                    },
-                    exponent: Self::ambiguous_exponent(),
-                };
+                return Self::float_escape(fraction_pos, true, sign != 0);
             } else if spirix_exp < -(E::max_value().saturate::<i16>()) {
-                return Self {
-                    fraction: if sign != 0 {
-                        Self::neg_one_vanished()
-                    } else {
-                        Self::pos_one_vanished()
-                    },
-                    exponent: Self::ambiguous_exponent(),
-                };
+                return Self::float_escape(fraction_pos, false, sign != 0);
             }
         }
 
@@ -392,23 +403,9 @@ where
                         exponent: E::max_value() ^ E::min_value(),
                     };
                 }
-                return Self {
-                    fraction: if sign != 0 {
-                        Self::neg_one_exploded()
-                    } else {
-                        Self::pos_one_exploded()
-                    },
-                    exponent: Self::ambiguous_exponent(),
-                };
+                return Self::float_escape(fraction_pos, true, sign != 0);
             } else if spirix_exp < -(E::max_value().saturate::<i16>()) {
-                return Self {
-                    fraction: if sign != 0 {
-                        Self::neg_one_vanished()
-                    } else {
-                        Self::pos_one_vanished()
-                    },
-                    exponent: Self::ambiguous_exponent(),
-                };
+                return Self::float_escape(fraction_pos, false, sign != 0);
             }
         }
 
@@ -889,7 +886,7 @@ impl_from_uint!(u8, u16, u32, u64, u128, usize);
 impl Scalar<i16, i16> {
     /// Convert a normal (finite, non-zero, non-NaN) f32 literal to `Scalar<i16,i16>` at compile time.  Panics at compile time if called with NaN, infinity, or zero.
     ///
-    /// Use this for compile-time constants — e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308)`. For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`.
+    /// Use this for compile-time constants, e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f32(0.0031308)`. For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`.
     #[inline(always)]
     pub const fn from_f32(v: f32) -> Self {
         // Decode IEEE 754 binary32 using pure integer ops (all const-stable).

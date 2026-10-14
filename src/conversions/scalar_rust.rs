@@ -63,7 +63,7 @@ where
 {
     fn into(self) -> f64 {
         if self.is_normal() {
-            // Inflate to effective value (FRAC+1 bits signed), then to f64. f64 mantissa is 53 bits — for wider fractions we shift down and adjust scale.
+            // Inflate to effective value (FRAC+1 bits signed), then to f64. f64 mantissa is 53 bits, so for wider fractions we shift down and adjust scale.
             let (base_i64, scale_adjust) = match Scalar::<F, E>::fraction_bits() {
                 8 => {
                     let s: i8 = self.fraction.saturate();
@@ -78,13 +78,13 @@ where
                     (s as i64 ^ ((-1i64) << 32), 0i64)
                 }
                 64 => {
-                    // Effective is 65 bits — shift right 1 to fit signed i64, scale +1.
+                    // Effective is 65 bits: shift right 1 to fit signed i64, scale +1.
                     let s: i64 = self.fraction.saturate();
                     let eff: i128 = (s as i128) ^ ((-1i128) << 64);
                     ((eff >> 1) as i64, 1i64)
                 }
                 128 => {
-                    // Effective is 129 bits — shift right 65 to fit signed i64, scale +65.
+                    // Effective is 129 bits: shift right 65 to fit signed i64, scale +65.
                     let s: i128 = self.fraction.saturate();
                     let eff: i256::I256 = s.inflate(true);
                     let eff_shifted = eff >> 65usize;
@@ -217,19 +217,19 @@ where
                     (s as i32 ^ ((-1i32) << 16), 0i64)
                 }
                 32 => {
-                    // Effective is 33 bits — shift right 1 to fit i32, scale +1.
+                    // Effective is 33 bits: shift right 1 to fit i32, scale +1.
                     let s: i32 = self.fraction.saturate();
                     let eff: i64 = (s as i64) ^ ((-1i64) << 32);
                     ((eff >> 1) as i32, 1i64)
                 }
                 64 => {
-                    // Effective is 65 bits — shift right 33 to fit i32, scale +33.
+                    // Effective is 65 bits: shift right 33 to fit i32, scale +33.
                     let s: i64 = self.fraction.saturate();
                     let eff: i128 = (s as i128) ^ ((-1i128) << 64);
                     ((eff >> 33) as i32, 33i64)
                 }
                 128 => {
-                    // Effective is 129 bits — shift right 97 to fit i32, scale +97.
+                    // Effective is 129 bits: shift right 97 to fit i32, scale +97.
                     let s: i128 = self.fraction.saturate();
                     let eff: i256::I256 = s.inflate(true);
                     let eff_shifted = eff >> 97usize;
@@ -829,7 +829,7 @@ where
     isize: AsPrimitive<E>,
     I256: From<E>,
 {
-    /// Inherent convenience methods — delegate to Into<iN>/<uN> impls. Behavior: Zero/Infinity/Undefined → 0; Vanished-neg → -1, Vanished-pos → 0; Exploded → MIN/MAX by sign; normal values saturate on overflow.
+    /// Inherent convenience methods, delegating to the Into<iN>/<uN> impls. Behavior: Zero and Undefined → 0; Infinity → MAX (it has no sign, so it saturates high); Vanished of either sign → 0 (treated as negligible before flooring, so a negative vanished does not floor to -1); Exploded → MIN/MAX by sign; normal values floor (toward negative infinity, not toward zero like `as`) and saturate on overflow; unsigned targets return 0 for any negative value, including negative exploded.
     #[inline]
     pub fn to_i8(&self) -> i8 {
         (*self).into()
@@ -882,7 +882,7 @@ where
 
 /// Pure-integer IEEE conversions for all Scalar types.
 ///
-/// These avoid `2f32.powi` / `2f64.powi` — all operations are integer bit manipulation + `f32::from_bits` / `f64::from_bits` (reinterpret casts only). to_f32: delegates to the `Into<f32>` impl (both paths produce current format).
+/// These avoid `2f32.powi` / `2f64.powi`: all operations are integer bit manipulation + `f32::from_bits` / `f64::from_bits` (reinterpret casts only). to_f32: delegates to the `Into<f32>` impl (both paths produce current format).
 macro_rules! impl_to_f32 {
     ($frac:ty, $exp:ty, $frac_bits:expr) => {
         impl Scalar<$frac, $exp> {
@@ -1026,7 +1026,7 @@ impl_to_ieee_all!(i128, 128, i8, i16, i32, i64, i128);
 impl Scalar<i16, i16> {
     /// Convert a normal (finite, non-zero, non-NaN) f64 literal to `Scalar<i16,i16>` at compile time. Panics at compile time if called with NaN, infinity, or zero.
     ///
-    /// Use this for compile-time constants — e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f64(1.0/3.0)`. For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`. Provides higher precision than `from_f32` for constants with more than 7 significant digits.
+    /// Use this for compile-time constants, e.g. `const K: ScalarF4E4 = ScalarF4E4::from_f64(1.0/3.0)`. For runtime conversion of arbitrary values use `ScalarF4E4::from(v)`. Provides higher precision than `from_f32` for constants with more than 7 significant digits.
     #[inline(always)]
     pub const fn from_f64(v: f64) -> Self {
         // Decode IEEE 754 binary64 using pure integer ops (all const-stable).
@@ -1081,10 +1081,10 @@ impl Scalar<i16, i16> {
         // Position MSB at bit FRAC-1 = 15 (FRAC=16 for Scalar<i16, i16>).
         let shift = 16 - significant;
         let fraction_pos: i16 = if shift < 0 {
-            // abs_mantissa has more bits than FRAC — right-shift, truncate low bits.
+            // abs_mantissa has more bits than FRAC: right-shift, truncate low bits.
             (abs_mantissa >> ((-shift) as u32)) as i16
         } else {
-            // Fits in low 16 bits — cast then left-shift puts MSB at bit 15.
+            // Fits in low 16 bits: cast then left-shift puts MSB at bit 15.
             (abs_mantissa as i16).wrapping_shl(shift as u32)
         };
 
@@ -1183,7 +1183,7 @@ mod tests_scalar_ieee {
         assert!(S44::from(f32::INFINITY).to_f32().is_infinite());
         // -inf → inf (sign lost in S44 representation)
         assert!(S44::from(f32::NEG_INFINITY).to_f32().is_infinite());
-        // Spirix ZERO is signless — both ±0 collapse to the same ZERO and round-trip to +0.
+        // Spirix ZERO is signless; both ±0 collapse to the same ZERO and round-trip to +0.
         assert_eq!(S44::from(0.0_f32).to_f32().to_bits(), 0u32);
         assert_eq!(S44::from(-0.0_f32).to_f32().to_bits(), 0u32);
     }
@@ -1214,7 +1214,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn to_f32_subnormals() {
-        // f32 subnormals have known precision loss in the spirix from_f32 path: the exponent encoding for subnormals uses raw_exp - 119 (same as normals) rather than the correct 1 - 127 = -126, causing an off-by-1 in the exponent. The round-trip thru S44 is therefore lossy for subnormals — acceptable. We just verify to_f32 doesn't panic and returns something non-negative for positive inputs.
+        // f32 subnormals have known precision loss in the spirix from_f32 path: the exponent encoding for subnormals uses raw_exp - 119 (same as normals) rather than the correct 1 - 127 = -126, causing an off-by-1 in the exponent. The round-trip thru S44 is therefore lossy for subnormals, which is acceptable. We just verify to_f32 doesn't panic and returns something non-negative for positive inputs.
 
         // Smallest positive subnormal
         let v = f32::from_bits(1u32);
@@ -1228,7 +1228,7 @@ mod tests_scalar_ieee {
             "positive subnormal should stay non-negative: {back}"
         );
 
-        // Mid-range subnormal — may round-trip to a close value or zero; either is OK
+        // Mid-range subnormal: may round-trip to a close value or zero; either is OK
         let v2 = f32::from_bits(0x0040_0000);
         let back2 = S44::from_f32(v2).to_f32();
         assert!(
@@ -1275,7 +1275,7 @@ mod tests_scalar_ieee {
         assert!(S44::from(f32::NAN).to_f64().is_nan());
         assert!(S44::from(f32::INFINITY).to_f64().is_infinite());
         assert!(S44::from(f32::NEG_INFINITY).to_f64().is_infinite()); // sign lost
-                                                                      // Spirix ZERO is signless — both ±0.0 map to the same ZERO, round-tripping to +0.0. Sign is intentionally not preserved.
+                                                                      // Spirix ZERO is signless; both ±0.0 map to the same ZERO, round-tripping to +0.0. Sign is intentionally not preserved.
         assert_eq!(S44::from(0.0_f32).to_f64().to_bits(), 0u64);
         assert_eq!(S44::from(-0.0_f32).to_f64().to_bits(), 0u64);
     }
@@ -1315,7 +1315,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_vs_from_f32_agreement() {
-        // For values in f32 range, from_f64 and from_f32 should produce the same S44 (within 1 S44 ULP — they may differ by the last fraction bit since f64 has more precision)
+        // For values in f32 range, from_f64 and from_f32 should produce the same S44 (within 1 S44 ULP; they may differ by the last fraction bit since f64 has more precision)
         for &v in &[0.25_f32, 0.5, 1.0, -1.0, 2.0, 100.0, 1234.5] {
             let s32 = S44::from_f32(v);
             let s64 = S44::from_f64(v as f64);
@@ -1427,7 +1427,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_negative_f64_min() {
-        // f64::MIN = -(2-2^-52)*2^1023 — most negative finite f64. from_f64(f64::MIN) stores {fraction: i16::MIN, exponent: 1024}. In to_f64, i16::MIN triggers +1 exp_adj → raw_exp = 1024+1022+1 = 2047 → overflow. Saturating to -infinity is the correct result.
+        // f64::MIN = -(2-2^-52)*2^1023, the most negative finite f64. from_f64(f64::MIN) stores {fraction: i16::MIN, exponent: 1024}. In to_f64, i16::MIN triggers +1 exp_adj → raw_exp = 1024+1022+1 = 2047 → overflow. Saturating to -infinity is the correct result.
         let v = f64::MIN;
         let s = S44::from_f64(v);
         let back = s.to_f64();
@@ -1439,7 +1439,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_subnormals() {
-        // f64 subnormals: raw_exp = 0, exponent decoding gives very negative S44 exponent. S44 i16 exponent range is huge, so tiny subnormals may be representable or may underflow — either result is valid; just verify no panic.
+        // f64 subnormals: raw_exp = 0, exponent decoding gives very negative S44 exponent. S44 i16 exponent range is huge, so tiny subnormals may be representable or may underflow (either result is valid); just verify no panic.
         let tiny = f64::from_bits(1u64); // smallest positive subnormal ≈ 5e-324
         let s = S44::from_f64(tiny);
         let back = s.to_f64();
@@ -1450,7 +1450,7 @@ mod tests_scalar_ieee {
 
     #[test]
     fn from_f64_scaled_ieee_min_times_random() {
-        // Cover a range of magnitudes from tiny to max to exercise the full exponent range of from_f64. Values that are within normal f64 range should round-trip within S44 precision (~3 significant decimal digits). Values at the f64 extremes (MAX, MIN) may overflow back to ±infinity — that's acceptable since the i16::MIN fraction encoding adds +1 to the exponent in to_f64.
+        // Cover a range of magnitudes from tiny to max to exercise the full exponent range of from_f64. Values that are within normal f64 range should round-trip within S44 precision (~3 significant decimal digits). Values at the f64 extremes (MAX, MIN) may overflow back to ±infinity, which is acceptable since the i16::MIN fraction encoding adds +1 to the exponent in to_f64.
         let test_values: &[(f64, bool)] = &[
             (f64::MIN_POSITIVE * 1.0, false),
             (f64::MIN_POSITIVE * 1e10, false),
@@ -1461,7 +1461,7 @@ mod tests_scalar_ieee {
             (-1.0, false),
             (1234.5678901234567, false),
             (-9876.54321, false),
-            // IEEE extremes — may overflow to ±infinity in round-trip (accepted)
+            // IEEE extremes: may overflow to ±infinity in round-trip (accepted)
             (f64::MAX, true),
             (f64::MIN, true),
         ];
