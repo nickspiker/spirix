@@ -13,9 +13,26 @@ All notable changes to Spirix are documented here.
 - `is_contiguous` rejected -1 (and every negative power of two at the low end) and accepted -2^FRAC and exploded values. Now a bounds check against `MIN_CONTIGUOUS`/`MAX_CONTIGUOUS`.
 - Circle `MAX_CONTIGUOUS`/`MIN_CONTIGUOUS` scaled with twice the exponent width instead of the fraction width, right only when FRAC = 2*EXP (`CircleF5E3::MAX_CONTIGUOUS` was 32767.99, now 2^31-2).
 - `{:#?}` exponent colours were swapped (integer binades showed the fractional colour).
+- Circle OR against a far-smaller operand with a negative component ran `Scalar::normalize` on the other component, flipping its sign: (1 + 0.0156i) | tiny gave (-4.8e-7, -0.0156).
+- Circle cross-width conversion (`CircleF5E4::from(&CircleF4E3)` and back) still used the old signed exponent encoding: ONE widened to about 4e9825, ZERO widened to a non-zero, narrowing 1000.0 gave 0.9765.
+- `Circle::from((Scalar, Scalar))` misaligned components 128 or more binades apart: (2^64, 2^-64) gave (2^-64, 2^-64).
+- Circle from an escaped Scalar (and so from out-of-range f64/f32) dropped the escape one class: `CircleF4E3::from(1e300)` was vanished, `from(1e-300)` undefined.
+- Scalar narrowing (e.g. E4 to E3) out of range produced the wrong escape class or ZERO (-2^200 became ZERO); it now explodes/vanishes with the sign and phase kept.
+- `Scalar::from(-2^-127)` (f64 and f32) returned ZERO instead of -vanished; `ScalarF7E3::from(i128::MIN)` exploded instead of returning -2^127 exactly.
+- `to_i*`/`to_u*` at exponent widths of 16 bits or more wrapped the shift: 1.5·2^-32767 converted to 3.
+- Circle `magnitude`, `magnitude_squared`, `sqrt`, and `ln` squared at the stored exponent and went undefined above about 2^62 or below 2^-62 at E3 (`sqrt` of 2^64 was ℘√↑); they now factor the shared exponent out.
+- `sinh` of a large negative argument returned the positive vanished arm (`sinh(-112)` was +vanished); `sinh` and `cosh` now follow sign(x)·exp(|x|)/2 when an arm escapes, and `cosh(±89)` no longer explodes early.
+- Circle/Circle and Scalar/Circle division wrapped the wide intermediate when a quotient component reached about 2, flipping its sign (0.22% of random Circle/Circle cases); Circle/Scalar now canonicalizes a de-normalized numerator first.
+- `frac` of a tiny negative returned exactly 1.0, outside [0, 1).
+- SIMD `scalar_subtract_batch` under AVX2 wrote its results into a temporary copy and returned the output untouched, and the AVX2 kernel used the old signed exponent compare with no normalization. The kernel now matches the scalar operator bit for bit (falling back per lane for escapes), and AVX2 is detected at runtime instead of only at compile time.
+
+### Changed
+- Scalar division floors its quotient, as the README documents, instead of truncating toward zero: inexact negative quotients are one unit lower than before. This also fixes reciprocals that truncated onto the unrepresentable -2^-127 and vanished.
+- Circle `sqrt` uses the cancellation-free form (Im / (2 × larger root)), so low bits change for most inputs; the minor component of near-real roots was losing about 2^-10 of |root|.
+- Out-of-range f64/f32 conversions keep the mantissa as escape phase instead of the canonical ±1 pattern.
 
 ### Deprecated
-- `Scalar::normalize` is now a no-op: under N0 every bit pattern at a normal exponent is already canonical, and the old body corrupted values (1.5 became -0.5). Nothing in the crate called it.
+- `Scalar::normalize` is now a no-op: under N0 every bit pattern at a normal exponent is already canonical, and the old body corrupted values (1.5 became -0.5).
 
 ## [0.1.1] - 2026-07-04
 
