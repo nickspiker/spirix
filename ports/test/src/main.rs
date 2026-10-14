@@ -171,7 +171,47 @@ fn corpus() -> Vec<(&'static str, CircleF5E4, CircleF5E4)> {
         v.push(("degenerate", c(0, 0, e), c(0, 0, e)));
     }
 
-    // 6. Escape classes: must be declined, not answered. Everything at AMBIG.
+    // 6. Wide wrap: the reciprocal-multiply wide carries q x 2^62, so a quotient component of magnitude 2 or more wraps i64 and, before the guard, came out with its sign flipped. These pair a near-full-scale numerator with a denominator just above 2^30, in every sign combination, plus the F4E3 audit repro {0x8e63, 0x89c6} / {0x4469, 0xe885} widened to 32-bit components (Im(q) = -2.05).
+    let big = [
+        i32::MAX,
+        i32::MIN + 1,
+        0x7000_0000,
+        -0x7000_0000,
+        0x4000_0001,
+    ];
+    let small = [
+        (1 << 30, 0),
+        ((1 << 30) + 1, 0),
+        (-(1 << 30), 0),
+        (1 << 30, 0x0100_0000),
+        (0x4469_0000, 0xe885_0000u32 as i32),
+        (0, 1 << 30),
+        (0x0010_0000, -(1 << 30)),
+    ];
+    for &ar in &big {
+        for &ai in &big {
+            for &(br, bi) in &small {
+                for &(ea, eb) in &[
+                    (1i16, 1i16),
+                    (i16::MIN, i16::MIN),
+                    (-1, 1),
+                    (1, -1),
+                    (0x4000, -0x4000),
+                ] {
+                    v.push(("wide-wrap", c(ar, ai, ea), c(br, bi, eb)));
+                }
+            }
+        }
+    }
+    for &e in &exps {
+        v.push((
+            "wide-wrap",
+            c(0x8e63_0000u32 as i32, 0x89c6_0000u32 as i32, e),
+            c(0x4469_0000, 0xe885_0000u32 as i32, 0x4000),
+        ));
+    }
+
+    // 7. Escape classes: must be declined, not answered. Everything at AMBIG.
     let escapes = [
         CircleF5E4::ZERO,
         CircleF5E4::INFINITY,

@@ -74,8 +74,16 @@ bool circle_divide_struct(SpxCircleF5E4 *out,
 
     int64_t real_num = (int64_t)((ua * uc) + (ub * ud));
     int64_t imag_num = (int64_t)((ub * uc) - (ua * ud));
-    int64_t real_wide = (int64_t)((uint64_t)(real_num >> 32) * reciprocal);
-    int64_t imag_wide = (int64_t)((uint64_t)(imag_num >> 32) * reciprocal);
+    int64_t real_scaled = real_num >> 32;
+    int64_t imag_scaled = imag_num >> 32;
+    int64_t real_wide = (int64_t)((uint64_t)real_scaled * reciprocal);
+    int64_t imag_wide = (int64_t)((uint64_t)imag_scaled * reciprocal);
+    // Wide-wrap guard: the wide result carries q x 2^62, so a quotient component reaching 2 in magnitude wraps, and since the product stays below 2^64 in magnitude a wrap always flips its sign against the positive reciprocal. Redo both products with one more numerator bit dropped and pay the bit back on the exponent.
+    bool halved = ((real_wide < 0) != (real_scaled < 0)) || ((imag_wide < 0) != (imag_scaled < 0));
+    if (halved) {
+        real_wide = (int64_t)((uint64_t)(real_num >> 33) * reciprocal);
+        imag_wide = (int64_t)((uint64_t)(imag_num >> 33) * reciprocal);
+    }
 
     int lr = leading_same64(real_wide), li = leading_same64(imag_wide);
     int64_t shift = (int64_t)((lr < li ? lr : li) - 1);
@@ -86,7 +94,7 @@ bool circle_divide_struct(SpxCircleF5E4 *out,
     // cycle_widen: zero-extend through the unsigned type.
     int32_t xe = (int32_t)(uint16_t)num->exponent;
     int32_t ye = (int32_t)(uint16_t)den->exponent;
-    int32_t pa = xe - s_num + (a_bump ? 1 : 0);
+    int32_t pa = xe - s_num + (a_bump ? 1 : 0) + (halved ? 1 : 0);
     int32_t pb = ye - s_den + (c_bump ? 1 : 0);
     int32_t stored = pa - pb + kBinadeOrigin - (int32_t)shift;
 

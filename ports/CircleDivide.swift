@@ -72,8 +72,16 @@ extension CircleF5E4 {
 
         let realNum = a &* c &+ b &* d
         let imagNum = b &* c &- a &* d
-        let realWide = (realNum >> fb) &* reciprocal   // >> on Int64 = arithmetic
-        let imagWide = (imagNum >> fb) &* reciprocal
+        let realScaled = realNum >> fb                 // >> on Int64 = arithmetic
+        let imagScaled = imagNum >> fb
+        var realWide = realScaled &* reciprocal
+        var imagWide = imagScaled &* reciprocal
+        // Wide-wrap guard: the wide result carries q x 2^62, so a quotient component reaching 2 in magnitude wraps, and since the product stays below 2^64 in magnitude a wrap always flips its sign against the positive reciprocal. Redo both products with one more numerator bit dropped and pay the bit back on the exponent.
+        let halved = (realWide < 0) != (realScaled < 0) || (imagWide < 0) != (imagScaled < 0)
+        if halved {
+            realWide = (realNum >> (fb + 1)) &* reciprocal
+            imagWide = (imagNum >> (fb + 1)) &* reciprocal
+        }
 
         let shift = Int64(Swift.min(realWide.leadingSame, imagWide.leadingSame) - 1)
         // Int32(x) would TRAP if x didn't fit. Rust's `as` / deflate() truncates; in Swift you must say so by name.
@@ -83,7 +91,7 @@ extension CircleF5E4 {
         // cycle_widen: the exponent is an unsigned cycle position, so widen through the UNSIGNED type. Int32(lhs.exponent) would sign-extend and break every exponent >= 0x8000, i.e. every value >= 1.0.
         let xe = Int32(UInt16(bitPattern: lhs.exponent))
         let ye = Int32(UInt16(bitPattern: rhs.exponent))
-        let pa = xe &- sNum &+ (aBump ? 1 : 0)
+        let pa = xe &- sNum &+ (aBump ? 1 : 0) &+ (halved ? 1 : 0)
         let pb = ye &- sDen &+ (cBump ? 1 : 0)
         let stored = pa &- pb &+ binadeOrigin &- Int32(shift)
 

@@ -29,7 +29,7 @@ cd ports/test && cargo run --release
 
 Requires `clang` on `PATH`; it compiles both the `.ll` and the `.m` directly, so a separate LLVM install with `llvm-as` is not needed. The Swift port additionally needs `swiftc` — without it that port is skipped with a warning rather than failing the build.
 
-The harness compares every port against `CircleF5E4 / CircleF5E4` over ~240k cases: randomized normal pairs with arbitrary non-canonical components, values built through the public API, the two's-complement boundary where `i32::MIN` forces the pre-halving guard, exponent saturation in both directions, degenerate zero-component normals, and every escape-class combination. It exits non-zero on mismatch and prints both results in stored and rendered form.
+The harness compares every port against `CircleF5E4 / CircleF5E4` over ~240k cases: randomized normal pairs with arbitrary non-canonical components, values built thru the public API, the two's-complement boundary where `i32::MIN` forces the pre-halving guard, quotients large enough to wrap the 64-bit wide product (the wide-wrap guard), exponent saturation in both directions, degenerate zero-component normals, and every escape-class combination. It exits non-zero on mismatch and prints both results in stored and rendered form.
 
 The test crate declares its own `[workspace]`, so `cargo test` at the repo root neither builds it nor needs a C or Swift toolchain.
 

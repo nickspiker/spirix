@@ -190,8 +190,23 @@ compute:
   %imag_num  = sub i64 %bc, %ad
   %rn_s      = ashr i64 %real_num, 32                       ; w_shr (arithmetic)
   %in_s      = ashr i64 %imag_num, 32
-  %real_wide = mul i64 %rn_s, %reciprocal
-  %imag_wide = mul i64 %in_s, %reciprocal
+  %rw0       = mul i64 %rn_s, %reciprocal
+  %iw0       = mul i64 %in_s, %reciprocal
+
+  ; Wide-wrap guard. The wide result carries q x 2^62, and a canonical pair over a canonical pair reaches |q| = 2*sqrt(2), so a quotient component reaching 2 in magnitude wraps i64. The product stays below 2^64 in magnitude, so a wrap always flips its sign against the positive reciprocal: compare the sign of each product with the sign of its numerator, and on a wrap redo both products with one more numerator bit dropped (the exponent pays the bit back below). `xor` of two `icmp slt 0` results is "signs differ".
+  %rw0_neg   = icmp slt i64 %rw0, 0
+  %rn_neg    = icmp slt i64 %rn_s, 0
+  %iw0_neg   = icmp slt i64 %iw0, 0
+  %in_neg    = icmp slt i64 %in_s, 0
+  %r_wrap    = xor i1 %rw0_neg, %rn_neg
+  %i_wrap    = xor i1 %iw0_neg, %in_neg
+  %halved    = or i1 %r_wrap, %i_wrap
+  %rn_h      = ashr i64 %real_num, 33
+  %in_h      = ashr i64 %imag_num, 33
+  %rw1       = mul i64 %rn_h, %reciprocal
+  %iw1       = mul i64 %in_h, %reciprocal
+  %real_wide = select i1 %halved, i64 %rw1, i64 %rw0
+  %imag_wide = select i1 %halved, i64 %iw1, i64 %iw0
 
   ; Renormalize the wide result back to canonical N1 and remember the shift, which the exponent pays back one binade per bit.
   %lr    = call i64 @leading_same64(i64 %real_wide)
@@ -211,11 +226,13 @@ compute:
   ; Exponent bookkeeping, all on widened CYCLE POSITIONS in i32. cycle_widen() is a ZERO-extend: the exponent is an unsigned position on a 2^16 cycle, not a signed number. See CONSTANTS above.
   %xe32    = zext i16 %xe to i32                            ; cycle_widen
   %ye32    = zext i16 %ye to i32                            ; cycle_widen
-  ; Canonicalization multiplied each pair by 2^s, so the exponent owes -s; the boundary halving divided by 2, so it owes +1.
+  ; Canonicalization multiplied each pair by 2^s, so the exponent owes -s; the boundary halving and the wide-wrap halving each divided by 2, so each owes +1.
   %a_inc   = zext i1 %a_bump to i32                         ; true -> 1
   %c_inc   = zext i1 %c_bump to i32
+  %h_inc   = zext i1 %halved to i32                         ; wide-wrap halving owes +1 too
   %pa0     = sub i32 %xe32, %s_num
-  %pa      = add i32 %pa0, %a_inc
+  %pa1     = add i32 %pa0, %a_inc
+  %pa      = add i32 %pa1, %h_inc
   %pb0     = sub i32 %ye32, %s_den
   %pb      = add i32 %pb0, %c_inc
   %bo      = load i32, ptr @BINADE_ORIGIN
