@@ -1,209 +1,213 @@
-use crate::ScalarF4E4;
+use crate::{Scalar, ScalarF4E4};
 
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
 
-/// Pack 15× i16 values into 17-bit slots (255 bits total)
+/// The vector kernel reads each ScalarF4E4 as one little-endian 32-bit word with the fraction in the low half and the exponent in the high half.
 ///
-/// Takes 15 i16 values and packs them into a 256-bit register where each value occupies 17 bits (16 data bits + 1 bit for overflow/carry space).
+/// `Scalar` is not `repr(C)`, so this is checked at compile time and the batch functions fall back to element-wise scalar subtract if the compiler ever lays it out differently.
+const PACKED_LAYOUT: bool = core::mem::size_of::<ScalarF4E4>() == 4
+    && core::mem::offset_of!(Scalar<i16, i16>, fraction) == 0
+    && core::mem::offset_of!(Scalar<i16, i16>, exponent) == 2;
+
+/// Subtracts 8x ScalarF4E4 with AVX2, bit-identical to `a[i] - b[i]`.
 ///
-/// Bit layout: [val0: 0-16][val1: 17-33][val2: 34-50]...[val14: 238-254][unused: 255]
-#[allow(dead_code)]
-#[inline]
-unsafe fn pack_15_i16_to_17bit(values: &[i16; 15]) -> __m256i {
-    // Convert i16 to i32 for easier bit manipulation
-    let mut packed = [0u32; 8];
-
-    // Pack values: each 17-bit value spans into u32 chunks val0: bits 0-16
-    packed[0] |= values[0] as u32 & 0x1FFFF;
-    // val1: bits 17-33 (spans packed[0] and packed[1])
-    packed[0] |= (values[1] as u32 & 0x7FFF) << 17;
-    packed[1] |= (values[1] as u32 & 0x1FFFF) >> 15;
-    // val2: bits 34-50
-    packed[1] |= (values[2] as u32 & 0x3FFF) << 2;
-    packed[1] |= ((values[2] as u32 & 0x1FFFF) >> 14) << 16;
-    packed[2] |= (values[2] as u32 & 0x1FFFF) >> 30;
-
-    // ... continue for all 15 values TODO: Complete the bit packing for remaining values
-
-    _mm256_loadu_si256(packed.as_ptr() as *const __m256i)
-}
-
-/// Unpack 15× 17-bit values from a 256-bit register back to i16
+/// The vector path mirrors `scalar_subtract_scalar` for the common case: both operands normal (stored exponent nonzero), the smaller operand either aligned by a shift of at most FRAC-2 or dropped entirely, and the normalized result landing inside the exponent cycle.
 ///
-/// Extracts 15 values from 17-bit slots and converts back to i16. Inverse of pack_15_i16_to_17bit().
-#[allow(dead_code)]
-#[inline]
-unsafe fn unpack_17bit_to_15_i16(packed: __m256i) -> [i16; 15] {
-    let mut unpacked = [0i16; 15];
-    let bytes: [u32; 8] = core::mem::transmute(packed);
-
-    // Extract val0: bits 0-16
-    unpacked[0] = (bytes[0] & 0x1FFFF) as i16;
-    // Extract val1: bits 17-33
-    unpacked[1] = (((bytes[0] >> 17) | (bytes[1] << 15)) & 0x1FFFF) as i16;
-    // Extract val2: bits 34-50
-    unpacked[2] = (((bytes[1] >> 2) | (bytes[2] << 30)) & 0x1FFFF) as i16;
-
-    // ... continue for all 15 values TODO: Complete the bit unpacking for remaining values
-
-    unpacked
-}
-
-/// Version 1: 8-op baseline using hardware i16→i32 unpack
+/// Lanes outside that case (any Zero, Infinity, exploded, vanished or undefined operand, a result that explodes or vanishes, or negating a dropped subtrahend sitting on a ±1.0 fraction boundary) are recomputed with the scalar operator after the vector store.
+///
+/// # Safety
+///
+/// Requires AVX2.
 #[target_feature(enable = "avx2")]
 pub unsafe fn scalar_subtract_batch_avx2_8op(
     a: &[ScalarF4E4; 8],
     b: &[ScalarF4E4; 8],
     result: &mut [ScalarF4E4; 8],
 ) {
-    // Load 8× ScalarF4E4 as 256 bits (each ScalarF4E4 = 32 bits) Memory layout: [frac0|exp0][frac1|exp1]...[frac7|exp7] (each pair is 32 bits)
-    let a_vec = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
-    let b_vec = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
-
-    // Extract fractions (lower 16 bits of each 32-bit lane, sign-extended to i32) Shift left 16 to move fraction to upper position, then arithmetic shift right to sign-extend
-    let a_frac = _mm256_srai_epi32(_mm256_slli_epi32(a_vec, 16), 16);
-    let b_frac = _mm256_srai_epi32(_mm256_slli_epi32(b_vec, 16), 16);
-
-    // Extract exponents (upper 16 bits of each 32-bit lane, sign-extended to i32) Arithmetic shift right 16 extracts and sign-extends
-    let a_exp = _mm256_srai_epi32(a_vec, 16);
-    let b_exp = _mm256_srai_epi32(b_vec, 16);
-
-    // Now we have:
-    // - a_frac: 8× i32 sign-extended fractions from a
-    // - a_exp: 8× i32 sign-extended exponents from a Same for b
-
-    // Step 1: Compare exponents to determine which fraction needs shifting
-    let exp_diff = _mm256_sub_epi32(a_exp, b_exp);
-    let b_gt_a = _mm256_cmpgt_epi32(b_exp, a_exp); // -1 where b > a
-
-    // Step 2: Compute absolute shift amount We need abs(exp_diff) to know how much to shift
-    let shift_amount = _mm256_abs_epi32(exp_diff);
-
-    // Step 3: Align fractions by shifting the one with smaller exponent If a > b: shift b_frac right by (a_exp - b_exp) If b > a: shift a_frac right by (b_exp - a_exp) If equal: no shift needed
-
-    // Arithmetic right shift (preserves sign bit for signed fractions)
-    let a_frac_shifted = _mm256_srav_epi32(a_frac, shift_amount);
-    let b_frac_shifted = _mm256_srav_epi32(b_frac, shift_amount);
-
-    // Select which fraction to use based on exponent comparison If a_exp > b_exp: use a_frac and b_frac_shifted If b_exp > a_exp: use a_frac_shifted and b_frac If equal: use a_frac and b_frac (no shift)
-    let frac_a_final = _mm256_blendv_epi8(a_frac, a_frac_shifted, b_gt_a);
-    let frac_b_final = _mm256_blendv_epi8(b_frac_shifted, b_frac, b_gt_a);
-
-    // Step 4: Subtract aligned fractions
-    let result_frac = _mm256_sub_epi32(frac_a_final, frac_b_final);
-
-    // Step 5: Select result exponent (the larger one)
-    let result_exp = _mm256_blendv_epi8(a_exp, b_exp, b_gt_a);
-
-    // Step 6: Normalize (TODO: this needs lzcnt and more complex logic) For now, pack without normalization as a starting point
-
-    // Step 7: Pack back to i16 fractions and exponents Truncate i32 back to i16 using packs (saturates)
-    let result_frac_i16 = _mm256_packs_epi32(result_frac, result_frac);
-    let result_exp_i16 = _mm256_packs_epi32(result_exp, result_exp);
-
-    // Step 8: Interleave fractions and exponents back to [frac|exp] format Unpack low 64 bits to interleave
-    let result_lo = _mm256_unpacklo_epi16(result_frac_i16, result_exp_i16);
-    let result_hi = _mm256_unpackhi_epi16(result_frac_i16, result_exp_i16);
-
-    // Permute to correct lane order (packs puts lanes in wrong order)
-    let result_vec =
-        _mm256_permute4x64_epi64(_mm256_unpacklo_epi64(result_lo, result_hi), 0b11011000);
-
-    _mm256_storeu_si256(result.as_mut_ptr() as *mut __m256i, result_vec);
-
-    // TODO: Handle edge cases (zero, normalization, ambiguous)
-}
-
-/// Version 2: 15-op using custom 17-bit packing with shifts/masks
-#[target_feature(enable = "avx2")]
-pub unsafe fn scalar_subtract_batch_avx2_15op_shift(
-    a: &[ScalarF4E4],
-    b: &[ScalarF4E4],
-    result: &mut [ScalarF4E4],
-) {
-    // Process 15 ScalarF4E4 at a time
-    let chunks = a.len() / 15;
-
-    for i in 0..chunks {
-        let idx = i * 15;
-
-        // Extract 15 fractions (i16 for F4E4)
-        let mut a_fracs = [0i16; 15];
-        let mut b_fracs = [0i16; 15];
-        for j in 0..15 {
-            a_fracs[j] = a[idx + j].fraction;
-            b_fracs[j] = b[idx + j].fraction;
+    if !PACKED_LAYOUT {
+        for i in 0..8 {
+            result[i] = a[i] - b[i];
         }
-
-        // TODO: Pack into 17-bit format and subtract let a_packed = pack_15_i16_to_17bit(&a_fracs); let b_packed = pack_15_i16_to_17bit(&b_fracs); let result_packed = subtract_packed_17bit(a_packed, b_packed); let result_fracs = unpack_17bit_to_15_i16(result_packed);
-
-        // Fallback to scalar for now
-        for j in 0..15 {
-            result[idx + j] = a[idx + j] - b[idx + j];
-        }
+        return;
     }
 
-    // Handle remainder
-    for i in (chunks * 15)..a.len() {
+    // Each 32-bit lane holds [exponent:16 | fraction:16].
+    let va = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
+    let vb = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
+    let zero = _mm256_setzero_si256();
+    let low16 = _mm256_set1_epi32(0xFFFF);
+
+    // Stored exponents zero-extended, so a signed 32-bit compare is the unsigned cycle-position compare the scalar code uses.
+    let ea = _mm256_srli_epi32(va, 16);
+    let eb = _mm256_srli_epi32(vb, 16);
+    // Fractions sign-extended, then inflated for a normal operand by flipping the upper half (`inflate(true)`).
+    let fa = _mm256_srai_epi32(_mm256_slli_epi32(va, 16), 16);
+    let fb = _mm256_srai_epi32(_mm256_slli_epi32(vb, 16), 16);
+    let flip = _mm256_set1_epi32(0xFFFF_0000u32 as i32);
+    let ia = _mm256_xor_si256(fa, flip);
+    let ib = _mm256_xor_si256(fb, flip);
+
+    // AMBIGUOUS exponent (0) marks every non-normal class; those lanes go to the scalar operator.
+    let not_normal = _mm256_or_si256(_mm256_cmpeq_epi32(ea, zero), _mm256_cmpeq_epi32(eb, zero));
+
+    // big_is_self is a strict unsigned greater-than, so equal exponents treat b as big, matching the scalar code.
+    let a_big = _mm256_cmpgt_epi32(ea, eb);
+    let diff = _mm256_abs_epi32(_mm256_sub_epi32(ea, eb));
+    // The scalar code drops the smaller operand when the i16 wrapped difference is negative or the shift is at least FRAC-1 = 15, which together is diff > 14.
+    let lost = _mm256_cmpgt_epi32(diff, _mm256_set1_epi32(14));
+
+    // Shift whichever operand is big left by diff, then subtract in operand order: big_f - small_f when a is big, small_f - big_f otherwise, which is always a' - b'.
+    let shift_a = _mm256_and_si256(diff, a_big);
+    let shift_b = _mm256_andnot_si256(a_big, diff);
+    let r = _mm256_sub_epi32(
+        _mm256_sllv_epi32(ia, shift_a),
+        _mm256_sllv_epi32(ib, shift_b),
+    );
+    let r_zero = _mm256_cmpeq_epi32(r, zero);
+
+    // leading_same(r): fold the sign away, smear the top set bit down, isolate it, and read its position from the exact float conversion of that power of two.
+    let mut x = _mm256_xor_si256(r, _mm256_srai_epi32(r, 31));
+    x = _mm256_or_si256(x, _mm256_srli_epi32(x, 1));
+    x = _mm256_or_si256(x, _mm256_srli_epi32(x, 2));
+    x = _mm256_or_si256(x, _mm256_srli_epi32(x, 4));
+    x = _mm256_or_si256(x, _mm256_srli_epi32(x, 8));
+    x = _mm256_or_si256(x, _mm256_srli_epi32(x, 16));
+    let top = _mm256_andnot_si256(_mm256_srli_epi32(x, 1), x);
+    let top_exp = _mm256_srli_epi32(_mm256_castps_si256(_mm256_cvtepi32_ps(top)), 23);
+    // top_exp = 127 + bit position, or 0 when r is all sign bits; clamping at 32 covers the latter.
+    let leading = _mm256_min_epi32(
+        _mm256_sub_epi32(_mm256_set1_epi32(31 + 127), top_exp),
+        _mm256_set1_epi32(32),
+    );
+
+    // delta = FRAC - leading, new exponent = small exponent + delta, which must stay inside the normal range 1..=0xFFFF.
+    let delta = _mm256_sub_epi32(_mm256_set1_epi32(16), leading);
+    let small_e = _mm256_blendv_epi8(ea, eb, a_big);
+    let offset = _mm256_add_epi32(small_e, delta);
+    let escapes = _mm256_or_si256(
+        _mm256_cmpgt_epi32(_mm256_set1_epi32(1), offset),
+        _mm256_cmpgt_epi32(offset, low16),
+    );
+
+    // Canonical fraction is r shifted by leading - FRAC: left by -delta when positive, arithmetic right by delta otherwise.
+    let shl = _mm256_max_epi32(_mm256_sub_epi32(zero, delta), zero);
+    let shr = _mm256_max_epi32(delta, zero);
+    let canonical = _mm256_srav_epi32(_mm256_sllv_epi32(r, shl), shr);
+    let main_out = _mm256_or_si256(
+        _mm256_slli_epi32(offset, 16),
+        _mm256_and_si256(canonical, low16),
+    );
+    // An exact zero difference is Spirix Zero, which is all-zero bits.
+    let main_out = _mm256_andnot_si256(r_zero, main_out);
+
+    // Dropped smaller operand: a when a is big, otherwise -b, which for a normal is wrapping_neg of the fraction except at the ±1.0 boundary fractions 0x8000 and 0x0000.
+    let neg_b = _mm256_or_si256(
+        _mm256_slli_epi32(eb, 16),
+        _mm256_and_si256(_mm256_sub_epi32(zero, fb), low16),
+    );
+    let lost_out = _mm256_blendv_epi8(neg_b, va, a_big);
+    let out = _mm256_blendv_epi8(main_out, lost_out, lost);
+
+    let b_boundary = _mm256_or_si256(
+        _mm256_cmpeq_epi32(fb, zero),
+        _mm256_cmpeq_epi32(fb, _mm256_set1_epi32(i16::MIN as i32)),
+    );
+    let lost_slow = _mm256_andnot_si256(a_big, _mm256_and_si256(lost, b_boundary));
+    let main_slow = _mm256_andnot_si256(lost, _mm256_andnot_si256(r_zero, escapes));
+    let slow = _mm256_or_si256(not_normal, _mm256_or_si256(lost_slow, main_slow));
+
+    _mm256_storeu_si256(result.as_mut_ptr() as *mut __m256i, out);
+
+    let mut slow_bits = _mm256_movemask_ps(_mm256_castsi256_ps(slow)) as u32;
+    while slow_bits != 0 {
+        let i = slow_bits.trailing_zeros() as usize;
         result[i] = a[i] - b[i];
+        slow_bits &= slow_bits - 1;
     }
 }
 
-/// Version 3: 15-op using BMI2 pdep/pext (requires modern CPU)
-#[target_feature(enable = "avx2,bmi2")]
-pub unsafe fn scalar_subtract_batch_avx2_15op_bmi2(
-    a: &[ScalarF4E4],
-    b: &[ScalarF4E4],
-    result: &mut [ScalarF4E4],
-) {
-    // Similar to 15-op shift version, but uses pdep/pext for packing TODO: Implement with _pdep_u64() / _pext_u64()
-
-    // Fallback to shift version for now
-    scalar_subtract_batch_avx2_15op_shift(a, b, result);
-}
-
-/// Main AVX2 entry point - dispatches to best version
+/// Subtracts arrays of ScalarF4E4 with AVX2, 8 lanes at a time, bit-identical to `a[i] - b[i]`.
+///
+/// # Safety
+///
+/// Requires AVX2.
+///
+/// # Panics
+///
+/// Panics if the three slices differ in length.
 #[target_feature(enable = "avx2")]
 pub unsafe fn scalar_subtract_batch_avx2(
     a: &[ScalarF4E4],
     b: &[ScalarF4E4],
     result: &mut [ScalarF4E4],
 ) {
-    // Process in chunks of 8
-    let chunks = a.len() / 8;
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
 
-    for i in 0..chunks {
-        let idx = i * 8;
-
-        // Convert slices to fixed arrays
-        let a_chunk: &[ScalarF4E4; 8] = &a[idx..idx + 8].try_into().unwrap();
-        let b_chunk: &[ScalarF4E4; 8] = &b[idx..idx + 8].try_into().unwrap();
-        let result_chunk: &mut [ScalarF4E4; 8] = &mut result[idx..idx + 8].try_into().unwrap();
-
-        scalar_subtract_batch_avx2_8op(a_chunk, b_chunk, result_chunk);
+    let a_chunks = a.chunks_exact(8);
+    let b_chunks = b.chunks_exact(8);
+    let a_tail = a_chunks.remainder();
+    let b_tail = b_chunks.remainder();
+    let mut r_chunks = result.chunks_exact_mut(8);
+    for ((ac, bc), rc) in a_chunks.zip(b_chunks).zip(&mut r_chunks) {
+        // Borrow each chunk as an array reference; converting the slice by value would copy it and discard the results.
+        let ac: &[ScalarF4E4; 8] = ac.try_into().unwrap();
+        let bc: &[ScalarF4E4; 8] = bc.try_into().unwrap();
+        let rc: &mut [ScalarF4E4; 8] = rc.try_into().unwrap();
+        scalar_subtract_batch_avx2_8op(ac, bc, rc);
     }
-
-    // Handle remainder with scalar fallback
-    for i in (chunks * 8)..a.len() {
-        result[i] = a[i] - b[i];
-    }
+    scalar_subtract_fallback(a_tail, b_tail, r_chunks.into_remainder());
 }
 
-/// Subtract 4x ScalarF4E4 using SSE4.2
+/// Subtracts arrays of ScalarF4E4, intended as a 15-lane packed AVX2 variant.
 ///
-/// Processes 4× i16 fractions and 4× i16 exponents per iteration.
+/// # Safety
+///
+/// Requires AVX2.
+#[target_feature(enable = "avx2")]
+pub unsafe fn scalar_subtract_batch_avx2_15op_shift(
+    a: &[ScalarF4E4],
+    b: &[ScalarF4E4],
+    result: &mut [ScalarF4E4],
+) {
+    // The 17-bit packed variant was never finished, so this is element-wise scalar subtract to stay bit-identical.
+    scalar_subtract_fallback(a, b, result);
+}
+
+/// Subtracts arrays of ScalarF4E4, intended as a 15-lane packed AVX2 variant using BMI2 pdep/pext.
+///
+/// # Safety
+///
+/// Requires AVX2 and BMI2.
+#[target_feature(enable = "avx2,bmi2")]
+pub unsafe fn scalar_subtract_batch_avx2_15op_bmi2(
+    a: &[ScalarF4E4],
+    b: &[ScalarF4E4],
+    result: &mut [ScalarF4E4],
+) {
+    // The pdep/pext packed variant was never finished, so this is element-wise scalar subtract to stay bit-identical.
+    scalar_subtract_fallback(a, b, result);
+}
+
+/// Subtracts arrays of ScalarF4E4, bit-identical to `a[i] - b[i]`.
+///
+/// # Safety
+///
+/// Requires SSE4.2.
 #[target_feature(enable = "sse4.2")]
 pub unsafe fn scalar_subtract_batch_sse42(
     a: &[ScalarF4E4],
     b: &[ScalarF4E4],
     result: &mut [ScalarF4E4],
 ) {
-    // TODO: Implement SSE4.2 version (4× ScalarF4E4) Similar to AVX2 but with 128-bit registers
+    // SSE4.2 has no per-lane variable shifts for the alignment and normalize steps, so this is element-wise scalar subtract.
     scalar_subtract_fallback(a, b, result);
 }
 
 fn scalar_subtract_fallback(a: &[ScalarF4E4], b: &[ScalarF4E4], result: &mut [ScalarF4E4]) {
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
     for i in 0..a.len() {
         result[i] = a[i] - b[i];
     }

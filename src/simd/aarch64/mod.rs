@@ -8,14 +8,16 @@ use crate::ScalarF4E4;
 ///
 /// # Safety
 ///
-/// Requires NEON support (standard on all ARM64). Processes 4× i32 fractions and 4× i16 exponents per iteration.
+/// Requires NEON support (standard on all ARM64). Currently element-wise, bit-identical to `result[i] = a[i] - b[i]`.
 #[target_feature(enable = "neon")]
 pub unsafe fn scalar_subtract_batch_neon(
     a: &[ScalarF4E4],
     b: &[ScalarF4E4],
     result: &mut [ScalarF4E4],
 ) {
-    // TODO: Implement NEON version
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
+    // No NEON kernel yet, so this is element-wise scalar subtract to stay bit-identical; the public dispatcher calls the scalar operator directly on aarch64.
     for i in 0..a.len() {
         result[i] = a[i] - b[i];
     }
