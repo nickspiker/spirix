@@ -1611,6 +1611,8 @@ where
     #[deprecated(note = "every normal Scalar is already canonical under N0; this is a no-op")]
     #[inline]
     pub fn normalize(&mut self) {}
+    // Only consumer today is the `rand`-gated random module; keep it available for any build but do not warn where nothing calls it.
+    #[cfg_attr(not(feature = "rand"), allow(dead_code))]
     #[inline]
     /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.
     ///
