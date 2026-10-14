@@ -118,13 +118,13 @@ macro_rules! impl_circle_constants {
     pub const MAX_CONTIGUOUS: Self = Self {
         real: <$f>::MAX.wrapping_sub(1),
         imaginary: 0,
-        exponent: ((((core::mem::size_of::<$e>() * 8) as isize)).wrapping_add(((core::mem::size_of::<$e>() * 8) as isize)).wrapping_sub(2) as $e) ^ <$e>::MIN,
+        exponent: ((((core::mem::size_of::<$f>() * 8) as isize).wrapping_sub(2)) as $e) ^ <$e>::MIN,
     };
     /// The minimum value that maintains integer contiguity with its neighboring values. This is one more than MIN_FRACTION to ensure the value connects to both its predecessor and successor in the representable sequence (a-1!=a).
     pub const MIN_CONTIGUOUS: Self = Self {
         real: <$f>::MIN.wrapping_add(1),
         imaginary: 0,
-        exponent: ((((core::mem::size_of::<$e>() * 8) as isize)).wrapping_add(((core::mem::size_of::<$e>() * 8) as isize)).wrapping_sub(2) as $e) ^ <$e>::MIN,
+        exponent: ((((core::mem::size_of::<$f>() * 8) as isize).wrapping_sub(2)) as $e) ^ <$e>::MIN,
     };
     /// Actual Zero, the real deal. Exploded * 0 = 0
     pub const ZERO: Self = Self {

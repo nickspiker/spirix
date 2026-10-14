@@ -6,6 +6,16 @@ All notable changes to Spirix are documented here.
 
 ### Fixed
 - Circle `<<`, `>>`, `<<=`, `>>=` still used the pre-AMBIG=0 sign-flip overflow tests, getting about half of all (exponent, shift) pairs wrong since 0.1.0: crossing 1.0 upward exploded (0.75 << 1), landing at or below [1, 2) from above vanished (3 >> 1, and x >> 0 for x in [1, 2)), and real overflow/underflow past the cycle edge wrapped silently to the far end of the range (2^126 << 3 gave 2^-127). Now mirrors the Scalar shift: cycle-widened position compared against the widened bounds, escapes keep the phase (exploded = fractions as-is, vanished = fractions >> 1). Scalar shifts were unaffected. Exhaustive regression sweep in `tests/shift_sweep.rs`.
+- Circle add/sub (all six Circle/Scalar mixes) had no underflow check: near-cancellation at the bottom of the exponent range wrapped the exponent around the cycle, returning a normal value near 2^123 (or exploded) where the result should vanish. One shared bounds-checked tail now serves all six.
+- Circle negate/conjugate vanished one binade early at the bottom of the range (`-x` at stored exponent 2), and an all-ones component renormalized one binade too far, halving the value.
+- Circle AND/OR/XOR vanished one binade early (underflow test copied from Scalar, whose result exponent is one lower).
+- Scalar `sin`/`cos`/`tan` of `MIN` returned 0/1/0: the exploded `|MIN|` was read as tiny. Now undefined, like `MAX`.
+- `is_contiguous` rejected -1 (and every negative power of two at the low end) and accepted -2^FRAC and exploded values. Now a bounds check against `MIN_CONTIGUOUS`/`MAX_CONTIGUOUS`.
+- Circle `MAX_CONTIGUOUS`/`MIN_CONTIGUOUS` scaled with twice the exponent width instead of the fraction width, right only when FRAC = 2*EXP (`CircleF5E3::MAX_CONTIGUOUS` was 32767.99, now 2^31-2).
+- `{:#?}` exponent colours were swapped (integer binades showed the fractional colour).
+
+### Deprecated
+- `Scalar::normalize` is now a no-op: under N0 every bit pattern at a normal exponent is already canonical, and the old body corrupted values (1.5 became -0.5). Nothing in the crate called it.
 
 ## [0.1.1] - 2026-07-04
 

@@ -142,11 +142,9 @@ where
             let leading_i = result_i.leading_same();
             let leading = leading_r.min(leading_i);
 
-            // Result exp = small.exp + delta, delta bounded → cyclic wrap to AMBIG IS the exploded signal; Circle exploded encoding is canonical N1 at AMBIG exp, which is what the deflate produces, so no explicit overflow branch is needed.
+            // Result exp = small.exp + delta. Carry can only step one past big.exp, but cancellation can drop the result below the cycle's bottom, so circle_sum_settle bounds-checks both ends.
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
-            let delta_e: E = delta.as_();
-            let offset = small.exponent.wrapping_add(&delta_e);
 
             let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
             let canonical_r = if shl_amount >= 0 {
@@ -159,11 +157,7 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Circle::<F, E> {
-                real: canonical_r.deflate(),
-                imaginary: canonical_i.deflate(),
-                exponent: offset,
-            };
+            return Circle::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small.exponent, delta);
         }
 
         // Escape-class handling (mirrors Scalar sub ordering).

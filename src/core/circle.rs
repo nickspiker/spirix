@@ -76,6 +76,6 @@ pub struct Circle<F: Integer, E: Integer> {
     /// The imaginary component representing the imaginary part of the complex number.
     pub imaginary: F,
 
-    /// The shared exponent component determining the scale of both components. When equal to AMBIGUOUS_EXPONENT (E::MAX, 0b0111111...), indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined). Both overflow past MAX_EXP and underflow past MIN_EXP wrap to AMBIGUOUS_EXPONENT in two's complement, collapsing to one sentinel check.
+    /// The shared exponent component determining the scale of both components. Stored as an unsigned cycle position: the +1.0 binade sits at E::MIN (0b1000...), and AMBIGUOUS_EXPONENT (0, all zeros) indicates an abnormal state (Infinity, Zero, exploded, vanished, or undefined). Overflow past MAX_EXP and underflow past MIN_EXP both reach 0 by opposite traversals of the cycle, collapsing to one sentinel check.
     pub exponent: E,
 }

@@ -753,28 +753,12 @@ where
             return true;
         }
 
-        // For normal numbers with logical k ≥ 0 (magnitude ≥ 1.0)
+        // A bounds compare rather than an exponent test: N0 negative powers of two sit one binade below their positive mirrors (-1 is stored at logical k = -1, -2^FRAC at k = FRAC-1), so no single exponent threshold is right for both signs.
         if self.is_normal() {
-            let logical_k_e: E = self.exponent ^ Self::binade_origin();
-            let logical_k: isize = logical_k_e.saturate();
-            if logical_k < 0 {
-                return false; // magnitude < 1, not a representable non-zero integer
-            }
-            // logical k >= FRAC: all stored bits are integer part — beyond contiguous range.
-            if logical_k >= Self::fraction_bits() {
-                return false;
-            }
-            // For contiguous integers, we need the value to be representable exactly. This is already guaranteed by is_integer(), so we just need to check if it's within the contiguous range.
-            return true;
+            return *self >= Self::MIN_CONTIGUOUS && *self <= Self::MAX_CONTIGUOUS;
         }
 
-        // Handle exploded integer patterns (at AMBIG exponent).
-        if self.exponent == Self::ambiguous_exponent() {
-            let prefix = self.prefix();
-            let top_two = prefix >> 6;
-            return top_two == 0b00000001u8 as i8 || top_two == 0b11111110u8 as i8;
-        }
-
+        // Exploded magnitudes are past MAX_CONTIGUOUS by definition; vanished, infinity, and undefined are not integers in range either.
         false
     }
 
@@ -1623,41 +1607,10 @@ where
         }
     }
 
-    /// Normalizes this Scalar by restoring the sign, shifting out leading redundancy, then stripping the sign back off. Adjusts the exponent accordingly. If shifting would cause the exponent to underflow, the value becomes vanished.
+    /// No-op, kept for API compatibility. Under the N0 encoding the sign is implicit, so every fraction bit pattern at a normal exponent is already a distinct canonical value and there is no leading redundancy to shift out; the previous body treated the fraction as N1 and corrupted values (1.5 became -0.5).
+    #[deprecated(note = "every normal Scalar is already canonical under N0; this is a no-op")]
     #[inline]
-    pub fn normalize(&mut self) {
-        // Restore the sign to count leading same bits in the full value
-        let shift = self
-            .fraction
-            .leading_ones()
-            .max(self.fraction.leading_zeros());
-        if shift > 0 {
-            let shift = shift as isize;
-            if shift == Self::fraction_bits() {
-                // All bits identical — either zero (all 0s) or all 1s
-                if !self.is_negative() {
-                    // All zeros in stored = most negative effective, but with max leading same bits — effectively zero.
-                    self.exponent = Self::ambiguous_exponent();
-                    return;
-                }
-                // All ones in stored — uniform pattern, falls thru to the cycle-widened path below.
-            }
-
-            // AMBIG=0 underflow detection via cycle math: widen, subtract, bounds-check. New cycle position < min_pos (= 1) means we wrapped past AMBIG → vanished.
-            let pa = self.exponent.cycle_widen();
-            let shift_e: E = shift.as_();
-            let w_shift = shift_e.sign_extend();
-            let new_pos = pa.w_sub(w_shift);
-            let min_pos = Self::min_exponent().cycle_widen();
-            if new_pos < min_pos {
-                self.exponent = Self::ambiguous_exponent();
-                self.fraction = self.fraction << (shift.wrapping_sub(1));
-            } else {
-                self.exponent = new_pos.deflate();
-                self.fraction = self.fraction << shift;
-            }
-        }
-    }
+    pub fn normalize(&mut self) {}
     #[inline]
     /// Normalizes an exploded Scalar by shifting the fraction left until the most significant bit is in the N-1 position, exponent is not touched.
     ///

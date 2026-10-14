@@ -156,8 +156,6 @@ where
 
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
-            let delta_e: E = delta.as_();
-            let offset = small_exp.wrapping_add(&delta_e);
 
             let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
             let canonical_r = if shl_amount >= 0 {
@@ -170,11 +168,7 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Circle::<F, E> {
-                real: canonical_r.deflate(),
-                imaginary: canonical_i.deflate(),
-                exponent: offset,
-            };
+            return Circle::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small_exp, delta);
         }
 
         // Escape-class handling (at least one operand is non-normal). Mirrors scalar_subtract_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations. The earlier `is_transfinite()` (inf OR exploded) lumped infinity in with exploded, causing inf cases to return TRANSFINITE_MINUS_FINITE (= undefined) instead of INFINITY.

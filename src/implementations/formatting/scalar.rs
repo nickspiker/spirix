@@ -773,10 +773,11 @@ where
         binary.push_str("\x1B[0m*2^ ");
 
         // Format exponent bits with their colour
+        // AMBIG=0: stored exponent negative (top bit set) is logical k >= 0 (integer binades), positive is logical k < 0 (fractional binades), zero is AMBIG.
         let exp_scheme = if self.exponent.is_negative() {
-            &COLOURS.fractional_exponent
-        } else if self.exponent.is_positive() {
             &COLOURS.integer_exponent
+        } else if self.exponent.is_positive() {
+            &COLOURS.fractional_exponent
         } else {
             &COLOURS.zero
         };

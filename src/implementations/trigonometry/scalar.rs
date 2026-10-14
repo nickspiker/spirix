@@ -71,8 +71,11 @@ where
             }
             return *self;
         }
-        if (self.magnitude().exponent ^ Self::binade_origin()).saturate::<isize>()
-            >= Self::fraction_bits()
+        // |MIN| explodes (2^EXP has no positive counterpart), and an exploded magnitude has the AMBIG exponent, which would read as tiny; treat it as past the period-resolution limit.
+        let period_check = self.magnitude();
+        if !period_check.is_normal()
+            || (period_check.exponent ^ Self::binade_origin()).saturate::<isize>()
+                >= Self::fraction_bits()
         {
             return Self {
                 fraction: SINE.prefix.sa(),
@@ -146,8 +149,11 @@ where
             return Self::EFFECTIVELY_POS_ONE;
         }
 
-        if (self.magnitude().exponent ^ Self::binade_origin()).saturate::<isize>()
-            >= Self::fraction_bits()
+        // |MIN| explodes (2^EXP has no positive counterpart), and an exploded magnitude has the AMBIG exponent, which would read as tiny; treat it as past the period-resolution limit.
+        let period_check = self.magnitude();
+        if !period_check.is_normal()
+            || (period_check.exponent ^ Self::binade_origin()).saturate::<isize>()
+                >= Self::fraction_bits()
         {
             return Self {
                 fraction: COSINE.prefix.sa(),
@@ -222,8 +228,11 @@ where
             }
             return *self;
         }
-        if (self.magnitude().exponent ^ Self::binade_origin()).saturate::<isize>()
-            >= Self::fraction_bits()
+        // |MIN| explodes (2^EXP has no positive counterpart), and an exploded magnitude has the AMBIG exponent, which would read as tiny; treat it as past the period-resolution limit.
+        let period_check = self.magnitude();
+        if !period_check.is_normal()
+            || (period_check.exponent ^ Self::binade_origin()).saturate::<isize>()
+                >= Self::fraction_bits()
         {
             return Self {
                 fraction: TANGENT.prefix.sa(),

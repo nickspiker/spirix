@@ -136,11 +136,9 @@ where
             let leading_i = result_i.leading_same();
             let leading = leading_r.min(leading_i);
 
-            // Result exp = small.exp + delta, delta ∈ [-FRAC, FRAC+1]. Delta is bounded so the only escape transition is offset landing on AMBIG = 0, which IS the exploded signal — no explicit bounds check needed. The canonical-N1 fraction shape is the same for normal and exploded outputs (Circle's exploded constants are pos_one_normal / neg_one_normal at AMBIG exp), so a single shift formula handles both.
+            // Result exp = small.exp + delta. Carry can only step one past big.exp, but cancellation can drop the result below the cycle's bottom, so circle_sum_settle bounds-checks both ends.
             let fb = Self::fraction_bits();
             let delta: isize = fb.wrapping_sub(leading).wrapping_add(1);
-            let delta_e: E = delta.as_();
-            let offset = small.exponent.wrapping_add(&delta_e);
 
             // Shift to canonical N1 (wide leading = FRAC + 1). Net shift relative to wide = leading - (FRAC + 1).
             let shl_amount = leading.wrapping_sub(fb).wrapping_sub(1);
@@ -154,11 +152,7 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Self {
-                real: canonical_r.deflate(),
-                imaginary: canonical_i.deflate(),
-                exponent: offset,
-            };
+            return Self::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small.exponent, delta);
         }
 
         // Escape-class handling (mirrors Scalar add ordering: undefined first, then infinity absorbs, then zero identity, then escape pair rules).
@@ -219,5 +213,31 @@ where
             return *self;
         }
         *self
+    }
+
+    /// Places a canonical N1 sum at stored position `small_exp + delta`, escaping past either end of the exponent cycle. Shared tail of every Circle add/sub variant.
+    pub(crate) fn circle_sum_settle(real: F, imaginary: F, small_exp: E, delta: isize) -> Self {
+        // delta = FRAC + 1 - leading stays within [1 - FRAC, FRAC - 1] (the wide sum never fills its top two bits), so it fits E at every width including F7E3.
+        let delta_e: E = delta.as_();
+        let stored_pos = small_exp.cycle_widen().w_add(delta_e.sign_extend());
+        if stored_pos > Self::max_exponent().cycle_widen() {
+            return Self {
+                real,
+                imaginary,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        if stored_pos < Self::min_exponent().cycle_widen() {
+            return Self {
+                real: real >> 1isize,
+                imaginary: imaginary >> 1isize,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
+        Self {
+            real,
+            imaginary,
+            exponent: stored_pos.deflate(),
+        }
     }
 }

@@ -614,24 +614,30 @@ where
         let leading = real_result.leading_same().min(imag_result.leading_same());
         let fb = Self::fraction_bits();
         let delta: isize = fb.wrapping_sub(leading);
+        // delta = FRAC - leading lies in [-FRAC, FRAC - 1], which fits E at every width. The canonical N1 shift (leading - 1) puts the result at small.exp + delta + 1, one above Scalar's (leading) shift, so the bounds check is on that position.
         let delta_e: E = delta.as_();
-        let offset = small.exponent.wrapping_add(&delta_e);
-        let one_e: E = 1u8.as_();
-        let underflowed = delta.is_negative()
-            && offset.wrapping_sub(&one_e).into_unsigned() >= small.exponent.into_unsigned();
-        if underflowed {
-            let shl = leading.wrapping_sub(2);
+        let stored_pos = small.exponent.cycle_widen().w_add(delta_e.sign_extend()).w_add(E::one().cycle_widen());
+        let shl = leading.wrapping_sub(1);
+        let real = real_result.w_shl(shl).w_shr(fb).deflate();
+        let imaginary = imag_result.w_shl(shl).w_shr(fb).deflate();
+        if stored_pos > Self::max_exponent().cycle_widen() {
             return Self {
-                real: real_result.w_shl(shl).w_shr(fb).deflate(),
-                imaginary: imag_result.w_shl(shl).w_shr(fb).deflate(),
+                real,
+                imaginary,
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let shl = leading.wrapping_sub(1);
+        if stored_pos < Self::min_exponent().cycle_widen() {
+            return Self {
+                real: real >> 1isize,
+                imaginary: imaginary >> 1isize,
+                exponent: Self::ambiguous_exponent(),
+            };
+        }
         Self {
-            real: real_result.w_shl(shl).w_shr(fb).deflate(),
-            imaginary: imag_result.w_shl(shl).w_shr(fb).deflate(),
-            exponent: offset.wrapping_add(&E::one()),
+            real,
+            imaginary,
+            exponent: stored_pos.deflate(),
         }
     }
 

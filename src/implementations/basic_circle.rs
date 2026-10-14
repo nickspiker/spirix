@@ -1063,28 +1063,21 @@ where
 
         if shift > 1 {
             let shift = shift as isize;
-            let s: E = if shift == Self::fraction_bits() {
-                if !self.real.is_negative() && !self.imaginary.is_negative() {
-                    self.exponent = Self::ambiguous_exponent();
-                    return;
-                }
-                shift.wrapping_add(1).as_()
-            } else {
-                shift.as_()
-            };
-
+            // Both components all zeros: zero.
+            if shift == Self::fraction_bits() && !self.real.is_negative() && !self.imaginary.is_negative() {
+                self.exponent = Self::ambiguous_exponent();
+                return;
+            }
+            // Canonical N1 shifts the fraction left by shift-1 and drops the exponent by the same amount; that holds for an all-ones -1 component too (-1 << FRAC-1 = MIN, canonical negative).
+            let drop: E = shift.wrapping_sub(1).as_();
             // AMBIG=0 underflow: cycle-widen + w_sub, check against min_pos (= 1). Crossing below means we wrapped past AMBIG and the result is in the vanished region.
-            let pa = self.exponent.cycle_widen();
-            let w_s = s.cycle_widen();
-            let new_pos = pa.w_sub(w_s);
-            let min_pos = Self::min_exponent().cycle_widen();
-            if new_pos < min_pos {
+            let new_pos = self.exponent.cycle_widen().w_sub(drop.cycle_widen());
+            if new_pos < Self::min_exponent().cycle_widen() {
                 self.exponent = Self::ambiguous_exponent();
                 self.real = self.real << shift.wrapping_sub(2);
                 self.imaginary = self.imaginary << shift.wrapping_sub(2);
             } else {
-                // The +1 absorbs the canonical N1 leading bit back into the exponent (net: fraction shifts left by shift-1, exp drops by shift-1).
-                self.exponent = new_pos.deflate().wrapping_add(&E::one());
+                self.exponent = new_pos.deflate();
                 self.real = self.real << shift.wrapping_sub(1);
                 self.imaginary = self.imaginary << shift.wrapping_sub(1);
             }
