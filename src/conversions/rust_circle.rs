@@ -72,7 +72,11 @@ impl<
             + Shl<F, Output = F>
             + Shr<F, Output = F>
             + Shl<E, Output = F>
-            + Shr<E, Output = F>,
+            + Shr<E, Output = F>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         E: Integer
             + FullInt
             + Shl<isize, Output = E>
@@ -80,7 +84,11 @@ impl<
             + Shl<E, Output = E>
             + Shr<E, Output = E>
             + Shl<F, Output = E>
-            + Shr<F, Output = E>,
+            + Shr<F, Output = E>
+            + WrappingNeg
+            + WrappingAdd
+            + WrappingMul
+            + WrappingSub,
         R,
     > From<R> for Circle<F, E>
 where
@@ -132,15 +140,26 @@ where
     /// ```
     fn from(value: R) -> Self {
         let scalar = Scalar::<F, E>::from(value);
+        // Escape classes: Scalar and Circle share their escape patterns (exploded `01mmm`, vanished `001mm`, undefined prefixes, all-0s ZERO), so they copy thru unshifted, laid out as from_ri lays them out. The old sign_extend >> 1 here pushed every escape down one class (exploded read back as vanished, vanished as undefined).
+        if scalar.exponent == E::zero() {
+            if scalar.is_infinite() {
+                return Self::INFINITY;
+            }
+            // Undefined carries its prefix on both axes, matching from_ri.
+            let imaginary: F = if scalar.is_undefined() {
+                scalar.fraction
+            } else {
+                0.as_()
+            };
+            return Self {
+                real: scalar.fraction,
+                imaginary,
+                exponent: scalar.exponent,
+            };
+        }
         // Translate Scalar format (implicit sign, FRAC bits) to Circle format (explicit sign, FRAC-1 bits): Circle stored = scalar_inflate >> 1. AMBIG=0: normal class is stored exponent != 0; the old `!= E::min_value()` check predated AMBIG=0 (when E::MIN was the sentinel) and silently broke `Circle::from(1.5)` once E::MIN became the +1.0 binade.
-        let circle_real: F = if scalar.exponent != E::zero() {
-            scalar.fraction.inflate(true).w_shr(1isize).deflate()
-        } else {
-            // Escape classes: prefix bit patterns differ between formats. ZERO, INFINITY: same bit pattern (all 0s / all 1s). Others: translation via sign_extend >> 1 works (prefix shifts down by 1).
-            scalar.fraction.inflate(false).w_shr(1isize).deflate()
-        };
         Self {
-            real: circle_real,
+            real: scalar.fraction.inflate(true).w_shr(1isize).deflate(),
             imaginary: 0.as_(),
             exponent: scalar.exponent,
         }

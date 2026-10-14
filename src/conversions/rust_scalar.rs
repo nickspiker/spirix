@@ -158,11 +158,11 @@ where
         // Count significant bits of the mantissa magnitude.
         let leading = abs_mantissa.leading_zeros() as isize;
         let significant = 64isize.wrapping_sub(leading);
-        // spirix_exp = ieee_scale + significant_bits. For subnormals (raw_exp=0), IEEE uses effective exp=1 — compensate. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
+        // spirix_exp = ieee_scale + significant_bits. For subnormals (raw_exp=0), IEEE uses effective exp=1, so compensate. v0.1 ruler: −1 at end because value formula is inflate × 2^(exp − FRAC + 1).
         let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp };
         let spirix_exp: i16 = eff_exp.wrapping_sub(1076).wrapping_add(significant as i16);
 
-        // Cast to F first, THEN shift — avoids overflow when FRAC > 64 (i.e., i128 fraction).
+        // Cast to F first, THEN shift; this avoids overflow when FRAC > 64 (i.e., i128 fraction).
         let shift = Self::fraction_bits().wrapping_sub(significant);
         let fraction_pos: F = if shift < 0 {
             (abs_mantissa >> shift.wrapping_neg()).as_()
@@ -214,12 +214,18 @@ where
         }
         // Negate: general case is F::zero() - stored; pos_one_normal shifts exponent because its magnitude straddles the boundary between exp buckets.
         if fraction_pos == Self::pos_one_normal() {
+            let v: E = (spirix_exp.wrapping_sub(1)).as_();
+            let exponent = v ^ E::min_value();
+            // N0 stores -2^k as -2·2^(k-1) one binade lower, so -2^MIN_EXP (k = -E::MAX, e.g. -2^-127 at E3) lands on AMBIG: it is not representable and vanishes, the same result scalar_negate gives for +2^MIN_EXP.
+            if exponent == Self::ambiguous_exponent() {
+                return Self {
+                    fraction: Self::neg_one_vanished(),
+                    exponent,
+                };
+            }
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: {
-                    let v: E = (spirix_exp.wrapping_sub(1)).as_();
-                    v ^ E::min_value()
-                },
+                exponent,
             }
         } else {
             Self {
@@ -365,7 +371,7 @@ where
         let eff_exp: i16 = if raw_exp == 0 { 1 } else { raw_exp as i16 };
         let spirix_exp: i16 = eff_exp.wrapping_sub(151).wrapping_add(significant as i16);
 
-        // Cast to F first, then shift — avoids overflow when FRAC > 32.
+        // Cast to F first, then shift; this avoids overflow when FRAC > 32.
         let shift = Self::fraction_bits().wrapping_sub(significant);
         let fraction_pos: F = if shift < 0 {
             (abs_mantissa >> shift.wrapping_neg()).as_()
@@ -416,12 +422,18 @@ where
             };
         }
         if fraction_pos == Self::pos_one_normal() {
+            let v: E = (spirix_exp.wrapping_sub(1)).as_();
+            let exponent = v ^ E::min_value();
+            // -2^MIN_EXP sits one binade below MIN_EXP, on AMBIG, so it vanishes (see From<&f64>).
+            if exponent == Self::ambiguous_exponent() {
+                return Self {
+                    fraction: Self::neg_one_vanished(),
+                    exponent,
+                };
+            }
             Self {
                 fraction: Self::neg_one_normal(),
-                exponent: {
-                    let v: E = (spirix_exp.wrapping_sub(1)).as_();
-                    v ^ E::min_value()
-                },
+                exponent,
             }
         } else {
             Self {
@@ -496,11 +508,12 @@ macro_rules! impl_from_int {
                     }
                     // Handle negative by negating, converting as positive, then negating the Scalar.
                     let negative = value < 0;
-                    // Compute abs(value). For MIN, negation overflows — handle specially below.
+                    // Compute abs(value). For MIN, negation overflows, so handle specially below.
                     let abs_value = if value == <$i>::MIN {
                         // |MIN| = 2^(bits-1) is exactly a power of 2. We can construct directly.
                         let bits = (core::mem::size_of::<$i>() as isize).wrapping_shl(3);
-                        if bits > E::max_value().saturate::<isize>() {
+                        // The stored logical exponent is bits-2 (below), so that is what must fit; testing bits itself exploded i128::MIN at E3 (126 fits in 127, 128 does not).
+                        if bits.wrapping_sub(2) > E::max_value().saturate::<isize>() {
                             return Self {
                                 fraction: Self::neg_one_exploded(),
                                 exponent: Self::ambiguous_exponent(),

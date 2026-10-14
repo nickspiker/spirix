@@ -143,47 +143,50 @@ where
     ///
     /// The left handed cast preserves the most significant bits during conversion, ensuring that phase information (like undefined prefixes) is maintained even when converting between different sizes.
     fn from(source: &Circle<FS, ES>) -> Self {
-        let real = source.real.sa();
-        let imaginary = source.imaginary.sa();
+        let real: FD = source.real.sa();
+        let imaginary: FD = source.imaginary.sa();
 
         if !source.is_normal() {
+            // INFINITY needs all-ones components in the destination width; sa would shift in zeros.
+            if source.is_infinite() {
+                return Self::INFINITY;
+            }
+            // ZERO, exploded, vanished, undefined: sa keeps the prefix bits (and as much phase as fits), and the class lives at the AMBIG exponent (0).
             return Self {
                 real,
                 imaginary,
-                exponent: ED::min_value(),
+                exponent: ED::zero(),
             };
         }
 
-        if ((core::mem::size_of::<ES>() * 8) as isize)
-            <= ((core::mem::size_of::<ED>() * 8) as isize)
-        {
-            return Self {
-                real,
-                imaginary,
-                exponent: source.exponent.as_(),
-            };
+        // AMBIG=0 cross-width exponent: the true signed exponent is stored ^ E::MIN in each width, so translate true to true (XOR the source MIN, sign-extend or truncate, XOR the destination MIN). A plain `.as_()` of the stored exponent sign-extends the wrong bit.
+        let logical_es: ES = source.exponent ^ ES::min_value();
+        let src_bits = (core::mem::size_of::<ES>() * 8) as isize;
+        let dst_bits = (core::mem::size_of::<ED>() * 8) as isize;
+        if src_bits > dst_bits {
+            // Narrowing: the destination holds true exponents -ED::MAX..=ED::MAX (true ED::MIN would XOR onto AMBIG). Above that explodes (N1 components as-is), below vanishes (components >> 1), both keeping orientation.
+            let logical_ed_max_as_es: ES = ED::max_value().as_();
+            let logical_ed_min_as_es: ES = ES::zero().wrapping_sub(&logical_ed_max_as_es);
+            if logical_es > logical_ed_max_as_es {
+                return Self {
+                    real,
+                    imaginary,
+                    exponent: ED::zero(),
+                };
+            }
+            if logical_es < logical_ed_min_as_es {
+                return Self {
+                    real: real >> 1isize,
+                    imaginary: imaginary >> 1isize,
+                    exponent: ED::zero(),
+                };
+            }
         }
-        if source.exponent > ED::max_value().as_() {
-            return Self {
-                real,
-                imaginary,
-                exponent: ED::min_value(),
-            };
-        }
-        if source.exponent < (ED::min_value() + ED::one()).as_() {
-            let real = real >> 1isize;
-            let imaginary = imaginary >> 1isize;
-            return Self {
-                real,
-                imaginary,
-                exponent: ED::min_value(),
-            };
-        }
-        let exponent = source.exponent.as_();
+        let logical_ed: ED = logical_es.as_();
         Self {
             real,
             imaginary,
-            exponent,
+            exponent: logical_ed ^ ED::min_value(),
         }
     }
 }

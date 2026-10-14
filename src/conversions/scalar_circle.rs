@@ -1,5 +1,5 @@
 use crate::constants::{CircleConstants, ScalarConstants};
-use crate::core::integer::{FullInt, IntConvert};
+use crate::core::integer::{Deflate, FullInt, IntConvert, WideOps};
 use crate::core::undefined::*;
 use crate::{Circle, Integer, Scalar};
 use core::ops::*;
@@ -202,46 +202,55 @@ where
                 exponent: to_circle_exp(real.exponent),
             };
         }
-        // Normal case: translate Scalar→Circle, then align exponents. Scalar fraction s carries implicit sign (~MSB); Circle carries explicit (MSB). For same value: circle = (s >> 1) XOR MSB_MASK — arithmetic shift halves the magnitude, XOR flips the sign convention.
+        // Normal case: translate Scalar→Circle, then align exponents. Scalar fraction s carries implicit sign (~MSB); Circle carries explicit (MSB). For same value: circle = (s >> 1) XOR MSB_MASK; the arithmetic shift halves the magnitude, XOR flips the sign convention.
         let real_c: F = (real.fraction >> 1isize) ^ F::min_value();
         let imag_c: F = (imaginary.fraction >> 1isize) ^ F::min_value();
-        let exp_diff = real.exponent.wrapping_sub(&imaginary.exponent);
-        if exp_diff == 0.as_() {
+        // AMBIG=0 native: stored exponents are unsigned cycle positions (1..=all-ones), so compare and subtract them zero-extended into the wide type. A signed wrapping difference flips sign once the components sit 2^(EXP-1) or more binades apart, which handed the shared exponent to the smaller component.
+        let pr = real.exponent.cycle_widen();
+        let pi = imaginary.exponent.cycle_widen();
+        if pr == pi {
             return Circle {
                 real: real_c,
                 imaginary: imag_c,
                 exponent: to_circle_exp(real.exponent),
             };
-        } else if exp_diff > 0.as_() {
-            // saturate, not as_(): an i128 exponent diff truncated to isize can wrap negative and blow past the fraction_bits guard into a panicking shift.
-            let shift: isize = exp_diff.saturate();
-            if shift >= Self::fraction_bits() {
+        }
+        // fraction_bits (at most 128) always fits the unsigned cycle range of any E (at least 8 bits), so funnel it thru E and zero-extend like the exponents.
+        let fb_e: E = Self::fraction_bits().as_();
+        let fb_w = fb_e.cycle_widen();
+        if pr > pi {
+            let diff = pr.w_sub(pi);
+            if diff >= fb_w {
                 return Circle {
                     real: real_c,
                     imaginary: 0.as_(),
                     exponent: to_circle_exp(real.exponent),
                 };
             }
-            return Circle {
+            // diff < fraction_bits <= 128 here, so it is at most 127 and narrows to a non-negative E exactly.
+            let diff_e: E = diff.deflate();
+            let shift: isize = diff_e.saturate();
+            Circle {
                 real: real_c,
                 imaginary: imag_c >> shift,
                 exponent: to_circle_exp(real.exponent),
-            };
+            }
         } else {
-            let zero_e: E = 0.as_();
-            let shift: isize = zero_e.wrapping_sub(&exp_diff).saturate();
-            if shift >= Self::fraction_bits() {
+            let diff = pi.w_sub(pr);
+            if diff >= fb_w {
                 return Circle {
                     real: 0.as_(),
                     imaginary: imag_c,
                     exponent: to_circle_exp(imaginary.exponent),
                 };
             }
-            return Circle {
+            let diff_e: E = diff.deflate();
+            let shift: isize = diff_e.saturate();
+            Circle {
                 real: real_c >> shift,
                 imaginary: imag_c,
                 exponent: to_circle_exp(imaginary.exponent),
-            };
+            }
         }
     }
 }

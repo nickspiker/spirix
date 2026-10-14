@@ -112,7 +112,7 @@ where
 {
     fn from(source: &Scalar<FS, ES>) -> Self {
         if !source.is_normal() {
-            // INFINITY needs all-1s fraction in destination width — sa would shift in zeros.
+            // INFINITY needs all-1s fraction in destination width; sa would shift in zeros.
             if source.is_infinite() {
                 return Self::INFINITY;
             }
@@ -122,7 +122,7 @@ where
                 exponent: ED::zero(),
             };
         }
-        // AMBIG=0 cross-width exp conversion: logical k = stored ^ E::MIN. Recover the logical from source, re-encode in destination width. Plain `.as_()` only works when src and dst widths share the same E::MIN bit position, which they don't (i8's MIN is -128 but i16's MIN is -32768). binade_origin() is private outside its defining module, so use E::min_value() directly — semantically equivalent.
+        // AMBIG=0 cross-width exp conversion: logical k = stored ^ E::MIN. Recover the logical from source, re-encode in destination width. Plain `.as_()` only works when src and dst widths share the same E::MIN bit position, which they don't (i8's MIN is -128 but i16's MIN is -32768). binade_origin() is private outside its defining module, so use E::min_value() directly (semantically equivalent).
         let logical_es: ES = source.exponent ^ ES::min_value();
         let fraction: FD = source.fraction.sa();
         let src_bits = (core::mem::size_of::<ES>() * 8) as isize;
@@ -135,19 +135,35 @@ where
                 exponent: logical_ed ^ ED::min_value(),
             };
         }
-        // Narrowing: clamp logical k to dest's representable range [-ED::MAX, ED::MAX] (the reserved -ED::MAX-1 slot would XOR back into the AMBIG sentinel). Anything outside saturates to the AMBIG sentinel — exploded (high) or vanished (low).
+        // Narrowing: clamp logical k to dest's representable range [-ED::MAX, ED::MAX] (the reserved -ED::MAX-1 slot would XOR back into the AMBIG sentinel). Anything outside escapes at the AMBIG sentinel, exploded (high) or vanished (low), keeping its significand as phase.
         let logical_ed_max_as_es: ES = ED::max_value().as_();
         let logical_ed_min_as_es: ES = ES::zero().wrapping_sub(&logical_ed_max_as_es);
-        if logical_es > logical_ed_max_as_es {
+        let explodes = logical_es > logical_ed_max_as_es;
+        if explodes || logical_es < logical_ed_min_as_es {
+            // The raw N0 fraction of a normal is NOT an escape pattern (shifting it arithmetically turned +exploded into -vanished and negatives into zero or undefined). Escapes store the positive significand `1mmm` shifted down by class (exploded `01mmm` = >> 1, vanished `001mm` = >> 2), negatives being the two's complement of that with the canonical poles swapped, exactly as scalar_negate and multiply build them.
+            let negative = source.is_negative();
+            // |x| significand: positives store it directly; negatives are its two's complement, except the zero fraction (-2^(k+1)) whose magnitude is the 1.0 pole.
+            let magnitude: FD = if !negative {
+                fraction
+            } else if source.fraction == FS::zero() {
+                Self::pos_one_normal()
+            } else {
+                source.fraction.wrapping_neg().sa()
+            };
+            let class_shift: isize = if explodes { 1 } else { 2 };
+            let positive: FD = magnitude.cycle_widen().w_shr_logical(class_shift).deflate();
+            let fraction = if !negative {
+                positive
+            } else if positive == Self::pos_one_exploded() {
+                Self::neg_one_exploded()
+            } else if positive == Self::pos_one_vanished() {
+                Self::neg_one_vanished()
+            } else {
+                FD::zero() - positive
+            };
             return Self {
                 fraction,
-                exponent: ED::zero(),
-            };
-        }
-        if logical_es < logical_ed_min_as_es {
-            return Self {
-                fraction: fraction >> 1isize,
-                exponent: ED::zero(),
+                exponent: Self::ambiguous_exponent(),
             };
         }
         let logical_ed: ED = logical_es.as_();
