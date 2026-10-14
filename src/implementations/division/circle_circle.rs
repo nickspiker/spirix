@@ -98,8 +98,18 @@ where
 
             let real_num = a.w_mul(c).w_add(b.w_mul(d));
             let imag_num = b.w_mul(c).w_sub(a.w_mul(d));
-            let real_wide = real_num.w_shr(fb).w_mul(reciprocal);
-            let imag_wide = imag_num.w_shr(fb).w_mul(reciprocal);
+            let real_scaled = real_num.w_shr(fb);
+            let imag_scaled = imag_num.w_shr(fb);
+            let mut real_wide = real_scaled.w_mul(reciprocal);
+            let mut imag_wide = imag_scaled.w_mul(reciprocal);
+            // The wide result carries quotient × 2^(2*FRAC-2), so a quotient component of magnitude 2 or more wraps the signed wide; a canonical pair over a canonical pair reaches |q| = 2√2, and e.g. {0x8e63, 0x89c6} / {0x4469, 0xe885} at F4E3 has Im(q) = -2.05, which came out positive.
+            // The product stays below 2^(2*FRAC) in magnitude, so a wrap always flips its sign against the positive reciprocal; on a wrap, redo both products with one more numerator bit dropped and add the binade back below.
+            let halved = real_wide.w_is_negative() != real_scaled.w_is_negative()
+                || imag_wide.w_is_negative() != imag_scaled.w_is_negative();
+            if halved {
+                real_wide = real_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+                imag_wide = imag_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+            }
 
             let leading_r = real_wide.leading_same();
             let leading_i = imag_wide.leading_same();
@@ -121,6 +131,9 @@ where
             let mut pb = other.exponent.cycle_widen().w_sub(s_den_e.cycle_widen());
             if c_bumped {
                 pb = pb.w_add(w_one_adj);
+            }
+            if halved {
+                pa = pa.w_add(w_one_adj);
             }
             let shift_e: E = leading.wrapping_sub(1).as_();
             let w_shift = shift_e.sign_extend();
@@ -224,8 +237,17 @@ where
 
             let real_num = a.w_mul(c).w_add(b.w_mul(d));
             let imag_num = b.w_mul(c).w_sub(a.w_mul(d));
-            let real_wide = real_num.w_shr(fb).w_mul(reciprocal);
-            let imag_wide = imag_num.w_shr(fb).w_mul(reciprocal);
+            let real_scaled = real_num.w_shr(fb);
+            let imag_scaled = imag_num.w_shr(fb);
+            let mut real_wide = real_scaled.w_mul(reciprocal);
+            let mut imag_wide = imag_scaled.w_mul(reciprocal);
+            // Same wide-wrap guard as the normal path; the result sits at AMBIG and leading_same absorbs the extra halving, so no exponent bookkeeping is needed.
+            if real_wide.w_is_negative() != real_scaled.w_is_negative()
+                || imag_wide.w_is_negative() != imag_scaled.w_is_negative()
+            {
+                real_wide = real_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+                imag_wide = imag_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+            }
 
             let leading_r = real_wide.leading_same();
             let leading_i = imag_wide.leading_same();

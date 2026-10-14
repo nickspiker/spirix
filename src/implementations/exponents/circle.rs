@@ -62,7 +62,8 @@ where
     I256: From<E>,
 {
     pub fn sqrt(&self) -> Self {
-        if self.is_undefined() || self.is_n0() {
+        // is_n0 reads only the component prefixes, so it also matches a normal-exponent pub-field pair whose components are both tiny; only a non-normal exponent can be Zero or Infinity.
+        if !self.is_normal() && (self.is_undefined() || self.is_n0()) {
             return *self;
         }
         // Escaped: sqrt halves the (lost) magnitude exponent, which can land back INSIDE normal range (sqrt of 2^200 = 2^100) — class indeterminate → ℘√↑ / ℘√↓ (was falling into the magnitude+add path below and leaking a ℘⬆+⬆ addition tag).
@@ -78,24 +79,28 @@ where
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        let magnitude = self.magnitude();
-        // |z| ≥ |Re(z)| is an identity, so any negative half-angle operand is floor-rounding error (worst case: pure-real input where |z| rounds a hair below |Re|, sending sqrt a tiny negative → spurious ℘√-). Clamp to zero.
-        let mut real = magnitude + self.r();
-        if real.is_negative() {
-            real = Scalar::<F, E>::ZERO;
+        // A pub-field pair of two zero components at a normal exponent is still zero, and would otherwise divide by a zero root below.
+        if self.real == F::zero() && self.imaginary == F::zero() {
+            return Self::ZERO;
         }
-        real = real >> 1;
-        real = real.sqrt();
-        let mut imaginary = magnitude - self.r();
-        if imaginary.is_negative() {
-            imaginary = Scalar::<F, E>::ZERO;
-        }
-        imaginary = imaginary >> 1;
-        imaginary = imaginary.sqrt();
-        if self.imaginary.is_negative() {
-            imaginary = -imaginary;
-        }
-        Circle::from((real, imaginary))
+        // sqrt(w · 2^(2h + p)) = sqrt(w · 2^p) · 2^h: run the half-angle formulas on the fraction pair at true exponent p (0 or 1, keeping the parity), then shift the root back up by h.
+        // At the stored exponent, |z| + Re(z) exploded near the top of the range and the half-angle terms vanished near the bottom, giving ℘√↑ / ℘√↓ for normal inputs whose root is comfortably representable.
+        let (reduced, half) = self.split_even_binade();
+        let magnitude = reduced.magnitude();
+        let r = reduced.r();
+        let i = reduced.i();
+        // Only the half-angle term without cancellation is taken thru a square root: sqrt((|z| + |Re|) / 2) is the larger root component, and the smaller one is Im / (2 × larger). The old pair of square roots computed sqrt((|z| - |Re|) / 2) by subtracting two nearly equal values, so a near-real or near-imaginary root lost most of its minor component (errors near 2^-10 of |root| at F4E3).
+        let half_sum: Scalar<F, E> = (magnitude + r.magnitude()) >> 1;
+        let larger = half_sum.sqrt();
+        let twice_larger: Scalar<F, E> = larger << 1;
+        let (real, imaginary) = if r.is_negative() {
+            // Re < 0: the imaginary root is the larger one and carries Im's sign; the real root stays non-negative (principal branch).
+            let imaginary = if i.is_negative() { -larger } else { larger };
+            (i.magnitude() / twice_larger, imaginary)
+        } else {
+            (larger, i / twice_larger)
+        };
+        Circle::from((real, imaginary)).circle_shl_integer(&half)
     }
     pub fn square(&self) -> Self {
         if self.is_normal() {
@@ -213,7 +218,18 @@ where
             }
         }
 
-        Self::from((self.magnitude().ln(), self.i().atan2(self.r())))
+        // The angle is scale-free, so take it from the fraction pair at the +1.0 binade: extracting the components at an extreme shared exponent can vanish the minor one, and its ratio to the major one can escape inside atan2.
+        let unit = self.at_unit_binade();
+        let magnitude = self.magnitude();
+        let log_magnitude = if magnitude.is_normal() {
+            magnitude.ln()
+        } else {
+            // |z| itself escaped (|z| at or past 2^128, or below 2^-127, at E3) while ln|z| is an ordinary number: ln|z| = 2 ln(sqrt|z|), and sqrt|z| = sqrt|reduced| × 2^h is always in range.
+            let (reduced, half) = self.split_even_binade();
+            let root = reduced.magnitude().sqrt().scalar_shl_integer(&half);
+            root.ln().scalar_shl_integer(&E::one())
+        };
+        Self::from((log_magnitude, unit.i().atan2(unit.r())))
     }
 
     pub fn exp(&self) -> Self {

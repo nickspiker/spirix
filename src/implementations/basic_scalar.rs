@@ -1236,7 +1236,12 @@ where
             }
             return *self;
         }
-        *self - self.floor()
+        let fractional = *self - self.floor();
+        // x - floor(x) is mathematically in [0, 1), but for a tiny negative x it is 1 - |x|, and addition drops an operand FRAC-1 or more binades below the other, so the sum lands on exactly 1.0. Clamp to the largest value below one, the same answer the negative-vanished case gives.
+        if fractional >= Self::ONE {
+            return Self::EFFECTIVELY_POS_ONE;
+        }
+        fractional
     }
     /// Returns the larger of this Scalar and another
     ///

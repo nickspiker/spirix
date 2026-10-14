@@ -898,8 +898,70 @@ where
     /// // Magnitude of undefined is undefined let undefined: CircleF4E4 = CircleF4E4::ZERO / 0_i16; assert!(undefined.magnitude().is_undefined());
     /// ```
     pub fn magnitude(&self) -> Scalar<F, E> {
-        let magnitude_squared = self.magnitude_squared();
-        magnitude_squared.sqrt()
+        if !self.is_normal() {
+            let magnitude_squared = self.magnitude_squared();
+            return magnitude_squared.sqrt();
+        }
+        // Both components share one exponent, so the hypot runs on the fractions alone at the +1.0 binade, where squaring can neither overflow nor drop the minor component, and the shared exponent is added back afterwards.
+        // Squaring at the stored exponent exploded for |z| past 2^(MAX/2) and vanished below 2^(MIN/2), poisoning sqrt and ln across half the exponent range.
+        let unit = self.at_unit_binade();
+        let unit_magnitude = (unit.r().square() + unit.i().square()).sqrt();
+        Self::restore_binade(unit_magnitude, self.binade_offset())
+    }
+
+    /// The same fraction pair with the exponent moved to the +1.0 binade (true exponent 0), so |z| is at most 2√2 and any op on it stays far from the exponent limits.
+    #[inline]
+    pub(crate) fn at_unit_binade(&self) -> Self {
+        Self {
+            real: self.real,
+            imaginary: self.imaginary,
+            exponent: Self::binade_origin(),
+        }
+    }
+
+    /// Split the true exponent k into 2h + p with p in {0, 1}: returns the fraction pair at true exponent p and the half-exponent h, so z = reduced × 2^(2h) and sqrt(z) = sqrt(reduced) × 2^h with sqrt(reduced) far from either end of the range.
+    pub(crate) fn split_even_binade(&self) -> (Self, E) {
+        let true_exponent = self.exponent ^ Self::binade_origin();
+        let half = true_exponent >> 1isize;
+        let parity = true_exponent.wrapping_sub(&(half << 1isize));
+        let reduced = Self {
+            real: self.real,
+            imaginary: self.imaginary,
+            exponent: Self::binade_origin() ^ parity,
+        };
+        (reduced, half)
+    }
+
+    /// This Circle's true exponent (stored position minus the +1.0 binade), widened so a doubled or added offset cannot wrap.
+    fn binade_offset(&self) -> <E as Inflate>::Wide {
+        self.exponent
+            .cycle_widen()
+            .w_sub(Self::binade_origin().cycle_widen())
+    }
+
+    /// Scale a non-negative Scalar computed from `at_unit_binade()` back by 2^offset, with widened overflow/underflow checks.
+    /// Escapes keep the significand like Scalar multiply: positive exploded is the normal fraction >> 1 (`01mmm`), positive vanished is >> 2 (`001mm`).
+    fn restore_binade(unit: Scalar<F, E>, offset: <E as Inflate>::Wide) -> Scalar<F, E> {
+        if !unit.is_normal() {
+            return unit;
+        }
+        let stored_pos = unit.exponent.cycle_widen().w_add(offset);
+        if stored_pos > Scalar::<F, E>::max_exponent().cycle_widen() {
+            return Scalar {
+                fraction: (unit.fraction >> 1isize) ^ F::min_value(),
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
+            };
+        }
+        if stored_pos < Scalar::<F, E>::min_exponent().cycle_widen() {
+            return Scalar {
+                fraction: (unit.fraction >> 2isize) ^ (F::min_value() >> 1isize),
+                exponent: Scalar::<F, E>::ambiguous_exponent(),
+            };
+        }
+        Scalar {
+            fraction: unit.fraction,
+            exponent: stored_pos.deflate(),
+        }
     }
 
     /// Returns the square of the magnitude of this Circle
@@ -935,9 +997,15 @@ where
     /// // Squared magnitude of undefined is undefined let undefined: CircleF6E3 = CircleF6E3::ZERO / 0_i64; assert!(undefined.magnitude_squared().is_undefined());
     /// ```
     pub fn magnitude_squared(&self) -> Scalar<F, E> {
-        let real_squared = self.r().square();
-        let imaginary_squared = self.i().square();
-        real_squared + imaginary_squared
+        if !self.is_normal() {
+            let real_squared = self.r().square();
+            let imaginary_squared = self.i().square();
+            return real_squared + imaginary_squared;
+        }
+        // Square the fraction pair at the +1.0 binade and add twice the shared exponent back: at the stored exponent the minor square could vanish while the sum stays normal (dropping up to half of it), and an exploded square plus a normal one came out undefined instead of exploded.
+        let unit = self.at_unit_binade();
+        let offset = self.binade_offset();
+        Self::restore_binade(unit.r().square() + unit.i().square(), offset.w_add(offset))
     }
 
     /// Returns the reciprocal (multiplicative inverse) of this Circle

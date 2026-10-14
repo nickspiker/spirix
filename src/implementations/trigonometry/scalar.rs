@@ -482,13 +482,30 @@ where
             // Vanished/zero pass thru (sinh(0) = 0, sinh(vanished) ≈ vanished).
             return *self;
         }
-        // When |x| is large enough that exp(x) escapes, sinh(x) ≈ sign(x)·exp(|x|)/2, which is also escaped with the same sign — let exp() carry the phase thru.
-        // The shortcut avoids exploded/exploded arithmetic in the general case.
         let ex = self.exp();
-        if !ex.is_normal() {
-            return ex;
+        let enx = (-self).exp();
+        if ex.is_normal() && enx.is_normal() {
+            return (ex - enx) >> 1;
         }
-        (ex - (-self).exp()) >> 1
+        // One arm escaped, so the other dominates and sinh(x) = sign(x)·exp(|x|)/2. The old shortcut returned exp(x) itself, which for very negative x is the VANISHED arm: sinh(-112) came out +vanished instead of about -2.2e48.
+        let half = Self::half_exp_magnitude(self);
+        if self.is_negative() {
+            -half
+        } else {
+            half
+        }
+    }
+
+    /// exp(|x|)/2 for the large-|x| arms of sinh and cosh. When exp(|x|) itself explodes, the half can still fit (|x| up to ln(2·MAX)), so that window is built as exp(|x|/2) × exp(|x|/2)/2: halving |x| is exact, where |x| - ln 2 would round the argument and cost about 0.2% at F4E3.
+    fn half_exp_magnitude(x: &Self) -> Self {
+        let magnitude = x.magnitude();
+        let full = magnitude.exp();
+        if full.is_normal() {
+            return full >> 1;
+        }
+        let half_magnitude: Self = magnitude >> 1;
+        let root = half_magnitude.exp();
+        root * (root >> 1)
     }
 
     /// Computes the hyperbolic cosine of a scalar.
@@ -515,10 +532,10 @@ where
             }
             return Self::ONE;
         }
-        // When exp(x) escapes, cosh(x) ≈ exp(|x|)/2 — also escaped, always positive.
+        // When exp(|x|) escapes, cosh(x) = exp(|x|)/2, always positive; half_exp_magnitude keeps the one-binade window where the half still fits.
         let ex = self.magnitude().exp();
         if !ex.is_normal() {
-            return ex;
+            return Self::half_exp_magnitude(self);
         }
         (self.exp() + (-self).exp()) >> 1
     }

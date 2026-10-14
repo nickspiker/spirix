@@ -127,7 +127,13 @@ where
         let n = self.fraction.inflate(true);
         let d = other.fraction.inflate(true);
         let fb = Self::fraction_bits();
-        let q = n.w_shl(fb.wrapping_sub(1)).w_div(d);
+        let shifted = n.w_shl(fb.wrapping_sub(1));
+        let mut q = shifted.w_div(d);
+        // Floor the quotient like every other Spirix op: the native signed divide truncates toward zero, which for an inexact negative quotient can land exactly on -2^k, a value that only exists at the binade below, so 1 / -(2^127 - 2^112) vanished at F4E3 instead of returning the normal just past -2^-127.
+        let remainder = shifted.w_sub(q.w_mul(d));
+        if !remainder.w_is_zero() && remainder.w_is_negative() != d.w_is_negative() {
+            q = q.w_sub(F::one().sign_extend());
+        }
         let leading = q.leading_same();
         // Normalize so |q'| ~ 2^FRAC (storable inflated range). |q| is in [2^(FRAC-2), 2^FRAC], giving leading_same ∈ [FRAC, FRAC+2] and shift ∈ [0, 2]. Always non-negative, so no conditional shift needed.
         let shift = leading.wrapping_sub(fb);

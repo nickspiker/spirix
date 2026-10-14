@@ -83,8 +83,18 @@ where
             // s * conj(other) = (s * c) + (-s * d)i
             let real_num = a.w_mul(c);
             let imag_num = F::zero().sign_extend().w_sub(a.w_mul(d));
-            let real_wide = real_num.w_shr(fb).w_mul(reciprocal);
-            let imag_wide = imag_num.w_shr(fb).w_mul(reciprocal);
+            let real_scaled = real_num.w_shr(fb);
+            let imag_scaled = imag_num.w_shr(fb);
+            let mut real_wide = real_scaled.w_mul(reciprocal);
+            let mut imag_wide = imag_scaled.w_mul(reciprocal);
+            // The wide result carries quotient × 2^(2*FRAC-2), so a quotient component reaching 2 in magnitude wraps the signed wide. |s / den| ≤ 2 here, but the floored reciprocal overshoots, so a power-of-two negative s over a denominator just above 2^(FRAC-2) can still wrap.
+            // The product stays below 2^(2*FRAC) in magnitude, so a wrap always flips its sign against the positive reciprocal; on a wrap, redo both products with one more numerator bit dropped and add the binade back below.
+            let halved = real_wide.w_is_negative() != real_scaled.w_is_negative()
+                || imag_wide.w_is_negative() != imag_scaled.w_is_negative();
+            if halved {
+                real_wide = real_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+                imag_wide = imag_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+            }
 
             if real_wide.w_is_zero() && imag_wide.w_is_zero() {
                 return Circle::<F, E>::ZERO;
@@ -98,7 +108,10 @@ where
             let imaginary = imag_wide.w_shl(shift).w_shr(fb).deflate();
 
             // AMBIG=0 exp: same shape as Circle/Circle div — stored_pos = pa - pb + binade_origin - shift, where shift = leading - 1 captures the left-shift used to normalize the wide result to canonical N1. The denominator canonicalization multiplied its pair by 2^s_den → exponent − s_den.
-            let pa = self.exponent.cycle_widen();
+            let mut pa = self.exponent.cycle_widen();
+            if halved {
+                pa = pa.w_add(E::one().cycle_widen());
+            }
             let s_den_e: E = s_den.as_();
             let pb = other.exponent.cycle_widen().w_sub(s_den_e.cycle_widen());
             let shift_e: E = leading.wrapping_sub(1).as_();
@@ -207,8 +220,17 @@ where
 
             let real_num = a.w_mul(c);
             let imag_num = F::zero().sign_extend().w_sub(a.w_mul(d));
-            let real_wide = real_num.w_shr(fb).w_mul(reciprocal);
-            let imag_wide = imag_num.w_shr(fb).w_mul(reciprocal);
+            let real_scaled = real_num.w_shr(fb);
+            let imag_scaled = imag_num.w_shr(fb);
+            let mut real_wide = real_scaled.w_mul(reciprocal);
+            let mut imag_wide = imag_scaled.w_mul(reciprocal);
+            // Same wide-wrap guard as the normal path; the result sits at AMBIG and leading_same absorbs the extra halving, so no exponent bookkeeping is needed.
+            if real_wide.w_is_negative() != real_scaled.w_is_negative()
+                || imag_wide.w_is_negative() != imag_scaled.w_is_negative()
+            {
+                real_wide = real_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+                imag_wide = imag_num.w_shr(fb.wrapping_add(1)).w_mul(reciprocal);
+            }
 
             let leading_r = real_wide.leading_same();
             let leading_i = imag_wide.leading_same();

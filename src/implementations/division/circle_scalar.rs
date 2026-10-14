@@ -65,8 +65,13 @@ where
     pub(crate) fn circle_divide_scalar(&self, other: &Scalar<F, E>) -> Self {
         if self.is_normal() && other.is_normal() {
             // AMBIG=0 unified pipeline. Circle / Scalar: divide each Circle component by the (N0→N1) Scalar fraction. Use div_euclid pattern.
-            let a = self.real.sign_extend();
-            let b = self.imaginary.sign_extend();
+            // Canonicalize a non-canonical numerator pair (pub-field-constructible) first: `a << FRAC / s` keeps only the bits the pair actually carries, so a de-normalized pair lost most of the quotient's precision. A zero-valued pair is 0 / x = 0.
+            let (nr, ni, s_num) = Self::canonical_n1_pair(self.real, self.imaginary);
+            if s_num < 0 {
+                return Self::ZERO;
+            }
+            let a = nr.sign_extend();
+            let b = ni.sign_extend();
             let s = ((other.fraction >> 1isize) ^ F::min_value()).sign_extend();
             let fb = Self::fraction_bits();
 
@@ -86,7 +91,9 @@ where
             let imaginary = imag_quotient.w_shl(shift).w_shr(fb).deflate();
 
             // Exp follows the fraction shift: the canonical-N1 normalization shifted the value by `leading - 1` bits; offset the binade by `FRAC - 1 - leading` so the final stored value matches reality. This collapses to `pa - pb + bo` when leading = FRAC-1 (value lands in [1, 2) naturally), and bumps the binade down for sub-canonical leading (value < 1 → shifted up to canonical → exp drops).
-            let pa = self.exponent.cycle_widen();
+            // The canonicalization multiplied the pair by 2^s_num, so the exponent gives it back.
+            let s_num_e: E = s_num.as_();
+            let pa = self.exponent.cycle_widen().w_sub(s_num_e.cycle_widen());
             let pb = other.exponent.cycle_widen();
             let w_bo = Self::binade_origin().cycle_widen();
             let delta_e: E = fb.wrapping_sub(1).wrapping_sub(leading).as_();
