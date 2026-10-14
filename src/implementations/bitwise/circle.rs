@@ -649,56 +649,38 @@ where
         if !self.is_normal() {
             return *self;
         }
-        let new_exp = self.exponent.wrapping_add(shift);
-        if !shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
-            return Self {
-                real: self.real,
-                imaginary: self.imaginary,
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-        if shift.is_negative()
-            && self.exponent.is_negative()
-            && !(new_exp.wrapping_sub(&E::one())).is_negative()
-        {
-            return Self {
-                real: self.real >> 1isize,
-                imaginary: self.imaginary >> 1isize,
-                exponent: Self::ambiguous_exponent(),
-            };
-        }
-        return Self {
-            real: self.real,
-            imaginary: self.imaginary,
-            exponent: new_exp,
-        };
+        // AMBIG=0 native: stored_pos = pa + shift (cycle-widened), same shape as scalar_shl_integer. A stored-exponent sign flip is just the step between true -1 and true 0, not an escape.
+        let stored_pos = self.exponent.cycle_widen().w_add(shift.sign_extend());
+        self.circle_shift_settle(stored_pos)
     }
     pub(crate) fn circle_shr_integer(&self, shift: &E) -> Circle<F, E> {
         if !self.is_normal() {
             return *self;
         }
-        let new_exp = self.exponent.wrapping_sub(shift);
-        if shift.is_negative() && !self.exponent.is_negative() && new_exp.is_negative() {
+        // AMBIG=0 native: stored_pos = pa - shift (cycle-widened). Same shape as shl with the shift negated.
+        let stored_pos = self.exponent.cycle_widen().w_sub(shift.sign_extend());
+        self.circle_shift_settle(stored_pos)
+    }
+    // Escapes keep real/imaginary so the phase survives (matches Circle multiply): exploded = fractions as-is, vanished = fractions >> 1, both at AMBIG.
+    fn circle_shift_settle(&self, stored_pos: <E as Inflate>::Wide) -> Circle<F, E> {
+        if stored_pos > Self::max_exponent().cycle_widen() {
             return Self {
                 real: self.real,
                 imaginary: self.imaginary,
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        if !shift.is_negative()
-            && self.exponent.is_negative()
-            && !(new_exp.wrapping_sub(&E::one())).is_negative()
-        {
+        if stored_pos < Self::min_exponent().cycle_widen() {
             return Self {
                 real: self.real >> 1isize,
                 imaginary: self.imaginary >> 1isize,
                 exponent: Self::ambiguous_exponent(),
             };
         }
-        return Self {
+        Self {
             real: self.real,
             imaginary: self.imaginary,
-            exponent: new_exp,
-        };
+            exponent: stored_pos.deflate(),
+        }
     }
 }

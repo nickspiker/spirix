@@ -2,6 +2,11 @@
 
 All notable changes to Spirix are documented here.
 
+## [Unreleased]
+
+### Fixed
+- Circle `<<`, `>>`, `<<=`, `>>=` still used the pre-AMBIG=0 sign-flip overflow tests, getting about half of all (exponent, shift) pairs wrong since 0.1.0: crossing 1.0 upward exploded (0.75 << 1), landing at or below [1, 2) from above vanished (3 >> 1, and x >> 0 for x in [1, 2)), and real overflow/underflow past the cycle edge wrapped silently to the far end of the range (2^126 << 3 gave 2^-127). Now mirrors the Scalar shift: cycle-widened position compared against the widened bounds, escapes keep the phase (exploded = fractions as-is, vanished = fractions >> 1). Scalar shifts were unaffected. Exhaustive regression sweep in `tests/shift_sweep.rs`.
+
 ## [0.1.1] - 2026-07-04
 
 ### Fixed
