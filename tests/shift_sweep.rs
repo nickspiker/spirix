@@ -41,24 +41,52 @@ fn circle_shift_sweep_f4e3() {
             for s in -128i32..=127 {
                 for (op, r, delta) in [("<<", c << s, s), (">>", c >> s, -s)] {
                     let ok = match expect(stored, delta) {
-                        Expect::Normal(np) => r.is_normal() && r.exponent as u8 as i32 == np && r.real == c.real && r.imaginary == c.imaginary,
+                        Expect::Normal(np) => {
+                            r.is_normal()
+                                && r.exponent as u8 as i32 == np
+                                && r.real == c.real
+                                && r.imaginary == c.imaginary
+                        }
                         // Escapes keep the phase: exploded carries the fractions as-is, vanished carries them >> 1.
-                        Expect::Exploded => r.is_exploded() && r.real == c.real && r.imaginary == c.imaginary,
-                        Expect::Vanished => r.is_vanished() && r.real == c.real >> 1 && r.imaginary == c.imaginary >> 1,
+                        Expect::Exploded => {
+                            r.is_exploded() && r.real == c.real && r.imaginary == c.imaginary
+                        }
+                        Expect::Vanished => {
+                            r.is_vanished()
+                                && r.real == c.real >> 1
+                                && r.imaginary == c.imaginary >> 1
+                        }
                     };
                     if !ok {
-                        failures.push(format!("({}, {}) * 2^{} {} {}", c.real, c.imaginary, stored - 128, op, s));
+                        failures.push(format!(
+                            "({}, {}) * 2^{} {} {}",
+                            c.real,
+                            c.imaginary,
+                            stored - 128,
+                            op,
+                            s
+                        ));
                     }
                 }
             }
         }
     }
-    assert!(failures.is_empty(), "{} failures, first: {:?}", failures.len(), &failures[..failures.len().min(8)]);
+    assert!(
+        failures.is_empty(),
+        "{} failures, first: {:?}",
+        failures.len(),
+        &failures[..failures.len().min(8)]
+    );
 }
 
 #[test]
 fn scalar_shift_sweep_f4e3() {
-    let bases = [ScalarF4E3::from(1.0f64), ScalarF4E3::from(-0.75f64), ScalarF4E3::from(0.1f64), ScalarF4E3::from(-1.0f64)];
+    let bases = [
+        ScalarF4E3::from(1.0f64),
+        ScalarF4E3::from(-0.75f64),
+        ScalarF4E3::from(0.1f64),
+        ScalarF4E3::from(-1.0f64),
+    ];
     let mut failures = Vec::new();
     for b in bases.iter() {
         for stored in 1i32..=255 {
@@ -68,7 +96,11 @@ fn scalar_shift_sweep_f4e3() {
             for s in -128i32..=127 {
                 for (op, r, delta) in [("<<", c << s, s), (">>", c >> s, -s)] {
                     let ok = match expect(stored, delta) {
-                        Expect::Normal(np) => r.is_normal() && r.exponent as u8 as i32 == np && r.fraction == c.fraction,
+                        Expect::Normal(np) => {
+                            r.is_normal()
+                                && r.exponent as u8 as i32 == np
+                                && r.fraction == c.fraction
+                        }
                         Expect::Exploded => r.is_exploded() && (r < 0) == neg,
                         Expect::Vanished => r.is_vanished() && (r < 0) == neg,
                     };
@@ -79,7 +111,12 @@ fn scalar_shift_sweep_f4e3() {
             }
         }
     }
-    assert!(failures.is_empty(), "{} failures, first: {:?}", failures.len(), &failures[..failures.len().min(8)]);
+    assert!(
+        failures.is_empty(),
+        "{} failures, first: {:?}",
+        failures.len(),
+        &failures[..failures.len().min(8)]
+    );
 }
 
 #[test]

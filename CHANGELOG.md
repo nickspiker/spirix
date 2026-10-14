@@ -23,6 +23,7 @@ All notable changes to Spirix are documented here.
 - Circle `magnitude`, `magnitude_squared`, `sqrt`, and `ln` squared at the stored exponent and went undefined above about 2^62 or below 2^-62 at E3 (`sqrt` of 2^64 was ℘√↑); they now factor the shared exponent out.
 - `sinh` of a large negative argument returned the positive vanished arm (`sinh(-112)` was +vanished); `sinh` and `cosh` now follow sign(x)·exp(|x|)/2 when an arm escapes, and `cosh(±89)` no longer explodes early.
 - Circle/Circle and Scalar/Circle division wrapped the wide intermediate when a quotient component reached about 2, flipping its sign (0.22% of random Circle/Circle cases); Circle/Scalar now canonicalizes a de-normalized numerator first.
+- Circle % Circle built the period c²+d² and the cross products at the stored exponent, going undefined for |divisor| >= 2^64 or below 2^-64 at E3 (about half of a full-range sweep); it now works at the unit binade and adds the exponent back with bounds checks.
 - `frac` of a tiny negative returned exactly 1.0, outside [0, 1).
 - SIMD `scalar_subtract_batch` under AVX2 wrote its results into a temporary copy and returned the output untouched, and the AVX2 kernel used the old signed exponent compare with no normalization. The kernel now matches the scalar operator bit for bit (falling back per lane for escapes), and AVX2 is detected at runtime instead of only at compile time.
 

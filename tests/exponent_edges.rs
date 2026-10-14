@@ -17,7 +17,9 @@ impl Rng {
     }
 }
 
-const OPS: [&str; 11] = ["C+C", "C-C", "C+S", "C-S", "S+C", "S-C", "C&C", "C|C", "C^C", "-C", "conj"];
+const OPS: [&str; 11] = [
+    "C+C", "C-C", "C+S", "C-S", "S+C", "S-C", "C&C", "C|C", "C^C", "-C", "conj",
+];
 
 macro_rules! translation_sweep {
     ($test:ident, $C:ty, $S:ty, $E:ty, $ebits:expr) => {
@@ -72,7 +74,18 @@ macro_rules! translation_sweep {
                     let pr = r0.exponent as i64 & top;
                     let po = if op == "-C" || op == "conj" { pa } else { pb };
                     let (lo, hi) = (1 - pa.min(po), top - pa.max(po));
-                    for k in [lo, lo + 1, lo + 2, lo + 5, lo + 30, hi - 30, hi - 5, hi - 2, hi - 1, hi] {
+                    for k in [
+                        lo,
+                        lo + 1,
+                        lo + 2,
+                        lo + 5,
+                        lo + 30,
+                        hi - 30,
+                        hi - 5,
+                        hi - 2,
+                        hi - 1,
+                        hi,
+                    ] {
                         if k < lo || k > hi {
                             continue;
                         }
@@ -81,17 +94,30 @@ macro_rules! translation_sweep {
                         let ok = if np > top {
                             r.is_exploded() && r.real == r0.real && r.imaginary == r0.imaginary
                         } else if np < 1 {
-                            r.is_vanished() && r.real == r0.real >> 1 && r.imaginary == r0.imaginary >> 1
+                            r.is_vanished()
+                                && r.real == r0.real >> 1
+                                && r.imaginary == r0.imaginary >> 1
                         } else {
-                            r.is_normal() && (r.exponent as i64 & top) == np && r.real == r0.real && r.imaginary == r0.imaginary
+                            r.is_normal()
+                                && (r.exponent as i64 & top) == np
+                                && r.real == r0.real
+                                && r.imaginary == r0.imaginary
                         };
                         if !ok {
-                            failures.push(format!("{op} a={:?} k={k} want_pos={np}", (a.real, a.imaginary, pa)));
+                            failures.push(format!(
+                                "{op} a={:?} k={k} want_pos={np}",
+                                (a.real, a.imaginary, pa)
+                            ));
                         }
                     }
                 }
             }
-            assert!(failures.is_empty(), "{} failures, first: {:?}", failures.len(), &failures[..failures.len().min(8)]);
+            assert!(
+                failures.is_empty(),
+                "{} failures, first: {:?}",
+                failures.len(),
+                &failures[..failures.len().min(8)]
+            );
         }
     };
 }
@@ -109,7 +135,10 @@ fn circle_negate_conjugate_bottom_of_cycle() {
     // Negating 0x4000 gives 0xC000, which renormalizes one binade down; at stored exponent 2 that lands on 1, still normal.
     let x = CircleF4E3::new(0x4000, 0, 2);
     let n = -x;
-    assert!(n.is_normal() && n.exponent == 1, "-x vanished at the bottom binade");
+    assert!(
+        n.is_normal() && n.exponent == 1,
+        "-x vanished at the bottom binade"
+    );
     assert_eq!(value(&n), (-value(&x).0, 0.0));
     let y = CircleF4E3::new(0x100, 0x4000, 2);
     let c = y.conjugate();
@@ -122,11 +151,23 @@ fn circle_negate_conjugate_bottom_of_cycle() {
 #[test]
 fn circle_negate_conjugate_non_canonical() {
     // All-ones (-1 raw) components renormalize by FRAC-1 like any other; the old special case dropped one binade too many and halved the value.
-    for (re, im) in [(1i16, 0i16), (0, 1), (1, 1), (-1, 0), (0, -1), (1, -1), (2, 0)] {
+    for (re, im) in [
+        (1i16, 0i16),
+        (0, 1),
+        (1, 1),
+        (-1, 0),
+        (0, -1),
+        (1, -1),
+        (2, 0),
+    ] {
         let x = CircleF4E3::new(re, im, 0x80u8 as i8);
         let (xr, xi) = value(&x);
         assert_eq!(value(&-x), (-xr, -xi), "negate {re:#x},{im:#x}");
-        assert_eq!(value(&x.conjugate()), (xr, -xi), "conjugate {re:#x},{im:#x}");
+        assert_eq!(
+            value(&x.conjugate()),
+            (xr, -xi),
+            "conjugate {re:#x},{im:#x}"
+        );
     }
 }
 
@@ -145,7 +186,9 @@ fn scalar_is_contiguous_integer_sweep() {
     }
     assert!(!(ScalarF4E3::MAX * 2i32).is_contiguous());
     assert!(!(ScalarF4E3::MIN * 2i32).is_contiguous());
-    assert!(ScalarF4E3::MAX_CONTIGUOUS.is_contiguous() && ScalarF4E3::MIN_CONTIGUOUS.is_contiguous());
+    assert!(
+        ScalarF4E3::MAX_CONTIGUOUS.is_contiguous() && ScalarF4E3::MIN_CONTIGUOUS.is_contiguous()
+    );
 }
 
 #[test]
@@ -155,7 +198,10 @@ fn circle_contiguous_constants_scale_with_fraction() {
     assert_eq!(CircleF4E4::MAX_CONTIGUOUS.r().to_f64(), 32766.0);
     assert_eq!(CircleF5E3::MAX_CONTIGUOUS.r().to_f64(), 2147483646.0);
     assert_eq!(CircleF5E4::MIN_CONTIGUOUS.r().to_f64(), -2147483647.0);
-    assert_eq!(CircleF6E3::MAX_CONTIGUOUS.r().to_f64(), (i64::MAX - 1) as f64);
+    assert_eq!(
+        CircleF6E3::MAX_CONTIGUOUS.r().to_f64(),
+        (i64::MAX - 1) as f64
+    );
 }
 
 #[test]
@@ -184,7 +230,14 @@ fn debug_exponent_colours() {
     // Integer-exponent colour (light yellow) for logical k >= 0, fractional (light cyan) for k < 0. Negative powers of two sit one binade low, so -1.0 is at k = -1.
     let integer = "38;2;255;255;128m";
     let fractional = "38;2;128;255;255m";
-    for (v, want) in [(1.0f64, integer), (2.0, integer), (-1.0, fractional), (-3.0, integer), (0.5, fractional), (0.25, fractional)] {
+    for (v, want) in [
+        (1.0f64, integer),
+        (2.0, integer),
+        (-1.0, fractional),
+        (-3.0, integer),
+        (0.5, fractional),
+        (0.25, fractional),
+    ] {
         let s = format!("{:#?}", ScalarF4E3::from(v));
         let tail = &s[s.rfind("*2^").unwrap()..];
         assert!(tail.contains(want), "v={v}: {tail:?}");
@@ -201,7 +254,12 @@ fn circle_or_negligible_negative_operand() {
     let small = CircleF4E3::new(-0x4000, 0x10, (0x80u8 - 40) as i8);
     let r = big | small;
     assert_eq!(value(&r), (-1.0 / 16384.0, 1.0 / 64.0));
-    assert_eq!((r.real, r.imaginary, r.exponent), (-64, 0x4000, (0x80u8 - 6) as i8), "canonical N1 pair");
-    let r = CircleF4E3::new(0x0100, 0x4000, 0x80u8 as i8) | CircleF4E3::new(0x10, -0x4000, (0x80u8 - 40) as i8);
+    assert_eq!(
+        (r.real, r.imaginary, r.exponent),
+        (-64, 0x4000, (0x80u8 - 6) as i8),
+        "canonical N1 pair"
+    );
+    let r = CircleF4E3::new(0x0100, 0x4000, 0x80u8 as i8)
+        | CircleF4E3::new(0x10, -0x4000, (0x80u8 - 40) as i8);
     assert_eq!(value(&r), (1.0 / 64.0, -1.0 / 16384.0));
 }

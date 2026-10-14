@@ -520,7 +520,11 @@ where
         let delta: isize = fb.wrapping_sub(leading);
         // delta = FRAC - leading lies in [-FRAC, FRAC - 1], which fits E at every width. The canonical N1 shift (leading - 1) puts the result at small.exp + delta + 1, one above Scalar's (leading) shift, so the bounds check is on that position.
         let delta_e: E = delta.as_();
-        let stored_pos = small.exponent.cycle_widen().w_add(delta_e.sign_extend()).w_add(E::one().cycle_widen());
+        let stored_pos = small
+            .exponent
+            .cycle_widen()
+            .w_add(delta_e.sign_extend())
+            .w_add(E::one().cycle_widen());
         let shl = leading.wrapping_sub(1);
         let real = real_result.w_shl(shl).w_shr(fb).deflate();
         let imaginary = imag_result.w_shl(shl).w_shr(fb).deflate();

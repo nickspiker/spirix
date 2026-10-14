@@ -168,7 +168,12 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Circle::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small_exp, delta);
+            return Circle::circle_sum_settle(
+                canonical_r.deflate(),
+                canonical_i.deflate(),
+                small_exp,
+                delta,
+            );
         }
 
         // Escape-class handling (at least one operand is non-normal). Mirrors scalar_subtract_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations. The earlier `is_transfinite()` (inf OR exploded) lumped infinity in with exploded, causing inf cases to return TRANSFINITE_MINUS_FINITE (= undefined) instead of INFINITY.

@@ -152,7 +152,12 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Self::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small.exponent, delta);
+            return Self::circle_sum_settle(
+                canonical_r.deflate(),
+                canonical_i.deflate(),
+                small.exponent,
+                delta,
+            );
         }
 
         // Escape-class handling (mirrors Scalar add ordering: undefined first, then infinity absorbs, then zero identity, then escape pair rules).

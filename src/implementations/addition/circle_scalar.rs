@@ -173,7 +173,12 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Circle::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small_exp, delta);
+            return Circle::circle_sum_settle(
+                canonical_r.deflate(),
+                canonical_i.deflate(),
+                small_exp,
+                delta,
+            );
         }
 
         // Escape-class handling (at least one operand is non-normal). Mirrors scalar_add_scalar's order: undefined → INFINITY-absorbs → zero identity → escape combinations. The earlier `is_transfinite()` (inf OR exploded) caused inf cases to return TRANSFINITE_PLUS_FINITE (= undefined) instead of INFINITY.

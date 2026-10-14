@@ -157,7 +157,12 @@ where
             } else {
                 result_i.w_shr(shl_amount.wrapping_neg())
             };
-            return Circle::circle_sum_settle(canonical_r.deflate(), canonical_i.deflate(), small.exponent, delta);
+            return Circle::circle_sum_settle(
+                canonical_r.deflate(),
+                canonical_i.deflate(),
+                small.exponent,
+                delta,
+            );
         }
 
         // Escape-class handling (mirrors Scalar sub ordering).

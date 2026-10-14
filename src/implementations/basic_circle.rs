@@ -1132,7 +1132,10 @@ where
         if shift > 1 {
             let shift = shift as isize;
             // Both components all zeros: zero.
-            if shift == Self::fraction_bits() && !self.real.is_negative() && !self.imaginary.is_negative() {
+            if shift == Self::fraction_bits()
+                && !self.real.is_negative()
+                && !self.imaginary.is_negative()
+            {
                 self.exponent = Self::ambiguous_exponent();
                 return;
             }
