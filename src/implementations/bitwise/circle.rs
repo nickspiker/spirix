@@ -260,32 +260,10 @@ where
                     return *other;
                 }
                 if other.real.is_negative() {
-                    let mut result = Scalar {
-                        fraction: self.imaginary,
-                        exponent: self.exponent,
-                    };
-                    result.normalize_exploded();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: negative_one,
-                        imaginary: result.fraction,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(self, true, true);
                 }
                 if other.imaginary.is_negative() {
-                    let mut result = Scalar {
-                        fraction: self.real,
-                        exponent: self.exponent,
-                    };
-                    result.normalize_exploded();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: result.fraction,
-                        imaginary: negative_one,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(self, false, true);
                 }
                 return *self;
             }
@@ -294,32 +272,10 @@ where
                     return *self;
                 }
                 if self.real.is_negative() {
-                    let mut result = Scalar {
-                        fraction: other.imaginary,
-                        exponent: other.exponent,
-                    };
-                    result.normalize_exploded();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: negative_one,
-                        imaginary: result.fraction,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(other, true, true);
                 }
                 if self.imaginary.is_negative() {
-                    let mut result = Scalar {
-                        fraction: other.real,
-                        exponent: other.exponent,
-                    };
-                    result.normalize_exploded();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: result.fraction,
-                        imaginary: negative_one,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(other, false, true);
                 }
                 return *self;
             }
@@ -336,32 +292,10 @@ where
                 return *small;
             }
             if small.real.is_negative() {
-                let mut result = Scalar {
-                    fraction: big.imaginary,
-                    exponent: big.exponent,
-                };
-                result.normalize();
-                let mut negative_one: F = F::zero();
-                negative_one = !negative_one;
-                return Circle {
-                    real: negative_one,
-                    imaginary: result.fraction,
-                    exponent: result.exponent,
-                };
+                return Self::or_sign_fill(big, true, false);
             }
             if small.imaginary.is_negative() {
-                let mut result = Scalar {
-                    fraction: big.real,
-                    exponent: big.exponent,
-                };
-                result.normalize();
-                let mut negative_one: F = F::zero();
-                negative_one = !negative_one;
-                return Circle {
-                    real: result.fraction,
-                    imaginary: negative_one,
-                    exponent: result.exponent,
-                };
+                return Self::or_sign_fill(big, false, false);
             }
             return *big;
         }
@@ -372,32 +306,10 @@ where
                     return *small;
                 }
                 if small.real.is_negative() {
-                    let mut result = Scalar {
-                        fraction: big.imaginary,
-                        exponent: big.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: negative_one,
-                        imaginary: result.fraction,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(big, true, false);
                 }
                 if small.imaginary.is_negative() {
-                    let mut result = Scalar {
-                        fraction: big.real,
-                        exponent: big.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: result.fraction,
-                        imaginary: negative_one,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(big, false, false);
                 }
                 return *big;
             }
@@ -408,37 +320,29 @@ where
                     return *small;
                 }
                 if small.real.is_negative() {
-                    let mut result = Scalar {
-                        fraction: big.imaginary,
-                        exponent: big.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: negative_one,
-                        imaginary: result.fraction,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(big, true, false);
                 }
                 if small.imaginary.is_negative() {
-                    let mut result = Scalar {
-                        fraction: big.real,
-                        exponent: big.exponent,
-                    };
-                    result.normalize();
-                    let mut negative_one: F = F::zero();
-                    negative_one = !negative_one;
-                    return Circle {
-                        real: result.fraction,
-                        imaginary: negative_one,
-                        exponent: result.exponent,
-                    };
+                    return Self::or_sign_fill(big, false, false);
                 }
                 return *big;
             }
         }
         Self::circle_bitwise_compute(big, small, exp_diff.saturate(), BitwiseOp::Or)
+    }
+    /// OR against a negligible operand whose `real` (fill_real) or `imaginary` component is negative: that component's sign extension fills big's component with ones (-1 at big's resolution, flooring the tiny negative), the other component passes thru, and the pair renormalizes as a Circle.
+    fn or_sign_fill(big: &Self, fill_real: bool, exploded: bool) -> Self {
+        let mut result = Self {
+            real: if fill_real { !F::zero() } else { big.real },
+            imaginary: if fill_real { big.imaginary } else { !F::zero() },
+            exponent: big.exponent,
+        };
+        if exploded {
+            result.normalize_exploded();
+        } else {
+            result.normalize();
+        }
+        result
     }
     pub(crate) fn aligned_xor(&self, other: &Circle<F, E>) -> Circle<F, E> {
         if !self.is_normal() || !other.is_normal() {

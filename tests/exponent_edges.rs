@@ -193,3 +193,15 @@ fn debug_exponent_colours() {
         assert!(tail.contains(want), "circle v={v}: {tail:?}");
     }
 }
+
+#[test]
+fn circle_or_negligible_negative_operand() {
+    // A far-smaller operand with one negative component fills that component with ones (-1 at big's resolution); the pair then renormalizes as a Circle. This branch used Scalar::normalize on one component, which flipped the other component's sign: (1 + 0.0156i) | tiny gave (-4.8e-7, -0.0156).
+    let big = CircleF4E3::new(0x4000, 0x0100, 0x80u8 as i8);
+    let small = CircleF4E3::new(-0x4000, 0x10, (0x80u8 - 40) as i8);
+    let r = big | small;
+    assert_eq!(value(&r), (-1.0 / 16384.0, 1.0 / 64.0));
+    assert_eq!((r.real, r.imaginary, r.exponent), (-64, 0x4000, (0x80u8 - 6) as i8), "canonical N1 pair");
+    let r = CircleF4E3::new(0x0100, 0x4000, 0x80u8 as i8) | CircleF4E3::new(0x10, -0x4000, (0x80u8 - 40) as i8);
+    assert_eq!(value(&r), (1.0 / 64.0, -1.0 / 16384.0));
+}
