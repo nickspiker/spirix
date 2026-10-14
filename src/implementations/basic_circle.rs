@@ -933,7 +933,7 @@ where
     }
 
     /// This Circle's true exponent (stored position minus the +1.0 binade), widened so a doubled or added offset cannot wrap.
-    fn binade_offset(&self) -> <E as Inflate>::Wide {
+    pub(crate) fn binade_offset(&self) -> <E as Inflate>::Wide {
         self.exponent
             .cycle_widen()
             .w_sub(Self::binade_origin().cycle_widen())

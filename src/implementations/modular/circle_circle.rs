@@ -119,26 +119,50 @@ where
             return *self;
         }
 
-        let magnitude_squared = denominator
-            .r()
+        // Factor both shared exponents out. With a = A·2^ea and c = C·2^ec (fraction pairs at the +1.0 binade), the cross products are X·2^(ea+ec) and the period is P·2^(2ec); building them at the stored exponents exploded for |den| ≥ 2^64 and vanished below 2^-64 at E3, long before the result did.
+        // Floored modulus is exact and scale-free, so (X·2^(ea+ec)) % (P·2^(2ec)) = ((X·2^α) % (P·2^β))·2^T for any split with α - β = ea - ec. Splitting the difference evenly keeps both reduced operands in range whenever the period itself could be, and every rounding step is scale-invariant, so results the old path computed without escaping are bit-identical.
+        let numerator_unit = self.at_unit_binade();
+        let denominator_unit = denominator.at_unit_binade();
+        let (a, b) = (numerator_unit.r(), numerator_unit.i());
+        let (c, d) = (denominator_unit.r(), denominator_unit.i());
+        let numerator_offset = self.binade_offset();
+        let denominator_offset = denominator.binade_offset();
+        let difference = numerator_offset.w_sub(denominator_offset);
+        // β = -floor(D/2) and α = ceil(D/2), each within ±(E::MAX) for any pair of normal exponents.
+        let beta_wide = difference.w_shr(1).w_neg();
+        let alpha_wide = difference.w_add(beta_wide);
+        let alpha: E = alpha_wide.deflate();
+        let beta: E = beta_wide.deflate();
+
+        // (c² + d²)·2^β
+        let period = c
             .square()
-            .scalar_add_scalar(&denominator.i().square());
+            .scalar_add_scalar(&d.square())
+            .scalar_shl_integer(&beta);
 
-        // (ac + bd) % (c² + d²)
-        let real_part = self
-            .r()
-            .scalar_multiply_scalar(&denominator.r())
-            .scalar_add_scalar(&self.i().scalar_multiply_scalar(&denominator.i()))
-            .scalar_modulus_scalar(&magnitude_squared);
+        // (ac + bd)·2^α % period
+        let real_part = a
+            .scalar_multiply_scalar(&c)
+            .scalar_add_scalar(&b.scalar_multiply_scalar(&d))
+            .scalar_shl_integer(&alpha)
+            .scalar_modulus_scalar(&period);
 
-        // (bc - ad) % (c² + d²)
-        let imag_part = self
-            .i()
-            .scalar_multiply_scalar(&denominator.r())
-            .scalar_subtract_scalar(&self.r().scalar_multiply_scalar(&denominator.i()))
-            .scalar_modulus_scalar(&magnitude_squared);
+        // (bc - ad)·2^α % period
+        let imag_part = b
+            .scalar_multiply_scalar(&c)
+            .scalar_subtract_scalar(&a.scalar_multiply_scalar(&d))
+            .scalar_shl_integer(&alpha)
+            .scalar_modulus_scalar(&period);
 
-        Circle::<F, E>::from_ri(real_part, imag_part)
+        let reduced = Circle::<F, E>::from_ri(real_part, imag_part);
+        if !reduced.is_normal() {
+            return reduced;
+        }
+        // Add T = 2·ec - β back with widened checks; escapes keep the phase like Circle multiply.
+        let restore = denominator_offset
+            .w_add(denominator_offset)
+            .w_sub(beta_wide);
+        reduced.circle_shift_settle(reduced.exponent.cycle_widen().w_add(restore))
     }
 
     /// Component-wise modulo operation for Circle complex numbers

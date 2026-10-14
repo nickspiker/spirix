@@ -502,3 +502,136 @@ fn frac_of_tiny_negative_stays_below_one() {
         &failures[..failures.len().min(5)]
     );
 }
+
+/// Random F4E3 Circle with raw-bit components (non-canonical pairs included) at true exponent `k`.
+fn raw_circle(rng: &mut Rng, k: i32) -> C {
+    loop {
+        let c = C {
+            real: rng.next() as i16,
+            imaginary: rng.next() as i16,
+            exponent: stored(k),
+        };
+        if c.real != 0 || c.imaginary != 0 {
+            return c;
+        }
+    }
+}
+
+#[test]
+fn circle_modulus_translation_sweep() {
+    // Circle % Circle is ((ac + bd) mod p) + ((bc - ad) mod p)i with p = c² + d², homogeneous of degree 2: scaling both operands by 2^k scales the result by 2^(2k), not 2^k.
+    // The old path built the cross products and p at the stored exponents, so the period escaped once |den| passed 2^64 or fell below 2^-64 at E3 and every such result came out undefined.
+    let mut rng = Rng(0x0DDB1A5E5BAD5EED);
+    let mut failures = Vec::new();
+    let mut checked = 0u32;
+    for _ in 0..400 {
+        let base_a = (rng.next() % 41) as i32 - 20;
+        let base_b = (rng.next() % 41) as i32 - 20;
+        let a = raw_circle(&mut rng, base_a);
+        let b = raw_circle(&mut rng, base_b);
+        let base = a % b;
+        if !base.is_normal() {
+            continue;
+        }
+        let base_k = (base.exponent ^ i8::MIN) as i32;
+        for k in -127..=127 {
+            let (ka, kb) = (base_a + k, base_b + k);
+            if !(-127..=127).contains(&ka) || !(-127..=127).contains(&kb) {
+                continue;
+            }
+            let (mut sa, mut sb) = (a, b);
+            sa.exponent = stored(ka);
+            sb.exponent = stored(kb);
+            let got = sa % sb;
+            let target = base_k + 2 * k;
+            let want = if target > 127 {
+                C {
+                    real: base.real,
+                    imaginary: base.imaginary,
+                    exponent: 0,
+                }
+            } else if target < -127 {
+                C {
+                    real: base.real >> 1,
+                    imaginary: base.imaginary >> 1,
+                    exponent: 0,
+                }
+            } else {
+                C {
+                    real: base.real,
+                    imaginary: base.imaginary,
+                    exponent: stored(target),
+                }
+            };
+            checked += 1;
+            if (got.real, got.imaginary, got.exponent) != (want.real, want.imaginary, want.exponent)
+            {
+                failures.push(format!("({sa:?}) % ({sb:?}) = {got:?}, want {want:?}"));
+            }
+        }
+    }
+    assert!(checked > 10_000, "only {checked} translated cases");
+    assert!(
+        failures.is_empty(),
+        "{} of {checked} failures, first: {:#?}",
+        failures.len(),
+        &failures[..failures.len().min(5)]
+    );
+}
+
+#[test]
+fn circle_modulus_vs_oracle() {
+    // Documented semantics: Re = (ac + bd) mod p and Im = (bc - ad) mod p, floored, so each lies in [0, p) with p = c² + d².
+    // The cross products round to FRAC bits before the exact modulus, so the error grows with |x / p|; quotients up to 2^6 keep the oracle meaningful, and distances are taken around the period so a result just under p matches one just over 0.
+    let mut rng = Rng(0xC0FFEE0DDF00D123);
+    let mut failures = Vec::new();
+    let mut checked = 0u32;
+    for _ in 0..300_000 {
+        let ka = (rng.next() % 255) as i32 - 127;
+        let kb = (rng.next() % 255) as i32 - 127;
+        let a = raw_circle(&mut rng, ka);
+        let b = raw_circle(&mut rng, kb);
+        let (wa, wb) = (raw_c(&a), raw_c(&b));
+        let p = wb.norm_sqr();
+        let x = wa.re * wb.re + wa.im * wb.im;
+        let y = wa.im * wb.re - wa.re * wb.im;
+        if !(MIN_NORMAL * 2f64.powi(20)..MAX_NORMAL / 4.0).contains(&p)
+            || x.abs().max(y.abs()) > 64.0 * p
+        {
+            continue;
+        }
+        checked += 1;
+        let got = a % b;
+        let tolerance = p * ((x.abs().max(y.abs()) / p) + 2.0) * 2f64.powi(-12);
+        let around = |g: f64, w: f64| -> f64 {
+            let d = (g - w).rem_euclid(p);
+            d.min(p - d)
+        };
+        let want = Complex::new(x - p * (x / p).floor(), y - p * (y / p).floor());
+        let ok = if got.is_zero() {
+            around(0.0, want.re) <= tolerance && around(0.0, want.im) <= tolerance
+        } else if got.is_normal() {
+            let g = raw_c(&got);
+            let in_period = |v: f64| v >= 0.0 && v < p * (1.0 + 2f64.powi(-10));
+            in_period(g.re)
+                && in_period(g.im)
+                && around(g.re, want.re) <= tolerance
+                && around(g.im, want.im) <= tolerance
+        } else {
+            // A remainder below the smallest normal escapes as vanished even when p is normal.
+            got.vanished() && want.re.max(want.im) < 4.0 * MIN_NORMAL
+        };
+        if !ok {
+            failures.push(format!(
+                "({a:?}) % ({b:?}) = {got:?}, want {want} (p {p:e})"
+            ));
+        }
+    }
+    assert!(checked > 50_000, "only {checked} cases in range");
+    assert!(
+        failures.is_empty(),
+        "{} of {checked} failures, first: {:#?}",
+        failures.len(),
+        &failures[..failures.len().min(5)]
+    );
+}

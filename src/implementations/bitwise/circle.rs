@@ -572,7 +572,7 @@ where
         self.circle_shift_settle(stored_pos)
     }
     // Escapes keep real/imaginary so the phase survives (matches Circle multiply): exploded = fractions as-is, vanished = fractions >> 1, both at AMBIG.
-    fn circle_shift_settle(&self, stored_pos: <E as Inflate>::Wide) -> Circle<F, E> {
+    pub(crate) fn circle_shift_settle(&self, stored_pos: <E as Inflate>::Wide) -> Circle<F, E> {
         if stored_pos > Self::max_exponent().cycle_widen() {
             return Self {
                 real: self.real,
