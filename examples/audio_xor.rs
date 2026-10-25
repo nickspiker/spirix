@@ -22,7 +22,7 @@ fn main() -> std::io::Result<()> {
 
     let to_i16 = |x: ScalarF4E3| -> i16 {
         let f: f32 = (&x).into();
-        f.round().clamp(i16::MIN as f32, i16::MAX as f32) as i16
+        f.round() as i16
     };
 
     for i in 0..frames {

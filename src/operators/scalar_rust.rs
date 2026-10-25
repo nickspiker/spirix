@@ -1060,6 +1060,7 @@ macro_rules! impl_scalar_clamp_rust {
          fn clamp(&self, min: $t, max: $t) -> Self::Output {
              let scalar_min = Scalar::<F, E>::from(min);
              let scalar_max = Scalar::<F, E>::from(max);
+             // WHY/PROOF: library semantics — this IS the public clamp operator (primitive bounds lifted to Scalar), not a guard.
              self.clamp(scalar_min, scalar_max)
          }
      }

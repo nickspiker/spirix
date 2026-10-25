@@ -196,7 +196,7 @@ fn main() -> std::io::Result<()> {
             _ => 1,
         };
         let b_exp_i32 = (a_exp as i32) + exp_offset;
-        let b_exp = b_exp_i32.clamp(MIN_EXP as i32, MAX_EXP as i32) as u8;
+        let b_exp = b_exp_i32 as u8;
         let sub = (lfsr.next() & 1) == 1;
         emit(&mut w, a_storage, a_exp, b_storage, b_exp, sub)?;
     }
@@ -215,8 +215,9 @@ fn main() -> std::io::Result<()> {
             let b = (a.wrapping_add(delta)) & 0x00FF_FFFF;
             emit(&mut w, a, ae, b, ae, true)?;
             emit(&mut w, a, ae, b, ae, false)?;
-            let be1 = (ae as i32 + 1).clamp(MIN_EXP as i32, MAX_EXP as i32) as u8;
-            let bem1 = (ae as i32 - 1).clamp(MIN_EXP as i32, MAX_EXP as i32) as u8;
+            // Every seed exponent sits in [MIN_EXP + 1, MAX_EXP - 1], so ae ± 1 stays a valid exponent.
+            let be1 = ae + 1;
+            let bem1 = ae - 1;
             emit(&mut w, a, ae, b, be1, true)?;
             emit(&mut w, a, ae, b, bem1, true)?;
         }

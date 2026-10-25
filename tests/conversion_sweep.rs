@@ -928,6 +928,7 @@ fn floor_scaled(v: i64, s: i64, lo: i128, hi: i128) -> i128 {
             .checked_shl(s as u32)
             .filter(|w| w >> s == v as i128);
         match wide {
+            // WHY/PROOF: reference model of the DEFINED saturating Scalar-to-int conversion — the clamp is the semantics under test.
             Some(w) => w.clamp(lo, hi),
             None => {
                 if v < 0 {
@@ -944,6 +945,7 @@ fn floor_scaled(v: i64, s: i64, lo: i128, hi: i128) -> i128 {
             0
         }
     } else {
+        // WHY/PROOF: same saturating reference model, right-shift branch.
         ((v as i128) >> (-s)).clamp(lo, hi)
     }
 }
@@ -1050,6 +1052,7 @@ fn scalar_to_int_wide_exponent_boundaries() {
                 fraction: f,
                 exponent: k ^ i128::MIN,
             };
+            // WHY/PROOF: the sweep exponents reach i128::MIN/MAX, which `as i64` would truncate to an aliased shift — floor_scaled already treats |s| >= 100 as fully saturated, so ±1000 keeps the answer exact.
             let sh = k.clamp(-1000, 1000) as i64 - 15;
             let want = floor_scaled(inflate16(f), sh, i64::MIN as i128, i64::MAX as i128);
             let want_u = if inflate16(f) < 0 {

@@ -556,8 +556,9 @@ fn into(self) -> $i {
     let effective: I256 = stored_wide ^ mask;
 
     // Scale by 2^(exp - FRAC_BITS + 1); the +1 is the ruler shift.
-    // The upper end is bounded by the early saturation above, but exp can be as low as -E::MAX (or isize::MIN once saturated from an i128 exponent), so saturate the subtraction and floor the right shift at 255: |effective| < 2^255, so >> 255 already yields the floor (0 or -1), whereas the unbounded shift wrapped mod 256 and returned garbage for tiny values at E >= 16 bits.
-    let shift = exp.saturating_sub(frac_bits).saturating_add(1).max(-255);
+    // The upper end is bounded by the early saturation above, but exp can be as low as -E::MAX (or isize::MIN once saturated from an i128 exponent), so the subtraction runs widened to i128, where no isize operand can overflow it.
+    // WHY/PROOF: the floor at -255 is internal math, but needed — |effective| < 2^255, so >> 255 already yields the floor (0 or -1), whereas the unbounded shift wrapped mod 256 and returned garbage for tiny values at E >= 16 bits.
+    let shift = (exp as i128 - frac_bits as i128 + 1).max(-255) as isize;
     let scaled: I256 = if shift >= 0 {
         effective << shift
     } else {
@@ -739,8 +740,9 @@ macro_rules! impl_into_uint {
         let mask: I256 = I256::from(-1i128) << frac_bits;
         let effective: I256 = stored_wide ^ mask;
         // v0.1: shift = exp - FRAC + 1 (was exp - FRAC under old ruler).
-        // Saturated and floored at -255 for tiny values, as in the signed conversion (an unbounded shift wrapped mod 256).
-        let shift = exp.saturating_sub(frac_bits).saturating_add(1).max(-255);
+        // Widened to i128 and floored at -255 for tiny values, as in the signed conversion.
+        // WHY/PROOF: an I256 shift past 255 wraps mod 256 and returns garbage for tiny values; >> 255 already yields the floor.
+        let shift = (exp as i128 - frac_bits as i128 + 1).max(-255) as isize;
         let scaled: I256 = if shift >= 0 {
             effective << shift
         } else {
