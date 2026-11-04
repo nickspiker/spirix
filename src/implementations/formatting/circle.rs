@@ -317,6 +317,11 @@ where
     /// # Key Point
     ///
     /// Just like Scalar formatting, this uses `to_u8()` ONLY for converting already-extracted single digits (0-35) to characters. All digit extraction is done using Spirix division and multiplication.
+    /// True when a component's Scalar view underflowed in `extract_component`: a normal circle within FRAC of the exponent floor, whose non-zero component comes back vanished.
+    fn component_view_vanished(&self) -> bool {
+        self.r().vanished() || self.i().vanished()
+    }
+
     fn format_circle(&self, base: u8, digits: isize) -> String {
         if !self.is_normal() {
             if self.is_undefined() {
@@ -439,6 +444,41 @@ where
                 string.push('⦈');
             }
         } else {
+            // A normal circle within FRAC of the exponent floor: a component viewed as a Scalar needs up to FRAC - 1 bits of exponent headroom the shared exponent no longer has, so extract_component hands back a vanished view (both views, for a canonical value: |z| is what is normalised, not either component). Every comparison against the undefined `max` of two vanished views is false, so the three-way split below fell into fixed notation, whose fraction loop counts no digit for a vanished view and never ends (SPX-02, 2026-11-03).
+            // WHY: a vanished view is the format's own statement that the component's digits lie below what this exponent width can place, so no Scalar digit loop may run on it.
+            // PROOF: with two NORMAL views every loop below is bounded — the components share one exponent and each is an F-bit integer, so their ratio is at most 2^(FRAC-1) and the smaller shows its first digit within lb(2^(FRAC-1))/lb(base) + 4 places; only a vanished view escapes that bound.
+            // Widening the exponent one step keeps the value and the fraction (so `digits` still matches the precision) and puts the circle far from its own floor; at the widest exponent nothing is wider, so each component prints as the Scalar formatter prints a vanished Scalar.
+            if self.component_view_vanished() {
+                return match (Self::fraction_bits(), Self::exponent_bits()) {
+                    (8, 8) => CircleF3E4::from(self).format_circle(base, digits),
+                    (8, 16) => CircleF3E5::from(self).format_circle(base, digits),
+                    (8, 32) => CircleF3E6::from(self).format_circle(base, digits),
+                    (8, 64) => CircleF3E7::from(self).format_circle(base, digits),
+                    (16, 8) => CircleF4E4::from(self).format_circle(base, digits),
+                    (16, 16) => CircleF4E5::from(self).format_circle(base, digits),
+                    (16, 32) => CircleF4E6::from(self).format_circle(base, digits),
+                    (16, 64) => CircleF4E7::from(self).format_circle(base, digits),
+                    (32, 8) => CircleF5E4::from(self).format_circle(base, digits),
+                    (32, 16) => CircleF5E5::from(self).format_circle(base, digits),
+                    (32, 32) => CircleF5E6::from(self).format_circle(base, digits),
+                    (32, 64) => CircleF5E7::from(self).format_circle(base, digits),
+                    (64, 8) => CircleF6E4::from(self).format_circle(base, digits),
+                    (64, 16) => CircleF6E5::from(self).format_circle(base, digits),
+                    (64, 32) => CircleF6E6::from(self).format_circle(base, digits),
+                    (64, 64) => CircleF6E7::from(self).format_circle(base, digits),
+                    (128, 8) => CircleF7E4::from(self).format_circle(base, digits),
+                    (128, 16) => CircleF7E5::from(self).format_circle(base, digits),
+                    (128, 32) => CircleF7E6::from(self).format_circle(base, digits),
+                    (128, 64) => CircleF7E7::from(self).format_circle(base, digits),
+                    _ => {
+                        string.push_str(&self.r().format_scalar(base, digits, false));
+                        string.push(',');
+                        string.push_str(&self.i().format_scalar(base, digits, false));
+                        string.push('⦈');
+                        string
+                    }
+                };
+            }
             let base_scalar = Scalar::<F, E>::from(base);
 
             // Three-way split: Big (scientific), Normal (decimal), Small (scientific)

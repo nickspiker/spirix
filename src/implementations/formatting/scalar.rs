@@ -344,7 +344,7 @@ where
     /// # Important Note
     ///
     /// The `to_u8()` call is ONLY used for converting already-extracted single digits (0-35) to their character representation. The actual digit extraction uses Spirix division and multiplication, which works for any base and precision.
-    fn format_scalar(&self, base: u8, digits: isize, glyphs: bool) -> String {
+    pub(crate) fn format_scalar(&self, base: u8, digits: isize, glyphs: bool) -> String {
         if !self.is_normal() {
             if self.is_undefined() {
                 let prefix = self.prefix();

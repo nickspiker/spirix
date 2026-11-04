@@ -220,7 +220,12 @@ where
         };
         let mut exp = n.magnitude();
         // Two's-complement boundary: n = -2^MAX_EXP escapes under magnitude() and would hang the squaring loop (see the Scalar twin). For a Circle the result DIRECTION is n·θ with |n| = 2^MAX_EXP — a period position far beyond any stored precision — so the honest result is undefined, transfinite-power tagged.
-        if !exp.is_normal() {
+        // Every |n| at or past 2^(FRAC + EXP) gets the same answer: the squaring loop would run once per bit of |n|, up to 2^(EXP-1) iterations (SPX-01, 2026-11-03; the Scalar twin carries the WHY/PROOF of the cutoff), and n·θ at that scale is just as far past the stored precision.
+        let huge = !exp.is_normal() || {
+            let k: isize = (exp.exponent ^ Scalar::<F, E>::binade_origin()).saturate();
+            k >= Self::fraction_bits() + Self::exponent_bits()
+        };
+        if huge {
             if base.is_undefined() {
                 return base;
             }

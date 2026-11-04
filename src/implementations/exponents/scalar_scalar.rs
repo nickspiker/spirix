@@ -277,7 +277,14 @@ where
         };
         let mut exp = n.magnitude();
         // Two's-complement boundary: n = -2^MAX_EXP negates PAST the ceiling, so magnitude() escapes to exploded — and an exploded loop counter never reaches zero (exploded & 1 is ℘, exploded >> 1 is itself), hanging the squaring loop. The math is still definite: |n| is a power of two (even), so the sign is positive, and the magnitude resolves by |base| vs 1 dominance thru the (negative) exponent.
-        if !exp.is_normal() {
+        // The same dominance decides every |n| at or past 2^(FRAC + EXP), and the squaring loop below runs once per bit of |n|: its logical exponent k reaches 2^(EXP-1) - 1, so a file-supplied exponent could pin the caller for 2^31 (F5E5) or effectively forever (F6E6, F7E7) iterations (SPX-01, 2026-11-03).
+        // WHY: the cutoff k ≥ FRAC + EXP is where the loop can no longer change the answer, and below it the loop runs at most FRAC + EXP + 1 times.
+        // PROOF: k ≥ FRAC makes |n| a multiple of 2^(k - FRAC + 1), hence even, so the sign is positive; |base| = 2^t with t ≠ 0 has |t| ≥ 2^-FRAC (the normals nearest 1 lie at least 2^-FRAC from it, and |lb(1 ± x)| > x), so |t·n| ≥ 2^-FRAC · 2^(FRAC + EXP) = 2^EXP, past every logical exponent the format holds (|k| < 2^(EXP-1)): |base|^n escapes exactly as the -2^MAX_EXP case does, and |base| = 1 stays 1.
+        let huge = !exp.is_normal() || {
+            let k: isize = (exp.exponent ^ Self::binade_origin()).saturate();
+            k >= Self::fraction_bits() + Self::exponent_bits()
+        };
+        if huge {
             if base.is_undefined() {
                 return base;
             }
