@@ -1,0 +1,27 @@
+digraph G {
+__COMMON__
+c1 [shape=circle, style=solid, width=0.45, fixedsize=true, label="1"];
+gt [shape=diamond, style=solid, margin="0,0", label="Is minuend\nexponent >?"];
+ca [label="Calculate exponent\ndelta for shift\nminuend exponent -\nsubtrahend exponent"];
+cb [label="Calculate exponent\ndelta for shift\nsubtrahend exponent -\nminuend exponent"];
+sa [shape=diamond, style=solid, margin="0,0", label="is shift >\nfraction size?"];
+sb [shape=diamond, style=solid, margin="0,0", label="is shift >\nfraction size?"];
+ldmin [label="Load minuend\nfor return"];
+stm [label="Store minuend\nexponent"];
+shs [label="Shift subtrahend\nto minuend"];
+sts [label="Store subtrahend\nexponent"];
+shm [label="Shift minuend\nto subtrahend"];
+neg [style="rounded,dashed", label="Call negate\non subtrahend"];
+ldneg [label="Load negated\nfor return"];
+subf [label="Subtract aligned\nfractions!"];
+c5 [shape=circle, style=solid, width=0.45, fixedsize=true, label="5"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+c1 -> gt;
+gt -> ca [label=" Yes"]; gt -> cb [label=" No"];
+ca -> sa; cb -> sb;
+sa -> ldmin [label=" Yes"]; sa -> stm [label=" No"];
+sb -> sts [label=" No"]; sb -> neg [label=" Yes"];
+stm -> shs -> subf; sts -> shm -> subf;
+neg -> ldneg; ldmin -> r; ldneg -> r;
+subf -> c5;
+}

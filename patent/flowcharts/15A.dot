@@ -1,0 +1,18 @@
+digraph G {
+__COMMON__
+start [shape=invtriangle, style=solid, margin=0, label="Start Scalar\nSubtraction"];
+load [label="Load fractions and exponents\nfrom memory directly"];
+bothnorm [shape=diamond, style=solid, margin="0,0", label="Both\nnormal?"];
+c1 [shape=circle, style=solid, width=0.45, fixedsize=true, label="1"];
+minundef [shape=diamond, style=solid, margin="0,0", label="Minuend\nundefined?"];
+ldmin [label="Load minuend\nfor return"];
+subundef [shape=diamond, style=solid, margin="0,0", label="Subtrahend\nundefined?"];
+ldsub [label="Load subtrahend\nfor return"];
+c2 [shape=circle, style=solid, width=0.45, fixedsize=true, label="2"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+start -> load -> bothnorm;
+bothnorm -> c1 [label=" Yes"]; bothnorm -> minundef [label=" No"];
+minundef -> ldmin [label=" Yes"]; minundef -> subundef [label=" No"];
+subundef -> ldsub [label=" Yes"]; subundef -> c2 [label=" No"];
+ldmin -> r; ldsub -> r;
+}

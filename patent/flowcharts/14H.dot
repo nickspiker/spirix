@@ -1,0 +1,19 @@
+digraph G {
+__COMMON__
+c7 [shape=circle, style=solid, width=0.45, fixedsize=true, label="7"];
+c8 [shape=circle, style=solid, width=0.45, fixedsize=true, label="8"];
+ov [shape=diamond, style=solid, margin="0,0", label="Exponent\noverflow?"];
+c9 [shape=circle, style=solid, width=0.45, fixedsize=true, label="9"];
+un [shape=diamond, style=solid, margin="0,0", label="Exponent\nunderflow?"];
+ai [label="Add implied 1"];
+ar [style="rounded,dashed", label="Apply rounding\nadjustment to fraction"];
+rc [shape=diamond, style=solid, margin="0,0", label="Rounding\ncarry?"];
+c10 [shape=circle, style=solid, width=0.45, fixedsize=true, label="10"];
+c11 [shape=circle, style=solid, width=0.45, fixedsize=true, label="11"];
+c7 -> ov;
+ov -> c9 [label=" Yes"]; ov -> un [label=" No"];
+un -> ai [label=" Yes"]; un -> ar [label=" No"];
+ai -> ar; c8 -> ar;
+ar -> rc;
+rc -> c10 [label=" Yes"]; rc -> c11 [label=" No"];
+}

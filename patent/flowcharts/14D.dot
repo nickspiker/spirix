@@ -1,0 +1,21 @@
+digraph G {
+__COMMON__
+c3 [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+minden [shape=diamond, style=solid, margin="0,0", label="Minuend\ndenormal?"];
+n1 [label="No implied\nmantissa bit"];
+a1 [label="Add implied bit\nOR with mantissa"];
+subden [shape=diamond, style=solid, margin="0,0", label="Subtrahend\ndenormal?"];
+n2 [label="No implied\nmantissa bit"];
+a2 [label="Add implied bit\nOR with mantissa"];
+subden2 [shape=diamond, style=solid, margin="0,0", label="Subtrahend\ndenormal?"];
+n3 [label="No implied\nmantissa bit"];
+a3 [label="Add implied bit\nOR with mantissa"];
+c4 [shape=circle, style=solid, width=0.45, fixedsize=true, label="4"];
+c3 -> minden;
+minden -> n1 [label=" Yes"]; minden -> a1 [label=" No"];
+n1 -> subden; a1 -> subden;
+subden -> n2 [label=" Yes"]; subden -> a2 [label=" No"];
+n2 -> subden2; a2 -> subden2;
+subden2 -> n3 [label=" Yes"]; subden2 -> a3 [label=" No"];
+n3 -> c4; a3 -> c4;
+}

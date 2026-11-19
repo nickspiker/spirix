@@ -1,0 +1,20 @@
+digraph G {
+__COMMON__
+c10 [shape=circle, style=solid, width=0.45, fixedsize=true, label="10"];
+ru [shape=diamond, style=solid, margin="0,0", label="Rounding\nup?"];
+rs [label="Right shift\nmantissa by 1"];
+inc [label="Increment exponent\nby one"];
+ov [shape=diamond, style=solid, margin="0,0", label="Exponent\noverflow?"];
+ls [label="Left shift\nmantissa by 1"];
+dec [label="Decrement exponent\nby one"];
+un [shape=diamond, style=solid, margin="0,0", label="Exponent\nunderflow?"];
+ai [label="Add implied 1"];
+c9 [shape=circle, style=solid, width=0.45, fixedsize=true, label="9"];
+c11 [shape=circle, style=solid, width=0.45, fixedsize=true, label="11"];
+c10 -> ru;
+ru -> rs [label=" Yes"]; ru -> ls [label=" No"];
+rs -> inc -> ov; ls -> dec -> un;
+ov -> c9 [label=" Yes"]; ov -> c11 [label=" No"];
+un -> ai [label=" Yes"]; un -> c11 [label=" No"];
+ai -> c11;
+}

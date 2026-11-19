@@ -1,0 +1,19 @@
+digraph G {
+__COMMON__
+c11 [shape=circle, style=solid, width=0.45, fixedsize=true, label="11"];
+c6 [shape=circle, style=solid, width=0.45, fixedsize=true, label="6"];
+c9 [shape=circle, style=solid, width=0.45, fixedsize=true, label="9"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="1"];
+du [shape=diamond, style=solid, margin="0,0", label="Denormal\nunderflow?"];
+sn [shape=diamond, style=solid, margin="0,0", label="Sign\nnegative?"];
+lz [label="Load zero\nfor return"];
+lnz [label="Load negative zero\nfor return"];
+pack [style="rounded,dashed", label="Pack sign, exponent\nand fraction bits for result"];
+linf [label="Load matching\nsign ∞ for return"];
+ret [style="rounded,bold", margin="0.18,0.08", label="Return IEEE-754\nBinary32 result"];
+c11 -> du;
+du -> sn [label=" Yes"]; du -> pack [label=" No"];
+sn -> lz [label=" No"]; sn -> lnz [label=" Yes"];
+c6 -> lz; c9 -> linf;
+lz -> ret; lnz -> ret; pack -> ret; linf -> ret; r -> ret;
+}

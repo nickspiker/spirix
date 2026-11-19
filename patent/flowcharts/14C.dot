@@ -1,0 +1,19 @@
+digraph G {
+__COMMON__
+c2 [shape=circle, style=solid, width=0.45, fixedsize=true, label="2"];
+inf [shape=diamond, style=solid, margin="0,0", label="Infinities\ninvolved?"];
+c3 [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+mininf [shape=diamond, style=solid, margin="0,0", label="Minuend\ninfinity?"];
+subinf [shape=diamond, style=solid, margin="0,0", label="Subtrahend\ninfinity?"];
+fsi [label="Flip sign of\nSubtrahend infinity"];
+lsub [label="Load subtrahend"];
+match [style="rounded,dashed", label="Match sign combos\n+∞ - -∞ = +∞\n+∞ - +∞ = NaN, etc."];
+lmin [label="Load minuend"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="1"];
+c2 -> inf;
+inf -> mininf [label=" Yes"]; inf -> c3 [label=" No"];
+mininf -> subinf [label=" Yes"]; mininf -> fsi [label=" No"];
+fsi -> lsub -> r;
+subinf -> match [label=" Yes"]; subinf -> lmin [label=" No"];
+match -> r; lmin -> r;
+}

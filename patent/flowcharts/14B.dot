@@ -1,0 +1,17 @@
+digraph G {
+__COMMON__
+c13 [shape=circle, style=solid, width=0.45, fixedsize=true, label="13"];
+c12 [shape=circle, style=solid, width=0.45, fixedsize=true, label="12"];
+snan [shape=diamond, style=solid, margin="0,0", label="Signaling\nNaN?"];
+qnan [label="Convert to quiet NaN\nSet invalid flag"];
+diff [shape=diamond, style=solid, margin="0,0", label="Different\nsigns?"];
+flip [label="Flip sign of subtrahend\na - b = a + (-b)"];
+upd [label="Load updated values"];
+call [label="Call IEEE addition"];
+c2 [shape=circle, style=solid, width=0.45, fixedsize=true, label="2"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="1"];
+c13 -> snan; c12 -> diff;
+snan -> qnan [label=" Yes"]; snan -> r [label=" No"];
+diff -> flip [label=" Yes"]; diff -> c2 [label=" No"];
+flip -> upd -> call -> r; qnan -> r;
+}

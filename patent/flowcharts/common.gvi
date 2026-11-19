@@ -1,0 +1,3 @@
+graph [fontname="Noto Sans", fontsize=14, nodesep=0.22, ranksep=0.22, margin=0, pad=0.04];
+node [fontname="Noto Sans", fontsize=14, shape=box, style=rounded, margin="0.1,0.04", penwidth=1.2, height=0.3];
+edge [fontname="Noto Sans", fontsize=14, arrowsize=0.8, penwidth=1.1];

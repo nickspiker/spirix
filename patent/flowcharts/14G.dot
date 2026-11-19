@@ -1,0 +1,21 @@
+digraph G {
+__COMMON__
+c5 [shape=circle, style=solid, width=0.45, fixedsize=true, label="5"];
+zero [shape=diamond, style=solid, margin="0,0", label="Is result\nzero?"];
+c6 [shape=circle, style=solid, width=0.45, fixedsize=true, label="6"];
+norm [shape=diamond, style=solid, margin="0,0", label="Needs\nnormalized?"];
+clz [label="Count leading zeros\nin result mantissa"];
+lsh [label="Left shift mantissa"];
+dec [label="Decrement exponent\nby leading zero count"];
+rm [label="Rounding\nmode"];
+grs [style="rounded,dashed", label="Set guard, round,\nand sticky bits for later"];
+c7 [shape=circle, style=solid, width=0.45, fixedsize=true, label="7"];
+c8 [shape=circle, style=solid, width=0.45, fixedsize=true, label="8"];
+c5 -> zero;
+zero -> c6 [label=" Yes"]; zero -> norm [label=" No"];
+norm -> clz [label=" Yes"]; norm -> grs [label=" No"];
+clz -> lsh -> dec -> grs;
+rm -> grs;
+{rank=same; rm; grs;}
+grs -> c7; grs -> c8;
+}

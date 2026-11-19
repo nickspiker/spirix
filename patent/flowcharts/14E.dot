@@ -1,0 +1,15 @@
+digraph G {
+__COMMON__
+c4 [shape=circle, style=solid, width=0.45, fixedsize=true, label="4"];
+gt [shape=diamond, style=solid, margin="0,0", label="Is expDiff\n> 24?"];
+lmi [label="Load minuend\nSubtrahend becomes insignificant"];
+lt [shape=diamond, style=solid, margin="0,0", label="Is expDiff\n< -24?"];
+negs [label="Negate subtrahend\nMinuend becomes insignificant"];
+lsr [label="Load subtrahend\nfor return"];
+c14 [shape=circle, style=solid, width=0.45, fixedsize=true, label="14"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="1"];
+c4 -> gt;
+gt -> lmi [label=" Yes"]; gt -> lt [label=" No"];
+lt -> negs [label=" Yes"]; lt -> c14 [label=" No"];
+negs -> lsr; lmi -> r; lsr -> r;
+}

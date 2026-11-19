@@ -1,0 +1,16 @@
+digraph G {
+__COMMON__
+c7 [shape=circle, style=solid, width=0.45, fixedsize=true, label="7"];
+c6 [shape=circle, style=solid, width=0.45, fixedsize=true, label="6"];
+subvan [shape=diamond, style=solid, margin="0,0", label="Subtrahend\nvanished?"];
+minzero [shape=diamond, style=solid, margin="0,0", label="Minuend\nis Zero?"];
+ldmin [label="Load minuend\nfor return"];
+neg [style="rounded,dashed", label="Call negate\non subtrahend"];
+ldneg [label="Load negated\nfor return"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+c7 -> subvan;
+subvan -> ldmin [label=" Yes"]; subvan -> minzero [label=" No"];
+minzero -> ldmin [label=" Yes"]; minzero -> neg [label=" No"];
+c6 -> neg;
+neg -> ldneg; ldmin -> r; ldneg -> r;
+}

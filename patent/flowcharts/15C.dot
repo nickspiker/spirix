@@ -1,0 +1,14 @@
+digraph G {
+__COMMON__
+c4 [shape=circle, style=solid, width=0.45, fixedsize=true, label="4"];
+subtf [shape=diamond, style=solid, margin="0,0", label="Subtrahend\ntransfinite?"];
+ldpt [label="Load ℘ +↑\nfor return"];
+minvan [shape=diamond, style=solid, margin="0,0", label="Minuend\nvanished?"];
+c6 [shape=circle, style=solid, width=0.45, fixedsize=true, label="6"];
+c7 [shape=circle, style=solid, width=0.45, fixedsize=true, label="7"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+c4 -> subtf;
+subtf -> ldpt [label=" Yes"]; subtf -> minvan [label=" No"];
+minvan -> c6 [label=" Yes"]; minvan -> c7 [label=" No"];
+ldpt -> r;
+}

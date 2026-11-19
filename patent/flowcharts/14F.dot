@@ -1,0 +1,17 @@
+digraph G {
+__COMMON__
+c14 [shape=circle, style=solid, width=0.45, fixedsize=true, label="14"];
+neg [shape=diamond, style=solid, margin="0,0", label="Is expDiff\nnegative?"];
+als [label="Align fractions to subtrahend"];
+sa1 [label="Subtract aligned fractions"];
+use [label="Use subtrahend exponent"];
+frs [label="Flip result sign"];
+alm [label="Align fractions to minuend"];
+sa2 [label="Subtract aligned fractions"];
+usm [label="Use minuend exponent"];
+c5 [shape=circle, style=solid, width=0.45, fixedsize=true, label="5"];
+c14 -> neg;
+neg -> als [label=" Yes"]; neg -> alm [label=" No"];
+als -> sa1 -> use -> frs -> c5;
+alm -> sa2 -> usm -> c5;
+}

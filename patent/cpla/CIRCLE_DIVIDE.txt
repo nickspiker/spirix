@@ -1,0 +1,276 @@
+COMPUTER PROGRAM LISTING APPENDIX
+Application 19/678,144 -- TWO'S COMPLEMENT FLOATING POINT ARITHMETIC SYSTEM
+File: CIRCLE_DIVIDE.txt
+
+Complete Complex Division Assembly Implementation (F5E4 Circle type, 32-bit
+fractions, 16-bit exponent).
+
+Transliteration: bit-pattern glyphs in the original listing appear here as
+binary digits, with an empty square written as 0 and a filled square written
+as 1 (the same legend used in the drawings).
+------------------------------------------------------------------------------
+; CircleF5E4/CircleF5E4 by Nick Spiker fractaldecoder@proton.me
+; Performs complex division with 32-bit fractions and 16-bit exponents
+; Input: Result pointer in rdi, Dividend in rsi, Divisor in rdx
+; (a + bi) / (c + di) = [(a*c + b*d) + (b*c - a*d)i] * 1 / (c*c + d*d)
+
+; Register allocation:
+[001] movsx r8d, dword ptr [rsi]    ; Load a (numerator real fraction)
+[002] movsx r9d, dword ptr [rsi+4]  ; Load b (numerator imaginary fraction)
+[003] movsx r10d, dword ptr [rdx]   ; Load c (denominator real fraction)
+[004] movsx r11d, dword ptr [rdx+4] ; Load d (denominator imaginary fraction)
+[005] movsx di, word ptr [rsi+8]    ; Load numerator exponent
+[006] movsx si, word ptr [rdx+8]    ; Load denominator exponent
+
+; Check both exponents for ambiguity
+[007] cmp di, 0x0000       ; Compare with AMBIGUOUS_EXPONENT (cyclic origin)
+[008] je ambiguous_handler ; Jump if numerator ambiguous
+[009] cmp si, 0x0000       ; Compare with AMBIGUOUS_EXPONENT (cyclic origin)
+[010] je ambiguous_handler ; Jump if denominator ambiguous
+
+; Calculate result exponent (numerator exponent - denominator exponent)
+[011] sub edi, esi ; di - si (double width, lands in edi)
+[012] xor esi, esi ; Zero esi to use as normal(0)/exploded(1)/vanished(2) flag
+
+main_path:
+; Calculate denominator magnitude squared (c*c + d*d)
+[013] mov eax, r10d ; Copy c for squaring
+[014] mul eax       ; Square!
+[015] mov ecx, edx  ; Pull left half
+[016] mov eax, r11d ; Copy d for squaring
+[017] mul eax       ; Square!
+[018] add ecx, edx  ; Add both high halves, mag squared is now in ecx
+[019] mov rax, 0x4000000000000000 ; Left-aligned 1
+[020] xor rdx, rdx  ; Clear numerator left half (128-bit divide)
+[021] div ecx       ; Denominator is now in eax
+
+; Calculate real numerator = a*c + b*d
+[022] imul rcx, r8, r10 ; a*c 64-bit multiply
+[023] imul rdx, r9, r11 ; b*d
+[024] shr rcx, 1        ; Prepare for adding to avoid overflow
+[025] shr rdx, 1
+[026] add rcx, rdx      ; real numerator is now in rcx
+
+; Calculate imaginary numerator = b*c - a*d
+[027] imul r9, r10
+[028] imul r8, r11
+[029] shr r9, 1
+[030] shr r8, 1
+[031] sub r9, r8 ; imaginary numerator is now in r9
+
+; Calculate r and i quotient
+[032] imul r8, rcx, eax ; multiply real by reciprocal
+[033] imul r9, eax      ; same for i
+
+; Find max(leading_zeros, leading_ones) for real result fraction
+[034] lzcnt rax, r8  ; Count leading Zeros
+[035] not r8         ; Invert bits
+[036] lzcnt rdx, r8  ; Count leading ones (as Zeros in inverted)
+[037] not r8         ; Invert back to original value
+[038] cmp rax, rdx   ; Compare leading Zeros with leading ones
+[039] cmovl rax, rdx ; If rax < rdx, move rdx to rax
+
+; Find max(leading_zeros, leading_ones) for imaginary result fraction
+[040] lzcnt rcx, r9
+[041] not r9
+[042] lzcnt rdx, r9
+[043] not r9
+[044] cmp rcx, rdx
+[045] cmovl rcx, rdx
+
+; Find min(max_real, max_imag) and store in rax
+[046] cmp rax, rcx   ; Compare max_real with max_imag
+[047] cmovg rax, rcx ; If rax > rcx, move rcx to rax
+[048] dec rax        ; N-1 normalization
+
+[049] shl r8, rax    ; Normalize real
+[050] shr r8, 32     ; Align to 32-bit fraction
+[051] shl r9, rax    ; Normalize i
+[052] shr r9, 32
+
+[053] test esi, esi  ; Check flag for escaped
+[054] jnz .escaped   ; Wee!
+
+[055] sub di, rax    ; Adjust exponent from normalization shift
+
+; Check adjusted exponent for over/underflow
+[056] cmp di, 0xFFFF ; Compare with MAX_EXPONENT (one step before cyclic origin)
+[057] jg .exploded   ; Jump if di > MAX_EXPONENT
+[058] cmp di, 0x0001 ; Compare with MIN_EXPONENT (one step after cyclic origin)
+[059] jl .vanished   ; Jump if di < MIN_EXPONENT
+
+return:
+[060] mov dword ptr [rdi], r8d   ; Store real fraction
+[061] mov dword ptr [rdi+4], r9d ; Store imaginary fraction
+[062] mov word ptr [rdi+8], di   ; Store exponent
+[063] ret
+
+vanished:
+[064] shr r8, 1 ; Shift real fraction right by 1
+[065] shr r9, 1 ; Shift imaginary fraction right by 1
+
+exploded:
+[066] mov di, 0x0000 ; Set to ambiguous exponent (cyclic origin)
+
+[067] jmp return
+
+escaped:
+[068] shr esi, 1 ; Convert flag to shift
+[069] shr r8, esi                      
+[070] shr r9, esi
+[071] mov di, 0x0000 ; Set exponent to AMBIGUOUS_EXPONENT (cyclic origin)
+[072] jmp return
+
+ambiguous_handler:
+; Check if numerator's exponent is ambiguous
+[073] cmp di, 0x0000             ; Is numerator exponent ambiguous?
+[074] jne .check_denom_ambiguous ; If not, check if denominator is ambiguous
+
+; Check if numerator is undefined (ambiguous exponent + undefined bit pattern)
+[075] cmp r8d, r9d               ; Compare real and imaginary fractions
+[076] jne .check_denom_ambiguous ; If they don't match, not undefined!
+
+[077] test r8d, r8d             ; Is real part Zero?
+[078] jz .check_denom_ambiguous ; If Zero, not undefined
+
+; Check if top 3 bits are equal (undefined or Zero pattern)
+[079] mov eax, r8d         ; Get real part
+[080] shr eax, 29          ; Isolate top 3 bits
+[081] mov ecx, eax         ; Copy top bits
+[082] ror ecx, 1           ; Rotate right by 1
+[083] cmp eax, ecx         ; Are top 3 bits uniform?
+[084] je .return_numerator ; If uniform (undefined), return numerator
+
+.check_denom_ambiguous:
+; Check if denominator is undefined
+[085] cmp si, 0x0000 ; Is denominator exponent ambiguous?
+[086] jne .check_ambiguous_cases
+
+[087] cmp r10d, r11d             ; Compare real and imaginary parts
+[088] jne .check_ambiguous_cases ; If they don't match, not undefined
+
+[089] test r10d, r10d ; Is real part Zero?
+[090] jz .check_zero  ; If Zero, might be division by Zero
+
+; Check top 3 bits for undefined pattern
+[091] mov eax, r10d          ; Get real part
+[092] shr eax, 29            ; Isolate top 3 bits
+[093] mov ecx, eax           ; Copy top bits
+[094] ror ecx, 1             ; Rotate right by 1
+[095] cmp eax, ecx           ; Are top 3 bits uniform? (undefined check)
+[096] je .return_denominator ; If undefined, return denominator
+
+[097] jmp .check_ambiguous_cases
+
+.check_zero:
+; Check if denominator is Zero - both parts are Zero
+[098] test r11d, r11d            ; Test if imaginary part is also Zero
+[099] jnz .check_ambiguous_cases ; If not Zero, check other cases
+
+; Return division by Zero undefined value
+[100] mov eax, 0x00010111          ; Load DIVIDE_BY_ZERO prefix
+[101] mov dword ptr [rdi], eax     ; Store real component with prefix
+[102] mov dword ptr [rdi+4], eax   ; Store imaginary component with prefix
+[103] mov word ptr [rdi+8], 0x0000 ; Set exponent to AMBIGUOUS_EXPONENT
+[104] ret
+
+.check_ambiguous_cases:
+; Check for both exploded
+[105] mov eax, r8d
+[106] shr eax, 30   ; Get top 2 bits
+[107] cmp eax, 0x01 ; Check for 01 pattern (exploded positive)
+[108] je .check_numerator_exploded
+[109] cmp eax, 0x02 ; Check for 10 pattern (exploded negative)
+[110] jne .check_numerator_vanished
+
+.check_numerator_exploded:
+[111] mov eax, r10d
+[112] shr eax, 30   ; Get top 2 bits
+[113] cmp eax, 0x01 ; Check for 01 pattern (exploded positive)
+[114] je .exploded_divide_exploded
+[115] cmp eax, 0x02 ; Check for 10 pattern (exploded negative)
+[116] je .exploded_divide_exploded
+
+; Check if denominator is vanished
+[117] mov eax, r10d
+[118] shr eax, 29   ; Get top 3 bits
+[119] cmp eax, 0x01 ; Check for 001 pattern (vanished positive)
+[120] je .exploded_divide_vanished
+[121] cmp eax, 0x06 ; Check for 110 pattern (vanished negative)
+[122] je .exploded_divide_vanished
+
+; Numerator exploded, denominator normal
+; Set flag for exploded (1) and go to main_path
+[123] mov esi, 1
+[124] jmp main_path
+
+.exploded_divide_vanished:
+; Numerator exploded, denominator vanished
+; Exploded/vanished = exploded (N-1)
+[125] mov esi, 1
+[126] jmp main_path
+
+.check_numerator_vanished:
+[127] mov eax, r8d
+[128] shr eax, 29   ; Get top 3 bits
+[129] cmp eax, 0x01 ; Check for 001 pattern (vanished positive)
+[130] je .check_vanished
+[131] cmp eax, 0x06 ; Check for 110 pattern (vanished negative)
+[132] je .check_vanished
+[133] jmp main_path
+
+.check_vanished:
+[134] mov eax, r10d
+[135] shr eax, 29   ; Get top 3 bits
+[136] cmp eax, 0x01 ; Check for 001 pattern (vanished positive)
+[137] je .vanished_divide_vanished
+[138] cmp eax, 0x06 ; Check for 110 pattern (vanished negative)
+[139] je .vanished_divide_vanished
+[140] mov esi, 2
+[141] jmp main_path
+
+.denominator_exploded:
+; Normal divided by exploded = vanished
+[142] mov esi, 2 ; Set flag for vanished (2)
+[143] jmp main_path
+
+.denominator_vanished:
+; Normal divided by vanished = exploded
+[144] mov esi, 1 ; Set flag for exploded (1)
+[145] jmp main_path
+
+.exploded_divide_exploded:
+; Return exploded divide exploded undefined value
+[146] mov eax, 0x00010110          ; EXPLODED_DIVIDE_EXPLODED prefix
+[147] mov dword ptr [rdi], eax     ; Store real fraction with prefix
+[148] mov dword ptr [rdi+4], eax   ; Store imaginary fraction with prefix
+[149] mov word ptr [rdi+8], 0x0000 ; Set exponent to AMBIGUOUS_EXPONENT
+[150] ret
+
+.vanished_divide_vanished:
+; Return vanished divide vanished undefined value
+[151] mov eax, 0xf1090000          ; VANISHED_DIVIDE_VANISHED prefix (sign-extended)
+[152] mov dword ptr [rdi], eax     ; Store real fraction with prefix
+[153] mov dword ptr [rdi+4], eax   ; Store imaginary fraction with prefix
+[154] mov word ptr [rdi+8], 0x0000 ; Set exponent to AMBIGUOUS_EXPONENT
+[155] ret
+
+.return_numerator:
+; Just copy the numerator as is
+[156] mov r8d, dword ptr [rsi]   ; Load a (numerator real)
+[157] mov r9d, dword ptr [rsi+4] ; Load b (numerator imaginary)
+[158] mov di, word ptr [rsi+8]   ; Load numerator exponent
+[159] mov dword ptr [rdi], r8d   ; Store real fraction
+[160] mov dword ptr [rdi+4], r9d ; Store imaginary fraction
+[161] mov word ptr [rdi+8], di   ; Store exponent
+[162] ret
+
+.return_denominator:
+; Just copy the denominator as is
+[163] mov r8d, dword ptr [rdx]   ; Load c (denominator real)
+[164] mov r9d, dword ptr [rdx+4] ; Load d (denominator imaginary)
+[165] mov di, word ptr [rdx+8]   ; Load denominator exponent
+[166] mov dword ptr [rdi], r8d   ; Store real fraction
+[167] mov dword ptr [rdi+4], r9d ; Store imaginary fraction
+[168] mov word ptr [rdi+8], di   ; Store exponent
+[169] ret

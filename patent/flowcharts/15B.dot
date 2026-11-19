@@ -1,0 +1,17 @@
+digraph G {
+__COMMON__
+c2 [shape=circle, style=solid, width=0.45, fixedsize=true, label="2"];
+bothtf [shape=diamond, style=solid, margin="0,0", label="Both\ntransfinite?"];
+ldtt [label="Load ℘ ↑+↑\nfor return"];
+bothvan [shape=diamond, style=solid, margin="0,0", label="Both\nvanished?"];
+ldvv [label="Load ℘ ↓+↓\nfor return"];
+mintf [shape=diamond, style=solid, margin="0,0", label="Minuend\ntransfinite?"];
+ldtp [label="Load ℘ ↑+\nfor return"];
+c4 [shape=circle, style=solid, width=0.45, fixedsize=true, label="4"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+c2 -> bothtf;
+bothtf -> ldtt [label=" Yes"]; bothtf -> bothvan [label=" No"];
+bothvan -> ldvv [label=" Yes"]; bothvan -> mintf [label=" No"];
+mintf -> ldtp [label=" Yes"]; mintf -> c4 [label=" No"];
+ldtt -> r; ldvv -> r; ldtp -> r;
+}

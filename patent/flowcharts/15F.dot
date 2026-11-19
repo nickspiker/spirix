@@ -1,0 +1,15 @@
+digraph G {
+__COMMON__
+c5 [shape=circle, style=solid, width=0.45, fixedsize=true, label="5"];
+clz [label="Count\nleading bits"];
+adj [label="adjust result\nexponent"];
+uf [shape=diamond, style=solid, margin="0,0", label="Did exponent\nunderflow?"];
+s1 [label="Shift result\nfraction -1"];
+amb [label="Set exponent to\nAMBIGUOUS"];
+s2 [label="Shift result\nfraction -2"];
+r [shape=circle, style=solid, width=0.45, fixedsize=true, label="3"];
+ret [style="rounded,bold", margin="0.18,0.08", label="Return Scalar\nresult directly"];
+c5 -> clz -> adj -> uf;
+uf -> s1 [label=" No"]; uf -> amb [label=" Yes"];
+amb -> s2; s1 -> ret; s2 -> ret; r -> ret;
+}

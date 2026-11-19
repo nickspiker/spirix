@@ -1,0 +1,12 @@
+digraph G {
+__COMMON__
+start [shape=invtriangle, style=solid, margin=0, label="Start IEEE-754 Binary32\nSubtraction"];
+alloc [label="Allocate stack frame\nStore operand pointers\nSetup call frame"];
+rmode [label="Set IEEE rounding mode\nnearest/toward 0/+∞/-∞"];
+ext [label="Extract operands\nfrom memory\nLoad Binary32 values"];
+nan [shape=diamond, style=solid, margin="0,0", label="NaN\ninput?"];
+c13 [shape=circle, style=solid, width=0.45, fixedsize=true, label="13"];
+c12 [shape=circle, style=solid, width=0.45, fixedsize=true, label="12"];
+start -> alloc -> rmode -> ext -> nan;
+nan -> c13 [label=" Yes"]; nan -> c12 [label=" No"];
+}
