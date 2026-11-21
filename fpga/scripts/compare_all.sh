@@ -9,6 +9,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/pnr_timing.sh"
 FPGA_DIR="$SCRIPT_DIR/.."
 RTL="$FPGA_DIR/rtl"
 HF="$RTL/hardfloat"
@@ -90,29 +91,11 @@ synth_one() {
         --timing-allow-fail \
         > ${OUT}_pnr.log 2>&1 || true
 
-    local FMAX=$(python3 -c "
-import re, sys
-for line in open('${OUT}_pnr.log'):
-    m = re.search(r'Max frequency for clock.*?:\s*(\d+\.\d+)\s*MHz', line)
-    if m: print(m.group(1)); sys.exit()
-print('-')
-" 2>/dev/null)
+    local FMAX=$(pnr_fmax "${OUT}_pnr.log")
 
-    local LOGIC_NS=$(python3 -c "
-import re, sys
-for line in open('${OUT}_pnr.log'):
-    m = re.search(r'(\d+\.\d+) ns logic', line)
-    if m: print(m.group(1)); sys.exit()
-print('-')
-" 2>/dev/null)
+    local LOGIC_NS=$(pnr_ns "${OUT}_pnr.log" logic)
 
-    local ROUTE_NS=$(python3 -c "
-import re, sys
-for line in open('${OUT}_pnr.log'):
-    m = re.search(r'(\d+\.\d+) ns routing', line)
-    if m: print(m.group(1)); sys.exit()
-print('-')
-" 2>/dev/null)
+    local ROUTE_NS=$(pnr_ns "${OUT}_pnr.log" routing)
 
     printf "  %-32s LUT4=%-5s FF=%-4s DSP=%-3s CCU2C=%-4s Fmax=%-8s Logic=%-6s Route=%-6s\n" \
         "${NAME}${SUFFIX}" "${LUTS:--}" "${FFS:--}" "${DSPS:--}" "${CCUS:--}" \

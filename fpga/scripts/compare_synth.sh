@@ -4,6 +4,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/pnr_timing.sh"
 FPGA_DIR="$SCRIPT_DIR/.."
 HARDFLOAT_RTL="$FPGA_DIR/rtl/hardfloat"
 cd "$FPGA_DIR"
@@ -64,12 +65,7 @@ EOF
         --timing-allow-fail \
         > ${OUT}_pnr.log 2>&1 || true
 
-    local LOGIC_NS=$(python3 -c "
-import re, sys
-for line in open('${OUT}_pnr.log'):
-    m = re.search(r'(\d+\.\d+) ns logic', line)
-    if m: print(m.group(1)); sys.exit()
-" 2>/dev/null)
+    local LOGIC_NS=$(pnr_ns "${OUT}_pnr.log" logic)
     echo "  Logic critical path: ${LOGIC_NS:-?} ns"
 
     echo "Spirix_${NAME}  FRAC=${FRAC}  EXP=${EXP}  LUTs=${LUTS:-?}  LogicNs=${LOGIC_NS:-?}" >> sim/compare/summary.txt
@@ -123,12 +119,7 @@ EOF
         --timing-allow-fail \
         > ${OUT}_pnr.log 2>&1 || true
 
-    local LOGIC_NS=$(python3 -c "
-import re, sys
-for line in open('${OUT}_pnr.log'):
-    m = re.search(r'(\d+\.\d+) ns logic', line)
-    if m: print(m.group(1)); sys.exit()
-" 2>/dev/null)
+    local LOGIC_NS=$(pnr_ns "${OUT}_pnr.log" logic)
     echo "  Logic critical path: ${LOGIC_NS:-?} ns"
 
     echo "HardFloat_f32   expW=8  sigW=24  LUTs=${LUTS:-?}  LogicNs=${LOGIC_NS:-?}" >> sim/compare/summary.txt
