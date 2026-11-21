@@ -319,7 +319,7 @@ fn scalar_add(@builtin(global_invocation_id) id: vec3<u32>) {
 
 Run comprehensive tests:
 ```bash
-python3 -m http.server 8080
+basic-http-server -a 127.0.0.1:8080
 # Open http://localhost:8080/test_edge_cases.html
 ```
 

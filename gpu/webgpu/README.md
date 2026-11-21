@@ -27,8 +27,8 @@ WebGPU requires HTTPS or localhost. Start a local server:
 ```bash
 cd /mnt/Octopus/Code/spirix/gpu/webgpu
 
-# Python 3
-python3 -m http.server 8080
+# Rust (cargo install basic-http-server)
+basic-http-server -a 127.0.0.1:8080
 
 # Or Node.js
 npx http-server -p 8080
