@@ -10,7 +10,8 @@
 #      resolves to the right number instead of "??".
 #   4. make4ht -x -f odt → patent_clip.odt.
 #   5. soffice --convert-to docx → patent_clip.docx.
-#   6. Post-process the .docx to force left-aligned (ragged-right) paragraphs.
+#   6. docx_tidy (Rust, ./docx_tidy) post-processes the .docx: ragged-right,
+#      no field shading, no blank paragraphs or \hline filler rows.
 #
 # Output: patent/<basename> spec+claims.docx
 set -e
@@ -20,8 +21,9 @@ SRC="patent - rev3 non-provisional.tex"
 AUX="patent - rev3 non-provisional.aux"
 OUT_DOCX="patent - rev3 spec+claims.docx"
 
-# Where the figures start. \newpage right before the lstlistings.
-CLIP_LINE=828
+# Where the figures start: the line before the \newpage that precedes the first
+# lstlisting (828 in the filed rev3; the July filing-details edit moved it).
+CLIP_LINE=$(( $(awk '/^\\newpage/ { np = NR } /^\\begin\{lstlisting\}/ { print np; exit }' "$SRC") - 1 ))
 
 # ── 1. ensure .aux has figure labels (full xelatex pass) ─────────────────────
 if [ ! -f "$AUX" ] || ! grep -q "newlabel{fig:" "$AUX"; then
@@ -80,164 +82,16 @@ if [ ! -f /tmp/patent_clip.docx ]; then
 fi
 
 # ── 6. clean up: ragged-right + strip tex4ht whitespace artifacts ────────────
-python3 << 'PYEOF'
-import zipfile, shutil, re
-from lxml import etree
-
-src = '/tmp/patent_clip.docx'
-dst = '/tmp/patent_clip_rr.docx'
-W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-NSMAP = {'w': W}
-
-def clean_document_xml(data):
-    """Strip tex4ht's whitespace-only runs and empty paragraphs."""
-    root = etree.fromstring(data)
-    body = root.find(f'{{{W}}}body')
-    if body is None:
-        return data
-
-    # Strip Word field framing (fldChar begin/separate/end + instrText).
-    # tex4ht wraps the bibliography in a BIBLIOGRAPHY field, which Word
-    # renders with field shading (a grey box) around the entire reference
-    # list. Removing the fldChar/instrText runs leaves the visible
-    # bibliography text intact but kills the field, eliminating the shading.
-    for r in list(body.iter(f'{{{W}}}r')):
-        if (r.find(f'{{{W}}}fldChar') is not None or
-                r.find(f'{{{W}}}instrText') is not None):
-            r.getparent().remove(r)
-
-    # Unwrap internal hyperlinks (\ref cross-references) and strip the
-    # Hyperlink rStyle so the text renders as plain. tex4ht emits these as
-    # <w:hyperlink w:anchor="..."><w:r><w:rPr><w:rStyle w:val="Hyperlink"/>
-    # </w:rPr><w:t>N</w:t></w:r></w:hyperlink>, which Word draws with field
-    # shading (a grey box) plus navy+underlined text. None of that is wanted
-    # in a USPTO submission — the cross-ref text reads fine as plain.
-    for hl in list(body.iter(f'{{{W}}}hyperlink')):
-        parent = hl.getparent()
-        idx = list(parent).index(hl)
-        for child in list(hl):
-            for rstyle in child.findall(f'.//{{{W}}}rStyle'):
-                if rstyle.get(f'{{{W}}}val') == 'Hyperlink':
-                    rstyle.getparent().remove(rstyle)
-            parent.insert(idx, child)
-            idx += 1
-        parent.remove(hl)
-
-    for p in list(body.iter(f'{{{W}}}p')):
-        # 0) Strip page breaks from paragraphs with no text content. (Forced
-        #    page breaks belong inside text-bearing paragraphs; stray ones in
-        #    empty paragraphs just produce blank pages in Word.)
-        text_elems = list(p.iter(f'{{{W}}}t'))
-        has_text = any((t.text or '').strip() for t in text_elems)
-        if not has_text:
-            for br in p.findall(f'.//{{{W}}}br'):
-                if br.get(f'{{{W}}}type') == 'page':
-                    br.getparent().remove(br)
-
-        # 1) Remove trailing runs that contain only whitespace.
-        runs = p.findall(f'{{{W}}}r')
-        for r in reversed(runs):
-            text_elems = r.findall(f'{{{W}}}t')
-            has_break = r.find(f'{{{W}}}br') is not None
-            if has_break:
-                break  # keep — page break or line break
-            if all((t.text or '').strip() == '' for t in text_elems):
-                r.getparent().remove(r)
-            else:
-                break
-
-        # 2) Strip trailing whitespace from the LAST <w:t> in the paragraph
-        #    (tex4ht emits ". " at paragraph ends because LaTeX absorbs the
-        #    newline-before-\par into a space). Walk back from the end of
-        #    the text stream and rstrip the last non-empty <w:t>.
-        text_elems = list(p.iter(f'{{{W}}}t'))
-        for t in reversed(text_elems):
-            txt = t.text or ''
-            if txt == '':
-                continue
-            if txt.rstrip() != txt:
-                t.text = txt.rstrip() or None
-                # If we emptied it, drop the xml:space="preserve" attribute
-                # to avoid an orphan preserve marker on a now-empty element.
-                if t.text is None:
-                    t.attrib.pop('{http://www.w3.org/XML/1998/namespace}space',
-                                 None)
-            break  # only the last non-empty <w:t>
-
-        # 3) Inline-justify any remaining "both"/"justify" alignment to left.
-        for jc in p.iter(f'{{{W}}}jc'):
-            if jc.get(f'{{{W}}}val') in ('both', 'justify'):
-                jc.set(f'{{{W}}}val', 'left')
-
-        # 4) Drop the paragraph entirely if it has no visible content:
-        #    no non-empty <w:t> text, no <w:br>, no <w:sectPr>.
-        #    EXCEPT: every <w:tc> must contain at least one block-level
-        #    child (typically <w:p>) per the OOXML spec. If we strip the
-        #    only paragraph in a cell, Word/LibreOffice collapses the cell
-        #    to zero width and shifts the rest of the row left.
-        has_text = any((t.text or '').strip() != '' for t in p.iter(f'{{{W}}}t'))
-        has_break = p.find(f'.//{{{W}}}br') is not None
-        has_sect = p.find(f'.//{{{W}}}sectPr') is not None
-        # tex4ht's environment-delimiter paragraphs are pure formatting.
-        pstyle = p.find(f'.//{{{W}}}pStyle')
-        is_env = (pstyle is not None and
-                  pstyle.get(f'{{{W}}}val') in ('begin-env-p', 'end-env-p'))
-        parent = p.getparent()
-        in_table_cell = parent is not None and parent.tag == f'{{{W}}}tc'
-        only_p_in_cell = in_table_cell and len(parent.findall(f'{{{W}}}p')) == 1
-        if ((not has_text and not has_break and not has_sect) or is_env) \
-                and not only_p_in_cell:
-            parent.remove(p)
-
-    # Table cleanup: tex4ht renders each LaTeX \hline as an empty filler row.
-    # Strip them so the table has only header + data rows, and add vMerge on
-    # the first column header so "Operation" spans the two-row header block
-    # like the source \multirow{2}{*}{...} declares.
-    for tbl in body.iter(f'{{{W}}}tbl'):
-        rows = tbl.findall(f'{{{W}}}tr')
-        for tr in list(rows):
-            cells = tr.findall(f'{{{W}}}tc')
-            all_empty = all(
-                not any((t.text or '').strip()
-                        for t in tc.iter(f'{{{W}}}t'))
-                for tc in cells
-            )
-            if all_empty:
-                tr.getparent().remove(tr)
-
-        # Don't try to vMerge the "Operation" header across the two header
-        # rows: LibreOffice's renderer drops the cell *immediately right* of
-        # the merge anchor (the first "Fmax") when the column widths match.
-        # The two-row header reads fine with the first column simply blank
-        # in the second header row, so leave the cells alone after filler
-        # removal.
-
-    return etree.tostring(root, xml_declaration=True,
-                          encoding='UTF-8', standalone=True)
-
-def clean_styles_xml(data):
-    """Make Normal style ragged-right."""
-    xml = data.decode('utf-8')
-    # Strip existing justify alignment.
-    xml = re.sub(r'<w:jc\s+w:val="(both|justify)"\s*/>', '', xml)
-    # Add explicit left alignment to Normal.
-    xml = re.sub(
-        r'(<w:style\s+w:type="paragraph"[^>]*w:styleId="Normal"[^>]*>)',
-        r'\1<w:pPr><w:jc w:val="left"/></w:pPr>',
-        xml, count=1)
-    return xml.encode('utf-8')
-
-with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zout:
-    for item in zin.namelist():
-        data = zin.read(item)
-        if item == 'word/styles.xml':
-            data = clean_styles_xml(data)
-        elif item == 'word/document.xml':
-            data = clean_document_xml(data)
-        zout.writestr(item, data)
-shutil.move(dst, src)
-print("cleanup: ragged-right + empty-paragraph + trailing-space removal applied")
-PYEOF
+# docx_tidy (./docx_tidy, Rust) rewrites word/document.xml and word/styles.xml
+# in the unpacked DOCX; the parts are zipped back in their original order.
+TIDY=/tmp/patent_clip_tidy
+rm -rf "$TIDY" /tmp/patent_clip_rr.docx
+mkdir "$TIDY"
+unzip -q /tmp/patent_clip.docx -d "$TIDY"
+( cd docx_tidy && cargo run --release --quiet -- "$TIDY" )
+( cd "$TIDY" && unzip -Z1 /tmp/patent_clip.docx | zip -q -X -D -nw -@ /tmp/patent_clip_rr.docx )
+mv /tmp/patent_clip_rr.docx /tmp/patent_clip.docx
+rm -rf "$TIDY"
 
 cp /tmp/patent_clip.docx "$OUT_DOCX"
 echo ""

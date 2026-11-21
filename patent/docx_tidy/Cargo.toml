@@ -1,0 +1,8 @@
+[package]
+name = "docx_tidy"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Post-processes the soffice-made rev3 spec+claims DOCX for USPTO filing: ragged-right, no field shading, no blank paragraphs or filler table rows (build_docx.sh step 6)"
+
+[dependencies]
