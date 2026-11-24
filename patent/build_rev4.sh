@@ -77,11 +77,8 @@ fi
 
 mkdir -p "$OUT"
 rm -f "$OUT"/*.pdf
-pdfseparate "$FULL" "$BUILD/p-%d.pdf" 2>/dev/null
 unite_range() {
-    local from=$1 to=$2 dest="$3" files=() pg
-    for pg in $(seq "$from" "$to"); do files+=("$BUILD/p-$pg.pdf"); done
-    pdfunite "${files[@]}" "$dest" 2>/dev/null
+    mutool merge -o "$3" "$FULL" "$1-$2"
 }
 unite_range 1 $((CLAIMS_AT - 1)) "$OUT/substitute specification.pdf"
 unite_range "$CLAIMS_AT" $((ABSTRACT_AT - 1)) "$OUT/claims.pdf"
